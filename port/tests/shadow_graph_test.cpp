@@ -20,6 +20,7 @@
 #include "renderer/vulkan/vkgl.h"
 #include "scene/shadow_graph.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -102,7 +103,7 @@ std::vector<std::uint8_t> Fixture::read(unsigned texture) {
     sample.use();
     glUniform1i(sample.uniform("tex_T0"), 0);
     glBindVertexArray(vao);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     return output.read_rgba();
 }
 

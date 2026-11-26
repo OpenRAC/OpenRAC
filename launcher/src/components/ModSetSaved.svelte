@@ -3,10 +3,10 @@
   // only once a code was applied. Restoring asks first.
   import { api, ask, errorText, type ModProfile, type VersionView } from "$lib/api";
   import { toast } from "$lib/app.svelte";
+  import { keepRead, lastRead } from "$lib/lastRead";
   import { dateText } from "$lib/modCodes";
   import { modCode, modsChanged } from "$lib/modCodes.svelte";
   import { MOD_CODES as T } from "$lib/modsText";
-  import { keepRead, lastRead } from "$lib/lastRead";
 
   let { version: v }: { version: VersionView } = $props();
 
@@ -19,6 +19,7 @@
     // Read again whenever the mods changed; an answer overtaken by that is dropped.
     const asked = modCode.revision;
     const game = v.game;
+
     void api
       .modsetProfiles(game)
       .then((list) => {
@@ -33,6 +34,7 @@
   async function restore(p: ModProfile) {
     if (!(await ask(T.restoreConfirm, T.restore))) return;
     busy = true;
+
     try {
       await api.modsetRestore(v.game, p.id);
       modsChanged();
@@ -40,6 +42,7 @@
     } catch (e) {
       toast(errorText(e), "error");
     }
+
     busy = false;
   }
 </script>

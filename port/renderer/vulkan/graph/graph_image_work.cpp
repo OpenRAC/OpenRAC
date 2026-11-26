@@ -118,11 +118,15 @@ void GraphImmediateWork::transfer(
     std::span<const ImageAccess> images,
     std::span<const BufferAccess> buffers,
     const std::function<void()>& record,
+    bool host_readback,
     std::source_location site
 ) {
     // A current-pass operation must match its resource contract. Independent
     // upload/readback streams still compile their own graph below.
     if (graph_pipeline_records(command)) {
+        if (host_readback) {
+            throw std::runtime_error("host readback requires a separate graph scope");
+        }
         for (const auto& use : images) {
             validate_graph_image_access(*use.image, use.range, use.state, use.partial_write);
         }
@@ -165,7 +169,19 @@ void GraphImmediateWork::transfer(
         }
         pass.buffers.push_back({*handle, use.range, use.state});
     }
+    graph::Pass host;
+    if (host_readback) {
+        host = execution.make_pass("host readback");
+        host.kind = graph::PassKind::Export;
+        host.buffers = pass.buffers;
+        for (auto& use : host.buffers) {
+            use.state = {graph::Stage::Host, graph::Access::Read, graph::Layout::Buffer};
+        }
+    }
     execution.add_pass(std::move(pass));
+    if (host_readback) {
+        execution.add_pass(std::move(host));
+    }
     require(execution.run([&](unsigned) { record(); }));
     for (const auto& use : images) {
         // Owned images have already been updated by the graph. Copy the state back for the
@@ -315,11 +331,18 @@ void GraphImmediateWork::read_image(
     const BufferAccess buffers[]{
         {destination, {destination.offset, destination.size}, kBufferWrite}
     };
-    transfer("image readback", command, images, buffers, [&] {
-        NativeCommandEncoder{command}.copy_image_to_buffer(
-            source.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, destination.buffer, 1, &region
-        );
-    });
+    transfer(
+        "image readback",
+        command,
+        images,
+        buffers,
+        [&] {
+            NativeCommandEncoder{command}.copy_image_to_buffer(
+                source.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, destination.buffer, 1, &region
+            );
+        },
+        true
+    );
 }
 
 void GraphImmediateWork::generate_mipmaps(VkCommandBuffer command, const ImagePtr& image) {

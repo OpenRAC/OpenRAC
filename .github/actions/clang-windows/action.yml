@@ -2,20 +2,27 @@
 # is fetched at a fixed version and checked against its SHA-256. Its installer is unpacked, not
 # run: nothing is installed over what the runner has. The installer is cached, and a failed
 # download is tried again, so one bad request to GitHub's release storage does not fail the job.
+# Visual Studio 2026's library (MSVC 14.52) refuses Clang older than 22 (error STL1000).
 name: Clang (Windows)
 description: LLVM at a fixed version, checked and unpacked; sets OPENRAC_CLANG and puts it on PATH
 runs:
   using: composite
   steps:
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+    # Pull requests and the merge queue only read: their copies would be private to their ref.
+    - if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ runner.temp }}/llvm-installer
-        key: llvm-installer-21.1.4-win64
-
+        key: llvm-installer-22.1.8-win64
+    - if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/llvm-installer
+        key: llvm-installer-22.1.8-win64
     - shell: pwsh
       env:
-        LLVM_VERSION: "21.1.4"
-        LLVM_SHA256: 8e39f8051cd10a163c1fab304f16d8e16a9c0f5e94b59d08853bbab630bd65dd
+        LLVM_VERSION: "22.1.8"
+        LLVM_SHA256: 16e5709785fef73c854646241c4a92c5cd574318d1b33c63330dd7721903e55c
       run: |
         $ProgressPreference = "SilentlyContinue"
         $ErrorActionPreference = "Stop"

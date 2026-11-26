@@ -59,6 +59,54 @@ void decoding() {
     CHECK(wad_compressed_size(wad({0x01, 'a', 'b', 'c', 'd'})) == 21);
 }
 
+// The game's routine on a stream with `after` in memory past it and `before` ahead of the output.
+GameWadOutput as_game(
+    std::vector<u8> stream,
+    std::initializer_list<u8> after = {},
+    std::initializer_list<u8> before = {}
+) {
+    stream.insert(stream.end(), after);
+    const std::vector<u8> memory_before(before);
+    return wad_decompress_as_game(stream, memory_before);
+}
+
+bool game_traps(const std::vector<u8>& stream) {
+    try {
+        as_game(stream);
+    } catch (const AssetError&) {
+        return true;
+    }
+    return false;
+}
+
+void game_routine() {
+    // Clean streams: the same output, and the size is all of it.
+    const GameWadOutput clean = as_game(wad({0x01, 'a', 'b', 'c', 'd', 0xc0, 0x00}));
+    CHECK(clean.bytes == text("abcdddddddd"));
+    CHECK(clean.size == 11);
+    // A literal run past the compressed size: the routine reads it from the memory after the
+    // stream, then stops at its end check. The header says one byte less than the run needs.
+    std::vector<u8> cut = wad({0x01, 'a', 'b', 'c', 'd'});
+    cut[3] = 0x14;
+    CHECK(throws(cut));
+    const GameWadOutput past = as_game(cut, {0xc0, 0x00});
+    CHECK(past.bytes == text("abcd"));
+    CHECK(past.size == 4);
+    // Two literal packets in a row, and a literal packet after little literals: the routine
+    // traps on both (teq).
+    CHECK(game_traps(wad({0x01, 'a', 'b', 'c', 'd', 0x01, 'e', 'f', 'g', 'h'})));
+    CHECK(game_traps(wad({0x01, 'a', 'b', 'c', 'd', 0x41, 0x00, 'e', 0x01, 'f', 'g', 'h', 'i'})));
+    // A match before the output reads the memory there.
+    const GameWadOutput back = as_game(wad({0x40, 0x00}), {}, {'x', 'y'});
+    CHECK(back.bytes == text("yyy"));
+    // Little literals store three bytes: the last packet's spare ones stay written past the
+    // output, which is the routine's result.
+    const GameWadOutput spill =
+        as_game(wad({0x01, 'a', 'b', 'c', 'd', 0x41, 0x00, 'e'}), {'f', 'g'});
+    CHECK(spill.bytes == text("abcddddefg"));
+    CHECK(spill.size == 8);
+}
+
 void round_trip(const std::vector<u8>& data) {
     const std::vector<u8> packed = wad_compress(data);
     CHECK(is_wad(packed));
@@ -70,6 +118,12 @@ void round_trip(const std::vector<u8>& data) {
         std::fprintf(stderr, "round trip of %zu bytes: %s\n", data.size(), e.what());
     }
     CHECK(back == data);
+    // The game's routine reads every stream the encoder makes the same way. Its little literals
+    // read three bytes, so memory goes on after the stream.
+    std::vector<u8> memory = packed;
+    memory.insert(memory.end(), {0, 0});
+    const GameWadOutput game = wad_decompress_as_game(memory, {});
+    CHECK(std::vector<u8>(game.bytes.begin(), game.bytes.begin() + game.size) == data);
 }
 
 void compression() {
@@ -117,6 +171,7 @@ void compression() {
 
 int main() {
     decoding();
+    game_routine();
     compression();
     return openrac::test::result();
 }

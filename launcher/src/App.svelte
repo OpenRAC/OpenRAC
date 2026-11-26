@@ -1,14 +1,14 @@
 <script lang="ts">
+  import { cubicIn, cubicOut } from "svelte/easing";
+  import { fade } from "svelte/transition";
+
+  import DeepLinkInstall from "$components/DeepLinkInstall.svelte";
   import GameRunning from "$components/GameRunning.svelte";
   import Header from "$components/Header.svelte";
   import LaunchScreen from "$components/LaunchScreen.svelte";
-  import Toasts from "$components/Toasts.svelte";
   import ModSetReview from "$components/ModSetReview.svelte";
   import ModUpdateModal from "$components/ModUpdateModal.svelte";
-  import DeepLinkInstall from "$components/DeepLinkInstall.svelte";
-  import { startDeepLinks } from "$lib/deepLink.svelte";
-  import { startGameRequests } from "$lib/gameRequest";
-  import { startAutoUpdates } from "$lib/modAutoUpdate.svelte";
+  import Toasts from "$components/Toasts.svelte";
   import UpdateModal from "$components/UpdateModal.svelte";
   import WaveBackdrop from "$components/WaveBackdrop.svelte";
   import { errorText, onAndroid } from "$lib/api";
@@ -16,22 +16,24 @@
     app,
     openDevelop,
     openVersion,
+    type Page,
     refresh,
     showLaunch,
     start,
     updateDiscordPresence,
-    type Page,
   } from "$lib/app.svelte";
-  import { followCodeLinks } from "$lib/modCodes.svelte";
-  import { lookForModUpdates } from "$lib/modUpdates.svelte";
+  import { startDeepLinks } from "$lib/deepLink.svelte";
+  import { startGameRequests } from "$lib/gameRequest";
   import { preloadArt } from "$lib/media";
+  import { startAutoUpdates } from "$lib/modAutoUpdate.svelte";
+  import { followCodeLinks } from "$lib/modCodes.svelte";
   import { modNav } from "$lib/modNav.svelte";
+  import { lookForModUpdates } from "$lib/modUpdates.svelte";
   import { reduced, slide, slides } from "$lib/motion";
-  import { shelfWave } from "$lib/shelfWave.svelte";
-  import { fade } from "svelte/transition";
-  import { cubicIn, cubicOut } from "svelte/easing";
   import { applyPalette } from "$lib/palettes";
+  import { shelfWave } from "$lib/shelfWave.svelte";
   import { applyAccent } from "$lib/themes";
+
   import Game from "./pages/Game.svelte";
   import Library from "./pages/Library.svelte";
   import Settings from "./pages/Settings.svelte";
@@ -41,6 +43,7 @@
   // opening them later is instant. Opened before that, the page's slide waits for them.
   const once = <T,>(load: () => Promise<T>) => {
     let loaded: Promise<T> | null = null;
+
     return () => (loaded ??= load());
   };
   const modsPage = once(() => import("./pages/Mods.svelte"));
@@ -57,6 +60,7 @@
       void tasksPage();
       if (app.config?.developer) void developPage();
     }, 2000);
+
     return () => {
       clearTimeout(later);
     };
@@ -81,9 +85,11 @@
     // (Settings, General); else the shelf stays in the launcher's own gold.
     const shelf = onAndroid && app.page === "library" && !(app.config?.gameColors ?? true);
     const game = shelf ? null : (app.version?.split("/")[0] ?? null);
+
     if (!app.config && !game) return;
     applyAccent(game, app.config?.gameColors ?? true);
     const root = document.documentElement;
+
     if ("starting" in root.dataset)
       requestAnimationFrame(() => requestAnimationFrame(() => delete root.dataset.starting));
   });
@@ -96,13 +102,22 @@
   // The page shown. One page gives way to the next in a slide (motion.ts, app.css): the one leaving
   // fades away as the next comes in, in the order of the tabs (from the right for a tab further
   // along the bar; on Android from below for one further down the rail).
-  const ORDER: Record<Page, number> = { library: 0, game: 1, mods: 2, tasks: 3, develop: 4, settings: 5 };
+  const ORDER: Record<Page, number> = {
+    library: 0,
+    game: 1,
+    mods: 2,
+    tasks: 3,
+    develop: 4,
+    settings: 5,
+  };
   let page = $state<Page>(app.page);
   $effect(() => {
     const next = app.page;
+
     if (next === page) return;
     // On a desktop the Games tab and a game's page are one tab: the game list opens the game in place.
     const sameTab = !onAndroid && Math.max(ORDER[next], ORDER[page]) <= ORDER.game;
+
     if (sameTab) page = next;
     else
       slide(
@@ -123,7 +138,11 @@
   // mod's page, the list is where it was left.
   let view = $state<HTMLElement | null>(null);
   const place = $derived(
-    page === "mods" ? `mods:${modNav.mod ?? ""}` : page === "develop" ? `develop:${app.develop}` : page,
+    page === "mods"
+      ? `mods:${modNav.mod ?? ""}`
+      : page === "develop"
+        ? `develop:${app.develop}`
+        : page,
   );
   let shown: string | null = null;
   let listAt = 0;
@@ -134,6 +153,7 @@
   $effect(() => {
     if (place === shown) return;
     const back = place === "mods:" && !!shown?.startsWith("mods:");
+
     shown = place;
     view?.scrollTo({ top: back ? listAt : 0 });
   });
@@ -153,14 +173,18 @@
     // ?page=tasks (and ?version=rac1/pal) open a page directly: handy for screenshots.
     // ?page=develop opens Develop on ?version, or on ?develop=checkout|console.
     const params = new URLSearchParams(location.search);
+
     void start()
       .then(() => {
         const version = params.get("version");
+
         if (version) {
           app.version = version;
           app.page = "game";
         }
+
         const page = params.get("page") as Page | null;
+
         if (page === "develop") openDevelop(params.get("develop") ?? version ?? undefined);
         else if (page) app.page = page;
         // ?update&modal=update: the update window open on the preview's update (mock.ts).
@@ -174,9 +198,11 @@
         void startGameRequests(openVersion).catch(() => undefined);
         // Mods from the index kept current: now, then every 6 hours (lib/modAutoUpdate).
         stopAutoUpdates = startAutoUpdates();
+
         // ?launch: the version's start (Android's spinning disc), as Play shows it.
         if (params.has("launch") && version) {
           const game = app.library?.games.find((g) => g.id === version.split("/")[0]);
+
           if (game) showLaunch(game.id, game.title);
         }
       })
@@ -186,8 +212,10 @@
       });
     // Pick up what changed outside the launcher (a build in a terminal, a new disc).
     const onFocus = () => void refresh();
+
     window.addEventListener("focus", onFocus);
     let stopAutoUpdates: () => void = () => undefined;
+
     return () => {
       stopAutoUpdates();
       window.removeEventListener("focus", onFocus);
@@ -202,7 +230,9 @@
       <button class="primary" onclick={() => void start()}>Try again</button>
     {:else}
       <span class="spinner"></span>
-      {#if app.preparing}<p>Preparing OpenRAC's tools. This happens once after installing or updating.</p>{/if}
+      {#if app.preparing}<p>
+          Preparing OpenRAC's tools. This happens once after installing or updating.
+        </p>{/if}
     {/if}
   </div>
 {:else}
@@ -278,11 +308,10 @@
     transition: --glow 900ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* A desktop's header lies over the page (Header.svelte): the page starts at the window's top and
-     scrolls under it, its first line kept below it. A tab with a list takes the room back for its
-     two columns (SideFrame.svelte). */
+  /* A desktop's header lies over the window's top (Header.svelte); the page starts below it and
+     scrolls there, so nothing of the page ever passes under the header. */
   :global(html:not([data-platform="android"])) main {
-    padding-top: var(--nav-top);
+    margin-top: var(--nav-top);
   }
 
   /* Android: the navigation rail beside the page, or its bar under it on a narrow window

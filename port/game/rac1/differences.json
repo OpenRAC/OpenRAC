@@ -6,45 +6,37 @@
       "id": "nanotech-hud-panel",
       "kind": "fix",
       "name": "Nanotech HUD panel",
-      "discs": [
-        "pal",
-        "ntsc"
-      ],
+      "discs": ["pal", "ntsc", "pal1", "jp"],
       "original": "The health HUD draws two partially overlapping background strips for five or eight nanotech orbs.",
       "port": "Use one connected rounded background fitted to the four-, five- or eight-orb layout, with vertical padding around the orbs. Applies with either Original or Enhanced Graphics. Off restores the PS2 background.",
-      "setting": {
-        "key": "fix_nanotech_hud_panel",
-        "default": true
-      },
-      "refs": [
-        "port/game/rac1/host/hud_panels.c"
-      ]
+      "setting": { "key": "fix_nanotech_hud_panel", "default": true },
+      "refs": ["port/game/rac1/host/hud_panels.c"]
     },
     {
       "id": "wide-moby-effects",
       "kind": "fix",
       "name": "Wide-screen effects",
-      "discs": ["pal", "ntsc"],
+      "discs": ["pal", "ntsc", "pal1", "jp"],
       "original": "The game marks a moby drawn only when it is inside its 4:3 picture, and many mobys make their glows, sparkles and particles only while drawn.",
       "port": "In a picture wider than 4:3 the port draws the world out to the picture's sides, so mobys there count as drawn too and keep their effects. Off: the console's 4:3 test, and crates, bolts and other mobys near the sides of a wide picture lose their effects.",
       "setting": { "key": "fix_wide_moby_effects", "default": true },
-      "refs": ["commit 018d8387", "port/game/rac1/host/moby_view.h", "port/game/rac1/host/render_native.c"]
+      "refs": ["port/game/rac1/host/moby_view.h", "port/game/rac1/host/render_native.c"]
     },
     {
       "id": "wide-nanotech-orbs",
       "kind": "fix",
       "name": "Wide-screen crate orbs",
-      "discs": ["pal", "ntsc"],
+      "discs": ["pal", "ntsc", "pal1", "jp"],
       "original": "The glowing orb on a nanotech crate is a moby of its own, which draws itself only while its centre is inside the game's 4:3 view.",
       "port": "The orb's view test sees the wider picture, so nanotech crates at the sides of a wide picture keep their orb. Off: the orbs go out between the 4:3 edge and the picture's.",
       "setting": { "key": "fix_wide_nanotech_orbs", "default": true },
-      "refs": ["commit 96f08e81", "port/game/rac1/host/wide_view.c"]
+      "refs": ["port/game/rac1/host/wide_view.c"]
     },
     {
       "id": "wide-air-traffic",
       "kind": "fix",
       "name": "Wide-screen traffic",
-      "discs": ["pal", "ntsc"],
+      "discs": ["pal", "ntsc", "pal1", "jp"],
       "original": "Kerwan's flying cars, buses and ships stop on their paths while none of their group is inside the game's 4:3 view, and fly on once one is back in it.",
       "port": "Their view test sees the wider picture, so the traffic at the sides of a wide picture keeps flying. Off: it stops between the 4:3 edge and the picture's, in view.",
       "setting": { "key": "fix_wide_air_traffic", "default": true },
@@ -54,27 +46,37 @@
       "id": "wide-fires",
       "kind": "fix",
       "name": "Wide-screen fires",
-      "discs": ["pal", "ntsc"],
+      "discs": ["pal", "ntsc", "pal1", "jp"],
       "original": "The fires and smoke of Oltanis's buildings (and the other smoke and fire emitters) stop spawning their flames and are not drawn while the emitter is outside the game's 4:3 view.",
       "port": "Their view test sees the wider picture, so the fires at the sides of a wide picture keep burning. Off: they go out between the 4:3 edge and the picture's, in view.",
       "setting": { "key": "fix_wide_fires", "default": true },
       "refs": ["port/game/rac1/host/wide_view.c"]
     },
     {
+      "id": "wide-barriers",
+      "kind": "fix",
+      "name": "Wide-screen barriers",
+      "discs": ["pal", "ntsc", "pal1", "jp"],
+      "original": "Orxon's energy barriers (the arcs across the paths that a data processor turns off) are not drawn while the barrier is outside the game's 4:3 view.",
+      "port": "Their view test sees the wider picture, so a barrier at the side of a wide picture stays drawn. Off: it vanishes between the 4:3 edge and the picture's, in view.",
+      "setting": { "key": "fix_wide_barriers", "default": true },
+      "refs": ["port/game/rac1/host/wide_view.c"]
+    },
+    {
       "id": "wide-liquids",
       "kind": "fix",
       "name": "Wide-screen seas, lava",
-      "discs": ["pal", "ntsc"],
+      "discs": ["pal", "ntsc", "pal1", "jp"],
       "original": "Seas, lava and the sand sea (and the other layers the level's draw callbacks send) are culled against the game's 4:3 view.",
       "port": "Those callbacks cull against the wider picture, so their tiles reach its sides. Off: the console's 4:3 culling, and tiles near the sides of a wide picture are missing.",
       "setting": { "key": "fix_wide_liquids", "default": true },
-      "refs": ["commit 203ec63e", "port/game/rac1/host/wide_view.c"]
+      "refs": ["port/game/rac1/host/wide_view.c"]
     },
     {
       "id": "full-moby-pool-scene",
       "kind": "guard",
       "name": "Cutscenes with a full moby pool",
-      "discs": ["pal", "ntsc"],
+      "discs": ["pal", "ntsc", "pal1", "jp"],
       "original": "When a cutscene starts while the level's 255 moby slots are full (on Gaspar the falling rocks' lava sparks can fill them as the Pilot's Helmet's scene starts), the scene's actor cannot be made and the game reads through the missing moby. On a PS2 that read lands in readable memory and the game most likely carries on unnoticed.",
       "port": "On a PC the same read crashes the game, so the port skips that actor: the scene plays without it, and the log says \"scene actor skipped\". The port's bigger pool (More room for effects) makes this rare; the guard stays for a pool that still fills.",
       "refs": ["docs/port/KNOWN_ISSUES.md", "port/game/rac1/host/scene_actors.c"]
@@ -83,7 +85,7 @@
       "id": "bigger-moby-pool",
       "kind": "fix",
       "name": "More room for effects",
-      "discs": ["pal", "ntsc"],
+      "discs": ["pal", "ntsc", "pal1", "jp"],
       "original": "Each level has 255 slots for the mobys the game makes as it plays (sparks, debris, bolts, enemies a spawner sends). Busy effects can fill them: Gaspar's lava sparks reach 254. A full pool makes the game drop new ones, and a few callers read through the missing moby. The tick's list of mobys to target has room for 511 and nothing bounds it: past that the game writes on into the next table.",
       "port": "More room for effects than on a PS2: the port gives each level 767 slots, so effects and the enemies mods add fit beside each other. Rilgar, Blarg Station and Quartu keep 255, since their memory has no room for more. The tick's list of mobys to target stops at 511, which the bigger pool could otherwise pass. Off: the disc's 255 slots and the console's unbounded list, as a run on a PS2 has them (from the next level load).",
       "setting": { "key": "fix_bigger_moby_pool", "default": true },
@@ -93,16 +95,16 @@
       "id": "pal-60-hz",
       "kind": "port",
       "name": "60 Hz on the PAL disc",
-      "discs": ["pal"],
+      "discs": ["pal", "pal1"],
       "original": "The PAL game runs at 50 Hz, with a 60 Hz mode in its Video options for televisions that show it; the mode also sets the game's time base.",
       "port": "The port keeps the PAL game in its own 60 Hz mode, as choosing 60 Hz in its menu would, and leaves the row out: a PC display has no 50 Hz television mode, and every disc runs on the same time base.",
-      "refs": ["commit 14e72695", "port/game/common/main.cpp", "port/game/common/options_menu.cpp"]
+      "refs": ["port/game/common/main.cpp", "port/game/common/options_menu.cpp"]
     },
     {
       "id": "frames-between-ticks",
       "kind": "port",
       "name": "Frames between ticks",
-      "discs": ["pal", "ntsc"],
+      "discs": ["pal", "ntsc", "pal1", "jp"],
       "original": "One picture a game tick.",
       "port": "The game still ticks at its own rate, but the port also draws frames between ticks, with the camera, the mobys and their poses moved from one tick to the next, at the display's rate or the Frame rate setting's. Frame rate Original draws one a tick.",
       "refs": ["docs/port/SETTINGS.md (2. The tick and the frames)", "port/game/common/settings.h"]
@@ -111,43 +113,43 @@
       "id": "wide-picture",
       "kind": "port",
       "name": "Wider pictures",
-      "discs": ["pal", "ntsc"],
+      "discs": ["pal", "ntsc", "pal1", "jp"],
       "original": "A 4:3 picture.",
       "port": "The Picture setting makes it wider (16:10, 16:9, 21:9 and others): the vertical field of view stays the game's and more of the world shows at the sides. 4:3 by default.",
-      "refs": ["commit b946660f", "docs/port/SETTINGS.md (1. The settings)"]
+      "refs": ["docs/port/SETTINGS.md (1. The settings)"]
     },
     {
       "id": "background-play",
       "kind": "port",
       "name": "Plays in the background",
-      "discs": ["pal", "ntsc"],
+      "discs": ["pal", "ntsc", "pal1", "jp"],
       "original": "A console game has the screen and the controller to itself.",
       "port": "The game keeps running, and a controller keeps playing it, while another window has the focus; on Windows a full-screen game stays up instead of minimising. The keyboard counts only while the game's window has the focus, and Mute in background silences it.",
-      "refs": ["commit 36442855", "port/platform/window.cpp"]
+      "refs": ["port/platform/window.cpp"]
     },
     {
       "id": "start-skips-scenes",
       "kind": "port",
       "name": "Start skips cutscenes",
-      "discs": ["pal", "ntsc"],
+      "discs": ["pal", "ntsc", "pal1", "jp"],
       "original": "Start alone skips a scene only on Veldin once it is beaten, or in a replay; elsewhere Start needs L1, L2, R1 and R2 held with it.",
       "port": "With the Skip cutscenes setting on (the default), Start alone skips an in-game scene: the port holds the four shoulder buttons for it, so the game's own skip ends the scene. Off, Start works as on a console.",
-      "refs": ["commit 0f17ce2e", "port/game/common/frontend.cpp"]
+      "refs": ["port/game/common/frontend.cpp"]
     },
     {
       "id": "remembered-options",
       "kind": "port",
       "name": "Remembered language and sound",
-      "discs": ["pal", "ntsc"],
+      "discs": ["pal", "ntsc", "pal1", "jp"],
       "original": "The language comes from the console's own setting, and the Sound page (playback mode, music and sound volume) resets at power off; loading a save takes the options stored in it.",
       "port": "The port keeps the language and the Sound page in its settings file and puts them back at every start. Loading a save keeps the player's options instead of the save's.",
-      "refs": ["commit 09248d29", "port/game/rac1/host/options.c"]
+      "refs": ["port/game/rac1/host/options.c"]
     },
     {
       "id": "active-distance",
       "kind": "port",
       "name": "Far mobys animate",
-      "discs": ["pal", "ntsc"],
+      "discs": ["pal", "ntsc", "pal1", "jp"],
       "original": "A moby runs only near the camera (inside its draw distance or its own update range). Past that it stands still in its spawn pose.",
       "port": "The game runs its mobys exactly as on the console. With a Draw distance past Original, the far mobys the game leaves asleep are drawn and, by default, play their looping animation in the picture only: the game never sees it. Active distance: Original draws them standing still.",
       "refs": ["port/game/common/frontend/sleeping_mobys.h", "port/game/rac1/host/render_native.c", "docs/port/SETTINGS.md"]

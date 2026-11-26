@@ -58,6 +58,7 @@ int openrac_lib_DisableDmac(int);
 int openrac_lib_EnableDmac(int);
 void openrac_lib_Exit(int);
 int openrac_lib_AddDmacHandler2(int, gaddr, int, gaddr);
+int openrac_lib_AddIntcHandler2(int, gaddr, int, gaddr);
 int openrac_lib_SetAlarm(unsigned short, gaddr, gaddr);
 int openrac_lib_ReferThreadStatus(int, gaddr);
 int openrac_lib_SleepThread(void);
@@ -132,12 +133,24 @@ unsigned long long openrac_lib___umoddi3(unsigned long long, unsigned long long)
 long long openrac_lib___divdi3(long long, long long);
 long long openrac_lib___moddi3(long long, long long);
 unsigned long long openrac_lib___fixunsdfdi(double);
+double openrac_lib___adddf3(double, double);
+double openrac_lib___subdf3(double, double);
+double openrac_lib___muldf3(double, double);
+double openrac_lib___divdf3(double, double);
+int openrac_lib___cmpdf2(double, double);
+double openrac_lib___floatsidf(int);
+int openrac_lib___fixdfsi(double);
+unsigned int openrac_lib___fixunsdfsi(double);
+float openrac_lib___truncdfsf2(double);
 /* cdvd */
 int openrac_lib_sceCdSync(int);
 int openrac_lib_sceCdInit(int);
 int openrac_lib_sceCdDiskReady(int);
 int openrac_lib_sceCdMmode(int);
 int openrac_lib_sceCdRead(unsigned int, unsigned int, gaddr, gaddr);
+/* Told of every sceCdRead (sector, count) while set: an interface run notes the sectors the game
+ * read (program/interface_runs.cpp). NULL otherwise. */
+extern void (*openrac_cdvd_read_hook)(unsigned int sector, unsigned int count);
 int openrac_lib_sceCdGetError(void);
 int openrac_lib_sceCdBreak(void);
 int openrac_lib_sceCdReadClock(gaddr);
@@ -231,6 +244,33 @@ void openrac_lib_snd_StartMovieSound(int, int, int, int, int);
 int openrac_lib_snd_UpdateMovieADPCM(int, int);
 int openrac_lib_snd_GetMovieNAX(void);
 int openrac_lib_snd_GetDopplerPitchMod(int);
+
+/* Going Commando's and Up Your Arsenal's 989snd (lib/snd.c): requests whose answers go to a
+ * callback at a later snd_Pump, as their library hands them on. */
+int openrac_lib_snd_Pump(void);
+int openrac_lib_snd_PlaySoundVolPanPMPB_CB(int, int, int, int, int, int, int, long long);
+int openrac_lib_snd_SetSoundParams_CB(int, int, int, int, int, int, int, long long);
+int openrac_lib_snd_PlayVAGStreamTwoParts_CB(
+    int, int, int, int, int, int, int, int, int, int, int, long long
+);
+int openrac_lib_snd_BankLoadFromIOP(int);
+
+/* Host entry points for each game's host C, not library functions:
+ * - request: a request the library takes: `answer_of(args)` (NULL: nothing for the engine to do,
+ *   answered 0) is run when the requests taken are sent, and its answer goes to `callback(answer,
+ *   argument)` at the pump after; `count` words of `args` are copied. A request of no words and no
+ *   callback, with nothing taken or out, is answered at once, as the library sends it.
+ * - request_sync: as snd_SendCommandSync: the callbacks out run first, then `answer_of(args)`,
+ *   whose answer is returned (NULL: 0).
+ * - client_reset: LoadExecPS2 ended the program: its requests dropped (their callbacks are its
+ *   code) and every sound stopped, as the console's IOP is reset for the next executable. */
+#define OPENRAC_SND_REQUEST_ARGS 8
+typedef int (*OpenracSndAnswer)(const int32_t* args);
+void openrac_snd_request(
+    OpenracSndAnswer answer_of, const int32_t* args, int count, gaddr callback, long long argument
+);
+int openrac_snd_request_sync(OpenracSndAnswer answer_of, const int32_t* args);
+void openrac_snd_client_reset(void);
 
 /* The IOP's memory from an address on, as sceSifSetDma left it, and how many bytes follow; NULL
  * past its end. A host accessor, not a library function. */

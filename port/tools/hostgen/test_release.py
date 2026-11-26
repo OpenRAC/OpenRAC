@@ -3,6 +3,7 @@
 """release.py and release_carry.py: another release's names for the primary's, and the port tables
 carried with them."""
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -94,6 +95,21 @@ class ReleaseNames(unittest.TestCase):
         r.units = {"src/pal/levels/02_x/L02_a.c": got}
         self.assertEqual(r.text("module_l00_call_handler_2(); func_L00_0030CF60();", "src/pal/levels/02_x/L02_a.c"),
                          "func_0029C7F0(); func_0029C7F0();")
+
+    def test_a_call_only_the_link_names(self):
+        # PAL's own Dobbo hero declares PH_G1 and calls it; no C defines it and no catalogue has it,
+        # but its build linked it to level 22's copy of func_002836E0. A labelled declaration, the C
+        # library's, one a C body defines and data stay as they are.
+        r = release.Release({"names": {"func_PAL_002836E0": "func_002836E0"}})
+        text = ("extern float PH_G1(void *);\nextern void lab(void) __asm__(\"func_002A7750\");\n"
+                "extern void *memcpy(void *, const void *, unsigned int);\nextern int mine(int);\n"
+                "extern s32 PH_D1;\n")
+        values = {"22": {"PH_G1": 0x002F5100, "lab": 0x002F5100, "memcpy": 0x002F5100, "mine": 0x002F5100,
+                         "PH_D1": 0x002F5100}}
+        rows = {("22", 0x002F5100): "func_PAL_002836E0"}
+        got = release.link_only_words(text, values, {}, r, lambda program, value: rows.get((program, value)),
+                                      {"mine"})
+        self.assertEqual(got, {"PH_G1": "func_002836E0"})
 
     def test_a_level_files_names_of_its_level(self):
         # In an Oozla file func_00312B68 is level 1's copy of func_002A9640 (the primary's level
@@ -295,6 +311,22 @@ class Hooks(unittest.TestCase):
 
 
 class Carried(unittest.TestCase):
+    def test_host_names_follow_only_live_shared_code(self):
+        class P:
+            def function(self, name, why=""):
+                return {"func_001337F0": "func_00133850", "func_00200000": None}.get(name, name)
+        code = {"sound.c": release_carry.code_text(
+            "int func_001337F0(void); void func_001337F0__game(void); "
+            "void func_00133820(void); void func_00200000(void); "
+            "/* func_00132028(); */ const char *s = \"func_001326D8\";")}
+        text = release_carry.host_names(P(), code)
+        self.assertIn("func_001337F0\tfunc_00133850\n", text)
+        self.assertIn("func_001337F0__game\tfunc_00133850__game\n", text)
+        self.assertIn("# func_00200000: not in this release\n", text)
+        self.assertNotIn("func_00133820", text)
+        self.assertNotIn("func_00132028", text)
+        self.assertNotIn("func_001326D8", text)
+
     def test_the_hook_run(self):
         table = release.Release({"names": {"func_0026F720": "func_0026F588", "func_0026F728": "func_0026F590"}})
 
@@ -335,6 +367,23 @@ class Committed(unittest.TestCase):
                 self.assertEqual(missing, [], "addresses the shared C uses and the table lacks")
                 missing = sorted(k for k in wanted_k if f"#define RAC2_K_{k} " not in header)
                 self.assertEqual(missing, [], "constants the shared C uses and the table lacks")
+
+    def test_rac1_release_hand_c_uses_its_own_data(self):
+        # A release's own hand C names its data by the release's addresses. PAL v1's packet builder
+        # kept v2's packet cursor (0x161280) and wrote over libc's data on Veldin.
+        for game in ("rac1-pal1", "rac1-jp"):
+            folder = REPO / "port/game" / game
+            names = json.loads((folder / "release" / "release_names.json").read_text())["names"]
+            own = set(names.values())
+            wrong = []
+            for f in sorted((folder / "hand").glob("*.c")):
+                for name in sorted(set(re.findall(r"\bD_(?:L\d\d_)?[0-9A-F]{8}\b", f.read_text()))):
+                    level = "D_L00_" + name[-8:]
+                    moved = [names[k] for k in (name, level) if names.get(k, k) != k]
+                    if moved and name not in own and level not in own:
+                        wrong.append(f"{f.name}: {name} is {moved[0]} in {game}")
+            with self.subTest(game=game):
+                self.assertEqual(wrong, [])
 
     def test_split_variants_keep_their_own_levels(self):
         # A variant split off a folded function has its own places in the release, level by level,

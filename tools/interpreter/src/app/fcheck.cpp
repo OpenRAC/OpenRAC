@@ -26,6 +26,7 @@
 #include <cstring>
 #include <fstream>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -91,6 +92,20 @@ int kernel_inputs(int number) {
     }
 }
 
+/**
+ * A call the function itself made (not one made inside a callee), taken when the callee starts,
+ * so after the call's delay slot has run: where it went, the argument registers, and every word
+ * of main memory written so far with its value then. Memory is compared at each such call, not
+ * only at the return: a store retail makes before a call (in its delay slot, say) and the
+ * candidate after it leaves the same memory at the return but not for the callee.
+ */
+struct CallMark {
+    u32 target = 0;
+    std::array<u32, 4> args{};   // a0-a3
+    std::array<u32, 4> fargs{};  // f12-f15
+    std::vector<std::pair<u32, u32>> written;  // (word address, value), in address order
+};
+
 /** What a call left. */
 struct Result {
     bool returned = false;
@@ -101,7 +116,14 @@ struct Result {
     std::array<u32, 32> fpr{};
     std::vector<u8> ram, scratchpad;
     std::vector<Outside> outside;
+    std::vector<CallMark> calls;
+    std::set<u32> written;  // word addresses of main memory the run stored to
 };
+
+/** A word that holds a float with the exponent all ones (NaN or infinity): the console's FPU never makes one. */
+bool not_finite(u32 w) {
+    return ((w >> 23) & 0xFF) == 0xFF;
+}
 
 const char* const kGpr[32] = {"zero", "at", "v0", "v1", "a0", "a1", "a2", "a3", "t0", "t1", "t2",
                               "t3",   "t4", "t5", "t6", "t7", "s0", "s1", "s2", "s3", "s4", "s5",
@@ -130,7 +152,7 @@ int main(int argc, char** argv) {
     bool have_entry = false;
     int ulps = 0;
     std::string hooks, disc, coverage;
-    u32 cover_size = 0;
+    u32 cover_size = 0, size = 0;
 
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
@@ -181,15 +203,25 @@ int main(int argc, char** argv) {
             coverage = argv[++i];
         } else if (arg == "--cover-size" && i + 1 < argc) {
             cover_size = static_cast<u32>(std::stoul(argv[++i], nullptr, 0));
+        } else if (arg == "--size" && i + 1 < argc) {
+            // The retail function's size in bytes: a call made from those bytes is the function's
+            // own (by default --cover-size). Without either, calls are not compared.
+            size = static_cast<u32>(std::stoul(argv[++i], nullptr, 0));
         } else if (!arg.empty() && arg[0] != '-') {
             states.push_back(arg);
         } else {
             std::fprintf(stderr,
                          "usage: openrac-fcheck --code FILE@ADDRESS [...] --entry ADDRESS "
-                         "[--returns void|int|long|float] [--ulps N] [--hooks FILE] [--disc ISO] [--limit N] STATE...\n");
+                         "[--returns void|int|long|float] [--ulps N] [--hooks FILE] [--disc ISO] [--limit N] "
+                         "[--size BYTES] [--coverage FILE --cover-size BYTES] STATE...\n");
             return 2;
         }
     }
+
+    if (size == 0) {
+        size = cover_size;
+    }
+    const bool coverage_only = code.empty() && !coverage.empty();
 
     if (!have_entry || (code.empty() && coverage.empty()) || states.empty()) {
         std::fprintf(stderr, "openrac-fcheck needs --code, --entry and at least one state\n");
@@ -296,6 +328,51 @@ int main(int argc, char** argv) {
             }
         }
 
+        /*
+         * The function's own code: retail's bytes from the state's address, or the candidate's
+         * code files. A call made from there to code outside it is the function's own call; its
+         * callee is noted when it starts, after the delay slot has run.
+         */
+        auto own = [&code, candidate, start, size](u32 at) {
+            if (!candidate) {
+                return at - start < size;
+            }
+            for (const Code& c : code) {
+                if (at - c.address < c.bytes.size()) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        ee.watch_first = 0;
+        ee.watch_end = size ? GuestMemory::kRamBytes : 0;
+        ee.on_watched_store = [&r](u32 address, u64, unsigned bytes) {
+            for (u32 w = address & ~3u; w < address + bytes; w += 4) {
+                r.written.insert(w);
+            }
+        };
+        ee.on_call = [&ee, own, size](u32 target) {
+            if (size && own(ee.instruction) && !own(target)) {
+                ee.watch_pc = target;
+            }
+        };
+        sys::Machine* mm = machine.get();
+        ee.on_watch = [&ee, &r, mm]() {
+            ee.watch_pc = ~0u;
+            CallMark m;
+            m.target = ee.instruction;
+            for (int n = 0; n < 4; n++) {
+                m.args[n] = static_cast<u32>(ee.gpr[4 + n].lo);
+                m.fargs[n] = ee.fpr[12 + n];
+            }
+            for (u32 w : r.written) {
+                u32 v;
+                std::memcpy(&v, mm->memory.ram(w), 4);
+                m.written.emplace_back(w, v);
+            }
+            r.calls.push_back(std::move(m));
+        };
+
         ee.cover = nullptr;
         if (!candidate && !coverage.empty()) {
             std::vector<u8>& map = covered[start];
@@ -319,6 +396,11 @@ int main(int argc, char** argv) {
         }
         ee.end_call(call);
         ee.cover = nullptr;
+        ee.on_call = nullptr;
+        ee.on_watch = nullptr;
+        ee.on_watched_store = nullptr;
+        ee.watch_end = 0;
+        ee.watch_pc = ~0u;
 
         log = nullptr;
         r.gpr = ee.gpr;
@@ -356,6 +438,8 @@ int main(int argc, char** argv) {
         if (!coverage.empty()) {
             cover_runs[state.address].first++;
             cover_runs[state.address].second += retail.returned ? 1 : 0;
+        }
+        if (coverage_only) {
             skipped_in_a_row = retail.returned ? 0 : skipped_in_a_row + 1;
             continue;
         }
@@ -396,8 +480,9 @@ int main(int argc, char** argv) {
             notes.push_back(text);
         }
         if (returns == "float" && ours.fpr[0] != retail.fpr[0] && !near_float(ours.fpr[0], retail.fpr[0], ulps)) {
-            std::snprintf(text, sizeof(text), "returns float bits %08x, retail %08x", ours.fpr[0],
-                          retail.fpr[0]);
+            std::snprintf(text, sizeof(text), "returns float bits %08x, retail %08x%s", ours.fpr[0],
+                          retail.fpr[0],
+                          not_finite(ours.fpr[0]) && !not_finite(retail.fpr[0]) ? " (NaN/Inf, retail none)" : "");
             notes.push_back(text);
         }
 
@@ -487,8 +572,9 @@ int main(int argc, char** argv) {
                 std::memcpy(&a, ours.ram.data() + at, 4);
                 std::memcpy(&b, retail.ram.data() + at, 4);
                 std::memcpy(&was, state.ram.data() + at, 4);
-                std::snprintf(text, sizeof(text), "word at %08x: ours %08x, retail %08x (before %08x)",
-                              at, a, b, was);
+                std::snprintf(text, sizeof(text), "word at %08x: ours %08x, retail %08x (before %08x)%s",
+                              at, a, b, was,
+                              not_finite(a) && !not_finite(b) && ours.written.count(at) ? " NaN/Inf, retail none" : "");
                 notes.push_back(text);
                 shown++;
             }
@@ -594,6 +680,91 @@ int main(int argc, char** argv) {
             notes.push_back(text);
         }
 
+        /*
+         * Memory at each of the function's own calls, and where they went. A word one run wrote
+         * and the other did not is compared with its value in the state. The dead stack and the
+         * candidate's code are left out as at the return, and a word holding an address in the
+         * candidate's code compares as there.
+         */
+        std::vector<std::string> remarks;
+        if (size) {
+            auto value_at = [&state](const CallMark& m, u32 w) {
+                auto it = std::lower_bound(m.written.begin(), m.written.end(), std::make_pair(w, 0u));
+                if (it != m.written.end() && it->first == w) {
+                    return it->second;
+                }
+                u32 v;
+                std::memcpy(&v, state.ram.data() + w, 4);
+                return v;
+            };
+            std::size_t n = std::min(ours.calls.size(), retail.calls.size());
+            bool parted = false;
+            for (std::size_t k = 0; k < n && !parted; k++) {
+                const CallMark& o = ours.calls[k];
+                const CallMark& t = retail.calls[k];
+                if (o.target != t.target) {
+                    std::snprintf(text, sizeof(text), "call %zu: ours goes to %08x, retail to %08x", k, o.target,
+                                  t.target);
+                    notes.push_back(text);
+                    parted = true;
+                    break;
+                }
+                std::set<u32> words;
+                for (const auto& [w, v] : o.written) {
+                    words.insert(w);
+                }
+                for (const auto& [w, v] : t.written) {
+                    words.insert(w);
+                }
+                int bad = 0;
+                for (u32 w : words) {
+                    if (skipped(w)) {
+                        continue;
+                    }
+                    u32 a = value_at(o, w), b = value_at(t, w);
+                    bool own_code = false;
+                    for (const Code& c : code) {
+                        if (a >= c.address && a < c.address + c.bytes.size()) {
+                            own_code = a - entry == b - state.address;
+                        }
+                    }
+                    if (a == b || own_code || near_float(a, b, ulps)) {
+                        continue;
+                    }
+                    if (bad++ < 4) {
+                        std::snprintf(text, sizeof(text),
+                                      "before call %zu (to %08x): word at %08x ours %08x, retail %08x%s", k,
+                                      o.target, w, a, b,
+                                      not_finite(a) && !not_finite(b) ? " NaN/Inf, retail none" : "");
+                        notes.push_back(text);
+                    }
+                }
+                if (bad) {
+                    parted = true;
+                    break;
+                }
+                // The argument registers: a remark, not a difference (a callee may not read them all).
+                for (int g = 0; g < 4; g++) {
+                    if (o.args[g] != t.args[g] && stack_value(o.args[g]) == o.args[g]) {
+                        std::snprintf(text, sizeof(text), "call %zu (to %08x): $%s ours %x, retail %x", k,
+                                      o.target, kGpr[4 + g], o.args[g], t.args[g]);
+                        remarks.push_back(text);
+                    }
+                    if (o.fargs[g] != t.fargs[g] && !near_float(o.fargs[g], t.fargs[g], ulps)) {
+                        std::snprintf(text, sizeof(text), "call %zu (to %08x): $f%d ours %08x, retail %08x%s", k,
+                                      o.target, 12 + g, o.fargs[g], t.fargs[g],
+                                      not_finite(o.fargs[g]) && !not_finite(t.fargs[g]) ? " (NaN/Inf)" : "");
+                        remarks.push_back(text);
+                    }
+                }
+            }
+            if (!parted && ours.calls.size() != retail.calls.size()) {
+                std::snprintf(text, sizeof(text), "ours makes %zu calls of its own, retail %zu", ours.calls.size(),
+                              retail.calls.size());
+                notes.push_back(text);
+            }
+        }
+
         if (notes.empty()) {
             std::printf("%s: SAME (retail %llu, ours %llu million instructions or less)\n",
                         path.c_str(), static_cast<unsigned long long>(retail.instructions / 1'000'000),
@@ -604,6 +775,9 @@ int main(int argc, char** argv) {
             for (const std::string& n : notes) {
                 std::printf("    %s\n", n.c_str());
             }
+        }
+        for (std::size_t k = 0; k < remarks.size() && k < 8; k++) {
+            std::printf("    note: %s\n", remarks[k].c_str());
         }
     }
 
@@ -628,7 +802,9 @@ int main(int argc, char** argv) {
             std::fputc('\n', out);
         }
         std::fclose(out);
-        return 0;
+        if (coverage_only) {
+            return 0;
+        }
     }
 
     // How many states were compared: none (every one skipped) is not a verdict (exit 4).

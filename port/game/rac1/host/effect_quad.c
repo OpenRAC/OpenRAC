@@ -69,7 +69,9 @@ void func_001F7EF8(gaddr a0, int a1, int a2) {
 
 /* PAL 001FD1D8 and executable 001F7EF8 read the same 0x90-byte
  * record and optional matrix. Camera projection and clipping are performed
- * by the native effect renderer for both entry points. */
-void func_L00_001FD1D8(gaddr a0, gaddr a1, int a2) {
+ * by the native effect renderer for both entry points. 001FD1D8 is a hook point
+ * (rac1.fx.world_quad.draw, libraries.tsv): hostgen's hooks.c writes func_L00_001FD1D8,
+ * which calls a mod's replacement or this, the original. */
+void func_L00_001FD1D8__game(gaddr a0, gaddr a1, int a2) {
     func_001F7EF8(a0, (int)a1, a2);
 }

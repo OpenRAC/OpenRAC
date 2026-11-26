@@ -25,6 +25,8 @@
   "global: versionmap (between)": 674,
   "global: versionmap (exact)": 266,
   "function: a shared definition the release's build did not place (gone)": 4573,
+  "function: one only the release's build gave an address, by a name of its own C": 4,
+  "function: one the release lacks, where its build linked the primary's C": 639,
   "function: one the release lacks, where its build linked the release's own C": 170,
   "short name: left as it is": 224,
   "short name: the release's build": 1040,
@@ -27009,30 +27011,118 @@
   "func_US2_L30_00418D30": "func_V1_US2_L30_00418D30"
  },
  "units": {
+  "src/levels/00_aranos_tutorial/L00_002FC7A8-launch.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/00_aranos_tutorial/L00_003CD8E0-lift-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850"
+  },
+  "src/levels/00_aranos_tutorial/L00_003CF610-update.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/00_aranos_tutorial/L00_003D54A8-effect-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/00_aranos_tutorial/L00_003D54A8-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/01_oozla/L01_002BEB90.c": {
    "func_2E2608": "func_2E38F0",
    "func_2E3470": "func_2E4758",
    "func_2E3738": "func_2E4A20"
   },
+  "src/levels/01_oozla/L01_002C37C8.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
+  },
+  "src/levels/01_oozla/L01_003835D8-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/01_oozla/L01_003B49D8.c": {
+   "enemy_update_wander_heading": "func_L01_0031A4D0"
+  },
+  "src/levels/01_oozla/L01_003B9F30-g16.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850"
+  },
+  "src/levels/01_oozla/L01_003BBF68-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/levels/01_oozla/L01_003C0408-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/01_oozla/L01_003C09C0-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850",
+   "hero_record_play_counters": "func_L00_002B3000",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
   "src/levels/01_oozla/L01_003CAFE0-g8.c": {
    "func_355780": "func_357C28"
   },
+  "src/levels/01_oozla/L01_003CAFE0-launch.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850"
+  },
   "src/levels/01_oozla/L01_003CAFE0.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
    "func_3120A8": "func_313DF8",
    "func_355780": "func_357C28"
   },
+  "src/levels/01_oozla/L01_003D2E50.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/01_oozla/L01_003D68C0-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/01_oozla/L01_003DA740-campath-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/01_oozla/L01_003DA740-destruct.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/01_oozla/L01_003DA740-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/01_oozla/L01_003DA740.c": {
+   "enemy_update_wander_heading": "func_L01_0031A4D0",
+   "moby_l01_turn_toward_target": "func_L01_00323068",
    "func_2E3470": "func_2E4758",
    "func_310648": "func_312398"
+  },
+  "src/levels/01_oozla/L01_003E8ED8-g8.c": {
+   "TriggerSubtitleInCuboid": "func_L01_002EBFB8",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/01_oozla/L01_0040EED0-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/01_oozla/L01_0040F118-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/01_oozla/L01_0040F360-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/01_oozla/L01_0040F5A8-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328",
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
   },
   "src/levels/01_oozla/L01_00412E00-flags-g8.c": {
    "func_314008": "func_307F48",
    "func_3248E0": "func_312168",
    "func_326C70": "func_314908"
   },
+  "src/levels/01_oozla/L01_00412F18-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328",
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/01_oozla/L01_00416440-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/01_oozla/L01_004171C8-g8.c": {
    "func_305EE8": "func_307BB8",
    "func_310648": "func_312398"
+  },
+  "src/levels/02_maktar_nebula/L02_002ED7B0-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
   },
   "src/levels/02_maktar_nebula/L02_002ED7B0.c": {
    "func_2F1CC8": "func_2F32F0",
@@ -27046,6 +27136,13 @@
    "func_332710": "func_334908",
    "func_3FC1B0": "func_400908"
   },
+  "src/levels/02_maktar_nebula/L02_003CB0F0.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/levels/02_maktar_nebula/L02_003D0408-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
   "src/levels/02_maktar_nebula/L02_003D2390.c": {
    "func_2F1CC8": "func_2F32F0",
    "func_315348": "func_317328",
@@ -27054,16 +27151,35 @@
    "func_31E6A0": "func_3206D8",
    "func_3FC1B0": "func_400908"
   },
+  "src/levels/02_maktar_nebula/L02_003D26B0-aim-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
   "src/levels/02_maktar_nebula/L02_003D26B0.c": {
    "func_321E78": "func_323F00",
    "func_322330": "func_3243B8",
    "func_327620": "func_3297A8",
    "func_3366A8": "func_338A38"
   },
+  "src/levels/02_maktar_nebula/L02_003D2DE0-g16.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/02_maktar_nebula/L02_003D7C20-g16.c": {
+   "part_spawn_flying_fragment": "func_L02_0032D5F8"
+  },
+  "src/levels/02_maktar_nebula/L02_003D9728-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/02_maktar_nebula/L02_003DB310-aim-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
   "src/levels/02_maktar_nebula/L02_003DB310-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328",
+   "part_spawn_scaled_bolts": "func_L00_003281C0",
    "func_2EEFB0": "func_2F0550"
   },
   "src/levels/02_maktar_nebula/L02_003DB310.c": {
+   "func_L00_00321878": "func_L00_00323918",
+   "part_spawn_bolt_pickups": "func_L00_00323918",
    "func_2F1F70": "func_2F3598",
    "func_316220": "func_318200",
    "func_31E3C0": "func_3203D8",
@@ -27072,7 +27188,47 @@
    "func_366BD8": "func_369380",
    "func_3FC1B0": "func_400908"
   },
+  "src/levels/02_maktar_nebula/L02_003F0798.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/02_maktar_nebula/L02_003F5430-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850",
+   "func_L00_002D70A0": "func_L00_002D7850",
+   "func_L00_0030C7F8": "func_L00_0030E648",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
+  },
+  "src/levels/02_maktar_nebula/L02_003F5430.c": {
+   "func_L00_002B9D60": "func_L00_002B9CD8",
+   "hero_record_play_counters": "func_L00_002B3000",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110",
+   "module_l00_call_handler_2": "func_0029C7F0"
+  },
+  "src/levels/02_maktar_nebula/L02_003F9C10-g8.c": {
+   "global_object_start": "func_L00_004071F0",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0",
+   "load_scene_chunk": "func_L00_00305110",
+   "moby_try_alloc_enter_state2": "func_L02_00403FA0",
+   "tracked_moby_set_state": "func_L00_003E38E8"
+  },
+  "src/levels/02_maktar_nebula/L02_00409D78-g8.c": {
+   "TriggerSubtitleInCuboid": "func_L01_002EBFB8",
+   "func_L01_002EABA8": "func_L01_002EBFB8",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/02_maktar_nebula/L02_0040A4A8-aim-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/02_maktar_nebula/L02_0040A4A8-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/02_maktar_nebula/L02_0040A4A8-gu.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
   "src/levels/02_maktar_nebula/L02_0040A4A8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328",
+   "part_spawn_scaled_bolts": "func_L00_003281C0",
    "func_2F1F70": "func_2F3598",
    "func_316220": "func_318200",
    "func_31E3C0": "func_3203D8",
@@ -27080,6 +27236,25 @@
    "func_31EA58": "func_320A90",
    "func_366BD8": "func_369380",
    "func_3FC1B0": "func_400908"
+  },
+  "src/levels/02_maktar_nebula/L02_0040BE08-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/02_maktar_nebula/L02_00412D50-g16.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/02_maktar_nebula/L02_00423520-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/02_maktar_nebula/L02_0043E150.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/03_endako/L03_002B8708-contact.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/levels/03_endako/L03_002CCB70-decider.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
   },
   "src/levels/03_endako/L03_002CCB70-g8.c": {
    "func_35E450": "func_3609F0",
@@ -27087,7 +27262,21 @@
    "func_35E728": "func_360CC8",
    "func_37CA78": "func_37F828"
   },
+  "src/levels/03_endako/L03_002CCB70.c": {
+   "EmitScaledObjectParticles": "func_L03_00328558",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/levels/03_endako/L03_00383FE8-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/03_endako/L03_00399230-1c88-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/03_endako/L03_00399230-6a28-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/03_endako/L03_00399230-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850",
    "func_2E77F0": "func_2E8918",
    "func_2EF110": "func_2F06A8",
    "func_2EF670": "func_2F0C08",
@@ -27128,6 +27317,9 @@
   "src/levels/03_endako/L03_003C8660-qcopy.c": {
    "func_31B920": "func_31D8D0"
   },
+  "src/levels/03_endako/L03_003CB398-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/03_endako/L03_003D0300-g8.c": {
    "func_2E1C70": "func_2E23B0",
    "func_2EF190": "func_2F0728",
@@ -27162,12 +27354,23 @@
    "func_368958": "func_36B1C0",
    "func_371D60": "func_374878"
   },
+  "src/levels/03_endako/L03_003D2018.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/03_endako/L03_003F09C0-arc-g32.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
   "src/levels/03_endako/L03_003F09C0-g8.c": {
    "func_3133D0": "func_315328",
    "func_3240F0": "func_3261F0",
    "func_324138": "func_326238"
   },
+  "src/levels/03_endako/L03_003F09C0-help-g8.c": {
+   "TriggerSubtitleInCuboid": "func_L01_002EBFB8",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/03_endako/L03_003F09C0.c": {
+   "part_start_record_effect_by_index": "func_L02_003294D8",
    "func_2E77F0": "func_2E8918",
    "func_2EEC20": "func_2F01B8",
    "func_2EEF88": "func_2F0520",
@@ -27197,13 +27400,48 @@
    "func_360A80": "func_3631A0",
    "func_3A2F48": "func_3A6450"
   },
+  "src/levels/03_endako/L03_003F64E8-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850"
+  },
   "src/levels/03_endako/L03_003F6E88-g8.c": {
    "func_2EEBF0": "func_2F0188",
    "func_31B9F0": "func_31D9A0",
    "func_31BA88": "func_31DA38",
    "func_32ECF8": "func_330F50"
   },
+  "src/levels/03_endako/L03_00419CA0-effects.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328",
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/03_endako/L03_0041A570-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/03_endako/L03_0041BE50-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/levels/03_endako/L03_0041E2D8-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/04_barlow/L04_002EDBC8.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
+  },
+  "src/levels/04_barlow/L04_003E2438-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/levels/04_barlow/L04_003E5B10.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/04_barlow/L04_003EB8D8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/04_barlow/L04_003ED740.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/04_barlow/L04_00422A00-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0",
    "func_3325E0": "func_3344C8"
   },
   "src/levels/04_barlow/L04_00422A00.c": {
@@ -27222,6 +27460,22 @@
    "func_348708": "func_34A798",
    "func_34C4C8": "func_34E580"
   },
+  "src/levels/04_barlow/L04_00434BB0-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/04_barlow/L04_00439950.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/04_barlow/L04_0044BC90-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/04_barlow/L04_0044DB18.c": {
+   "enemy_update_wander_heading": "func_L01_0031A4D0",
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/05_feltzin_system/L05_00314E28-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/05_feltzin_system/L05_00314E28-g8.c": {
    "func_328870": "func_32A6F0",
    "func_379F18": "func_37C668",
@@ -27234,6 +27488,7 @@
    "func_445A98": "func_44BEB8"
   },
   "src/levels/05_feltzin_system/L05_00314E28.c": {
+   "moby_spawn_shot_effect": "func_L05_0041EA08",
    "func_2F6C50": "func_2F73B0",
    "func_2FF698": "func_3007E0",
    "func_3062A0": "func_3077C0",
@@ -27262,6 +27517,31 @@
    "func_37B538": "func_37DC88",
    "func_37B888": "func_37E008",
    "func_37B948": "func_37E0C8"
+  },
+  "src/levels/05_feltzin_system/L05_0041DA20-g8.c": {
+   "LockedEntryMenuInput": "func_L05_00423A68",
+   "ship_save_transform_state": "func_L05_0044BEB8"
+  },
+  "src/levels/05_feltzin_system/L05_0041DF58-g8.c": {
+   "module_l00_call_handler_2": "func_0029C7F0"
+  },
+  "src/levels/05_feltzin_system/L05_00420A88-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/levels/05_feltzin_system/L05_00420E28-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/levels/06_notak/L06_0033BDC0-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/06_notak/L06_003C5ED8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/06_notak/L06_003F3800-g8.c": {
+   "part_spawn_flying_fragment": "func_L02_0032D5F8"
+  },
+  "src/levels/06_notak/L06_0041DED8-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
   },
   "src/levels/06_notak/L06_0041DED8-g8.c": {
    "func_32D5C8": "func_32EBE8",
@@ -27341,10 +27621,44 @@
    "func_36F678": "func_3718C0",
    "func_3B1C70": "func_3B4798"
   },
+  "src/levels/06_notak/L06_00456F08.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/06_notak/L06_004573E8-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/06_notak/L06_00458138-effect-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328",
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/06_notak/L06_00458138.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/06_notak/L06_0045A5B0-g16.c": {
+   "mine_fall": "func_L06_00360A78"
+  },
+  "src/levels/06_notak/L06_004635E8-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/06_notak/L06_004649F0-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
   "src/levels/07_siberius/L07_002BE770-g8.c": {
    "func_2E4B70": "func_2E5F68",
    "func_2E5480": "func_2E6878",
    "func_338D20": "func_33B098"
+  },
+  "src/levels/07_siberius/L07_002C3CC0.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
+  },
+  "src/levels/07_siberius/L07_003E61E0-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/levels/07_siberius/L07_003EA900-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
   },
   "src/levels/07_siberius/L07_003F4578-follow-g8.c": {
    "func_2E4248": "func_2E5640",
@@ -27362,6 +27676,8 @@
    "func_316FD8": "func_318EA0"
   },
   "src/levels/07_siberius/L07_003F4578-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
    "func_2E4918": "func_2E5D10",
    "func_2E49C8": "func_2E5DC0",
    "func_2E5318": "func_2E6710",
@@ -27393,6 +27709,12 @@
    "func_317618": "func_3194E0",
    "func_31C970": "func_31E840"
   },
+  "src/levels/07_siberius/L07_003F5B50.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/07_siberius/L07_003F7048-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/07_siberius/L07_003F8430-g8.c": {
    "func_2E3F80": "func_2E5378",
    "func_2E4310": "func_2E5708",
@@ -27409,6 +27731,16 @@
    "func_313DD8": "func_315BA8",
    "func_31B090": "func_31CF60"
   },
+  "src/levels/07_siberius/L07_004080E0.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/07_siberius/L07_0040E198-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
+  "src/levels/07_siberius/L07_0040EC08-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
   "src/levels/07_siberius/L07_0040F0D0-g32.c": {
    "func_2E4340": "func_2E5738",
    "func_2E47F8": "func_2E5BF0",
@@ -27423,6 +27755,17 @@
    "func_31F9E0": "func_3218D8",
    "func_355188": "func_357658"
   },
+  "src/levels/07_siberius/L07_0040FC88-g16.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
+  "src/levels/07_siberius/L07_00410700-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/08_tabora/L08_002D90C8-fn.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
+  },
   "src/levels/08_tabora/L08_002D90C8.c": {
    "func_2F9DF0": "func_2FB1D0",
    "func_2F9E60": "func_2FB240",
@@ -27435,6 +27778,7 @@
    "func_347A38": "func_349E68"
   },
   "src/levels/08_tabora/L08_003D8348.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
    "func_2F9A60": "func_2FAE40",
    "func_2F9A90": "func_2FAE70",
    "func_2F9DF0": "func_2FB1D0",
@@ -27448,6 +27792,14 @@
    "func_329EC0": "func_32BD30",
    "func_3357E8": "func_3378E0"
   },
+  "src/levels/08_tabora/L08_003D9F68-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/08_tabora/L08_003F6E18-g8.c": {
+   "TriggerSubtitleInCuboid": "func_L01_002EBFB8",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
   "src/levels/08_tabora/L08_004233E0-init.c": {
    "func_2F9DF0": "func_2FB1D0",
    "func_3278F0": "func_329760"
@@ -27460,6 +27812,26 @@
   "src/levels/08_tabora/L08_00423970.c": {
    "func_328A38": "func_32A8A8",
    "func_32A170": "func_32C030"
+  },
+  "src/levels/08_tabora/L08_0042F440.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/08_tabora/L08_0042F660.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/08_tabora/L08_0042F938-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328",
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/08_tabora/L08_0042FAC0.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/08_tabora/L08_0042FCE0.c": {
+   "part_spawn_bolt_pickups": "func_L00_00323918"
+  },
+  "src/levels/09_dobbo/L09_002C9738.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
   },
   "src/levels/09_dobbo/L09_003FEA48-g8.c": {
    "func_2EA110": "func_2EB620",
@@ -27477,7 +27849,12 @@
    "func_323340": "func_325360",
    "func_326368": "func_3283A0"
   },
+  "src/levels/09_dobbo/L09_003FEA48-zp-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
   "src/levels/09_dobbo/L09_003FEA48.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "moby_l01_turn_toward_target": "func_L01_00323068",
    "func_2E8450": "func_2E9930",
    "func_2EA0E0": "func_2EB5F0",
    "func_2EA110": "func_2EB620",
@@ -27495,16 +27872,82 @@
    "func_325E78": "func_327EB0",
    "func_32E560": "func_330768"
   },
+  "src/levels/09_dobbo/L09_00403798-g8.c": {
+   "enemy_update_wander_heading": "func_L01_0031A4D0"
+  },
+  "src/levels/09_dobbo/L09_00406FC8-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/09_dobbo/L09_004082D0.c": {
    "func_325E78": "func_327EB0"
+  },
+  "src/levels/09_dobbo/L09_0041D650-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/10_hrugis_cloud/L10_003170D0-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/10_hrugis_cloud/L10_003170D0-g8.c": {
+   "table_reset_working_values": "func_L05_0037FEB0"
+  },
+  "src/levels/10_hrugis_cloud/L10_003170D0-scene.c": {
+   "moby_spawn_shot_effect": "func_L05_0041EA08"
+  },
+  "src/levels/10_hrugis_cloud/L10_003170D0-state-g8.c": {
+   "LockedEntryMenuInput": "func_L05_00423A68",
+   "ship_save_transform_state": "func_L05_0044BEB8"
+  },
+  "src/levels/10_hrugis_cloud/L10_004166E8-g8-dbg.c": {
+   "CreateEnergyStrip": "func_L10_003A0590"
+  },
+  "src/levels/10_hrugis_cloud/L10_00421790-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0",
+   "module_l00_call_handler_2": "func_0029C7F0"
+  },
+  "src/levels/10_hrugis_cloud/L10_00424028-g8.c": {
+   "CreateEnergyStrip": "func_L10_003A0590",
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
   },
   "src/levels/10_hrugis_cloud/L10_00424028.c": {
    "func_337518": "func_339440",
    "func_42DF10": "func_433CD0"
   },
+  "src/levels/10_hrugis_cloud/L10_00424448-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/levels/10_hrugis_cloud/L10_00424528-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0",
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0"
+  },
+  "src/levels/11_joba/L11_002CB130.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/levels/11_joba/L11_002DE9E0-decider.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
+  },
   "src/levels/11_joba/L11_003973F8-qcopy.c": {
    "func_300D78": "func_302218",
    "func_3224B0": "func_3242E8"
+  },
+  "src/levels/11_joba/L11_00412B20-g8.c": {
+   "TriggerSubtitleInCuboid": "func_L01_002EBFB8"
+  },
+  "src/levels/11_joba/L11_00415E70.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850"
+  },
+  "src/levels/11_joba/L11_00420C88-state-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/11_joba/L11_00425F10-g-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/11_joba/L11_0042F018-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/levels/11_joba/L11_00432628-dust.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
   },
   "src/levels/11_joba/L11_00432628.c": {
    "func_32C700": "func_32E598",
@@ -27515,11 +27958,18 @@
    "func_802F8AD0": "func_802F9AE0",
    "func_80338398": "func_8033A3A0"
   },
+  "src/levels/11_joba/L11_00435600-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/11_joba/L11_00436D08-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
   "src/levels/11_joba/L11_00436F80.c": {
    "func_373978": "func_375FC8",
    "func_3739C0": "func_376010"
   },
   "src/levels/11_joba/L11_0043E1A0-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850",
    "func_282E48": "func_301B58",
    "func_3004A8": "func_301948",
    "func_32C9E0": "func_32E898",
@@ -27528,7 +27978,17 @@
    "func_488268": "func_48ECE8",
    "func_4882F0": "func_48ED70"
   },
+  "src/levels/11_joba/L11_0043E1A0-main-g64.c": {
+   "func_L00_0030DD70": "func_L00_0030FBC0",
+   "global_object_start": "func_L00_004071F0",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0",
+   "load_scene_chunk": "func_L00_00305110",
+   "moby_try_alloc_enter_state2": "func_L02_00403FA0",
+   "tracked_moby_set_state": "func_L00_003E38E8"
+  },
   "src/levels/11_joba/L11_0043E1A0.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
    "func_2F8AD0": "func_2F9AE0",
    "func_300150": "func_3015F0",
    "func_31F338": "func_3210B8",
@@ -27536,6 +27996,26 @@
    "func_417238": "func_41BF80",
    "func_417270": "func_41BFB8",
    "func_4172E8": "func_41C030"
+  },
+  "src/levels/11_joba/L11_004425C8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
+  "src/levels/11_joba/L11_004427B8-g8.c": {
+   "func_L00_0030C7F8": "func_L00_0030E648",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
+  },
+  "src/levels/11_joba/L11_004465F8-aim-0044C850-g8.c": {
+   "func_L01_00321178": "func_L01_00323068",
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/11_joba/L11_004465F8-aim-004530E0-g8.c": {
+   "func_L01_00321178": "func_L01_00323068",
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/11_joba/L11_004465F8-aim-g8.c": {
+   "func_L01_00321178": "func_L01_00323068",
+   "moby_l01_turn_toward_target": "func_L01_00323068"
   },
   "src/levels/11_joba/L11_004465F8-g8.c": {
    "func_2FD7E8": "func_2FEC58",
@@ -27554,13 +28034,54 @@
    "func_3362A8": "func_3382B0",
    "func_338398": "func_33A3A0"
   },
+  "src/levels/11_joba/L11_004475A0-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
   "src/levels/11_joba/L11_00449330.c": {
    "func_31EA58": "func_32EC50"
+  },
+  "src/levels/11_joba/L11_0044AFC8-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/11_joba/L11_00451178-gu-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/11_joba/L11_00453358-state-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/11_joba/L11_00454F18-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/11_joba/L11_00456070-dust.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/11_joba/L11_004618C0-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/11_joba/L11_004618C0-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/11_joba/L11_004618C0-state-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
   },
   "src/levels/11_joba/L11_004618C0.c": {
    "func_803004A8": "func_80301948",
    "func_80300D98": "func_80302238",
    "func_80301000": "func_803024A0"
+  },
+  "src/levels/11_joba/L11_0046F8F0.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/11_joba/L11_00472E10-g8.c": {
+   "func_L00_002B9D60": "func_L00_002B9CD8",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/12_todano/L12_002B85E0-contact.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/levels/12_todano/L12_002CF7B0-decider.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
   },
   "src/levels/12_todano/L12_00388090-flags-g8.c": {
    "func_314008": "func_315DA0",
@@ -27577,7 +28098,14 @@
    "func_323F98": "func_325ED0",
    "func_3296A8": "func_32B5E8"
   },
+  "src/levels/12_todano/L12_00398E50-init-g8.c": {
+   "part_spawn_flying_fragment": "func_L02_0032D5F8"
+  },
+  "src/levels/12_todano/L12_00398E50-waypoint-g8.c": {
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
   "src/levels/12_todano/L12_00398E50.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0",
    "func_2F0A60": "func_2F1E78",
    "func_2F15C8": "func_2F29E0",
    "func_2F2950": "func_2F3D68",
@@ -27589,13 +28117,47 @@
    "func_32D988": "func_32F910",
    "func_364DF8": "func_367360"
   },
+  "src/levels/12_todano/L12_003E0BF0-g16.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/12_todano/L12_004149B8-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/12_todano/L12_004149B8.c": {
    "func_326F10": "func_328E50"
+  },
+  "src/levels/12_todano/L12_00417CA8-g16.c": {
+   "tracked_moby_set_state": "func_L00_003E38E8"
+  },
+  "src/levels/12_todano/L12_0041A790-g8.c": {
+   "global_object_start": "func_L00_004071F0",
+   "part_spawn_flying_fragment": "func_L02_0032D5F8",
+   "tracked_moby_set_state": "func_L00_003E38E8"
+  },
+  "src/levels/12_todano/L12_0041B2A8-g8.c": {
+   "global_object_start": "func_L00_004071F0",
+   "tracked_moby_set_state": "func_L00_003E38E8"
+  },
+  "src/levels/12_todano/L12_0041E3E8-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
   },
   "src/levels/12_todano/L12_00420838-flags-g8.c": {
    "func_314008": "func_315DA0",
    "func_3248E0": "func_31FFC0",
    "func_326C70": "func_322438"
+  },
+  "src/levels/12_todano/L12_004212C0-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/12_todano/L12_00424370-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/12_todano/L12_004285A8-g32.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328",
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/13_boldan/L13_00306F38-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
   },
   "src/levels/13_boldan/L13_00306F38.c": {
    "func_2AF870": "func_2AF6D0",
@@ -27605,6 +28167,18 @@
    "func_327D00": "func_329C78",
    "func_32A4D0": "func_32C540",
    "func_337400": "func_3395B0"
+  },
+  "src/levels/13_boldan/L13_0038C578-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/13_boldan/L13_0038C810-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/13_boldan/L13_0041F8B8-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/levels/13_boldan/L13_004230B0.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850"
   },
   "src/levels/14_aranos_prison/L14_00304190-g8.c": {
    "func_2EE5F0": "func_2EF7B8",
@@ -27627,6 +28201,7 @@
    "func_420B10": "func_425F30"
   },
   "src/levels/14_aranos_prison/L14_00304190.c": {
+   "EmitScaledObjectParticles": "func_L03_00328558",
    "func_2F5C38": "func_2F7208",
    "func_2F5C68": "func_2F7238",
    "func_2F5D68": "func_2F7338",
@@ -27655,11 +28230,20 @@
    "func_321F58": "func_323EB0",
    "func_328DA8": "func_32AE48"
   },
+  "src/levels/14_aranos_prison/L14_003F4F98-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/14_aranos_prison/L14_003F4F98-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850",
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0",
    "func_3030C0": "func_304670",
    "func_385CB8": "func_3889F8"
   },
+  "src/levels/14_aranos_prison/L14_003F4F98-zp-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
   "src/levels/14_aranos_prison/L14_003F4F98.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
    "func_2EF6D8": "func_2F08A0",
    "func_2F5C68": "func_2F7238",
    "func_2F5DB0": "func_2F7380",
@@ -27677,16 +28261,86 @@
    "func_803240F8": "func_80326050",
    "func_8032AA20": "func_8032CAC8"
   },
+  "src/levels/14_aranos_prison/L14_00428E68-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/15_gorn/L15_00315428-effects-g8.c": {
+   "moby_spawn_shot_effect": "func_L05_0041EA08"
+  },
+  "src/levels/15_gorn/L15_00315428-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/15_gorn/L15_00315428.c": {
    "func_802FFC98": "func_80300E60",
    "func_803068A0": "func_80307E40",
    "func_80329048": "func_8032AF48",
    "func_803804E8": "func_80382D08"
   },
+  "src/levels/15_gorn/L15_003DBB08.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/levels/15_gorn/L15_0042DCE0-g8.c": {
+   "LockedEntryMenuInput": "func_L05_00423A68",
+   "ship_save_transform_state": "func_L05_0044BEB8"
+  },
+  "src/levels/15_gorn/L15_0042E1B0-g8.c": {
+   "module_l00_call_handler_2": "func_0029C7F0"
+  },
+  "src/levels/15_gorn/L15_0042FD40-g8.c": {
+   "table_reset_working_values": "func_L05_0037FEB0"
+  },
+  "src/levels/15_gorn/L15_004307E0-qcopy-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/levels/15_gorn/L15_00430B30-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/levels/15_gorn/L15_00430DF0-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0",
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0"
+  },
+  "src/levels/15_gorn/L15_004328E8.c": {
+   "CreateEnergyStrip": "func_L10_003A0590"
+  },
+  "src/levels/16_snivelak/L16_002B3250.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/levels/16_snivelak/L16_002C6378-decider.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
+  },
   "src/levels/16_snivelak/L16_00403900.c": {
+   "part_start_record_effect_by_index": "func_L02_003294D8",
    "func_2E74B8": "func_2E8968",
    "func_2E7590": "func_2E8A40",
    "func_313EA0": "func_315CE0"
+  },
+  "src/levels/16_snivelak/L16_00417798-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/16_snivelak/L16_00417990-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/16_snivelak/L16_004192A8-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/levels/16_snivelak/L16_0041CB30.c": {
+   "global_object_start": "func_L00_004071F0",
+   "tracked_moby_set_state": "func_L00_003E38E8"
+  },
+  "src/levels/16_snivelak/L16_0041E370.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/17_smolg/L17_0032C070-hazard-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/17_smolg/L17_0032C070-lift-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850",
+   "func_L00_002D70A0": "func_L00_002D7850"
+  },
+  "src/levels/17_smolg/L17_0032C070-motion-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
   },
   "src/levels/17_smolg/L17_0032C070.c": {
    "func_2EEB28": "func_2F0120",
@@ -27695,6 +28349,12 @@
    "func_2F00B0": "func_2F16A8",
    "func_2F00C0": "func_2F16B8",
    "func_332E48": "func_335128"
+  },
+  "src/levels/17_smolg/L17_003C7C70-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/17_smolg/L17_003C7C70-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
   },
   "src/levels/17_smolg/L17_003C7C70.c": {
    "func_2DF570": "func_2DFD50",
@@ -27705,6 +28365,22 @@
    "func_31B160": "func_31D0E0",
    "func_320B58": "func_322BC0",
    "func_327E68": "func_329F38"
+  },
+  "src/levels/17_smolg/L17_003E31E8.c": {
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/levels/17_smolg/L17_003E7068-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/17_smolg/L17_0041E208-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/18_damosel/L18_002D01B0-contact.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/levels/18_damosel/L18_002E68B0-decider.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
   },
   "src/levels/18_damosel/L18_002E68B0.c": {
    "func_308860": "func_309D98",
@@ -27718,6 +28394,41 @@
    "func_3F80A0": "func_3FC158",
    "func_3F8A98": "func_3FCB78",
    "func_3F8C08": "func_3FCCE8"
+  },
+  "src/levels/18_damosel/L18_003F90A0-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/18_damosel/L18_003FB708.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/levels/18_damosel/L18_00433460-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/18_damosel/L18_00433460-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/18_damosel/L18_0043C778-g64.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/18_damosel/L18_0043CAF8-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/18_damosel/L18_00440718-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/18_damosel/L18_00441050-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/18_damosel/L18_00447128-g8.c": {
+   "lava_gun_update_blobs": "func_L00_0041F868",
+   "part_l00_update_effect_slots_2": "func_L00_00420D90"
+  },
+  "src/levels/19_grelbin/L19_002B5BF0-contact.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/levels/19_grelbin/L19_002CAAB0-fn.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
   },
   "src/levels/19_grelbin/L19_003E9400-g8.c": {
    "func_2EB590": "func_2EC8B0",
@@ -27740,7 +28451,72 @@
    "func_2EB590": "func_2EC8B0",
    "func_2EB5C0": "func_2EC8E0"
   },
+  "src/levels/19_grelbin/L19_00411EF0-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
+  "src/levels/19_grelbin/L19_004160A0-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850"
+  },
+  "src/levels/19_grelbin/L19_0041B078-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/levels/20_yeedil/L20_002B7A48.c": {
+   "UpdateHeroSlotCallbacks": "func_L00_002B1E88"
+  },
+  "src/levels/20_yeedil/L20_002C5D00-contact.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/levels/20_yeedil/L20_002D6488-timers-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/levels/20_yeedil/L20_002DEBE0-decider.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
+  },
+  "src/levels/20_yeedil/L20_002DEBE0-g8.c": {
+   "EmitScaledObjectParticles": "func_L03_00328558"
+  },
+  "src/levels/20_yeedil/L20_0039C448-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/20_yeedil/L20_0039CF58.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/20_yeedil/L20_003A0320-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/20_yeedil/L20_00408D98-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
+  "src/levels/20_yeedil/L20_0043D4D8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850"
+  },
+  "src/levels/20_yeedil/L20_0043ECB0.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/20_yeedil/L20_0043F570-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/20_yeedil/L20_00440598-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/levels/20_yeedil/L20_004421A8-g8.c": {
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/levels/20_yeedil/L20_00449178-state-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/22_dobbo_orbit/L22_002B7550.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/levels/22_dobbo_orbit/L22_00358778-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/22_dobbo_orbit/L22_00358778.c": {
+   "part_start_random_scale_effect": "func_L22_00413048",
    "func_2F36F0": "func_2F4BF8",
    "func_2F3720": "func_2F4C28",
    "func_2F3A80": "func_2F4F88",
@@ -27752,6 +28528,12 @@
    "func_32F330": "func_331360",
    "func_3300E8": "func_332118",
    "func_3A2988": "func_3A5CC8"
+  },
+  "src/levels/23_damosel_orbit/L23_002BBC50.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/levels/23_damosel_orbit/L23_0035CE90-f7-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
   },
   "src/levels/23_damosel_orbit/L23_0035CE90-g8.c": {
    "func_2F8EA8": "func_2FA3B0",
@@ -27772,8 +28554,36 @@
   "src/levels/23_damosel_orbit/L23_003C00D0.c": {
    "func_367150": "func_369770"
   },
+  "src/levels/23_damosel_orbit/L23_00416388-boss-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
   "src/levels/23_damosel_orbit/L23_00416388-g8.c": {
    "func_31A108": "func_31BF40"
+  },
+  "src/levels/23_damosel_orbit/L23_00416388-hud-g16.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0",
+   "module_l00_call_handler_2": "func_0029C7F0"
+  },
+  "src/levels/23_damosel_orbit/L23_00416388.c": {
+   "module_l00_call_handler": "func_L00_0030E780"
+  },
+  "src/levels/23_damosel_orbit/L23_004177F8-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0"
+  },
+  "src/levels/23_damosel_orbit/L23_0041E418.c": {
+   "cam_swingshot_update": "func_L00_0042DCD8"
+  },
+  "src/levels/23_damosel_orbit/L23_00422668.c": {
+   "part_start_random_scale_effect": "func_L22_00413048"
+  },
+  "src/levels/25_wupash_nebula/L25_00373ED0-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/levels/25_wupash_nebula/L25_00373ED0-hud-g8.c": {
+   "module_l00_call_handler_2": "func_0029C7F0"
+  },
+  "src/levels/30_insomniac_museum/L30_0032AAF0-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
   },
   "src/levels/30_insomniac_museum/L30_0032AAF0.c": {
    "func_2FB3C8": "func_2FC990",
@@ -27814,6 +28624,9 @@
    "func_326C10": "func_328BF0",
    "func_33A020": "func_33C328"
   },
+  "src/levels/shared/L00_002A4EF0.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
+  },
   "src/levels/shared/L00_002A6420-g8.c": {
    "func_2A5368": "func_2A51F8",
    "func_2A5840": "func_2A56D0",
@@ -27831,10 +28644,30 @@
    "func_319684": "func_31B5BC",
    "func_35F3A8": "func_361A50"
   },
+  "src/levels/shared/L00_002B2120.c": {
+   "UpdateHeroSlotCallbacks": "func_L00_002B1E88"
+  },
+  "src/levels/shared/L00_002B2CC8-interact.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/levels/shared/L00_002B91C0.c": {
+   "global_object_start": "func_L00_004071F0",
+   "tracked_moby_set_state": "func_L00_003E38E8"
+  },
+  "src/levels/shared/L00_002C2DE8-timers-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/levels/shared/L00_002CB3A8-decider.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
+  },
   "src/levels/shared/L00_002D3400.c": {
    "func_2EE0D0": "func_2EF6A0",
    "func_2EE108": "func_2EF6D8",
    "func_2EE5D8": "func_2EFBA8"
+  },
+  "src/levels/shared/L00_002D3798-g8.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
   },
   "src/levels/shared/L00_002D7940.c": {
    "func_2EDD48": "func_2EF318"
@@ -27842,16 +28675,47 @@
   "src/levels/shared/L00_002F4400.c": {
    "func_2F4490": "func_2F5AD8"
   },
+  "src/levels/shared/L00_002FC7A0.c": {
+   "func_L00_00303530": "func_L00_00305110"
+  },
   "src/levels/shared/L00_00316F60-g8.c": {
    "func_2EE138": "func_2EF708",
    "func_2EE268": "func_2EF838",
    "func_2EE5B0": "func_2EFB80"
   },
+  "src/levels/shared/L00_00316F60.c": {
+   "func_L00_00321878": "func_L00_00323918",
+   "func_L00_0032A258": "func_L00_0032C328"
+  },
+  "src/levels/shared/L00_00326110.c": {
+   "part_spawn_bolt_pickups": "func_L00_00323918"
+  },
+  "src/levels/shared/L00_0032A258-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/shared/L00_0032A530-g.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/levels/shared/L00_00358B30-g8.c": {
+   "load_scene_chunk": "func_L00_00305110"
+  },
   "src/levels/shared/L00_00358D98.c": {
    "func_3747B0": "func_377280"
   },
+  "src/levels/shared/L00_0036F488-g8.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
+  },
+  "src/levels/shared/L00_0037DD80-g8.c": {
+   "func_L00_0037E5F0": "func_L00_00381328"
+  },
+  "src/levels/shared/L00_0037DD80.c": {
+   "func_L00_0037E5F0": "func_L00_00381328"
+  },
   "src/levels/shared/L00_0037E668.c": {
    "func_32B2C8": "func_32D3B8"
+  },
+  "src/levels/shared/L00_00382910.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
   },
   "src/levels/shared/L00_0038F178.c": {
    "func_2EF0F8": "func_2F06C8",
@@ -27895,10 +28759,19 @@
    "func_31A658": "func_31C5B0",
    "func_37CB80": "func_37F8B8"
   },
+  "src/levels/shared/L00_003B8420.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850"
+  },
+  "src/levels/shared/L00_003B9CB8-g16-qcopy.c": {
+   "part_spawn_bolt_pickups": "func_L00_00323918"
+  },
   "src/levels/shared/L00_003B9CB8.c": {
    "func_2EF0F8": "func_2F06C8",
    "func_323448": "func_3254F0",
    "func_323958": "func_325A00"
+  },
+  "src/levels/shared/L00_003C3418-g16.c": {
+   "moby_fire_shot": "func_L00_003C7548"
   },
   "src/levels/shared/L00_003EA0E0.c": {
    "func_2E67A0": "func_2E7968",
@@ -27927,6 +28800,10 @@
    "func_31A658": "func_31C5B0",
    "func_31D8A0": "func_31F848"
   },
+  "src/levels/shared/L00_00419C98-g8.c": {
+   "lava_gun_update_blobs": "func_L00_0041F868",
+   "part_l00_update_effect_slots_2": "func_L00_00420D90"
+  },
   "src/levels/shared/L00_0041ABB8-g8.c": {
    "func_2EE0D0": "func_2EF6A0",
    "func_3411A0": "func_3436B0"
@@ -27938,7 +28815,16 @@
    "func_2A48F0": "func_2A4750",
    "func_42C290": "func_431800"
   },
+  "src/levels/shared/L01_002A7248-cam.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/shared/L01_002A7248-timers-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
   "src/levels/shared/L01_002A7248.c": {
+   "UpdateHeroSlotCallbacks": "func_L00_002B1E88",
+   "func_L01_002EABA8": "func_L01_002EBFB8",
+   "func_L01_00318638": "func_L01_0031A4D0",
    "func_311B48": "func_313898",
    "func_3163C8": "func_318260",
    "func_3164A0": "func_318338",
@@ -27955,6 +28841,60 @@
    "func_2C7CA8": "func_2C7EF0",
    "func_2C8628": "func_2C8898",
    "func_30F444": "func_311174"
+  },
+  "src/levels/shared/L01_002B3788-contact.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/levels/shared/L01_00318638-qcopy-barrier.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/shared/L01_00397110-carry.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
+  "src/levels/shared/L01_00397110-collect-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/shared/L01_00397110-init-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/shared/L01_00397110.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
+  "src/levels/shared/L01_003D4270-unsplit.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850"
+  },
+  "src/levels/shared/L01_003DCD40-qcopy.c": {
+   "enemy_update_wander_heading": "func_L01_0031A4D0",
+   "func_L01_00318638": "func_L01_0031A4D0"
+  },
+  "src/levels/shared/L01_003DCDD8-qcopy.c": {
+   "func_L01_00321178": "func_L01_00323068",
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/shared/L02_002B5F50-g8.c": {
+   "func_L00_0032A258": "func_L00_0032C328",
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/shared/L02_002B5F50.c": {
+   "func_L02_0032B468": "func_L02_0032D5F8",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/shared/L02_003C43F0-g8.c": {
+   "part_start_record_effect_by_index": "func_L02_003294D8"
+  },
+  "src/levels/shared/L02_003C43F0.c": {
+   "UpdateRotatingBouncingEffect": "func_L00_003E1488",
+   "fade_reduce_value": "func_L00_00381328",
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/shared/L02_00410450-controller-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
+  "src/levels/shared/L02_0043F4C8-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
   },
   "src/levels/shared/L03_002AB5C8-g8.c": {
    "func_2EEFB0": "func_2F0548",
@@ -27973,6 +28913,9 @@
    "func_331270": "func_333578",
    "func_419B10": "func_41ED48"
   },
+  "src/levels/shared/L03_003268C0.c": {
+   "part_spawn_flying_fragment": "func_L02_0032D5F8"
+  },
   "src/levels/shared/L04_002CC748-g8.c": {
    "func_3074C8": "func_308588",
    "func_3076D0": "func_308790",
@@ -27981,9 +28924,13 @@
    "func_310060": "func_311618"
   },
   "src/levels/shared/L04_002CC748.c": {
+   "fade_reduce_value": "func_L00_00381328",
    "func_30F3A0": "func_310958",
    "func_30F3B8": "func_310970",
    "func_30FE40": "func_3113F8"
+  },
+  "src/levels/shared/L04_00402D90-reset-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
   },
   "src/levels/shared/L04_00402D90.c": {
    "func_40E248": "func_412888"
@@ -27995,11 +28942,21 @@
    "func_345860": "func_45C4A0",
    "func_382DF8": "func_3854B0"
   },
+  "src/levels/shared/L04_00419918-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
   "src/levels/shared/L04_00423178-flags-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0",
    "func_3325E0": "func_3344C8"
   },
   "src/levels/shared/L04_00434AD0-flags-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0",
    "func_3325E0": "func_3344C8"
+  },
+  "src/levels/shared/L05_0037AC80.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
   },
   "src/levels/shared/L05_0037B6D0-g8.c": {
    "func_379CA0": "func_37C3F0",
@@ -28058,7 +29015,11 @@
    "func_332AB8": "func_334990"
   },
   "src/levels/shared/L05_003D33E8.c": {
+   "func_L05_0041ED18": "func_L05_00423A68",
    "func_332AB8": "func_334990"
+  },
+  "src/levels/shared/L05_0041C1F0-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0"
   },
   "src/levels/shared/L05_00428350.c": {
    "func_2FC560": "func_2FD208",
@@ -28070,12 +29031,45 @@
    "func_328508": "func_32A360",
    "func_32AF08": "func_32CDA8"
   },
+  "src/levels/shared/L05_0042BDB0-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/shared/L05_00441F30-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
   "src/levels/shared/L05_00443C18.c": {
    "func_306630": "func_307B50",
    "func_3066A0": "func_307BC0"
   },
+  "src/levels/shared/L05_00443D08-g8.c": {
+   "moby_spawn_shot_effect": "func_L05_0041EA08"
+  },
+  "src/levels/shared/L06_0035EA68.c": {
+   "func_L06_0035EA68": "func_L06_00360A78"
+  },
+  "src/levels/shared/L06_00403710-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/shared/L07_002B3580-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
   "src/levels/shared/L07_002B3580.c": {
    "func_338D68": "func_33B0E0"
+  },
+  "src/levels/shared/L07_00416510-g8.c": {
+   "lava_gun_update_blobs": "func_L00_0041F868",
+   "part_l00_update_effect_slots_2": "func_L00_00420D90"
+  },
+  "src/levels/shared/L08_003CDF98-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/levels/shared/L08_003D3928-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850",
+   "func_L00_002D70A0": "func_L00_002D7850"
+  },
+  "src/levels/shared/L08_003F6610-g8.c": {
+   "mine_fall": "func_L06_00360A78"
   },
   "src/levels/shared/L08_0040F9D0-qcopy.c": {
    "func_2B71F0": "func_2B70D0",
@@ -28084,12 +29078,36 @@
    "func_3279B8": "func_329828",
    "func_3AE870": "func_3B1E58"
   },
+  "src/levels/shared/L09_003B6550-zp-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/shared/L09_003F7CE0-g8.c": {
+   "part_spawn_flying_fragment": "func_L02_0032D5F8"
+  },
   "src/levels/shared/L09_003F9468-g8.c": {
    "func_31F728": "func_321718",
    "func_31F7E0": "func_3217D0"
   },
   "src/levels/shared/L09_003F9468.c": {
    "func_33E658": "func_340B38"
+  },
+  "src/levels/shared/L10_004235A0-g8.c": {
+   "ship_save_transform_state": "func_L05_0044BEB8",
+   "table_reset_working_values": "func_L05_0037FEB0"
+  },
+  "src/levels/shared/L10_00423698-g8.c": {
+   "ship_save_transform_state": "func_L05_0044BEB8",
+   "table_reset_working_values": "func_L05_0037FEB0"
+  },
+  "src/levels/shared/L12_003E20F0-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/shared/L12_003E2460-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/shared/L13_002D5ED8-decider.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
   },
   "src/levels/shared/L13_002D5ED8-g8.c": {
    "func_31A718": "func_31C5E8",
@@ -28098,13 +29116,80 @@
    "func_333240": "func_3352E0",
    "func_3F8C68": "func_3FCFA0"
   },
+  "src/levels/shared/L13_002D5ED8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/levels/shared/L13_00406F18-ai.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/shared/L13_0040A720-ai.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/shared/L13_0041B670-g16.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/shared/L15_00430C80-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/levels/shared/L16_002B5EE0-state-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0"
+  },
+  "src/levels/shared/L16_0040BED0.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850"
+  },
   "src/levels/shared/L17_00326F38.c": {
    "func_2EEEB8": "func_2F04B0",
    "func_2EEF40": "func_2F0538",
    "func_2EF398": "func_2F0990"
   },
+  "src/levels/shared/L17_0041A4C0-state-g8.c": {
+   "func_L00_0032A258": "func_L00_0032C328",
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/shared/L18_002C4000-move.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/shared/L18_002C4000-switch-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850",
+   "func_L00_002D70A0": "func_L00_002D7850"
+  },
+  "src/levels/shared/L18_002C4000-timers-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/levels/shared/L18_002CFD68-qcopy.c": {
+   "UpdateHeroSlotCallbacks": "func_L00_002B1E88"
+  },
+  "src/levels/shared/L18_00427BE0-burst-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/shared/L18_00427BE0-wander-g8.c": {
+   "enemy_update_wander_heading": "func_L01_0031A4D0",
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
   "src/levels/shared/L18_00427BE0.c": {
    "func_3DB8F8": "func_3DF4B0"
+  },
+  "src/levels/shared/L18_0043FB08-zp.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/levels/shared/L19_003DCCC8-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/levels/shared/L19_003DFD68.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/levels/shared/L19_00422A98-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850"
+  },
+  "src/levels/shared/L22_002A8B98-timers-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/levels/shared/L22_002A8B98.c": {
+   "UpdateHeroSlotCallbacks": "func_L00_002B1E88"
+  },
+  "src/levels/shared/L22_002D0C98-decider.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
   },
   "src/levels/shared/L22_002D0C98-g8.c": {
    "func_2F3A80": "func_2F4F88",
@@ -28125,6 +29210,13 @@
    "func_332F58": "func_335120",
    "func_3330A8": "func_335270",
    "func_383120": "func_385ED0"
+  },
+  "src/levels/shared/L22_0039D708-main-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/levels/shared/L22_003A5018-hud-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0",
+   "module_l00_call_handler_2": "func_0029C7F0"
   },
   "src/pal/levels/00_aranos_tutorial/L00_004138A0-f7-g8.c": {
    "func_L00_002B9D60": "func_L00_002B9CD8"
@@ -28769,6 +29861,12 @@
   "src/pal/levels/20_yeedil/L20_00445F90.c": {
    "moby_l01_turn_toward_target": "func_L01_00323068"
   },
+  "src/pal/levels/22_dobbo_orbit/L22_002BF0A8-hero.c": {
+   "PH_G1": "func_002836E0",
+   "PH_G2": "func_002AAD50",
+   "PH_G3": "func_00283A40",
+   "PH_G4": "func_00283A58"
+  },
   "src/pal/levels/22_dobbo_orbit/L22_00414080-f7-g8.c": {
    "func_L00_002B9D60": "func_L00_002B9CD8"
   },
@@ -29065,9 +30163,83 @@
    "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0",
    "module_l00_call_handler_2": "func_0029C7F0"
   },
+  "src/us2/game/0029C648-g8.c": {
+   "func_L00_0030CF60": "func_0029C7F0"
+  },
+  "src/us2/levels/00_aranos_tutorial/L00_0040FFA0-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/01_oozla/L01_002C3B08-sw.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/01_oozla/L01_003A6FB8-cc-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/us2/levels/01_oozla/L01_003C1DB8-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850",
+   "hero_record_play_counters": "func_L00_002B3000",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
   "src/us2/levels/01_oozla/L01_003D01F8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
    "func_3120A8": "func_313DF8",
    "func_355780": "func_357C28"
+  },
+  "src/us2/levels/01_oozla/L01_003D42B0-sw.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/01_oozla/L01_00412040-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/01_oozla/L01_004179C0-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/02_maktar_nebula/L02_003CC648-sw.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/us2/levels/02_maktar_nebula/L02_003D4348-sw.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/us2/levels/02_maktar_nebula/L02_003D9188-sw.c": {
+   "part_spawn_flying_fragment": "func_L02_0032D5F8"
+  },
+  "src/us2/levels/02_maktar_nebula/L02_003E8D50.c": {
+   "func_L00_00321878": "func_L00_00323918",
+   "part_spawn_bolt_pickups": "func_L00_00323918"
+  },
+  "src/us2/levels/02_maktar_nebula/L02_003FB1B0-sw.c": {
+   "global_object_start": "func_L00_004071F0",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110",
+   "moby_try_alloc_enter_state2": "func_L02_00403FA0",
+   "tracked_moby_set_state": "func_L00_003E38E8"
+  },
+  "src/us2/levels/02_maktar_nebula/L02_003FE240-g8.c": {
+   "func_L00_0030C7F8": "func_L00_0030E648",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030E648"
+  },
+  "src/us2/levels/02_maktar_nebula/L02_003FF768-cc.c": {
+   "func_L00_002B9D60": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/02_maktar_nebula/L02_0043B510-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/03_endako/L03_002B8910.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/us2/levels/03_endako/L03_002BFAF8-sw3.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/03_endako/L03_002FEB58.c": {
+   "EmitScaledObjectParticles": "func_L03_00328558"
+  },
+  "src/us2/levels/03_endako/L03_003C8030-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/03_endako/L03_003CC9A0-sw.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
   },
   "src/us2/levels/03_endako/L03_003D3700.c": {
    "func_2B8510": "func_2B8428",
@@ -29076,6 +30248,38 @@
    "func_313378": "func_3152D0",
    "func_32F140": "func_331398",
    "func_359FD0": "func_35C570"
+  },
+  "src/us2/levels/03_endako/L03_0041D510-sw.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/us2/levels/03_endako/L03_0041F9B0-sw-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/us2/levels/04_barlow/L04_002EDF10-sw.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/04_barlow/L04_003E38E8-sw.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/us2/levels/04_barlow/L04_004362F0-sw-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/04_barlow/L04_0043B090-sw.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/05_feltzin_system/L05_00315A58.c": {
+   "moby_spawn_shot_effect": "func_L05_0041EA08"
+  },
+  "src/us2/levels/05_feltzin_system/L05_00416530-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/05_feltzin_system/L05_0041EFBC-g8.c": {
+   "ship_save_transform_state": "func_L05_0044BEB8"
+  },
+  "src/us2/levels/05_feltzin_system/L05_0041F478-g8.c": {
+   "func_L00_0030CF60": "func_0029C7F0"
   },
   "src/us2/levels/05_feltzin_system/L05_00421A98-g8.c": {
    "func_328870": "func_32A6F0",
@@ -29088,13 +30292,129 @@
    "func_442860": "func_448AB0",
    "func_445A98": "func_44BEB8"
   },
+  "src/us2/levels/05_feltzin_system/L05_00422838-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/us2/levels/05_feltzin_system/L05_00422BB0-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/us2/levels/05_feltzin_system/L05_00422BB0-g82.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/us2/levels/05_feltzin_system/L05_00422BB0-g83.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/us2/levels/06_notak/L06_004318A0-sw-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/06_notak/L06_004571C8-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/06_notak/L06_00458A00-g8.c": {
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/us2/levels/07_siberius/L07_002C3F00-sw.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/07_siberius/L07_003EBC40-sw-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/us2/levels/07_siberius/L07_003F83E8-sw-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/07_siberius/L07_00409480-flags.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/us2/levels/08_tabora/L08_002D9410-sw.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/08_tabora/L08_003DB3BC-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/us2/levels/08_tabora/L08_003F82AC-g8.c": {
+   "TriggerSubtitleInCuboid": "func_L01_002EBFB8",
+   "func_L01_002EABA8": "func_L01_002EBFB8",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
   "src/us2/levels/08_tabora/L08_0040FF80.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
    "func_2F9A60": "func_2FAE40",
    "func_2FA3C8": "func_2FB7A8",
    "func_2FA3E0": "func_2FB7C0",
    "func_327898": "func_329708",
    "func_3278F0": "func_329760",
    "func_3357E8": "func_3378E0"
+  },
+  "src/us2/levels/09_dobbo/L09_002C99F8-sw.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/09_dobbo/L09_00409904-sw.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/10_hrugis_cloud/L10_00318158.c": {
+   "moby_spawn_shot_effect": "func_L05_0041EA08"
+  },
+  "src/us2/levels/10_hrugis_cloud/L10_00416FF0-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/10_hrugis_cloud/L10_00422824-g8.c": {
+   "ship_save_transform_state": "func_L05_0044BEB8"
+  },
+  "src/us2/levels/10_hrugis_cloud/L10_00422CA8-cc-g8.c": {
+   "func_L00_0030CF60": "func_0029C7F0",
+   "func_L00_0030DD70": "func_L00_0030FBC0"
+  },
+  "src/us2/levels/10_hrugis_cloud/L10_00425CD8-g8.c": {
+   "CreateEnergyStrip": "func_L10_003A0590",
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/us2/levels/10_hrugis_cloud/L10_00426130-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/us2/levels/10_hrugis_cloud/L10_00426260-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/us2/levels/11_joba/L11_002CB338-flags.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/us2/levels/11_joba/L11_002DED18-sw.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/11_joba/L11_00422488-cc-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/us2/levels/11_joba/L11_00427728-sw.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/us2/levels/11_joba/L11_00430848-sw.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/us2/levels/11_joba/L11_0043F9DC-main-g64.c": {
+   "func_L00_0030DD70": "func_L00_0030FBC0",
+   "global_object_start": "func_L00_004071F0",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0",
+   "load_scene_chunk": "func_L00_00305110",
+   "moby_try_alloc_enter_state2": "func_L02_00403FA0",
+   "tracked_moby_set_state": "func_L00_003E38E8"
+  },
+  "src/us2/levels/11_joba/L11_00452BAC-gu-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/us2/levels/11_joba/L11_00463368-sw.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/11_joba/L11_0046F118-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/12_todano/L12_002B86E8.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/us2/levels/12_todano/L12_002CF9E0-sw.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
   },
   "src/us2/levels/12_todano/L12_003B6518-sw.c": {
    "func_2F15C8": "func_2F29E0",
@@ -29103,17 +30423,193 @@
    "func_32D988": "func_32F910",
    "func_364DF8": "func_367360"
   },
+  "src/us2/levels/12_todano/L12_003E0D78-sw-g8.c": {
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/us2/levels/12_todano/L12_00418AE8-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/12_todano/L12_00429A10-sw.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328",
+   "part_spawn_scaled_bolts": "func_L00_003281C0"
+  },
+  "src/us2/levels/13_boldan/L13_0041CAFC-g16.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/13_boldan/L13_0041E1E0-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/14_aranos_prison/L14_00305238.c": {
+   "EmitScaledObjectParticles": "func_L03_00328558"
+  },
+  "src/us2/levels/14_aranos_prison/L14_00423180-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/14_aranos_prison/L14_004284F4-g8.c": {
+   "func_L00_0030DD70": "func_L00_0030FBC0"
+  },
+  "src/us2/levels/15_gorn/L15_00316058-effects-g8.c": {
+   "moby_spawn_shot_effect": "func_L05_0041EA08"
+  },
+  "src/us2/levels/15_gorn/L15_003DCFF8-sw.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/us2/levels/15_gorn/L15_004208A0-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/15_gorn/L15_0042F288-g8.c": {
+   "ship_save_transform_state": "func_L05_0044BEB8"
+  },
+  "src/us2/levels/15_gorn/L15_0042F6D0-cc-g8.c": {
+   "func_L00_0030CF60": "func_0029C7F0"
+  },
+  "src/us2/levels/15_gorn/L15_00432488-qcopy-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/us2/levels/15_gorn/L15_00432858-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/us2/levels/15_gorn/L15_004329F0-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/us2/levels/15_gorn/L15_00432BA8-g8.c": {
+   "entry_spawn_list_objects_with_flag": "func_L05_0037D9D0"
+  },
+  "src/us2/levels/16_snivelak/L16_002B3358-cc.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/us2/levels/16_snivelak/L16_002BA0F8-sw3.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/16_snivelak/L16_004179E8-sw-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/17_smolg/L17_003C48B0-sw-g8.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850"
+  },
+  "src/us2/levels/17_smolg/L17_003E47A8.c": {
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/us2/levels/17_smolg/L17_00419430-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/17_smolg/L17_0041F898-sw-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/17_smolg/L17_00420138-cc-g8.c": {
+   "part_explode_object_into_pieces": "func_L00_0032C328"
+  },
+  "src/us2/levels/18_damosel/L18_002D02B8.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/us2/levels/18_damosel/L18_002E6B50-sw.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/18_damosel/L18_003FA510-sw-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/18_damosel/L18_00438070-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/18_damosel/L18_00441C08-sw-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/19_grelbin/L19_002B5CF8.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/us2/levels/19_grelbin/L19_002CACE8-sw.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/19_grelbin/L19_004131DC-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
+  "src/us2/levels/19_grelbin/L19_004173C0-sw.c": {
+   "cam_alloc_override_slot": "func_L00_002D7850"
+  },
+  "src/us2/levels/19_grelbin/L19_0041C3A8-sw.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068",
+   "moby_move_to_target_temp_limits": "func_L02_00333638"
+  },
+  "src/us2/levels/19_grelbin/L19_00424878-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/20_yeedil/L20_002C5B50.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/us2/levels/20_yeedil/L20_002DEE88-sw.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/20_yeedil/L20_00311A60-g8.c": {
+   "EmitScaledObjectParticles": "func_L03_00328558"
+  },
+  "src/us2/levels/20_yeedil/L20_0043A530-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/20_yeedil/L20_00440B08-sw-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/us2/levels/20_yeedil/L20_00441AD8-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/22_dobbo_orbit/L22_002B7658.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/us2/levels/22_dobbo_orbit/L22_004106C0-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/23_damosel_orbit/L23_002BBD58.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/us2/levels/23_damosel_orbit/L23_00416E88-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/23_damosel_orbit/L23_00417888-sw-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/23_damosel_orbit/L23_00418CF8-cc-g8.c": {
+   "func_L00_0030DD70": "func_L00_0030FBC0"
+  },
+  "src/us2/levels/23_damosel_orbit/L23_0041C978.c": {
+   "module_l00_call_handler": "func_L00_0030E780"
+  },
+  "src/us2/levels/23_damosel_orbit/L23_0041EF48-cc.c": {
+   "func_L00_0030CF60": "func_0029C7F0",
+   "func_L00_0030DD70": "func_L00_0030FBC0"
+  },
+  "src/us2/levels/25_wupash_nebula/L25_0040E7A8-cc-g8.c": {
+   "func_L00_0030CF60": "func_0029C7F0"
+  },
   "src/us2/levels/30_insomniac_museum/L30_00385A08.c": {
    "func_2FB3C8": "func_2FC990",
    "func_3132D8": "func_315090"
+  },
+  "src/us2/levels/30_insomniac_museum/L30_003B4E94-sw-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/30_insomniac_museum/L30_0040D208-g16.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
   },
   "src/us2/levels/30_insomniac_museum/L30_00413C18-g8.c": {
    "func_2F0670": "func_2F1858",
    "func_302298": "func_3037B0",
    "func_37BB30": "func_37E788"
   },
+  "src/us2/levels/shared/L00_002B2DD0.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/us2/levels/shared/L00_002CB650-sw.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/shared/L00_002D6258-g8.c": {
+   "func_L00_0030C7F8": "func_L00_0030E648"
+  },
   "src/us2/levels/shared/L00_00375A30.c": {
    "func_3747B0": "func_377280"
+  },
+  "src/us2/levels/shared/L00_003C3BE8-g16-qcopy.c": {
+   "part_spawn_bolt_pickups": "func_L00_00323918"
   },
   "src/us2/levels/shared/L01_002A8D48.c": {
    "func_2A7740": "func_2A75D0",
@@ -29127,10 +30623,79 @@
    "func_2C8628": "func_2C8898",
    "func_30F444": "func_311174"
   },
+  "src/us2/levels/shared/L01_002B3990.c": {
+   "fade_reduce_value": "func_L00_00381328"
+  },
+  "src/us2/levels/shared/L01_00395620.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/shared/L01_00398790-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/shared/L01_0040153C.c": {
+   "func_L00_002B9D60": "func_L00_002B9CD8",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
+  "src/us2/levels/shared/L02_00405B58-g8.c": {
+   "part_start_record_effect_by_index": "func_L02_003294D8"
+  },
+  "src/us2/levels/shared/L02_00411B98-sw-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
   "src/us2/levels/shared/L04_002D93C0-flags.c": {
+   "fade_reduce_value": "func_L00_00381328",
    "func_30F3A0": "func_310958",
    "func_30F3B8": "func_310970",
    "func_30FE40": "func_3113F8"
+  },
+  "src/us2/levels/shared/L04_0040BE48-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/shared/L04_0041B01C-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000",
+   "hero_reset_position_and_direction": "func_L00_002B9CD8",
+   "load_scene_chunk": "func_L00_00305110"
+  },
+  "src/us2/levels/shared/L05_0042DB38-cc-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/shared/L08_003CF3E8-cc-g8.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/shared/L08_003F7AB0-g8.c": {
+   "mine_fall": "func_L06_00360A78"
+  },
+  "src/us2/levels/shared/L10_00425108-g8.c": {
+   "ship_save_transform_state": "func_L05_0044BEB8",
+   "table_reset_working_values": "func_L05_0037FEB0"
+  },
+  "src/us2/levels/shared/L10_004251D0-g8.c": {
+   "ship_save_transform_state": "func_L05_0044BEB8",
+   "table_reset_working_values": "func_L05_0037FEB0"
+  },
+  "src/us2/levels/shared/L12_003E3838-cc-g8.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/us2/levels/shared/L13_002C58E8-sw3.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/shared/L13_00408480-sw.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/us2/levels/shared/L13_0040BC84-ai.c": {
+   "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/us2/levels/shared/L19_003DEC48-sw-g8.c": {
+   "hero_reset_position_and_direction": "func_L00_002B9CD8"
+  },
+  "src/us2/levels/shared/L22_002D0F48-sw.c": {
+   "hero_record_play_counters": "func_L00_002B3000"
+  },
+  "src/us2/levels/shared/L22_003A6448-hud-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030FBC0",
+   "module_l00_call_handler_2": "func_0029C7F0"
   }
  },
  "values": {

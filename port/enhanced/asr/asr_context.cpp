@@ -254,11 +254,15 @@ bool AsrContext::dispatch(
     };
     arm::FfxmErrorCode result = arm::FFXM_OK;
     // The renderer lends the command buffer and images only for this synchronous dispatch.
-    const bool recorded =
-        vkgl::temporal_compute("ASR temporal reconstruction", uses, [&](auto command, auto images) {
+    const bool recorded = vkgl::temporal_compute(
+        "ASR temporal reconstruction",
+        uses,
+        [&](auto command, auto images) {
             result = m_state->record(command, images, frame);
             return result == arm::FFXM_OK;
-        });
+        },
+        vkgl::TemporalNativePipeline::GraphicsAndCompute
+    );
 
     if (!recorded) {
         error = "cannot dispatch Arm ASR temporal upscaling: " + std::to_string(result);

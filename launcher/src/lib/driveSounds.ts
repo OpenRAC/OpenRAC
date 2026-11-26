@@ -21,8 +21,10 @@ const TAU = Math.PI * 2;
 /** A seeded random source, -1 to 1. */
 function random(seed: number) {
   let s = seed;
+
   return () => {
     s = (s * 16807) % 2147483647;
+
     return (s / 2147483647) * 2 - 1;
   };
 }
@@ -35,10 +37,13 @@ function resonator(rate: number, hz: number, decay: number) {
   const g = 1 - r;
   let y1 = 0,
     y2 = 0;
+
   return (x: number) => {
     const y = g * x + a1 * y1 + a2 * y2;
+
     y2 = y1;
     y1 = y;
+
     return y;
   };
 }
@@ -49,15 +54,18 @@ function bandpass(rate: number, q: number) {
     x2 = 0,
     y1 = 0,
     y2 = 0;
+
   return (x: number, hz: number) => {
     const w = (TAU * Math.min(hz, rate * 0.45)) / rate;
     const alpha = Math.sin(w) / (2 * q);
     const a0 = 1 + alpha;
     const y = (alpha * x - alpha * x2 - -2 * Math.cos(w) * y1 - (1 - alpha) * y2) / a0;
+
     x2 = x1;
     x1 = x;
     y2 = y1;
     y1 = y;
+
     return y;
   };
 }
@@ -66,15 +74,19 @@ function bandpass(rate: number, q: number) {
 function lowpass(rate: number, hz: number) {
   const a = Math.exp((-TAU * hz) / rate);
   let y = 0;
+
   return (x: number) => (y = (1 - a) * x + a * y);
 }
 
 /** A bank of resonators struck together: a piece of plastic, or of metal, ringing. */
 function body(rate: number, modes: [number, number, number][]) {
   const rs = modes.map(([hz, decay]) => resonator(rate, hz, decay));
+
   return (x: number) => {
     let y = 0;
+
     for (let i = 0; i < rs.length; i++) y += (rs[i]?.(x) ?? 0) * (modes[i]?.[2] ?? 0);
+
     return y;
   };
 }
@@ -82,6 +94,7 @@ function body(rate: number, modes: [number, number, number][]) {
 /** Peak to `peak`, so each sound has its own loudness whatever its parts add up to. */
 function normalise(data: Float32Array, peak: number) {
   let most = 0;
+
   for (const v of data) most = Math.max(most, Math.abs(v));
   if (most > 0) for (let i = 0; i < data.length; i++) data[i] = ((data[i] ?? 0) * peak) / most;
 }
@@ -120,19 +133,23 @@ export function seatSamples(rate: number, lead = 0.05): Float32Array {
   ]);
   let hit: [number, number, number] = [0, 0, 0];
   let left = 0;
+
   for (let i = 0; i < out.length; i++) {
     const t = i / rate - lead;
     const s = strikes.get(i);
+
     if (s) {
       hit = s;
       left = Math.round(rate * 0.0012);
     }
+
     // A strike: a burst of noise a little over a millisecond long.
     const n = rnd();
     const e = left-- > 0 ? n : 0;
     // The hub sliding down the spindle just before it lands: a short rising whisper.
     const sliding = t < 0 && t > -lead ? (1 + t / lead) ** 2 * 0.05 : 0;
     const thump = t >= 0 ? Math.sin(TAU * 95 * t) * Math.exp(-t / 0.025) * 0.5 : 0;
+
     out[i] =
       disc(e * hit[0]) * 2.2 +
       tray(e * hit[1]) * 2.6 +
@@ -140,7 +157,9 @@ export function seatSamples(rate: number, lead = 0.05): Float32Array {
       slide(n * sliding, 2600 + 3000 * (1 + t / lead)) +
       thump;
   }
+
   normalise(out, 0.6);
+
   return out;
 }
 
@@ -175,11 +194,14 @@ export function spinSamples(rate: number, seconds: number): Float32Array {
   const jumps = [0.04, 0.11];
   const sled: [number, number][] = [[0.16, 0.42]];
   const reads: number[] = [];
+
   for (let t = 0.34, k = 0; t < seconds - 0.4; k++) {
     reads.push(t);
     t += 0.035 + ((((Math.sin(k * 12.9898) * 43758.5453) % 1) + 1) % 1) * 0.07;
   }
+
   const strikes = new Map<number, [number, number]>();
+
   jumps.forEach((t, k) => strikes.set(Math.round(t * rate), [0, k ? 0.7 : 1]));
   sled.forEach(([, stop]) => strikes.set(Math.round(stop * rate), [0.8, 0]));
   reads.forEach((t, k) => strikes.set(Math.round(t * rate), [0.12 + 0.08 * ((k * 7) % 3), 0]));
@@ -189,16 +211,19 @@ export function spinSamples(rate: number, seconds: number): Float32Array {
     sledPhase = 0,
     left = 0;
   let hit: [number, number] = [0, 0];
+
   for (let i = 0; i < n; i++) {
     const t = i / rate;
     // Turns a second: up towards 38 (a little over 2,000 rpm), quickly at first.
     const fr = 38 * (1 - Math.exp(-Math.max(0, t - 0.06) / 0.38));
     const speed = fr / 38;
+
     turn += (TAU * fr) / rate;
     // The motor's hum: 6 steps a turn, and its harmonics, louder as it pulls harder.
     phase += (TAU * 6 * fr) / rate;
     const pull = 0.4 + 0.6 * Math.exp(-t / 0.5);
     let whine = 0;
+
     for (const [k, a] of [
       [1, 1],
       [2, 0.45],
@@ -207,41 +232,55 @@ export function spinSamples(rate: number, seconds: number): Float32Array {
     ] as const) {
       whine += Math.sin(phase * k) * a;
     }
+
     whine *= 0.09 * pull * Math.min(1, speed * 3);
     // The disc's wobble: a low hum at its turning, and everything swells a little once a turn.
     const wobble = 1 + 0.18 * Math.sin(turn) * speed;
     const rumble = rumbleLp(Math.sin(turn) + 0.4 * Math.sin(2 * turn + 1)) * 0.03 * speed;
     // The air: rising in pitch and loudness with the speed, with a narrower whistle in it.
     const noise = rnd();
-    const rush = air(noise, 120 + 9 * fr) * 0.5 * speed ** 1.5 + air2(noise, 380 + 14 * fr) * 0.04 * speed ** 2;
+    const rush =
+      air(noise, 120 + 9 * fr) * 0.5 * speed ** 1.5 +
+      air2(noise, 380 + 14 * fr) * 0.04 * speed ** 2;
     // The sled: a small motor buzzing through its gear while it runs.
     let buzz = 0;
+
     for (const [from, to] of sled) {
       if (t >= from && t < to) {
         const u = (t - from) / (to - from);
+
         sledPhase += (TAU * (90 + 25 * u)) / rate;
         const env = Math.min(1, u * 12, (1 - u) * 12);
         const saw = (sledPhase / TAU) % 1;
+
         buzz = (sledGear(saw * 2 - 1 + noise * 0.4, 650) * 0.9 + (saw - 0.5) * 0.25) * env;
       }
     }
+
     const s = strikes.get(i);
+
     if (s) {
       hit = s;
       left = Math.round(rate * 0.0009);
     }
+
     const e = left-- > 0 ? rnd() : 0;
     const ticks = tick(e * hit[0]) * 3 + focus(e * hit[1]) * 1.4;
     const dry = (whine + rush) * wobble + rumble + buzz * 0.5 + ticks;
+
     out[i] = top2(top(dry + caseBody(dry) * 0.6));
   }
+
   // Out over the last 0.35 s, in over the first 20 ms.
   for (let i = 0; i < n; i++) {
     const t = i / rate;
     const g = Math.min(1, t / 0.02, Math.max(0, (seconds - t) / 0.35));
+
     out[i] = (out[i] ?? 0) * g;
   }
+
   normalise(out, 0.45);
+
   return out;
 }
 
@@ -249,21 +288,26 @@ export function spinSamples(rate: number, seconds: number): Float32Array {
  *  seconds. Null where there is no Web Audio, or the page may not play sound yet. */
 export function driveSounds(seat: number, spin: number): DriveSounds | null {
   const Ctx = typeof window === "undefined" ? undefined : window.AudioContext;
+
   if (!Ctx) return null;
   let ctx: AudioContext;
+
   try {
     ctx = new Ctx();
   } catch {
     return null;
   }
+
   void ctx.resume().catch(() => undefined);
   const master = playInto(ctx, seat, spin);
   let stopped = false;
+
   return {
     stop(fade = 0.08) {
       if (stopped) return;
       stopped = true;
       const now = ctx.currentTime;
+
       master.gain.cancelScheduledValues(now);
       master.gain.setValueAtTime(master.gain.value, now);
       master.gain.linearRampToValueAtTime(0, now + fade);
@@ -275,19 +319,24 @@ export function driveSounds(seat: number, spin: number): DriveSounds | null {
 /** Both sounds into `ctx` (a live one, or an offline one to hear them in a file); its volume. */
 export function playInto(ctx: BaseAudioContext, seat: number, spin: number): GainNode {
   const master = ctx.createGain();
+
   master.gain.value = 0.9;
   master.connect(ctx.destination);
   const lead = 0.05;
   const play = (data: Float32Array, at: number) => {
     const buffer = ctx.createBuffer(1, data.length, ctx.sampleRate);
+
     buffer.copyToChannel(data as Float32Array<ArrayBuffer>, 0);
     const src = ctx.createBufferSource();
+
     src.buffer = buffer;
     src.connect(master);
     src.start(Math.max(ctx.currentTime, at));
   };
   const t0 = ctx.currentTime + seat;
+
   play(seatSamples(ctx.sampleRate, lead), t0 - lead);
   play(spinSamples(ctx.sampleRate, spin), t0 + 0.07);
+
   return master;
 }

@@ -18,6 +18,7 @@
 #include "enhanced/lighting/environment_gi.h"
 #include "enhanced/lighting/environment_placement.h"
 #include "enhanced/lighting/probe_regions.h"
+#include "enhanced/lighting/spatial_placement.h"
 
 namespace openrac::lighting {
 namespace {
@@ -190,7 +191,9 @@ EnvironmentAsset bake_environment(
     std::span<const EnvironmentFloorSample> floors,
     const EnvironmentBakeSettings& options,
     const BakeExecution& execution,
-    EnvironmentPlacementReport* placement
+    EnvironmentPlacementReport* placement,
+    const BakeScene* gameplay_collision,
+    const bake_detail::SpatialPlacement* spatial
 ) {
     const profiling::Zone trace("Bake environment probes");
 
@@ -226,7 +229,43 @@ EnvironmentAsset bake_environment(
     asset.level = gi[0].grid.level;
     asset.scene_hash = gi[0].grid.scene_hash;
     asset.settings_hash = gi[0].grid.settings_hash;
-    asset.probes = place_environment_probes(scene, gi, floors, settings, options, placement);
+    std::optional<SpatialPlacement> owned;
+    if (!spatial) {
+        owned = build_spatial_placement(
+            gameplay_collision ? *gameplay_collision : source,
+            floors,
+            settings,
+            gi[0].grid.spacing,
+            4096,
+            1024,
+            options,
+            execution
+        );
+        spatial = &*owned;
+    }
+    EnvironmentPlacementReport local_report;
+    auto& report = placement ? *placement : local_report;
+    asset.probes = place_spatial_environment_probes(
+        source,
+        gameplay_collision ? *gameplay_collision : source,
+        gi,
+        floors,
+        settings,
+        options,
+        *spatial,
+        report,
+        asset.influences
+    );
+    report.surface_coverage = measure_environment_surface_coverage(
+        source,
+        gameplay_collision ? *gameplay_collision : source,
+        floors,
+        settings,
+        asset.influences,
+        asset.probes,
+        execution
+    );
+
     if (asset.probes.empty()) {
         return asset;
     }

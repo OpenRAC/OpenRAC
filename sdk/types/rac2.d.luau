@@ -38,35 +38,81 @@ type HookPoint =
     | "rac2.moby.mapper_return.update"
     | "rac2.moby.hypnomatic_maker.update"
     | "rac2.moby.nanotech_ball.update"
+    | "rac2.bolt.spawn_pickups"
+    | "rac2.bolt.spawn_pickup"
+    | "rac2.bolt.collect"
+    | "rac2.arena.prize"
+    | "rac2.armor_vendor.build_list"
+    | "rac2.armor_vendor.buy"
+    | "rac2.vendor.preview"
+    | "rac2.player.update"
+    | "rac2.collectibles.platinum_count"
+    | "rac2.hero.update_collection_progress"
+    | "rac2.save.serialize"
+    | "rac2.save.new_game"
+    | "rac2.moby.endako_rescue.update"
+    | "rac2.moby.tabora_wrench.update"
+    | "rac2.moby.prison_wrench.init"
+    | "rac2.moby.todano_trader.update"
+    | "rac2.moby.prison_plumber.update"
+    | "rac2.moby.prison_controller.update"
+    | "rac2.moby.siberius_thief.update"
+    | "rac2.moby.boldan_cutscene.update"
+    | "rac2.moby.hypnomatic_part.update"
+    | "rac2.combat.count_kill"
+    | "rac2.menu.extras"
+    | "Arena_Prize"
+    | "ArmorVendor_BuildList"
+    | "ArmorVendor_Buy"
+    | "Bolt_Collect"
+    | "Bolt_SpawnPickup"
+    | "Bolt_SpawnPickups"
     | "Hero_ApproachSpeed"
     | "Hero_NanotechSteps"
     | "Hero_TakeDamage"
+    | "Hero_Update"
+    | "Hero_UpdateCollectionProgress"
     | "Item_Colors"
     | "Item_Equip"
     | "Item_Give"
     | "Item_Upgrade"
     | "Item_VersionColor"
     | "Level_Load"
+    | "Menu_Extras"
+    | "Moby_BoldanCutscene_Update"
     | "Moby_BoxBreakerPickup_Update"
     | "Moby_ChargeBootsRider_Update"
+    | "Moby_CountKill"
     | "Moby_DynamoPickup_Update"
+    | "Moby_EndakoRescue_Update"
     | "Moby_GetHitMessage"
     | "Moby_GliderPickup_Update"
     | "Moby_HypnomaticMaker_Update"
+    | "Moby_HypnomaticPart_Update"
     | "Moby_LevitatorSeller_Update"
     | "Moby_MapperReturn_Update"
     | "Moby_NanotechBall_Update"
     | "Moby_PostHit"
+    | "Moby_PrisonController_Update"
+    | "Moby_PrisonPlumber_Update"
+    | "Moby_PrisonWrench_Init"
     | "Moby_RaceController_Update"
     | "Moby_RecordDeath"
+    | "Moby_SiberiusThief_Update"
     | "Moby_SwingshotArea_Update"
+    | "Moby_TaboraWrench_Update"
     | "Moby_ThermanatorArea_Update"
     | "Moby_ThermanatorSeller_Update"
+    | "Moby_TodanoTrader_Update"
     | "Moby_TractorBeamSeller_Update"
     | "Planet_Unlock"
+    | "PlatinumBolts_CountTotal"
+    | "Save_NewGame"
+    | "Save_Serialize"
     | "Text_ById"
     | "Vendor_BuildList"
     | "Vendor_DrawList"
+    | "Vendor_Preview"
     | "Vendor_Price"
     | "Weapon_LevelUp"
     | "Weapon_TakeAmmo"
@@ -139,6 +185,52 @@ type Moby_MapperReturn_UpdateFn = (moby: number) -> ()
 type Moby_HypnomaticMaker_UpdateFn = (moby: number) -> ()
 -- rac2.moby.nanotech_ball.update (Moby_NanotechBall_Update) void(u32): The nanotech orb's update (class 0x326, the orb in a nanotech crate): flies its pieces to the hero, who gains health as each lands (+0x24CC of the hero, at most his max health), 1 a piece or 4 for the special orb. Rac1's nanotech_ball update.
 type Moby_NanotechBall_UpdateFn = (moby: number) -> ()
+-- rac2.bolt.spawn_pickups (Bolt_SpawnPickups) void(u32,i32,i32,i32,i32,i32,f32): Spawns a burst of bolt coins from moby (moby_spawn_bolt_pickups in the executable and its copy in every level's code, part_spawn_bolt_pickups: one hook point): rolls an amount from low to high (doubled under the bolt multiplier, scaled by how fast the level's bolts are being earned), splits it into the biggest coins that fit (1, 5, 20, 50, 100, 500 and 1000, classes 0x0D to 0x13) and makes each with Bolt_SpawnPickup. flags 0 spawns nothing, 2 flies the coins to the hero, 8 makes at most maximum coins (the rest goes to the word at 0x1A7A14), 32 leaves them out of the level's bolt score; surface is a path the coins land on (-1 none), height a lift of the spawn point. Every drop comes here: Moby_RecordDeath's (enemies and crates; in a level its copy calls the level copy) and the levels' scripted bursts (part_spawn_scaled_bolts and its callers). A replacement can change low and high, or make the coins itself.
+type Bolt_SpawnPickupsFn = (moby: number, low: number, high: number, flags: number, surface: number, maximum: number, height: number) -> ()
+-- rac2.bolt.spawn_pickup (Bolt_SpawnPickup) u32(u32,u32,u32,u32,i32,i32): Makes one bolt coin worth value (1, 5, 20, 50, 100, 500 or 1000: classes 0x0D to 0x13; another value makes a 1) at position with velocity (game addresses of four floats each), from source (the moby it came from); counted (the byte at +0x40 of the coin's vars) says whether the level's bolt score counts it, flags 2 flies it to the hero. Returns the coin's moby, or 0: none when the pool is full, or when position is 64 units or more from the game's reference point, where the value goes to the word at 0x1A7A14 instead. Bolt_SpawnPickups calls it for each coin, and two level mobys directly (Endako's func_L03_00383FE8, Maktar's func_L02_003E7370). A replacement sees each coin and the moby made (to mark it, with openrac_api.moby_material for one), and can make another or none.
+type Bolt_SpawnPickupFn = (source: number, position: number, velocity: number, flags: number, value: number, counted: number) -> number
+-- rac2.bolt.collect (Bolt_Collect) void(u32): A bolt coin collected (CollectBolts): adds its class's value (classes 0x0D to 0x13: 1, 5, 20, 50, 100, 500, 1000; 1 for another) to the player's bolts (0x1A79F8) and, for a counted coin, to the level's bolt score, then throws its sparks. The coin's update (func_00300F58) calls it as the coin reaches the hero, the moby still alive, and reads no result. A replacement can change what a coin is worth: call the original and add more with openrac_api.bolts (a coin it marked worth five times: four times what the original added), or not call it.
+type Bolt_CollectFn = (moby: number) -> ()
+-- rac2.arena.prize (Arena_Prize) i32(i32): The bolts an arena challenge pays (moby_compute_scaled_entry_value, Maktar's and Joba's arena: one function in both levels): the challenge record's prize (+0xC of its entry in the level's challenge table), times 0.3 for each time it was won before, kept between 500 and the prize, ten times that in challenge mode. The arena's menu prints it and the win adds it to the bolts (and keeps it for the results screen), so a replacement changes a prize everywhere it shows.
+type Arena_PrizeFn = (challenge: number) -> number
+-- rac2.armor_vendor.build_list (ArmorVendor_BuildList) void(): Fills the armour vendor's list (the vendor in mode 3: a Megacorp Vendor whose pvars +0x94 is 2): g_vendorUi +0x140, 12-byte rows {i32 icon (0xEA92 + armour, a HUD icon id), i32 price (bolts), i32 armour (0 to 4: the armour the row sells, whose item record names it and whose pack the preview loads)}, the count at +0x740 (up to 128): each armour above the one worn (s16 at the save block +0x20) that its planet unlocked (g_game_flag_table[0x8D] bit, or the extras of a finished game), icon 0xEA92 + armour, price 0, 25000, 100000, 250000 or 1000000. With Carbonox (4) worn it lists nothing. The vendor calls it as it opens. A replacement can add rows after the original's; a row's armour must stay 0 to 4 (the preview, the name, the description table and the close index by it). The armour vendors are on Dobbo, Boldan, Snivelak and Grelbin.
+type ArmorVendor_BuildListFn = () -> ()
+-- rac2.armor_vendor.buy (ArmorVendor_Buy) void(u32,u32): The armour vendor's purchase dialog, once a frame while it is up (shop_dispatch_purchase_confirm, mode 3; every level's copy). answer: the address of its i32 answer (1 yes); the second word the dispatcher passes (the answer's neighbour) is not read. Its state is g_vendorUi +0x84: 1 opens it (too few bolts for the row's price: refused, state 2), 2 waits for Cross (answer 1) or Triangle (answer 0), then 3 decides: answer 1, the bolts at least the price and the armour worn not 4: pays the row's price, plays the purchase sound and message and closes the menu, which then wears the row's armour (shop_close_sub_menu); otherwise the refusal or nothing, state 0. The row is the one under the cursor (+0x80). A replacement can buy a row of its own at state 3 (pay, then set the answer to 0 so that the original closes the dialog as a refusal does) and call the original for the game's rows.
+type ArmorVendor_BuyFn = (answer: number, unused: number) -> ()
+-- rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the row under the cursor (PrepareVendorSelectionPreview), in every mode, as the cursor moves and the menu opens: the armour vendor's (mode 3) loads the row's armour over Ratchet's class 0 when it is not the one loaded and makes the preview objects (g_vendorUi +0x2C, the count at +0x34, 0x100-byte mobys outside the level's list: class 0, Ratchet in that armour, then 1290 and 2675 for its extra pieces), turned to the camera, and shows the armour's description; the weapon vendor's, the weapon's model or picture. A replacement can call the original and then change the message or the objects' look (moby_material_class with OPENRAC_MODEL_MENU).
+type Vendor_PreviewFn = () -> ()
+-- rac2.player.update (Hero_Update) void(): The hero's whole update each tick: his animation, the stick, ledges, grind rails, his state machine, his moby and what he holds. Each group of levels has its own copy; together they are one hook point. A ship or vehicle update runs in its place while one drives him (hero +0x22B4). A replacement that skips the original moves him itself and shows him with openrac_api.hero_set_pose.
+type Hero_UpdateFn = () -> ()
+-- rac2.collectibles.platinum_count (PlatinumBolts_CountTotal) i32(): Counts the platinum bolts recorded in the save. A replacement can return received currency independently of physical pickups.
+type PlatinumBolts_CountTotalFn = () -> number
+-- rac2.hero.update_collection_progress (Hero_UpdateCollectionProgress) void(): Recounts nanotech and weapon collection progress from inventory; mods can separate pickup flags from received ownership.
+type Hero_UpdateCollectionProgressFn = () -> ()
+-- rac2.save.serialize (Save_Serialize) void(u32): Serializes live game state to the save packet at output. Inventory substitutions made by a mod must be restored before calling the original.
+type Save_SerializeFn = (output: number) -> ()
+-- rac2.save.new_game (Save_NewGame) void(): Resets game data from disc defaults for a new campaign, before its starting level is entered.
+type Save_NewGameFn = () -> ()
+-- rac2.moby.endako_rescue.update (Moby_EndakoRescue_Update) void(u32): Updates the Endako rescue sequence that returns Clank and the Swingshot.
+type Moby_EndakoRescue_UpdateFn = (moby: number) -> ()
+-- rac2.moby.tabora_wrench.update (Moby_TaboraWrench_Update) void(u32): Updates the Tabora controller, including its wrench reward.
+type Moby_TaboraWrench_UpdateFn = (moby: number) -> ()
+-- rac2.moby.prison_wrench.init (Moby_PrisonWrench_Init) void(u32): Initializes the Aranos prison wrench pickup.
+type Moby_PrisonWrench_InitFn = (moby: number) -> ()
+-- rac2.moby.todano_trader.update (Moby_TodanoTrader_Update) void(u32): Updates the Todano trader and his reward exchange.
+type Moby_TodanoTrader_UpdateFn = (moby: number) -> ()
+-- rac2.moby.prison_plumber.update (Moby_PrisonPlumber_Update) void(i32): Updates the Aranos plumber and his reward. The game declaration takes a signed 32-bit moby address.
+type Moby_PrisonPlumber_UpdateFn = (moby: number) -> ()
+-- rac2.moby.prison_controller.update (Moby_PrisonController_Update) void(u32): Updates the Aranos prison controller, including inventory restoration.
+type Moby_PrisonController_UpdateFn = (moby: number) -> ()
+-- rac2.moby.siberius_thief.update (Moby_SiberiusThief_Update) void(u32): Updates the Siberius thief sequence and its progression state.
+type Moby_SiberiusThief_UpdateFn = (moby: number) -> ()
+-- rac2.moby.boldan_cutscene.update (Moby_BoldanCutscene_Update) void(u32): Updates the Boldan cutscene trigger and its temporary inventory state.
+type Moby_BoldanCutscene_UpdateFn = (moby: number) -> ()
+-- rac2.moby.hypnomatic_part.update (Moby_HypnomaticPart_Update) void(u32): Updates the Hypnomatic part pickup on Damosel.
+type Moby_HypnomaticPart_UpdateFn = (moby: number) -> ()
+-- rac2.combat.count_kill (Moby_CountKill) void(u32,i32): Records a kill or event and grants its rewards. A replacement can adjust reward state around the original call.
+type Moby_CountKillFn = (moby: number, type: number) -> ()
+-- rac2.menu.extras (Menu_Extras) i32(): Processes the extras menu and returns its menu result.
+type Menu_ExtrasFn = () -> number
 
 declare openrac: {
     game: string,
@@ -173,4 +265,10 @@ declare openrac: {
     -- interface 1.15: the mod's own settings set (for the run and in the launcher's list), and its changes heard
     set_setting: (key: string, value: any) -> boolean,
     on_settings: (fn: () -> ()) -> (),
+    -- interface 1.31: a pad button's label (an OPENRAC_PAD_* bit: 0x8000 Square) for the device in use, and its kind
+    button_label: (button: number) -> (string?, ("playstation" | "letters" | "keys")?),
+    -- interface 1.37: the pads' motors as the game's vibration drives them (small on or off, large 0 to 255)
+    set_motors: (port: number, small_motor: boolean, large_motor: number) -> boolean,
+    -- interface 1.37: an option of the port's menu greyed out or made usable, by its name (menu-options.md)
+    menu_option_set: (option: string, state: "on" | "off" | "default") -> boolean,
 }

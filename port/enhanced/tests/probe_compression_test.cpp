@@ -5,9 +5,11 @@
 #include <algorithm>
 #include <cfenv>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <stdexcept>
 #include <string_view>
+#include <vector>
 
 #include "enhanced/lighting/environment_filter.h"
 #include "enhanced/lighting/probe_atlas.h"
@@ -295,12 +297,25 @@ void test_invalid_depth() {
     }
 }
 
+// Versions six and seven store yaw only, so remove pitch and roll before reusing a modern payload.
+void use_legacy_frame(
+    std::vector<std::uint8_t>& bytes, std::string_view game_version, std::uint8_t format
+) {
+    // Four header words, then five words each for level/hashes and origin/yaw.
+    constexpr unsigned kFixedPrefixBytes = (4 + 5 + 5) * 4;
+    constexpr unsigned kPitchAndRollBytes = 4 * 4;
+    const auto pitch = bytes.begin() + kFixedPrefixBytes + game_version.size();
+    bytes.erase(pitch, pitch + kPitchAndRollBytes);
+    bytes[4] = format;
+}
+
 // Corrupted byte values are finite but cannot be allowed to open a seam in hardware gathers.
 void test_invalid_unorm_gutter(ProbeDepthFormat format) {
-    auto bytes = encode_baked_probes(fixture(), ProbeTextureFormat::R11G11B10, {1}, format);
+    const auto source = fixture();
+    auto bytes = encode_baked_probes(source, ProbeTextureFormat::R11G11B10, {1}, format);
     // Legacy RG8 keeps its version-seven compatibility check.
     if (format == ProbeDepthFormat::Rg8) {
-        bytes[4] = 7;
+        use_legacy_frame(bytes, source.grid.game_version, 7);
     }
     const auto gpu = decode_gpu_probes(bytes);
     const auto offset = static_cast<std::size_t>(gpu.gpu_plane(1).data() - gpu.gpu_bytes.data());
@@ -347,7 +362,7 @@ void test_legacy_astc_depth() {
     const auto source = fixture();
     auto bytes =
         encode_baked_probes(source, ProbeTextureFormat::R11G11B10, {1}, ProbeDepthFormat::Astc4x4);
-    bytes[4] = 7;  // Previously published ASTC assets used the version-seven header.
+    use_legacy_frame(bytes, source.grid.game_version, 7);
     const auto gpu = decode_gpu_probes(bytes);
     CHECK(gpu.depth_format == ProbeDepthFormat::Astc4x4);
     CHECK(gpu.gpu_plane(3).size() == gpu.atlas_capacity() * 64);
@@ -360,7 +375,7 @@ void test_legacy_depth() {
     auto bytes = encode_probes(source);
     const auto gpu = decode_gpu_probes(bytes);
     bytes.erase(bytes.begin() + gpu.gpu_offset - 8, bytes.begin() + gpu.gpu_offset - 4);
-    bytes[4] = 6;  // Version six has no depth-format word.
+    use_legacy_frame(bytes, source.grid.game_version, 6);
     const auto legacy = decode_gpu_probes(bytes);
     CHECK(legacy.depth_format == ProbeDepthFormat::Moments);
     CHECK(decode_probes(bytes).distance_moments == source.distance_moments);

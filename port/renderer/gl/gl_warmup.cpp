@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <span>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -26,6 +27,7 @@
 #include "common/cache_folder.h"
 #include "common/joining_thread.h"
 #include "common/log.h"
+#include "renderer/gl/shader_variants.h"
 #include "renderer/settings/render_opt.h"
 
 namespace openrac::renderer::gl_warmup {
@@ -64,8 +66,12 @@ constexpr int kAttributes = 16;
 // Noted states kept at most, and the runs a state may go unseen before it is dropped.
 constexpr std::size_t kMostStates = 4096;
 constexpr std::uint32_t kMostAge = 8;
-// The file's first eight bytes, which change with its layout.
-constexpr char kMagic[8] = {'O', 'R', 'G', 'L', 'W', 'U', '0', '1'};
+// Version the records so older logical sampler snapshots cannot replay stale aliases.
+constexpr char kMagic[8] = {'O', 'R', 'G', 'L', 'W', 'U', '0', '3'};
+// A recording stores a bounded set of bindings from the draw it describes.
+constexpr std::size_t kMostBindings = 64;
+constexpr GLenum kUniformBlockBinding = 0x8A3F;
+constexpr GLuint kInvalidIndex = 0xFFFFFFFFu;
 
 // One vertex attribute of a noted state, as glVertexAttrib*Pointer and the divisor gave it.
 struct Attribute {
@@ -85,7 +91,8 @@ struct State {
     std::uint32_t attributes = 0;  // How many of `attribute` hold.
     Attribute attribute[kAttributes] = {};
     std::uint32_t age = 0;  // Runs since a run drew it; not part of the key.
-    std::uint32_t padding = 0;
+    std::uint32_t bindings = 0;  // Uses the observed draw's bindings even on a fresh run.
+    std::array<shader_variants::WarmupBinding, kMostBindings> binding{};
 };
 
 constexpr std::size_t kKeyBytes = offsetof(State, age);
@@ -120,6 +127,8 @@ struct Real {
     void(OPENRAC_GLAPI* glGetVertexAttribiv)(GLuint, GLenum, GLint*) = nullptr;
     void(OPENRAC_GLAPI* glDisableVertexAttribArray)(GLuint) = nullptr;
     void(OPENRAC_GLAPI* glFlush)() = nullptr;
+    void(OPENRAC_GLAPI* glGetUniformiv)(GLuint, GLint, GLint*) = nullptr;
+    void(OPENRAC_GLAPI* glGetActiveUniformBlockiv)(GLuint, GLuint, GLenum, GLint*) = nullptr;
 };
 
 // A private target warm() draws into: a framebuffer of renderbuffers of one state's formats.
@@ -364,7 +373,8 @@ void read_file() {
 
     // Each state a run older; one too old, or out of range, stays out.
     for (State& state : states) {
-        if (state.age >= kMostAge || state.attributes > kAttributes) {
+        if (state.age >= kMostAge || state.attributes > kAttributes
+            || state.bindings > kMostBindings) {
             continue;
         }
         ++state.age;
@@ -419,9 +429,11 @@ void note(GLenum mode) {
         return;
     }
 
-    // Seen this run.
-    const std::array<std::uint32_t, 11> fields{
+    // Native program names can be recycled; include both parts of the source key.
+    const std::array<std::uint64_t, 13> fields{
         c.program,
+        program->second.name,
+        program->second.check,
         c.framebuffer,
         c.vertex_array,
         c.blend,
@@ -455,11 +467,28 @@ void note(GLenum mode) {
     }
 
     read_attributes(state);
+    const int bindings =
+        shader_variants::capture_warmup_bindings(c.program, s.real.glGetUniformiv, state.binding);
+
+    // An incomplete binding snapshot cannot reliably reproduce this draw.
+    if (bindings < 0) {
+        return;
+    }
+
+    state.bindings = static_cast<std::uint32_t>(bindings);
     std::string bytes = key_bytes(state);
 
     // Known from an earlier run: drawn again in this one.
     if (const auto found = s.index.find(bytes); found != s.index.end()) {
-        s.states[found->second].age = 0;
+        auto& previous = s.states[found->second];
+        previous.age = 0;
+
+        // Keep the latest observed bindings when they differ from the saved example.
+        if (previous.bindings != state.bindings || previous.binding != state.binding) {
+            previous.bindings = state.bindings;
+            previous.binding = state.binding;
+            ++s.added;
+        }
         return;
     }
 
@@ -679,6 +708,85 @@ void restore_state(const Saved& v) {
     );
 }
 
+// Temporarily applies the observed bindings to a bound native program for a warm-up draw.
+class ObservedBindings {
+public:
+    ObservedBindings(GLuint program, std::span<const shader_variants::WarmupBinding> bindings)
+        : m_program(program) {
+        const auto& real = w().real;
+
+        // Without the queries there is no way to restore the caller's binding values.
+        if (!real.glGetUniformiv || !real.glGetActiveUniformBlockiv) {
+            return;
+        }
+
+        // Resolve names against the newly linked executable because its indices can change.
+        for (const auto& binding : bindings) {
+            apply(real, binding);
+        }
+    }
+
+    ~ObservedBindings() {
+        // Array aliases can touch a native location twice, so undo the writes in reverse order.
+        while (m_count != 0) {
+            const auto& saved = m_saved[--m_count];
+
+            if (saved.block) {
+                glUniformBlockBinding(m_program, saved.index, static_cast<GLuint>(saved.value));
+            } else {
+                glUniform1i(static_cast<GLint>(saved.index), saved.value);
+            }
+        }
+    }
+
+    ObservedBindings(const ObservedBindings&) = delete;
+    ObservedBindings& operator=(const ObservedBindings&) = delete;
+
+private:
+    // The native entry and value to restore while the same program remains bound.
+    struct SavedBinding {
+        GLuint index;
+        GLint value;
+        bool block;
+    };
+
+    // Saves and applies one valid recorded assignment.
+    void apply(const Real& real, const shader_variants::WarmupBinding& binding) {
+        // A malformed record may omit its terminator or name an unknown binding type.
+        if (binding.name.back() != '\0' || binding.block > 1) {
+            return;
+        }
+
+        if (binding.block != 0) {
+            const GLuint index = glGetUniformBlockIndex(m_program, binding.name.data());
+
+            if (index != kInvalidIndex) {
+                GLint previous = 0;
+                real.glGetActiveUniformBlockiv(m_program, index, kUniformBlockBinding, &previous);
+                m_saved[m_count++] = {index, previous, true};
+                glUniformBlockBinding(m_program, index, static_cast<GLuint>(binding.value));
+            }
+
+            return;
+        }
+
+        const GLint location = glGetUniformLocation(m_program, binding.name.data());
+
+        if (location >= 0) {
+            // Even a corrupted cached name pointing at a mat4 must fit the native query buffer.
+            constexpr std::size_t kMaxUniformComponents = 16;
+            std::array<GLint, kMaxUniformComponents> previous{};
+            real.glGetUniformiv(m_program, location, previous.data());
+            m_saved[m_count++] = {static_cast<GLuint>(location), previous[0], false};
+            glUniform1i(location, binding.value);
+        }
+    }
+
+    GLuint m_program;                                   // Native executable kept bound by warm_one.
+    std::array<SavedBinding, kMostBindings> m_saved{};  // Entries touched by this warm-up draw.
+    std::size_t m_count = 0;                            // Used entries in m_saved.
+};
+
 // Draws `state` once with program `program`, into its private target: one triangle (or line, or
 // point) of vertices that read zeros, which covers no pixel unless the program places it alone.
 void warm_one(const State& state, GLuint program, GLuint buffer) {
@@ -692,6 +800,7 @@ void warm_one(const State& state, GLuint program, GLuint buffer) {
     glBindFramebuffer(GL_FRAMEBUFFER, t.framebuffer);
     glViewport(0, 0, 4, 4);
     glUseProgram(program);
+    const ObservedBindings bindings(program, std::span(state.binding).first(state.bindings));
     if (state.blend != 0) {
         glEnable(GL_BLEND);
         glBlendFuncSeparate(state.src_rgb, state.dst_rgb, state.src_a, state.dst_a);
@@ -746,6 +855,11 @@ void install(GetProcAddress get) {
     s.real.glGetVertexAttribiv =
         reinterpret_cast<decltype(s.real.glGetVertexAttribiv)>(get("glGetVertexAttribiv"));
     s.real.glFlush = reinterpret_cast<decltype(s.real.glFlush)>(get("glFlush"));
+    s.real.glGetUniformiv =
+        reinterpret_cast<decltype(s.real.glGetUniformiv)>(get("glGetUniformiv"));
+    s.real.glGetActiveUniformBlockiv = reinterpret_cast<decltype(s.real.glGetActiveUniformBlockiv)>(
+        get("glGetActiveUniformBlockiv")
+    );
 
     // A context without the queries: nothing can be noted.
     if (s.real.glGetFramebufferAttachmentParameteriv == nullptr
@@ -792,6 +906,15 @@ void note_program(GLuint program, const program_cache::Key& key) {
     }
 
     w().programs[program] = key;
+
+    // A source identity change can happen while the tracked numeric name stays the same.
+    if (w().current.program == program) {
+        w().current.changed = true;
+    }
+}
+
+void finish_cache_save() {
+    w().saver.join();
 }
 
 void warm() {
@@ -813,6 +936,7 @@ void warm() {
     const std::vector<std::uint8_t> zeros(16 * 16 * 4, 0);
     GLuint buffer = 0;
     const Saved saved = save_state();
+    const shader_variants::ReplayScope native_programs;
     s.replaying = true;
     glGenBuffers(1, &buffer);
     glBindBuffer(GL_ARRAY_BUFFER, buffer);

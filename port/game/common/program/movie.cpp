@@ -2,8 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The game's movies in the window (program::play_movie, openrac_game_play_movie's body in
-// program/game_host.cpp): a PSS movie read from the player's disc image, its picture shown and its
-// sound played, blocking as the game's own player does. Without a window or without the movie
+// program/game_host.cpp): a PSS movie read by sector from the disc's files, its picture shown and
+// its sound played, blocking as the game's own player does. Without a window or without the movie
 // support (OPENRAC_MOVIES) there is none, and the game goes on as if it had played.
 // The player follows ReRAC's movie mode (ISC License): the comment above play_movie credits it.
 
@@ -57,31 +57,18 @@ int play_movie(
         return 1;  // the same result as the movie player's Start-skip path
     }
 #if defined(OPENRAC_FRONTEND) && defined(OPENRAC_MOVIES)
-    if (!g_window || openrac_game_disc_image == nullptr || bytes == 0) {
+    if (!g_window || !openrac_disc_available() || bytes == 0) {
         return 0;
     }
 
+    // The PSS file, by sector from the disc's files (its lump, through the sector map).
     std::vector<std::uint8_t> file(bytes);
-    {
-        std::FILE* disc = std::fopen(openrac_game_disc_image, "rb");
 
-        if (disc == nullptr) {
-            return 0;
-        }
-#if defined(_WIN32)
-        // Windows' C library has no fseeko; _fseeki64 is its 64-bit seek.
-        const bool sought = _fseeki64(disc, static_cast<long long>(lsn) * 2048, SEEK_SET) == 0;
-#else
-        const bool sought = fseeko(disc, static_cast<off_t>(lsn) * 2048, SEEK_SET) == 0;
-#endif
-        const bool read = sought && std::fread(file.data(), 1, file.size(), disc) == file.size();
-        std::fclose(disc);
-
-        if (!read) {
-            log::warn("movie at sector {}: the disc image is too short", lsn);
-            return 0;
-        }
+    if (!openrac_disc_read(static_cast<std::uint64_t>(lsn) * 2048, file.data(), file.size())) {
+        log::warn("movie at sector {}: the disc's files end before it does", lsn);
+        return 0;
     }
+
     std::optional<media::MoviePlayer> player;
 
     try {

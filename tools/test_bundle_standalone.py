@@ -4,6 +4,7 @@ import json
 import re
 import shutil
 import subprocess
+import os
 import sys
 import tempfile
 import unittest
@@ -13,10 +14,16 @@ from unittest import mock
 import bundle_standalone as bundle
 
 
+def game_format(game: str) -> str:
+    """The format of a game's export that moves on alone (extractor/port.py GAME_FORMATS)."""
+    text = (bundle.ROOT / "extractor" / "port.py").read_text(encoding="utf-8")
+    table = re.search(r'^GAME_FORMATS = (\{.*\})$', text, re.MULTILINE).group(1)
+    return re.search(rf'"{game}": (\d+)', table).group(1)
+
+
 def going_commando_format() -> str:
-    """The format of Going Commando's export, which moves on alone (editor/port.py GAME_FORMATS)."""
-    text = (bundle.ROOT / "editor" / "port.py").read_text(encoding="utf-8")
-    return re.search(r'^GAME_FORMATS = \{"rac2": (\d+)\}$', text, re.MULTILINE).group(1)
+    """The format of Going Commando's export, which moves on alone (extractor/port.py GAME_FORMATS)."""
+    return game_format("rac2")
 
 
 class LevelsStamp(unittest.TestCase):
@@ -33,10 +40,13 @@ class LevelsStamp(unittest.TestCase):
         # The levels are ready by a stamp of their own, named after the format too, so a bump
         # reads them again before the check runs.
         # Going Commando's export moved on alone, so its bump reads only its levels again.
-        self.assertEqual(set(re.findall(r"levels-(\d+)\.json", actions)), {str(expected), going_commando_format()})
+        self.assertEqual(set(re.findall(r"levels-(\d+)\.json", actions)),
+                         {str(expected), going_commando_format(), game_format("rac3")})
+        self.assertEqual(set(re.findall(r"rac3/(?:ntsc|pal)/levels-(\d+)\.json", actions)),
+                         {game_format("rac3")})
         self.assertEqual(set(re.findall(r"rac2/ntsc/levels-(\d+)\.json", actions)), {going_commando_format()})
         self.assertEqual(bundle.LEVELS_STAMP, f"levels-{expected}.json")
-        extract = (bundle.ROOT / "editor" / "extract.py").read_text(encoding="utf-8")
+        extract = (bundle.ROOT / "extractor" / "extract.py").read_text(encoding="utf-8")
         self.assertIn('f"levels-{levels_format(game)}.json"', extract)
         self.assertNotIn("level_99/manifest.json", actions)
 
@@ -69,19 +79,15 @@ class PlayerActions(unittest.TestCase):
         # Going Commando, Up Your Arsenal and Deadlocked: their levels are read into the data
         # folder for texture and model packs. Going Commando's are packed back there too, the
         # early access games' not.
-        for key, stamp in (("rac2/ntsc", going_commando_format()), ("rac3/ntsc", 4), ("rac4/ntsc", 4)):
+        for key, stamp in (("rac2/ntsc", going_commando_format()), ("rac3/ntsc", game_format("rac3")),
+                           ("rac4/ntsc", 4)):
             with self.subTest(key):
                 actions = {a["id"]: a for a in self.actions["versions"][key]}
-                if key == "rac2/ntsc":
-                    self.assertEqual(actions["editor-pack"]["args"][-3:],
-                                     ["{data}/levels/ntsc", "{data}/packed/ntsc", "--anywhere"])
-                    self.assertEqual(actions["play-edited"]["args"][-2:], ["--mods", "{data}/mods/ntsc"])
-                else:
-                    self.assertNotIn("editor-pack", actions)
+                # The level editor's steps come with OpenRAC Editor, not in the copy.
+                self.assertFalse([i for i in actions if i.startswith("editor-")])
                 levels = actions["port-levels"]
                 self.assertEqual(levels["args"][-3:], ["{data}/port/ntsc", "--anywhere", "--replace"])
                 self.assertEqual(levels["artifact"], f"{{data}}/port/ntsc/levels-{stamp}.json")
-                self.assertEqual(actions["editor-extract"]["args"][-3:], ["{data}/levels/ntsc", "--split", "--anywhere"])
                 self.assertEqual([n["path"] for n in actions["assets-export"]["needs"]], [levels["artifact"]])
 
     def test_audio_exports_to_the_data_folder_on_each_disc(self):
@@ -93,12 +99,6 @@ class PlayerActions(unittest.TestCase):
             self.assertEqual(actions["audio-import"]["args"][-1], "{data}/overrides")
 
     def test_mods_work_in_the_data_folder(self):
-        extract, pack = self.pal["editor-extract"], self.pal["editor-pack"]
-        self.assertEqual(extract["args"][-3:], ["{data}/levels/pal", "--split", "--anywhere"])
-        self.assertEqual(pack["args"][-3:], ["{data}/levels/pal", "{data}/packed/pal", "--anywhere"])
-        self.assertEqual(pack["artifact"], "{data}/levels/pal/level_00/project.godot")
-        self.assertEqual(self.pal["editor-open"]["artifact"], "{data}/levels/pal/level_{level}/project.godot")
-        self.assertIn("{data}/levels/pal/level_{level}", self.pal["editor-open"]["args"])
         stack = self.pal["overrides-stack"]["args"]
         self.assertEqual(stack[stack.index("--packed") + 1], "{data}/packed/pal")
         self.assertEqual(stack[stack.index("--levels") + 1], "{data}/port/pal")
@@ -107,10 +107,21 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual([need["path"] for need in exported["needs"]], ["{data}/port/pal/levels-4.json"])
         edited = self.pal["play-edited"]
         self.assertEqual(edited["args"][edited["args"].index("--levels") + 1], "{data}/port/pal")
-        self.assertEqual([need["path"] for need in edited["needs"]], [self.pal["port-levels-check"]["makes"]])
+        self.assertEqual([need["path"] for need in edited["needs"]],
+                         [self.pal["disc-files"]["makes"], self.pal["port-levels-check"]["makes"]])
         self.assertEqual(edited["cwd"], "{data}")
-        # NTSC-U's editor folders are its own.
-        self.assertEqual(self.ntsc["editor-extract"]["args"][-3], "{data}/levels/ntsc")
+        # NTSC-U's folders are its own.
+        stack = self.ntsc["overrides-stack"]["args"]
+        self.assertEqual(stack[stack.index("--packed") + 1], "{data}/packed/ntsc")
+
+    def test_interface_runs_read_the_data_folders_levels_and_the_players_run(self):
+        for name, actions in (("pal", self.pal), ("ntsc", self.ntsc)):
+            run = actions["interface-run"]["args"]
+            self.assertEqual(run[run.index("--levels") + 1], f"{{data}}/port/{name}")
+            self.assertEqual(run[run.index("--out") + 1], f"{{data}}/interface_runs/rac1-{name}.json")
+            export = actions["interface-export"]["args"]
+            self.assertFalse(any("port/game/" in arg for arg in export))
+            self.assertIn(f"{{data}}/interface_runs/rac1-{name}.json", export)
 
     def test_no_mod_action_names_the_checkout(self):
         for action in [*self.pal.values(), *self.ntsc.values()]:
@@ -130,7 +141,13 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual(check["makes"], "{data}/port/pal/verified-4.json")
         self.assertEqual(check["args"][check["args"].index("--levels") + 1], "{data}/port/pal")
         self.assertEqual([need["path"] for need in check["needs"]], [self.pal["port-levels"]["artifact"]])
-        self.assertEqual([need["path"] for need in play["needs"]], [check["makes"]])
+        # And for the disc's files, which the game reads in place of the image.
+        files = self.pal["disc-files"]
+        self.assertEqual(files["makes"], "{data}/iso_data/rac1/sectors.tsv")
+        self.assertEqual(files["args"][:2], ["tools/extractor.py", "{disc}"])
+        self.assertEqual(files["args"][-2:], ["--proj-path", "{data}"])
+        self.assertEqual(files["cwd"], ".")
+        self.assertEqual([need["path"] for need in play["needs"]], [files["makes"], check["makes"]])
         self.assertNotIn("python", play.get("requires", []))
 
     def test_ci_smoke_checks_use_only_packaged_native_bake_entry_points(self):
@@ -181,7 +198,7 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual(play["args"], ["--data", "{data}", "--window", "--levels", "{data}/port/ntsc"])
         self.assertEqual(play["cwd"], "{data}")
         self.assertEqual([n["path"] for n in play["needs"]],
-                         ["{data}/iso_data/rac2/buildinfo.json", actions["port-levels"]["artifact"]])
+                         ["{data}/iso_data/rac2/sectors.tsv", actions["port-levels"]["artifact"]])
         self.assertEqual(actions["port-levels"]["artifact"], f"{{data}}/port/ntsc/levels-{going_commando_format()}.json")
         self.assertTrue(play["artifact"].endswith("openrac-rac2-ntsc.exe"))
         self.assertNotIn("todo", play)
@@ -221,18 +238,15 @@ class PlayerActions(unittest.TestCase):
 
 
 class Bundle(unittest.TestCase):
-    def test_the_godot_project_files_are_copied(self):
-        # editor/godot.py copies rc1/ and the Collision dock's addon into every level's project; a
-        # file the copy drops (plugin.cfg was one) is missing from a player's projects.
-        editor = bundle.ROOT / "editor"
-        for folder in ("rc1", "addons"):
-            for path in (editor / folder).rglob("*"):
-                if path.is_file() and path.suffix != ".uid":
-                    self.assertTrue(bundle.editor_file(path.relative_to(editor)), path)
-        # godot.py reads it, and so does the launcher, to tell an outdated project.
-        self.assertTrue(bundle.editor_file(Path("project_format.json")))
+    def test_the_extractor_is_copied_without_the_editor(self):
+        # OpenRAC Editor's tools import the extractor's modules (extractor_api.json lists them).
+        api = json.loads((bundle.ROOT / "extractor/extractor_api.json").read_text())
+        for name in api["modules"]:
+            self.assertTrue(bundle.extractor_file(Path(f"{name}.py")), name)
+        self.assertTrue(bundle.extractor_file(Path("extractor_api.json")))
+        self.assertFalse(bundle.extractor_file(Path("test_port.py")))
         # The guide the Audio tab's "How it works" opens.
-        self.assertTrue(bundle.editor_file(Path("AUDIO_MODDING.md")))
+        self.assertTrue(bundle.extractor_file(Path("AUDIO_MODDING.md")))
 
     def test_a_copy_without_game_or_python(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -245,8 +259,8 @@ class Bundle(unittest.TestCase):
                 sys.argv = argv
             self.assertIn("version: " + json.loads((bundle.ROOT/"launcher/src-tauri/tauri.conf.json").read_text())["version"],
                           (out/"STANDALONE").read_text())
-            for rel in ("STANDALONE", "tools/openrac.py", "tools/extractor.py", "editor/extract.py",
-                        "editor/moby_classes.tsv", "games/rac1/game.json", "progress/summary.json",
+            for rel in ("STANDALONE", "tools/openrac.py", "tools/extractor.py", "extractor/extract.py",
+                        "extractor/moby_classes.tsv", "games/rac1/game.json", "progress/summary.json",
                         "launcher/actions.json",
                         "port/enhanced/lighting/profiles/rac1/moby-seeds.json",
                         "port/enhanced/lighting/profiles/rac1/object-lights.json",
@@ -263,19 +277,24 @@ class Bundle(unittest.TestCase):
             self.assertFalse((out / "port/enhanced/tools/water").exists())
             self.assertFalse((out / "port/enhanced/tools/baker").exists())
             self.assertFalse((out / "games/rac1/decomp/include/moby_pvars.h").exists())
-            layouts = json.loads((out / "editor/pvar_layouts.json").read_text())
+            layouts = json.loads((out / "extractor/pvar_layouts.json").read_text())
             self.assertIn(["moveSpeed", 0xB0, "f32", 0], layouts["classes"]["726"])
             # Resolve layouts from the installed copy, in a process that cannot accidentally
             # reuse the source checkout's cached module or headers.
             script = ("import sys\n"
                       "sys.path.insert(0, sys.argv[1])\n"
-                      "import gamedata\n"
-                      "assert not (gamedata.DECOMPILATION / 'include/moby_pvars.h').exists()\n"
-                      "assert ('moveSpeed', 0xb0, 'f32', 0) in gamedata.class_layouts()[726]\n")
-            subprocess.run([sys.executable, "-I", "-c", script, str(out / "editor")], cwd=tmp, check=True)
+                      "import pvar_layouts\n"
+                      "assert not (pvar_layouts.DECOMPILATION / 'include/moby_pvars.h').exists()\n"
+                      "assert ('moveSpeed', 0xb0, 'f32', 0) in pvar_layouts.class_layouts()[726]\n")
+            subprocess.run([sys.executable, "-I", "-c", script, str(out / "extractor")], cwd=tmp, check=True)
             json.loads((out / "launcher/actions.json").read_text())
             # The copy's tools run from it: their helpers are carried, and find the copy's root.
             self.assertTrue((out / "tools/openrac_common/__init__.py").is_file())
+            # An interface run's tool and the routes it plays.
+            done = subprocess.run([sys.executable, str(out / "port/tools/interface_runs/run.py"), "--help"], cwd=tmp,
+                                  capture_output=True, text=True)
+            self.assertNotIn("Traceback", done.stderr)
+            self.assertTrue((out / "port/tools/regress/routes.json").is_file())
             for tool in ("openrac.py", "extractor.py"):
                 done = subprocess.run([sys.executable, str(out / "tools" / tool), "--help"], cwd=tmp,
                                       capture_output=True, text=True)
@@ -308,7 +327,7 @@ class Bundle(unittest.TestCase):
                       "from enhanced.profiles import write_bake_profile\n"
                       "write_bake_profile(SimpleNamespace(game='rac1', version='ntsc', id=1), Path(sys.argv[2]))\n")
             subprocess.run([sys.executable, "-I", "-c", script,
-                            str(out / "editor"), str(exported)], cwd=tmp, check=True)
+                            str(out / "extractor"), str(exported)], cwd=tmp, check=True)
             profile = "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"
             self.assertEqual((exported / "probe-bake.json").read_bytes(), (bundle.ROOT / profile).read_bytes())
             lights = "port/enhanced/lighting/profiles/rac1/object-lights.json"
@@ -335,7 +354,7 @@ class Bundle(unittest.TestCase):
             ocean_export = Path(tmp) / "exported-ocean"
             ocean_export.mkdir()
             subprocess.run([sys.executable, "-I", "-c", script.replace("id=1)", "id=11)"),
-                            str(out / "editor"), str(ocean_export)], cwd=tmp, check=True)
+                            str(out / "extractor"), str(ocean_export)], cwd=tmp, check=True)
             self.assertEqual((ocean_export / "ocean-profile.json").read_bytes(),
                              (bundle.ROOT / ocean_profile).read_bytes())
 
@@ -372,13 +391,18 @@ class Bundle(unittest.TestCase):
             (build / "openrac-rac1-ntsc.exe").write_bytes(b"ntsc")
             (build / "openrac-rac1-ntsc.pdb").write_bytes(b"")
             (build / "openrac-rac2-ntsc.exe").write_bytes(b"rac2")
+            # A states program is one file on every system, macOS too, and carried beside the games.
+            (build / "openrac-rac1-pal-states").write_bytes(b"states")
+            (build / "openrac-rac1-ntsc-states.exe").write_bytes(b"states")
             dest.mkdir()
             self.assertEqual(bundle.copy_games(build, dest),
-                             ["apps/openrac-rac1-pal", "openrac-rac1-ntsc.exe", "openrac-rac2-ntsc.exe"])
+                             ["apps/openrac-rac1-pal", "openrac-rac1-ntsc.exe", "openrac-rac2-ntsc.exe",
+                              "openrac-rac1-pal-states", "openrac-rac1-ntsc-states.exe"])
             self.assertEqual((dest / app / "Contents/MacOS/Ratchet & Clank").read_bytes(), b"pal")
             self.assertTrue((dest / app / "Contents/Info.plist").is_file())
             self.assertEqual(sorted(p.name for p in dest.iterdir()),
-                             ["apps", "openrac-rac1-ntsc.exe", "openrac-rac2-ntsc.exe"])
+                             ["apps", "openrac-rac1-ntsc-states.exe", "openrac-rac1-ntsc.exe", "openrac-rac1-pal-states",
+                              "openrac-rac2-ntsc.exe"])
 
     def test_windows_games_carry_the_cpp_runtime(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -412,6 +436,38 @@ class Bundle(unittest.TestCase):
             exe.write_bytes(b"MZ")
             self.assertFalse(bundle.strip_debug(exe))
             self.assertEqual(exe.read_bytes(), b"MZ")
+
+    def test_the_python_copy_keeps_what_the_tools_use(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home, out = Path(tmp) / "python", Path(tmp) / "out"
+            for rel in ("bin/python3.12", "bin/pip3", "bin/python3-config", "lib/libpython3.12.so.1.0",
+                        "lib/libtcl9.0.so", "lib/tcl9.0/init.tcl", "lib/python3.12/os.py",
+                        "lib/python3.12/lib-dynload/_ssl.so", "lib/python3.12/lib-dynload/_tkinter.so",
+                        "lib/python3.12/site-packages/pip/__init__.py", "lib/python3.12/test/a.py",
+                        "lib/python3.12/unittest/__init__.py"):
+                (home / rel).parent.mkdir(parents=True, exist_ok=True)
+                (home / rel).write_text(rel)
+            os.symlink("python3.12", home / "bin/python3")
+            os.symlink("python3.12", home / "bin/python")
+            bundle.copy_python(home, out)
+            kept = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
+            self.assertEqual(kept, ["bin/python3", "lib/python3.12/lib-dynload/_ssl.so",
+                                    "lib/python3.12/os.py", "lib/python3.12/unittest/__init__.py"])
+            # The program itself, not a link to a file the copy no longer has.
+            self.assertFalse((out / "bin/python3").is_symlink())
+            self.assertEqual((out / "bin/python3").read_text(), "bin/python3.12")
+
+    def test_a_windows_python_copy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home, out = Path(tmp) / "python", Path(tmp) / "out"
+            for rel in ("python.exe", "pythonw.exe", "python312.dll", "DLLs/_ssl.pyd", "DLLs/tcl86t.dll",
+                        "DLLs/_tkinter.pyd", "Lib/os.py", "Lib/site-packages/pip/__init__.py", "tcl/init.tcl",
+                        "libs/python312.lib", "include/Python.h", "Scripts/pip.exe"):
+                (home / rel).parent.mkdir(parents=True, exist_ok=True)
+                (home / rel).write_text(rel)
+            bundle.copy_python(home, out)
+            kept = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
+            self.assertEqual(kept, ["DLLs/_ssl.pyd", "Lib/os.py", "python.exe", "python312.dll"])
 
     def test_the_android_copy(self):
         # The games and the Python program are the APK's libraries: the copy carries a PYTHONHOME.

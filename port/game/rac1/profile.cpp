@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Ratchet & Clank's profiles (game/common/profile.h): one per disc, PAL (SCES-50916) and NTSC-U
-// (SCUS-97199), each answering the host program with game_state.h's reads over its own tables of
+// Ratchet & Clank's profiles (game/common/profile.h): one per disc (PAL v2.00 and v1.00,
+// NTSC-U, NTSC-J), each answering the host program with game_state.h's reads over its own tables of
 // addresses (game_state.cpp), the boot program's and each level program's, and with the
 // executable's addresses the frontend reads for the hero's shadow and state.
 //
@@ -23,6 +23,8 @@
 #include <string>
 #include <string_view>
 
+#include "draw_distance_lists.h"
+#include "game/common/draw_distance_list.h"
 #include "game/rac1/game_state.h"
 #include "game/rac1/gameplay_lighting.h"
 #include "game/rac1/host/collision_notes.h"
@@ -55,6 +57,14 @@ constexpr ExecutableAddresses kNtscExecutable{0x001CAA80u, 0x0013F350u, 0x0015F6
 // PAL v1.00's and NTSC-J's, carried from PAL's (profile_rac1-pal1.h, profile_rac1-jp.h).
 constexpr ExecutableAddresses kPal1Executable OPENRAC_RAC1_PAL1_EXECUTABLE;
 constexpr ExecutableAddresses kJpExecutable OPENRAC_RAC1_JP_EXECUTABLE;
+
+// Each disc's gold bolt reads (host::GoldBoltReads): PAL's as games/rac1 has them, the others the
+// same data in their release (rac1-ntsc's rac1_version.h, release/release_names.json of rac1-pal1
+// and rac1-jp).
+constexpr host::GoldBoltReads kPalGoldBolt{1, 0x00161FA0u, 0x00160098u, 0x001600A0u, 0x0015EE6Cu};
+constexpr host::GoldBoltReads kNtscGoldBolt{1, 0x00161F10u, 0x0015FFD8u, 0x0015FFE0u, 0x0015ED6Cu};
+constexpr host::GoldBoltReads kPal1GoldBolt{1, 0x00161E90u, 0x0015FF98u, 0x0015FFA0u, 0x0015ED6Cu};
+constexpr host::GoldBoltReads kJpGoldBolt{1, 0x00161F90u, 0x00160098u, 0x001600A0u, 0x0015EE6Cu};
 
 // Developer tools, for a diagnostics recording: the moby table's spawn range (create_moby takes
 // a slot there whose state is 0xFE or more and whose +0x38 the frame clock has reached), with its
@@ -192,14 +202,32 @@ public:
     constexpr Profile(
         const GameAddresses& boot,
         const GameAddresses (&levels)[kLevels],
-        const ExecutableAddresses& executable
+        const ExecutableAddresses& executable,
+        const host::GoldBoltReads& gold_bolt
     ) noexcept
         : m_boot(boot),
           m_levels(levels),
-          m_executable(executable) {}
+          m_executable(executable),
+          m_gold_bolt(gold_bolt) {}
 
     host::GameState read_state(std::span<const std::uint8_t> ram, int level) const override {
         return read_game_state(ram, addresses(level));
+    }
+
+    renderer::CloudShadowSettings cloud_shadow_defaults(int level) const override {
+        if (level != 5) {
+            return {};
+        }
+
+        // Rilgar's rainy gameplay scene.
+        return {
+            .enabled = true,
+            .speed = .25f,
+            .undulation = .285f,
+            .scale = .063f,
+            .maximum = .69f,
+            .strength = 1.f,
+        };
     }
 
     std::optional<host::LiveMoby> read_moby(
@@ -230,20 +258,36 @@ public:
 
     bool has_levels() const override { return true; }
 
+    // The game never sends the pad a motor command (no sceVib or scePadSetActDirect call).
+    bool has_rumble() const override { return false; }
+
     // Only quads with an id move (rac1_effect_quad_id: the ship's glass).
     bool interpolates_effect_quads() const override { return true; }
 
     bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
+
+    // The classes in game/rac1/draw_distance.tsv (Pokitaru's class 1161) keep the game's draw
+    // distance at every Draw distance.
+    bool keeps_game_draw_distance(int class_id) const override {
+        static const host::DrawDistanceList list{host::kRac1DrawDistanceList};
+        return list.has(class_id);
+    }
 
     // Level mode 2 is a real-time cutscene (rac1/host/front_end.c).
     std::optional<std::uint32_t> cutscene_mode() const override { return 2; }
 
     std::optional<std::uint32_t> pause_mode() const override { return 3; }
 
+    // Level mode 4 is the freeze (mode_freeze_init, update_mode_freeze): its picture draws the
+    // level again as it stopped (draw_dialog_background_and_text).
+    std::optional<std::uint32_t> freeze_mode() const override { return 4; }
+
     std::uint32_t particle_updates() const override { return m_executable.particle_updates; }
 
     // process_pad_input (games/rac1's func_002181F0): |byte - 0x7F| from 0x30, over 0x4C.
     std::array<int, 2> stick_dead_zone() const override { return {0x30, 0x4C}; }
+
+    std::optional<host::GoldBoltReads> gold_bolt_reads() const override { return m_gold_bolt; }
 
     std::string diagnostics(
         std::span<const std::uint8_t> ram,
@@ -267,7 +311,7 @@ public:
     }
 
     std::optional<std::array<float, 2>> water_projectile(int class_id) const override {
-        // Shared PAL/NTSC classes (editor/moby_classes.tsv); equipped weapons/ammo are excluded.
+        // Shared PAL/NTSC classes (extractor/moby_classes.tsv); equipped weapons/ammo are excluded.
         switch (class_id) {
             case 305:
                 return std::array{.25f, .45f};  // Blaster's homing shot (CLASS_HOMING_SHOT).
@@ -310,8 +354,15 @@ public:
         return &m_boot == &kRac1Ntsc ? add_ship_visor : nullptr;
     }
 
-    // The water lily class is shared by PAL and NTSC (editor/moby_classes.tsv).
+    // The water lily class is shared by PAL and NTSC (extractor/moby_classes.tsv).
     bool floats_on_water(int class_id) const override { return class_id == 695; }
+
+    // The moby's save_id (+0xB2, host/world.c MOBY_UID): its record's spawn id, 0xFFFF none.
+    int moby_spawn_id(const std::uint8_t* moby) const override {
+        std::uint16_t id = 0;
+        std::memcpy(&id, moby + 0xB2, sizeof id);
+        return id != 0xFFFFu ? id : -1;
+    }
 
 private:
     // Returns the table of the program loaded: a level's, or the boot program's when `level` is
@@ -328,13 +379,14 @@ private:
     const GameAddresses& m_boot;               // The boot program's table, a constant.
     const GameAddresses (&m_levels)[kLevels];  // The level programs' tables, constants.
     const ExecutableAddresses& m_executable;   // The executable's addresses, a constant.
+    const host::GoldBoltReads& m_gold_bolt;    // The gold bolt preview's reads, a constant.
 };
 
-// The two discs' profiles, constants for the program's life.
-const Profile kPalProfile{kRac1Pal, kRac1PalLevels, kPalExecutable};
-const Profile kNtscProfile{kRac1Ntsc, kRac1NtscLevels, kNtscExecutable};
-const Profile kPal1Profile{kRac1Pal1, kRac1Pal1Levels, kPal1Executable};
-const Profile kJpProfile{kRac1Jp, kRac1JpLevels, kJpExecutable};
+// The four discs' profiles, constants for the program's life.
+const Profile kPalProfile{kRac1Pal, kRac1PalLevels, kPalExecutable, kPalGoldBolt};
+const Profile kNtscProfile{kRac1Ntsc, kRac1NtscLevels, kNtscExecutable, kNtscGoldBolt};
+const Profile kPal1Profile{kRac1Pal1, kRac1Pal1Levels, kPal1Executable, kPal1GoldBolt};
+const Profile kJpProfile{kRac1Jp, kRac1JpLevels, kJpExecutable, kJpGoldBolt};
 
 }  // namespace
 }  // namespace openrac::game::rac1

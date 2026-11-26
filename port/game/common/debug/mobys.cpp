@@ -14,11 +14,16 @@
 #include <vector>
 
 #include "debug/overlay.h"
+#include "game/common/profile.h"
+#include "openrac/game_host.h"
 #include "openrac/guest.h"
 
 namespace openrac::frontend::debug_overlay {
 
 void mobys_section() {
+    // Where this game's mobys keep the fields below: they differ between the games.
+    const host::GameProfile& profile = host::game_profile(openrac_game.id);
+    const std::uint32_t anim = profile.moby_anim_fields();
     const host::LiveMoby* h = hero();
     text("{} live mobys, {} drawn", s.state.mobys.size(), s.counts.mobys_drawn);
     ImGui::Checkbox("near the hero", &s.near_hero);
@@ -95,13 +100,13 @@ void mobys_section() {
                 ImGui::TableNextColumn();
                 text("{:04X}", read<std::uint16_t>(a + 0x34));
                 ImGui::TableNextColumn();
-                text("{}:{}", read<std::uint8_t>(a + 0x52), read<std::uint8_t>(a + 0x50));
+                text("{}:{}", read<std::uint8_t>(a + anim + 2), read<std::uint8_t>(a + anim));
                 ImGui::TableNextColumn();
                 text("{:.1f} {:.1f} {:.1f}", m.matrix[12], m.matrix[13], m.matrix[14]);
                 ImGui::TableNextColumn();
                 text("{:.1f}", rows[static_cast<std::size_t>(i)].distance);
                 ImGui::TableNextColumn();
-                const std::uint32_t update = read<std::uint32_t>(a + 0x74);
+                const std::uint32_t update = read<std::uint32_t>(a + profile.moby_update());
                 const char* fn = update != 0 ? openrac_guest_function_name(update) : nullptr;
                 ImGui::TextUnformatted(
                     update == 0     ? "-"
@@ -119,6 +124,14 @@ void inspector_window() {
     if (!s.inspector) {
         return;
     }
+
+    // Where this game's mobys keep the fields below: they differ between the games.
+    const host::GameProfile& profile = host::game_profile(openrac_game.id);
+    const std::uint32_t anim = profile.moby_anim_fields();
+    const std::uint32_t update_at = profile.moby_update();
+    const std::uint32_t pvars_at = profile.moby_pvars();
+    const std::uint32_t rotation_at = profile.moby_rotation();
+    const std::uint32_t glow_at = profile.moby_glow_word();
 
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     // Kept in the top right corner, whatever its size becomes.
@@ -152,16 +165,17 @@ void inspector_window() {
             if (ImGui::BeginTable(
                     "fields", 2, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg
                 )) {
-                float sphere[4];
-                std::memcpy(sphere, s.ram.data() + a, sizeof(sphere));
+                // The sphere the game keeps at +0x00 is in 1/1024 units: the host divides it.
+                const auto& sphere = m->world_sphere;
                 row("+00 collision sphere",
-                    std::format(
-                        "{:.2f} {:.2f} {:.2f} radius {:.2f}",
-                        sphere[0],
-                        sphere[1],
-                        sphere[2],
-                        sphere[3]
-                    ));
+                    sphere[3] > 0.0f ? std::format(
+                                           "{:.2f} {:.2f} {:.2f} radius {:.2f}",
+                                           sphere[0],
+                                           sphere[1],
+                                           sphere[2],
+                                           sphere[3]
+                                       )
+                                     : std::string("none"));
                 row("+10 position",
                     std::format(
                         "{:.3f} {:.3f} {:.3f}",
@@ -198,26 +212,30 @@ void inspector_window() {
                         read<std::uint8_t>(a + 0x3D),
                         read<std::uint8_t>(a + 0x3E)
                     ));
-                row("+40 rotation",
+                row(std::format("+{:02X} rotation", rotation_at).c_str(),
                     std::format(
                         "{:.3f} {:.3f} {:.3f}",
-                        read<float>(a + 0x40),
-                        read<float>(a + 0x44),
-                        read<float>(a + 0x48)
+                        read<float>(a + rotation_at),
+                        read<float>(a + rotation_at + 4),
+                        read<float>(a + rotation_at + 8)
                     ));
-                row("+50 animation",
+                // The animation block: the frame and the next frame, the sequence and the next
+                // one, then the time in the frame (one layout in every game, at another place).
+                row(std::format("+{:02X} animation", anim).c_str(),
                     std::format(
                         "sequence {} frame {} -> {} frame {}, t {:.3f}",
-                        read<std::uint8_t>(a + 0x52),
-                        read<std::uint8_t>(a + 0x50),
-                        read<std::uint8_t>(a + 0x53),
-                        read<std::uint8_t>(a + 0x51),
-                        read<float>(a + 0x54)
+                        read<std::uint8_t>(a + anim + 2),
+                        read<std::uint8_t>(a + anim),
+                        read<std::uint8_t>(a + anim + 3),
+                        read<std::uint8_t>(a + anim + 1),
+                        read<float>(a + anim + 4)
                     ));
-                row("+74 update", function_name(read<std::uint32_t>(a + 0x74)));
-                row("+78 pvars", std::format("{:#x}", read<std::uint32_t>(a + 0x78)));
-                row("+90 glow colour",
-                    std::format("{:#08x}", read<std::uint32_t>(a + 0x90) & 0xFFFFFFu));
+                row(std::format("+{:02X} update", update_at).c_str(),
+                    function_name(read<std::uint32_t>(a + update_at)));
+                row(std::format("+{:02X} pvars", pvars_at).c_str(),
+                    std::format("{:#x}", read<std::uint32_t>(a + pvars_at)));
+                row(std::format("+{:02X} glow colour", glow_at).c_str(),
+                    std::format("{:#08x}", read<std::uint32_t>(a + glow_at) & 0xFFFFFFu));
                 row("class", std::format("{}", m->class_id));
 
                 if (const host::LiveMoby* h = hero()) {
@@ -232,7 +250,7 @@ void inspector_window() {
                 s.memory_viewer = true;
             }
 
-            const std::uint32_t pvars = read<std::uint32_t>(a + 0x78);
+            const std::uint32_t pvars = read<std::uint32_t>(a + pvars_at);
 
             if (pvars != 0 && in_ram(pvars, 0x40)) {
                 ImGui::SameLine();

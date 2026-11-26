@@ -2,10 +2,19 @@
 // Mods switch (config.playWithMods) with how many mods it brings. The game's page shows them on the
 // desktop; on Android they sit beside the disc on the Games tab (DiscShelf.svelte) instead.
 import type { MenuItem } from "$components/Menu.svelte";
-import { api, ask, onAndroid, pickMemoryCard, type GameView, type VersionView } from "./api";
-import { app, gameWindow, guard, openVersion, run, saveConfig, toast, uninstallGame } from "./app.svelte";
-import { supports } from "./capabilities";
-import { isBuilt, rebuild, rebuildSteps, type PlayerState } from "./player.svelte";
+
+import { api, ask, type GameView, onAndroid, pickMemoryCard, type VersionView } from "./api";
+import {
+  app,
+  gameWindow,
+  guard,
+  openVersion,
+  run,
+  saveConfig,
+  toast,
+  uninstallGame,
+} from "./app.svelte";
+import { isBuilt, type PlayerState, rebuild, rebuildSteps } from "./player.svelte";
 
 /** Asked of the game's page as it opens: unfold Help with its logs (the menu's way from Games). */
 export const pageAsks = $state({ logs: false });
@@ -15,6 +24,7 @@ async function removeSetUp(v: VersionView) {
     `Remove what was set up from your ${v.title} disc? Your disc image and your saves are kept; set it up again any time.`,
     "Remove",
   );
+
   if (sure) await uninstallGame(v.game);
 }
 
@@ -22,16 +32,21 @@ async function removeSetUp(v: VersionView) {
 async function importPcsx2(serial: string) {
   const dir = await api.pcsx2MemcardsDir().catch(() => null);
   const source = await pickMemoryCard("Choose a PCSX2 memory card", dir);
+
   if (!source) return;
   const yes = await ask(
     "Copy this game's saves from the PCSX2 memory card? The saves on OpenRAC's card are backed up first, then replaced.",
     "Import saves",
   );
+
   if (!yes) return;
+
   try {
     const done = await api.importPcsx2Saves(serial, source);
+
     app.savesChanged++; // the saves list reads the card again
     const kept = done.backup ? " The saves that were there are in Backups." : "";
+
     toast(`Imported the saves from PCSX2.${kept}`, "info");
   } catch (e) {
     toast(`Import failed: ${String(e)}`, "error");
@@ -51,44 +66,72 @@ export function gameMenu(
   const action = (id: string) => v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
   const scope = { kind: "version" as const, key: v.key };
   const setUp = !!game.install?.extracted;
-  const playGodot = action("editor-preview");
-  const extract = action("editor-extract");
+  const preview = action("editor-preview");
   const items: MenuItem[] = [];
+
   if (next?.kind === "return") {
-    items.push({ label: "Stop the game", icon: "x", danger: true, run: () => void gameWindow(true) });
+    items.push({
+      label: "Stop the game",
+      icon: "x",
+      danger: true,
+      run: () => void gameWindow(true),
+    });
   }
+
   // From scratch: everything built before is deleted first (tools/build_port.py --clean); on
   // Android, the levels are read from the disc again (rebuildSteps).
   if (isBuilt(game, v) && (next?.kind === "play" || next?.kind === "levels") && rebuildSteps(v)) {
     items.push({ label: "Rebuild the game", icon: "build", run: () => void rebuild(v) });
   }
-  if (playGodot?.runnable) {
-    items.push({ label: "Preview a level in Godot", icon: "play", run: () => void run(scope, playGodot) });
+
+  if (preview?.runnable) {
+    items.push({
+      label: "Preview a level in OpenRAC Editor",
+      icon: "play",
+      run: () => void run(scope, preview),
+    });
   }
-  if (extract && extract.state !== "planned" && !onAndroid && supports(app.info, "mods")) {
-    // Android has no Godot: its Mods tab has the mods and packs, not the level editor.
-    items.push({ label: "Edit its levels (Mods)", icon: "edit", run: () => (app.page = "mods") });
-  }
+
   if (setUp) items.push({ label: "Logs and crash reports", icon: "book", run: showLogs });
   // Android: the game's files are in the Files app (Settings, Your files), and the activity log
   // is the rail's running job.
   // Not on Android: its file picker hands over no path to read the card from.
   const serial = v.serial;
+
   if (setUp && serial && !onAndroid) {
-    items.push({ label: "Import saves from PCSX2", icon: "save", run: () => void importPcsx2(serial) });
+    items.push({
+      label: "Import saves from PCSX2",
+      icon: "save",
+      run: () => void importPcsx2(serial),
+    });
   }
+
   if (!onAndroid) {
-    items.push({ label: "Open the game's folder", icon: "folder", run: () => void guard(api.openPath(v.dir)) });
+    items.push({
+      label: "Open the game's folder",
+      icon: "folder",
+      run: () => void guard(api.openPath(v.dir)),
+    });
     items.push({ label: "Activity log", icon: "terminal", run: () => (app.page = "tasks") });
   }
-  if (setUp) items.push({ label: "Remove the set-up", icon: "trash", danger: true, run: () => void removeSetUp(v) });
+
+  if (setUp)
+    items.push({
+      label: "Remove the set-up",
+      icon: "trash",
+      danger: true,
+      run: () => void removeSetUp(v),
+    });
+
   return items;
 }
 
 /** Whether Play would start the game now (play, or build or get levels and play): the Mods
  *  switch shows then. */
 export function startsPlay(next: PlayerState | null): boolean {
-  return !!next && !next.job && (next.kind === "play" || next.kind === "build" || next.kind === "levels");
+  return (
+    !!next && !next.job && (next.kind === "play" || next.kind === "build" || next.kind === "levels")
+  );
 }
 
 /** Turns the Mods switch: off, Play starts the game without mods; on, with what the Mods tab switched on. */
@@ -104,5 +147,10 @@ export async function modsOnCount(v: VersionView): Promise<number> {
     api.overridesList(v.game).catch(() => []),
     api.enhancedView(v.game, v.name).catch(() => null),
   ]);
-  return mods.filter((m) => m.enabled).length + packs.filter((p) => p.enabled).length + (enhanced?.mod.enabled ? 1 : 0);
+
+  return (
+    mods.filter((m) => m.enabled).length +
+    packs.filter((p) => p.enabled).length +
+    (enhanced?.mod.enabled ? 1 : 0)
+  );
 }

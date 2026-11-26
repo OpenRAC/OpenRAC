@@ -46,7 +46,7 @@ bool initialize(NSError** error) {
     PyStatus status = PyConfig_SetString(&config, &config.home, home);
     PyMem_RawFree(home);
     for (NSString* path in @[
-             @"app_tools/editor",
+             @"app_tools/extractor",
              @"app_tools/tools",
              @"app_tools/port/ios",
              @"python/lib/python3.14",

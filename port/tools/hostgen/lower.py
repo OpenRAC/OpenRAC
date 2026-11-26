@@ -39,6 +39,7 @@ import re
 from dataclasses import dataclass, field
 
 import ctype
+from program import level_unit as program_level_unit  # noqa: E402
 from program import BUILTINS, Program, call_copy as program_call_copy, call_copy_expr, canon, cname, has_body, symbol_of
 
 VA_NAMES = {"va_list", "__builtin_va_list", "__gnuc_va_list"}
@@ -83,6 +84,8 @@ HOST_TYPES = {
 
 # The call hostgen puts where Clang could not read inline assembly (clangast.py).
 HOSTGEN_ASM = "openrac_hostgen_asm"
+# An argument a call to a K&R function leaves out (clangast.py fixes such a call with it).
+HOSTGEN_UNSET = "openrac_hostgen_unset"
 
 # C library maths functions on plain values, called by the host's name when
 # the game uses them without defining them.
@@ -95,8 +98,24 @@ HOST_MATH = {
 }
 
 
+
+def _spr_register(addr: str) -> int | None:
+    """The address of a scratchpad DMA channel's register (0x1000D000 to 0x1000D4FF) that C names
+    as a constant (`*(volatile u32 *)0x1000D400`), or None."""
+    m = re.fullmatch(r"[\s()]*(?:\((?:gaddr|uint32_t|openrac_u32|unsigned int|int)\)\s*)*\(?\s*(0[xX][0-9a-fA-F]+|\d+)[uUlL]*\s*\)?[\s)]*", addr)
+    if m is None:
+        return None
+    v = int(m.group(1), 0) & 0xFFFFFFFF
+    return v if 0x1000D000 <= v < 0x1000D100 or 0x1000D400 <= v < 0x1000D500 else None
+
 class Unsupported(Exception):
     """A construct this translator does not write; the function becomes a stub."""
+
+
+@dataclass(frozen=True)
+class ByRef:
+    """A frame slot for a copy of a record passed by its address (Unit._record_copy_slot)."""
+    record: ctype.Type
 
 
 @dataclass
@@ -169,6 +188,7 @@ class _Fn:
     home: str | None = None
     static: bool = False                             # a static definition (Unit._ps2)
     arg_area: str | None = None                      # the frame field holding the EE's argument save area
+    spr_used: set | None = None                      # the scratchpad DMA channels whose registers it writes (_spr_store)
 
     @property
     def code(self) -> str:
@@ -406,6 +426,12 @@ class Unit:
         OPENRAC_FRAME_ALIGN, in openrac/guest.h): the game copies such locals with quadword
         loads and stores (lq/sq, which the host makes movaps), and a 16-byte copy into a
         `float v[3]` puts its fourth word in the slot's padding there, not in the next local."""
+        if isinstance(t, ByRef):
+            # Space only when the record is passed by address (bigger than eight bytes): none
+            # otherwise, so such a frame keeps the console's size.
+            tn = self.host(t.record)
+            return (f"    char {name}[sizeof({tn}) > 8 ? OPENRAC_FRAME_SIZE({tn}) : 0]"
+                    f" __attribute__((aligned(sizeof({tn}) > 8 ? OPENRAC_FRAME_ALIGN({tn}) : 1)));")
         decl = self.declare(t, name)
         r = self.resolve(t)
         aggregate = isinstance(r, ctype.Arr) or (
@@ -852,6 +878,11 @@ class Unit:
                     fn.memory[vid] = self._frame_field(d, d.get("name", "v"))
         fn.wide = self._wide_locals(body)
         lines = self.compound(body, 1, top=True)
+        for ch in sorted(fn.spr_used or ()):
+            # The scratchpad DMA channel's registers this function writes (_spr_store): its own words.
+            prologue.append(f"    uint32_t openrac_spr{ch}_madr = 0, openrac_spr{ch}_qwc = 0, "
+                            f"openrac_spr{ch}_sadr = 0, openrac_spr{ch}_tadr = 0; "
+                            f"(void)openrac_spr{ch}_tadr;")
         frame_decl = []
         if fn.frame:
             fields = "\n".join(self._frame_slot(t, f) for f, t in fn.frame)
@@ -1689,7 +1720,14 @@ class Unit:
                 # where the C computes with it: the EE's 32-bit arithmetic and shifts read the register's low half
                 # (DrawFramedText's `(s32)color >> 24`, a sra).
                 return f"(({self.host(ctype.strip_quals(self.ty(child)))})({wide}))"
-            return self.lv(child).text
+            lv = self.lv(child)
+            if (lv.addr is not None and getattr(self.program, "spr_copies", False) and self._volatile_word(self.ty(child))
+                    and (spr := _spr_register(lv.addr)) is not None):
+                # A scratchpad DMA channel's register read by C (_spr_store): a copy is over when its
+                # CHCR store returns, so CHCR reads STR clear; MADR, QWC and SADR read the function's words.
+                field = self.SPR_FIELDS.get(spr & 0xFF)
+                return f"((uint32_t){self._spr_local(9 if spr >= 0x1000D400 else 8, field)})" if field else "((uint32_t)0)"
+            return lv.text
         if kind == "IntegralCast" and self._wide(t):
             wide = self._wide_param(child)
             if wide is not None:
@@ -1907,6 +1945,8 @@ class Unit:
         d = self.decls.get(ref["referencedDecl"]["id"])
         raw = symbol_of(d) if d is not None else ref["referencedDecl"].get("name", "")
         raw = self.program.aliases.get((self.unit, raw), raw)
+        if program_level_unit(self.unit):
+            raw = self.program.kind_renames.get(raw, raw)
         if raw == sym or raw in self.program.places:
             return sym
         named = self.program.code_places(raw)
@@ -1942,6 +1982,11 @@ class Unit:
         d = self.decls.get(ref["referencedDecl"]["id"])
         sym = symbol_of(d) if d is not None else ref["referencedDecl"].get("name", "")
         sym = self.program.aliases.get((self.unit, sym), sym)
+        if program_level_unit(self.unit) and sym in self.program.kind_renames and \
+                (self.unit, sym) not in self.program.statics:
+            sym = self.program.kind_renames[sym]
+        if program_level_unit(self.unit) and (copy := self.program.level_copy_named(self.unit, sym)):
+            sym = copy
         if (self.unit, sym) in self.program.statics:
             return sym
         # hostgen.json "calls_as": a level's C names a routine its level has only as a variant of
@@ -1957,6 +2002,12 @@ class Unit:
             if problem not in self.report.problems:
                 self.report.problems.append(problem)
         sym = self._level_short_name(sym)
+        alias = CALLER_ALIAS.match(sym) if self.program.caller_aliases else None
+        if alias and (alias.group(1) in self.program.wrap or alias.group(1) in self.program.host):
+            # hostgen.json "caller_aliases": a per-caller declaration of a function the port wraps
+            # or replaces (rac3's func_0038EBC8_00390768, FontPrint as func_00390768's C declares
+            # it) is that function, or the call would run its own translation and miss the port's.
+            sym = alias.group(1)
         own = self.program.grouped(self.unit, sym)
         if own != sym and own in self.program.functions:
             return own  # the unit's group (a separate program) has its own
@@ -2086,6 +2137,53 @@ class Unit:
         return "volatile" in quals | set(self.host(t).split()) and host.split()[-1] in (
             "int", "int32_t", "uint32_t", "openrac_u32", "openrac_s32") and "long" not in host and "short" not in host
 
+    # The scratchpad DMA channels' registers C writes (rv_BinaryOperator): by their offset from the
+    # channel's CHCR, the words kept as the function's locals.
+    SPR_FIELDS = {0x10: "madr", 0x20: "qwc", 0x30: "tadr", 0x80: "sadr"}
+
+    def _spr_local(self, ch: int, field: str) -> str:
+        """The function's own word for a scratchpad DMA channel's register (declared in its
+        prologue, _function_body)."""
+        if self.fn.spr_used is None:
+            self.fn.spr_used = set()
+        self.fn.spr_used.add(ch)
+        return f"openrac_spr{ch}_{field}"
+
+    def _spr_store(self, spr: int, value: str) -> str:
+        """C for a store of VALUE to the scratchpad DMA register at SPR: a word kept, the copy a CHCR
+        with STR starts (as openrac_spr_copy, ee_ops.h), or nothing for a register the copies do not use."""
+        ch = 9 if spr >= 0x1000D400 else 8
+        off = spr & 0xFF
+        if off in self.SPR_FIELDS:
+            return f"({self._spr_local(ch, self.SPR_FIELDS[off])} = (uint32_t)({value}))"
+        if off:
+            return f"((void)({value}))"
+        madr, qwc, sadr = (self._spr_local(ch, f) for f in ("madr", "qwc", "sadr"))
+        memory = "GREF(uint64_t, (gaddr)(((" + madr + " + 16u * spr_k_) & 0x01FFFFF0u) + spr_j_))"
+        pad = "GREF(uint64_t, (gaddr)(0x70000000u + ((" + sadr + " + 16u * spr_k_) & 0x3FF0u) + spr_j_))"
+        move = f"{pad} = {memory};" if ch == 9 else f"{memory} = {pad};"
+        return (f"({{ uint32_t spr_c_ = (uint32_t)({value}); if (spr_c_ & 0x100u) {{ "
+                f"if ((spr_c_ >> 2) & 3u) {{ extern void openrac_ee_dma_register(const char *, uint32_t, uint32_t); "
+                f"openrac_ee_dma_register(\"{self.fn.name}\", 0u, {spr & ~0xFF:#010x}u); }} else {{ "
+                f"uint32_t spr_n_ = {qwc} & 0xFFFFu; "
+                f"for (uint32_t spr_k_ = 0; spr_k_ < spr_n_; spr_k_++) for (uint32_t spr_j_ = 0; spr_j_ < 16u; spr_j_ += 8u) {move} "
+                f"{madr} += 16u * spr_n_; {sadr} += 16u * spr_n_; {qwc} = 0; }} }} }})")
+
+    def _spr_dynamic_store(self, addr: str, value: str) -> str:
+        """C for a volatile word store to ADDR, an address known only when it runs: a scratchpad DMA
+        channel's register there is _spr_store's, any other address a plain store."""
+        k = self._spr_serial = getattr(self, "_spr_serial", 0) + 1
+        a, v = f"spr_a{k}_", f"spr_v{k}_"
+        cases = []
+        for ch in (8, 9):
+            arms = " else ".join(f"if (({a} & 0xFFu) == {off:#x}u) {self._spr_store(base + off, v)};"
+                                 for base in (0x1000D400 if ch == 9 else 0x1000D000,)
+                                 for off in (0x00, *self.SPR_FIELDS))
+            cases.append(f"{{ {arms} }}")
+        return (f"({{ gaddr {a} = (gaddr)({addr}); uint32_t {v} = (uint32_t)({value}); "
+                f"if (({a} & 0xFFFFFB00u) == 0x1000D000u) {{ if ({a} & 0x400u) {cases[1]} else {cases[0]} }} "
+                f"else GREF(volatile uint32_t, {a}) = {v}; {v}; }})")
+
     def rv_BinaryOperator(self, n: dict) -> str:
         op = n["opcode"]
         a, b = _inner(n)
@@ -2095,11 +2193,26 @@ class Unit:
             if sa.get("kind") == "DeclRefExpr" and sa["referencedDecl"].get("id") in self.fn.wide:
                 return f"({lv.text} = {self._wide_value(b, ctype.Base('long long'))})"
             ta = self.ty(a)
-            if (lv.addr is not None and getattr(self.program, "dma_stores", False) and self._volatile_word(ta)):
-                # A device register word (a DMA channel's CHCR starts its transfer): the store goes
-                # through the game's openrac_ee_sw_dma, as the hand-written kernels' stores do (asmc.py).
-                return (f"({{ extern void openrac_ee_sw_dma(uint32_t, uint64_t); "
-                        f"openrac_ee_sw_dma((gaddr)({lv.addr}), (uint64_t)({self.convert(b, ta)})); }})")
+            if (lv.addr is not None and getattr(self.program, "spr_copies", False) and self._volatile_word(ta)
+                    and (spr := _spr_register(lv.addr)) is not None):
+                # A scratchpad DMA channel's register written by C at a constant address, as the
+                # kernels' are (asmc.py): there is no DMA controller and no register page behind it.
+                # MADR, QWC, SADR and TADR are the function's own words (_spr_local), and the CHCR
+                # store with STR is the copy itself, over before the next statement, so the C's
+                # poll of STR or QWC reads it done (Going Commando's GS slot allocator
+                # func_002F35B0, the SDK's MPEG library). A start in any other mode than normal (a
+                # tag chain) stops the game (openrac_ee_dma_register).
+                value = self.convert(b, ta)
+                return self._spr_store(spr, value)
+            if (lv.addr is not None and getattr(self.program, "spr_copies", False) and self._volatile_word(ta)
+                    and not re.fullmatch(r"[\s()]*(?:\((?:gaddr|uint32_t|openrac_u32|unsigned int|int)\)\s*)*\(?\s*"
+                                         r"(?:0[xX][0-9a-fA-F]+|\d+)[uUlL]*\s*\)?[\s)]*", lv.addr)):
+                # A volatile word stored through a pointer the translation cannot follow: a register
+                # block's base in a local (Going Commando's CollLine, func_002761F8, writes toSPR's
+                # registers through `d[8]`, `d[32]`, `d[4]`, `d[0]`). Where it lands in a scratchpad
+                # DMA channel's registers it is the same words and copy as a constant address's
+                # (_spr_store); anywhere else it is the store it says.
+                return self._spr_dynamic_store(lv.addr, self.convert(b, ta))
             return f"({lv.text} = {self.convert(b, ta)})"
         if op in ("+", "-"):
             ta, tb = self.ty(a), self.ty(b)
@@ -2316,12 +2429,15 @@ class Unit:
             level = int(unit_level.group(1))
             moved = self.program.level_data.get(level, {})
             placed = moved.get(symbol)
-            if (placed is None and not re.fullmatch(rf"D_(?:L\d\d_)?{address:08X}", symbol)
+            if (placed is None and not re.fullmatch(rf"D_(?:L\d\d_)?{address:08X}(?:_\d+)?", symbol)
                     and symbol not in getattr(self.program, "level_names", {})):
                 # Another name of the executable's datum (r1_D_L01_00160058 and D_L02_001B359C are
                 # 0x001B1B5C, the moby table's base): where this level's build put that datum. Not
                 # a name a level's build derived (ref_L00_00424F98_00): its address is that
-                # level's already, and the executable's datum there is another.
+                # level's already, and the executable's datum there is another. Nor the build's
+                # own second name of the datum at its number (D_L00_001B060C_1): a release table
+                # leaves it out where it did not move, and D_001B060C is another datum (PAL's
+                # Mini-Nuke blast pointer was never cleared, so the third blast deleted itself).
                 placed = moved.get(f"D_{address:08X}")
             low, high = getattr(self.program, "relocate", None) or LEVEL_RELOCATE
             # Not a global that does not pair between levels (data_copies.tsv): that one is read
@@ -2332,6 +2448,10 @@ class Unit:
                         and (self.fn.code, placed) in getattr(self.program, "data_copies", ()))
             if placed is not None and low <= placed < high and not own_copy:
                 return f"OPENRAC_LDATA({level}, {hexaddr(placed)})"
+            if placed is not None and placed < low and placed != address:
+                # An executable datum the level's build placed below the moving range: use that
+                # address, not the name's number (PAL Todano lifts: D_00701818 is 0x001886E0).
+                return hexaddr(placed)
         formed =getattr(self.program, "formed_as", {}).get(symbol or "")
         if formed is not None:
             # An address the code only forms with something added (hostgen.json "formed_as"): pairing
@@ -2408,9 +2528,21 @@ class Unit:
                 # ref_L02_00385E18_00, level 2's 0x001B3DB0; read as level 0's it was another word
                 # in every level, fade_get_value saw 0 and the shield went at once.
                 derived = DERIVED_REF.fullmatch(symbol or "")
-                addr = f"OPENRAC_LDATA({int(derived.group(1)) if derived else level}, {addr})"
+                from_level = int(derived.group(1)) if derived else level
+                if (not derived and named and int(named.group(1)) != level
+                        and int(named.group(2), 16) == address
+                        and any(o == int(named.group(1)) for o, _ in self.program.code_places(self.fn.code))):
+                    # A level function matched from another level's copy says that level's name for
+                    # the datum: that level's address, as the level loaded has it. Up Your
+                    # Arsenal's func_L13_003ABD48 names the path table D_L16_0021ED00, which level 13
+                    # has at 0x0021D540; read as level 13's 0x0021ED00, its walkers took a path
+                    # pointer from other data and faulted in levels 13, 16 and 22.
+                    from_level = int(named.group(1))
+                addr = f"OPENRAC_LDATA({from_level}, {addr})"
         if address in getattr(self.program, "expanded_target_table_addresses", set()):
             addr = f"OPENRAC_TARGET_TABLE({addr})"
+        if address in getattr(self.program, "expanded_ram_top_addresses", set()):
+            addr = f"OPENRAC_RAM_TOP({addr})"
         return addr
 
     def _in_a_level_file(self) -> bool:
@@ -2428,6 +2560,25 @@ class Unit:
         whose C took a level's spelling, is 0x001B14C0): that one is the executable's global."""
         m = re.fullmatch(r"D_L\d\d_([0-9A-Fa-f]{8})", symbol or "")
         return m is None or int(m.group(1), 16) == address
+
+    def _folded_wrapper_callee(self, sym: str) -> tuple[int, int, int, int] | None:
+        """For a call from level code to a wrapper of hostgen.json "folded_wrappers": the level the
+        caller is written for, its place there, its size, and the wrapper's place there."""
+        fn = self.fn
+        if (fn is None or sym == fn.code or sym not in getattr(self.program, "folded_wrappers", ())
+                or not getattr(self.program, "relocate", None)):
+            return None
+        caller = [(o, a) for o, a in self.program.code_places(fn.code) if o >= 0]
+        size = getattr(self.program, "sizes", {}).get(fn.code)
+        if not caller or not size:
+            return None
+        level = self._shared_level()
+        home = level if level is not None else caller[0][0]
+        canon = next((a for o, a in caller if o == home), None)
+        own = next((a for o, a in self.program.code_places(sym) if o == home), None)
+        if canon is None or own is None:
+            return None
+        return home, canon, size, own
 
     def _variant_call(self, sym: str) -> tuple[int, int, int, int] | None:
         """For a call from a level function placed in several levels to a level function missing
@@ -2666,6 +2817,11 @@ class Unit:
         if c.get("kind") == "ImplicitCastExpr" and c.get("castKind") == "FunctionToPointerDecay":
             target = _strip_parens(_inner(c)[0])
             if target.get("kind") == "DeclRefExpr" and target["referencedDecl"].get("kind") == "FunctionDecl":
+                # A host-inserted decision query is a native call, not an EE code address.
+                if target["referencedDecl"].get("name") == "openrac_mod_play_query":
+                    if len(args) != 5:
+                        raise Unsupported("a gameplay query needs five scalar arguments")
+                    return "openrac_mod_play_query(" + ", ".join(self.rv(a) for a in args) + ")"
                 sym = self._callee_symbol(target)
                 if sym in getattr(self.program, "returns_64", ()):
                     # A function returning 64 bits that this unit declares int (hostgen.json
@@ -2753,6 +2909,16 @@ class Unit:
                     # call): the function this copy's own call at that place calls (guest.h).
                     home, canon, size = copy
                     own = next((a for o, a in callee_places if o == home), callee_places[0][1])
+                    self.fn.report.calls.add(sym)
+                    self.fn.uses_self = True
+                    fp = f"openrac_call_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {hexaddr(own)})"
+                    named = self._function_at(home, own) or sym
+                elif not places and (wrapped := self._folded_wrapper_callee(sym)) is not None:
+                    # A one-call wrapper the catalogue folded across the levels although its copies
+                    # call different functions (hostgen.json "folded_wrappers"): by its name, every
+                    # level ran Veldin's copy's callee; through the address this copy's own call
+                    # reaches, the runtime follows that place's jal (guest.cpp).
+                    home, canon, size, own = wrapped
                     self.fn.report.calls.add(sym)
                     self.fn.uses_self = True
                     fp = f"openrac_call_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {hexaddr(own)})"
@@ -2954,7 +3120,7 @@ class Unit:
         # level's copy: func_L00_003827C0's moby to func_0029F338's delete): passed on, as a direct
         # call does (_match_args). Through the call site's shorter type the callee read a register
         # the host had not set: Linux kept the caller's value by chance, AArch64 had a host address
-        # there, and Windows' thunk nothing (Going Commando's New Game, PR #511's reports).
+        # there, and Windows' thunk nothing (Going Commando's New Game).
         passes_on = any(
             k < len(regs)
             for kind, regs in (("i", self.fn.int_params), ("f", self.fn.float_params))
@@ -3258,6 +3424,8 @@ class Unit:
             return f"{BUILTINS[sym]}({', '.join(self.rv(a) for a in args)})"
         if sym == HOSTGEN_ASM:
             raise Unsupported("inline assembly Clang cannot read")
+        if sym == HOSTGEN_UNSET:
+            return "0"
         if sym == "__builtin_next_arg":
             return self._next_arg(result_t)
         f = self.program.lookup(self.unit, sym)
@@ -3340,6 +3508,16 @@ class Unit:
             out += [f"(void)({self.rv(a)})" for a in given[pcls.count(kind):] if _does_something(a)]
         return out
 
+    def _record_copy_slot(self, t: ctype.Type) -> str:
+        """Space for a copy of a record of type T in the function's frame, for passing it by
+        its address (used only when T is bigger than eight bytes)."""
+        fn = self.fn
+        if fn is None:
+            raise Unsupported("a record passed by address outside a function")
+        fname = f"byref_{len(fn.frame)}"
+        fn.frame.append((fname, ByRef(t)))
+        return f"(frame_ + (gaddr)offsetof(struct openrac_frame_{fn.name}, {fname}))"
+
     def _arg_class(self, a: dict) -> str:
         """Which register file the call site put the argument in."""
         t = self.ty(a)
@@ -3352,7 +3530,24 @@ class Unit:
             return "agg"
         return self._reg_class(c)
 
+    def _is_unset(self, a: dict) -> bool:
+        """An argument clangast.py put in for one a call to a K&R function leaves out."""
+        while a.get("kind") in ("ImplicitCastExpr", "CStyleCastExpr", "ParenExpr") and _inner(a):
+            a = _inner(a)[0]
+        if a.get("kind") != "CallExpr" or not _inner(a):
+            return False
+        callee = _inner(a)[0]
+        while callee.get("kind") in ("ImplicitCastExpr", "ParenExpr") and _inner(callee):
+            callee = _inner(callee)[0]
+        return callee.get("kind") == "DeclRefExpr" and callee.get("referencedDecl", {}).get("name") == HOSTGEN_UNSET
+
     def _match_args(self, sym: str, sig, args: list) -> list[str]:
+        if getattr(self.program, "unpassed_registers", False):
+            # hostgen.json "unpassed_registers": an argument a call to a K&R function leaves out
+            # is the register the caller left: its own argument there, as for any call that
+            # passes fewer than the callee takes (Up Your Arsenal's func_003AB608 hands its
+            # second and third arguments to func_003AB3F0 that way).
+            args = [a for a in args if not self._is_unset(a)]
         if not sig.prototyped:
             return [self.rv(a) for a in args]
         classes = [self._arg_class(a) for a in args]
@@ -3363,11 +3558,15 @@ class Unit:
             out = []
             for a, c, p, pc in zip(args, classes, sig.params, pcls):
                 if c == "agg" and pc != "agg":
-                    # A record where the callee takes a scalar: the EE passed the
-                    # record's first eight bytes in the register.
+                    # A record where the callee takes a scalar. The EE's ABI (EABI) passes a
+                    # record of up to eight bytes in the register, and a bigger one as the
+                    # address of a copy in the caller's frame (PAL Yeedil's trooper_init_spawned
+                    # hands its three links to moby_fuse_linked_objects so).
                     canon_p = self.canon(p) or "int"
+                    copy = self._record_copy_slot(self.ty(a))
                     out.append(f"({{ {self.declare(self.ty(a), 'rec_')} = {self.rv(a)}; uint64_t bits_ = 0; "
-                               f"memcpy(&bits_, &rec_, sizeof rec_ < 8 ? sizeof rec_ : 8); ({canon_p})bits_; }})")
+                               f"if (sizeof rec_ > 8) {{ memcpy(G({copy}), &rec_, sizeof rec_); bits_ = {copy}; }} "
+                               f"else memcpy(&bits_, &rec_, sizeof rec_); ({canon_p})bits_; }})")
                 elif c != "agg" and pc == "agg":
                     raise Unsupported(f"call to {sym}: a scalar where it takes a record")
                 else:

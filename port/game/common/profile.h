@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "renderer/math.h"
+#include "renderer/settings/cloud_shadow_settings.h"
 #include "scene/shrub_draw.h"
 
 namespace openrac::scene {
@@ -48,6 +49,8 @@ struct LiveMoby {
 
 // The game's state at one frame: the camera the world is drawn from, and the live mobys.
 struct GameState {
+    // The level's animation clock, also used by authored sky motion where available.
+    std::optional<std::uint32_t> sky_tick;
     renderer::Vec3 camera_position{};  // The eye, in game units.
     std::optional<renderer::Vec3> camera_target;  // Smoothed follow focus, when known.
     std::uint64_t camera_target_id = 0;           // Camera record and saved-state identity.
@@ -120,6 +123,17 @@ struct DiagnosticsInput {
     void* game = nullptr;
 };
 
+// Where the gold bolt preview reads the numbers the game's own bolt update uses: the class scale
+// and spin constants (data of level `constants_level`'s program), the moby table's start and end
+// pointers, and the frame time in seconds.
+struct GoldBoltReads {
+    int constants_level = 0;
+    std::uint32_t constants = 0;
+    std::uint32_t moby_table = 0;
+    std::uint32_t moby_table_end = 0;
+    std::uint32_t frame_seconds = 0;
+};
+
 // What one game version tells the host program about its memory.
 //
 // The base answers as a game nothing is known of: no game state (the camera as GameState starts
@@ -137,6 +151,9 @@ public:
 
     // Returns immutable preparation for supported exports; no callback keeps retail geometry.
     virtual LevelGeometryPreparer level_geometry_preparer() const { return nullptr; }
+
+    // Cloud shadows are opt-in per level.
+    virtual renderer::CloudShadowSettings cloud_shadow_defaults(int /*level*/) const { return {}; }
 
     // Reads the camera and the live mobys from the game's active main memory, `ram`. `level` is
     // the level program loaded now (-1 for the boot program, the title and the menus): each has its
@@ -198,12 +215,30 @@ public:
     // mode has bit 0x10 (MobyProc's glow list).
     virtual std::uint32_t moby_glow_word() const { return 0x90; }
 
+    // Returns where a moby keeps its update function's address, its pvars' address and its
+    // rotation (three floats). The debug overlay's moby inspector and the moby log read them.
+    virtual std::uint32_t moby_update() const { return 0x74; }
+
+    virtual std::uint32_t moby_pvars() const { return 0x78; }
+
+    virtual std::uint32_t moby_rotation() const { return 0x40; }
+
+    // Returns the spawn id of the moby whose record starts at `moby` (its place in the level's
+    // save bits, what the editor's skins.json names it by), or -1 for none or a game without them.
+    virtual int moby_spawn_id(const std::uint8_t* /*moby*/) const { return -1; }
+
     // Returns whether a moby's pose layers keep records (scene::set_moby_layer_records).
     virtual bool moby_layer_records() const { return false; }
 
     // Whether the frame shown is the display list the game sends each tick, rather than one of
     // two list buffers it alternates (shown_chain()).
     virtual bool sends_display_list() const { return false; }
+
+    // Whether the frames between ticks are drawn for a tick without a world camera as well: the
+    // kept tick's 2D drawn again at the frame rate the player chose, the game's time unmoved (its
+    // records are the tick's). For a game whose menus are 2D alone (Up Your Arsenal's front end),
+    // where Going Commando's and Ratchet & Clank's have a camera and get those frames for it.
+    virtual bool frames_between_without_camera() const { return false; }
 
     // Whether the 2D path of a frame is split for its mobys at the first moby the game drew from a
     // list of its own (a menu's or a shop's, openrac_game_mobys_drawn): the 2D before it goes under
@@ -217,6 +252,15 @@ public:
     // quads that sample such a buffer then draw the picture there (renderer::g_quads_sample_targets),
     // the screen's quad of block 0x3BE0.
     virtual bool own_mobys_into_narrow_buffers() const { return false; }
+
+    // Whether an effect strip drawn with this TEX0 samples the game's copy of the frame drawn so
+    // far (a refraction: Up Your Arsenal's heat haze), which the window draws from a native
+    // snapshot of its own picture instead of the chip's frame copy (renderer::EffectStrip::
+    // frame_copy).
+    virtual bool frame_copy_texture(std::uint64_t tex0) const {
+        (void)tex0;
+        return false;
+    }
 
     // Whether an image the game sends outside its display list stays over what that tick's list,
     // built before it and replayed after it, puts at the same block: the game reloads a block
@@ -233,6 +277,20 @@ public:
     // as a third directional light (Going Commando's MobyProc, 0x2A51C8 and 0x2A57F8), rather than
     // not at all.
     virtual bool mobys_take_point_lights() const { return false; }
+
+    // The light bank MobyProc sends to the scratchpad (16 directional sets of 0x40 bytes, then the
+    // 8 point lights), in the program loaded now, for a game whose programs each carry a copy of
+    // their own that the executable's address does not relocate to (Up Your Arsenal: the boot
+    // program's, Veldin's for the single-player levels, the multiplayer maps'). 0: the front end's
+    // light_bank in the executable's terms, relocated as data (Ratchet & Clank, Going Commando).
+    virtual std::uint32_t light_bank() const { return 0; }
+
+    // The frame's occlusion mask (0x80 bytes) the program loaded now reads, for a game whose
+    // programs each keep one of their own as light_bank's: Up Your Arsenal's boot program (its
+    // loading screen's MobyProc) reads its own copy, not the levels'. 0: the front end's occlusion
+    // address, relocated as the profile's scenery words are (Ratchet & Clank, Going Commando, and
+    // Up Your Arsenal's levels).
+    virtual std::uint32_t occlusion_mask() const { return 0; }
 
     // Which variant of the level's swapped texture (scene::LevelData::variant_image) the game has
     // loaded: Going Commando's ship paint job (func_002926B8 keeps its number at 0x00152C30). -1
@@ -255,6 +313,16 @@ public:
         return 0;
     }
 
+    // Returns the mobys an active particle record may name as its maker (its owner, an attached
+    // halo's parent), 0 where it names none: a mod's energy material on one of them draws the
+    // particle in the material's colour (energy_effects.h). A word that names no moby is harmless:
+    // only mobys a mod drew as energy are looked for.
+    [[nodiscard]] virtual std::array<std::uint32_t, 2> particle_owners(
+        std::span<const std::uint8_t>
+    ) const {
+        return {0, 0};
+    }
+
     // Whether the terrain's vertex colours take the point lights in reach, as Going Commando's
     // PatchTfragVertexLighting (0x2F0468) adds them to the colours the level lit (mesh.vert),
     // rather than not at all.
@@ -271,21 +339,15 @@ public:
     // bit 0 hidden, the point lights' list at +0x1E); 0 for none.
     virtual std::array<std::uint32_t, 4> scenery_matrices() const { return {0, 0, 0, 0}; }
 
-    // Whether the world's depth is precise (renderer/gl/precise_depth.h): reversed Z in a 32-bit float
-    // buffer, clip-space z to the window as it is, where the context has glClipControl (OpenGL 4.5,
-    // ARB_clip_control, the Vulkan backend; not macOS's OpenGL 4.1). Going Commando's Maktar dome
-    // carries light strips (tie class 2713) within a few centimetres of the band under them (class
-    // 2675): GL's depth parted them only within about 150 units of the window's near 0.05, and
-    // farther away they flickered in and out of it.
-    virtual bool precise_depth() const { return false; }
+    // The level whose program scenery_matrices() names its words in, each relocated to the loaded
+    // level's copy (OPENRAC_LDATA): Up Your Arsenal's levels each carry their own engine, and its
+    // executable none; -1 for the executable's addresses (openrac_relocate_data), Going Commando's.
+    // The occlusion mask (openrac_front_end.occlusion) is named in the same program.
+    virtual int scenery_matrices_level() const { return -1; }
 
-    // Where precise depth cannot be had: the near distance of the world's depth (game units), or 0
-    // for the window's 0.05. GL's depth resolves about 1.2e-6 d^2 / (near / 0.05) units at a
-    // distance d (2^-24 of its range, after GL's (z + w) / 2), so a larger near parts close surfaces
-    // that much farther away. Nothing is clipped for it: the frame turns depth clamping on, so
-    // what is nearer than this near is drawn at the nearest depth, in drawing order among itself,
-    // instead of being cut away.
-    virtual float depth_near() const { return 0.0f; }
+    // Where TieProc's cap on the ties' draw distance is, past the word that points at the ties'
+    // records (scenery_matrices()[2]): Going Commando's gp + 0x320C, 0x48 past it.
+    virtual std::uint32_t tie_cap_after_records() const { return 0x48; }
 
     // Returns the executable's address of the four shadow directions the hero's shadow is cast
     // along (relocated to the loaded program's copy when read); 0 for a game without them.
@@ -308,16 +370,34 @@ public:
     // updates off the ground, 0 on landing), which the hero's shadow map tilts down by.
     virtual std::uint32_t hero_air_frames() const { return 0x30E; }
 
-    // Whether the port has the game's levels extracted (editor/port.py), so that a level whose
+    // Whether the port has the game's levels extracted (extractor/port.py), so that a level whose
     // scenery cannot be read is something missing, not a game with no scenery yet.
     virtual bool has_levels() const { return false; }
+
+    // Whether the boot program (the title and its menus) is drawn over a world of the extracted
+    // levels (a title world, else level 0's), rather than as its 2D path alone: Up Your Arsenal's
+    // title is a picture, and its levels have no level 0.
+    virtual bool has_title_world() const { return true; }
+
+    // The extracted level the loading screen between levels (the game mode the window takes for a
+    // flight between planets, world -2) is drawn with, or -1 for the flight world: Up Your
+    // Arsenal's loading screen is its ship's scene, exported as level 97 (extractor/level.py
+    // load_wad_loading).
+    virtual int loading_world() const { return -1; }
+
+    // A level whose program draws no world of the extracted levels, its picture the 2D path alone
+    // as the title's (Up Your Arsenal's level 39, the multiplayer menus, of its second executable).
+    virtual bool level_is_menus(int number) const {
+        (void)number;
+        return false;
+    }
 
     // Returns whether this class is a gameplay subject, rather than scenery or an effect.
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }
 
     // Whether a moby class keeps the game's own draw distance whatever Draw distance says: one the
-    // game parks out of sight and shows only by its distance (Going Commando's Electrolyzer
-    // boards).
+    // game parks out of sight or far away and hides only by its distance. Each game lists them, with
+    // the reason, in port/game/<game>/draw_distance.tsv (game/common/draw_distance_list.h).
     virtual bool keeps_game_draw_distance(int /*class_id*/) const { return false; }
 
     // The value of the game's mode word (openrac_game_mode) while a real-time cutscene plays in a
@@ -329,6 +409,16 @@ public:
     // View keeps the world under it as it was paused); none for a game without one known.
     virtual std::optional<std::uint32_t> pause_mode() const { return std::nullopt; }
 
+    // The value of the game's mode word while the weapon quick select is open over play: the
+    // world goes on under it with the gameplay camera, so the Field of View stays; none for a
+    // game whose quick select keeps the play mode.
+    virtual std::optional<std::uint32_t> quick_select_mode() const { return std::nullopt; }
+
+    // The value of the game's mode word while a freeze screen is up over a level (help, prompts,
+    // a mod's own freeze: the world drawn again as it stopped); like the pause menu's, the Field
+    // of View keeps the world under it as it was frozen. None for a game without one known.
+    virtual std::optional<std::uint32_t> freeze_mode() const { return std::nullopt; }
+
     // Returns the executable's address of the particle updates, one per particle type byte
     // (relocated when read); 0 for a game without them.
     virtual std::uint32_t particle_updates() const { return 0; }
@@ -337,6 +427,9 @@ public:
     // from {inner} away from 0x7F and is full {span} beyond (platform/pad.h's StickDeadZone);
     // {0, 0} for a game without a known one.
     virtual std::array<int, 2> stick_dead_zone() const { return {0, 0}; }
+
+    // Where the gold bolt preview reads the game's numbers; none for a game without one.
+    virtual std::optional<GoldBoltReads> gold_bolt_reads() const { return std::nullopt; }
 
     // Developer tools: what of the game's state a diagnostics recording carries beside its
     // snapshots, as a JSON value ("" for nothing), read each tick from `ram` and the tick's `state`
@@ -361,6 +454,10 @@ public:
 
     // Visual attachments to enhanced water; collision and gameplay poses stay untouched.
     virtual bool floats_on_water(int /*class_id*/) const { return false; }
+
+    // Whether the game drives the controller's motors. Ratchet & Clank's never does, so its
+    // menu shows the vibration settings greyed out.
+    virtual bool has_rumble() const { return true; }
 };
 
 // Returns the profile of the game version `game` (its port id, "rac1-pal"), which lives as long as

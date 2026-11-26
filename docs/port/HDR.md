@@ -46,8 +46,9 @@ plain HDR picture, bit for bit.
 
 ## Where it works
 
-HDR needs the Vulkan renderer, so `on` starts the game with Vulkan even if OpenGL or Metal was
-picked. If Vulkan can't start, the game falls back to OpenGL in SDR.
+HDR needs the Vulkan renderer, which the Apple launcher labels Metal. `on` starts the game with
+Vulkan if OpenGL was picked. On macOS, MoltenVK uses the display's EDR for scRGB output. If Vulkan
+cannot start, the desktop game falls back to OpenGL in SDR.
 
 `on` sends HDR whenever the screen offers an HDR format, even if the system says the display is
 not in HDR mode. A compositor can get that wrong (Steam Deck's gamescope). Only Android follows
@@ -70,8 +71,9 @@ paper white is 203 and the peak 1000 unless you set them.
 - the system offers no HDR format: Windows with HDR off, a Wayland compositor without colour
   management, X11 without a driver that offers one, a Steam Deck LCD, or Android saying the
   display is not in HDR mode;
-- HDR was `off` at start (restart once);
-- Vulkan can't start, or the encode pass can't be built.
+- HDR was `off` at start and the Vulkan window did not request HDR colour spaces. On Apple
+  platforms a MoltenVK window requests them at startup and can switch HDR on later.
+- Vulkan cannot start or the encode pass fails.
 
 The options drawer shows what is sent and what the display reported. The log prints the same
 line (`HDR: ...`) when it changes.
@@ -110,7 +112,9 @@ on every display, so the game goes by what the activity says, not by the formats
 - The Vulkan presentation graph encodes the frame with `shaders/hdr_encode.comp` and transitions
   the result for presentation. If encoder setup fails, the graph uses its SDR copy path.
   `hdr_output.cpp` also sends HDR metadata (peak, MaxCLL = peak,
-  MaxFALL = paper white). If the swapchain images can't be written by a shader, the pass writes
+  MaxFALL = paper white), except for scRGB on macOS: MoltenVK makes it the layer's HDR10
+  `CAEDRMetadata` with an optical output scale of 1, which shows scRGB's 1.0 as one nit (a black
+  picture), and EDR needs no metadata. If the swapchain images can't be written by a shader, the pass writes
   its own image and copies it. If the screen's format can't be stored at all (A2R10G10B10, or no
   storage support), the pass writes half floats and blits them into it.
 
@@ -129,6 +133,5 @@ white every 60 frames. Use it to compare with the normal frame.
 Known differences while HDR is on: blending over a pixel that is already above white starts from
 that value, not from 1. Alpha that adds up past 1 also stays there.
 
-To check on a real HDR screen: start with `hdr = on` and Vulkan, look for
-`vulkan: HDR output HDR10 at ... nits` in the log, and compare the menu's white and a dark scene
-with the same scene in SDR.
+On a real HDR screen, start with `hdr = on` and Vulkan, check the reported HDR output format
+in the log, and compare the menu's white and a dark scene with the same scene in SDR.

@@ -11,6 +11,8 @@
 
 #include "common/log.h"
 #include "platform/bindings.h"
+#include "platform/key_layout.h"
+#include "platform/raw_mouse.h"
 
 namespace openrac::platform {
 namespace {
@@ -35,7 +37,152 @@ bool held(SDL_Gamepad* g) {
     return false;
 }
 
+// A device's own sensor reads along its natural way up (a phone's portrait); the game shows in
+// landscape. Turns `d` (x, y, z) into the axes of the screen as shown now.
+void device_axes(float* d) {
+    const SDL_DisplayID display = SDL_GetPrimaryDisplay();
+    const auto quarter = [](SDL_DisplayOrientation o) {
+        switch (o) {
+            case SDL_ORIENTATION_LANDSCAPE:
+                return 1;
+            case SDL_ORIENTATION_PORTRAIT_FLIPPED:
+                return 2;
+            case SDL_ORIENTATION_LANDSCAPE_FLIPPED:
+                return 3;
+            default:
+                return 0;
+        }
+    };
+    const int turns = (quarter(SDL_GetCurrentDisplayOrientation(display))
+                       - quarter(SDL_GetNaturalDisplayOrientation(display)) + 4)
+                      % 4;
+    const float x = d[0];
+    const float y = d[1];
+    // As Android's remapCoordinateSystem for the screen turned 90, 180 or 270 degrees.
+    switch (turns) {
+        case 1:
+            d[0] = y;
+            d[1] = -x;
+            break;
+        case 2:
+            d[0] = -x;
+            d[1] = -y;
+            break;
+        case 3:
+            d[0] = -y;
+            d[1] = x;
+            break;
+        default:
+            break;
+    }
+}
+
+// The gamepad's gyro and accelerometer (SDL_SensorType), 0 for none: the one in its middle, or a
+// Joy-Con's own.
+std::pair<int, int> gamepad_sensors(SDL_Gamepad* g) {
+    if (g == nullptr) {
+        return {0, 0};
+    }
+    if (SDL_GamepadHasSensor(g, SDL_SENSOR_GYRO)) {
+        return {SDL_SENSOR_GYRO, SDL_GamepadHasSensor(g, SDL_SENSOR_ACCEL) ? SDL_SENSOR_ACCEL : 0};
+    }
+    if (SDL_GamepadHasSensor(g, SDL_SENSOR_GYRO_R)) {
+        return {
+            SDL_SENSOR_GYRO_R, SDL_GamepadHasSensor(g, SDL_SENSOR_ACCEL_R) ? SDL_SENSOR_ACCEL_R : 0
+        };
+    }
+    if (SDL_GamepadHasSensor(g, SDL_SENSOR_GYRO_L)) {
+        return {
+            SDL_SENSOR_GYRO_L, SDL_GamepadHasSensor(g, SDL_SENSOR_ACCEL_L) ? SDL_SENSOR_ACCEL_L : 0
+        };
+    }
+    return {0, 0};
+}
+
+void gamepad_sensors_on(SDL_Gamepad* g, std::pair<int, int> sensors, bool on) {
+    if (g == nullptr) {
+        return;
+    }
+    if (sensors.first != 0) {
+        SDL_SetGamepadSensorEnabled(g, static_cast<SDL_SensorType>(sensors.first), on);
+    }
+    if (sensors.second != 0) {
+        SDL_SetGamepadSensorEnabled(g, static_cast<SDL_SensorType>(sensors.second), on);
+    }
+}
+
 }  // namespace
+
+void Input::set_gyro_options(const GyroOptions& options) {
+    const GyroOptions was = m_gyro.options();
+    m_gyro.set_options(options);
+    if (was.enabled != options.enabled) {
+        choose_gyro();
+    }
+}
+
+void Input::choose_gyro() {
+    SDL_Gamepad* const player = gamepad(0);
+    const bool on = m_gyro.options().enabled;
+    SDL_Gamepad* const want = on && gamepad_sensors(player).first != 0 ? player : nullptr;
+    m_gyro_for = player;
+    if (want != m_gyro_pad) {
+        gamepad_sensors_on(m_gyro_pad, {m_gyro_sensor, m_accel_sensor}, false);
+        m_gyro_pad = want;
+        const auto sensors = gamepad_sensors(want);
+        m_gyro_sensor = sensors.first;
+        m_accel_sensor = sensors.second;
+        gamepad_sensors_on(want, sensors, true);
+        m_gyro.reset();
+        if (want != nullptr) {
+            const char* name = SDL_GetGamepadName(want);
+            log::info("gyro: {}", name != nullptr ? name : "controller");
+        }
+    }
+
+    // No gamepad with a gyro: a phone's or a handheld's own, on those only (a desktop's sensors,
+    // where it has any, are not held in the hands).
+#if defined(SDL_PLATFORM_ANDROID) || defined(SDL_PLATFORM_IOS)
+    const bool device = on && m_gyro_pad == nullptr;
+    if (device && m_device_gyro == nullptr && !m_sensors_tried) {
+        m_sensors_tried = true;
+        if (SDL_InitSubSystem(SDL_INIT_SENSOR)) {
+            int count = 0;
+            SDL_SensorID* ids = SDL_GetSensors(&count);
+            for (int i = 0; ids != nullptr && i < count; ++i) {
+                const SDL_SensorType type = SDL_GetSensorTypeForID(ids[i]);
+                if (type == SDL_SENSOR_GYRO && m_device_gyro == nullptr) {
+                    m_device_gyro = SDL_OpenSensor(ids[i]);
+                } else if (type == SDL_SENSOR_ACCEL && m_device_accel == nullptr) {
+                    m_device_accel = SDL_OpenSensor(ids[i]);
+                }
+            }
+            SDL_free(ids);
+            log::info("gyro: the device's own {}", m_device_gyro != nullptr ? "sensor" : "(none)");
+            m_gyro.reset();
+        }
+    } else if (!device && m_device_gyro != nullptr) {
+        // Closed while not read: a phone's sensors cost battery.
+        SDL_CloseSensor(m_device_gyro);
+        m_device_gyro = nullptr;
+        if (m_device_accel != nullptr) {
+            SDL_CloseSensor(m_device_accel);
+            m_device_accel = nullptr;
+        }
+        m_sensors_tried = false;
+    }
+#endif
+}
+
+void Input::gyro_sample(const float* data, std::uint64_t ns) {
+    SDL_Gamepad* const pad = m_gyro_pad != nullptr ? m_gyro_pad : gamepad(0);
+    const int button = m_gyro.options().button;
+    m_gyro.button(
+        pad != nullptr && button >= 0 && button < SDL_GAMEPAD_BUTTON_COUNT
+        && SDL_GetGamepadButton(pad, static_cast<SDL_GamepadButton>(button))
+    );
+    m_gyro.gyro({data[0], data[1], data[2]}, ns);
+}
 
 void apply_keyboard(Pad& pad, std::span<const bool> keys) {
     static const Bindings defaults = default_bindings();
@@ -58,6 +205,12 @@ void Input::set_bindings(const std::array<Bindings, kPadPorts>& bindings) {
 
 Input::~Input() {
     stop_rumble();
+    if (m_device_gyro != nullptr) {
+        SDL_CloseSensor(m_device_gyro);
+    }
+    if (m_device_accel != nullptr) {
+        SDL_CloseSensor(m_device_accel);
+    }
     if (m_vibrator != nullptr) {
         SDL_CloseHaptic(m_vibrator);
     }
@@ -116,6 +269,13 @@ void Input::handle_event(const SDL_Event& event) {
                         r = Rumble{};
                     }
                 }
+                if (it->gamepad == m_gyro_pad) {
+                    m_gyro_pad = nullptr;
+                    m_gyro.reset();
+                }
+                if (it->gamepad == m_gyro_for) {
+                    m_gyro_for = nullptr;
+                }
                 SDL_CloseGamepad(it->gamepad);
                 m_gamepads.erase(it);
                 m_devices.erase(m_devices.begin() + index);
@@ -127,6 +287,7 @@ void Input::handle_event(const SDL_Event& event) {
         case SDL_EVENT_FINGER_DOWN:
             if (event.tfinger.touchID != SDL_MOUSE_TOUCHID) {
                 m_touch.finger_down(event.tfinger.fingerID, event.tfinger.x, event.tfinger.y);
+                m_switch.touch(event.tfinger.timestamp);
             }
             break;
         case SDL_EVENT_FINGER_MOTION:
@@ -138,10 +299,15 @@ void Input::handle_event(const SDL_Event& event) {
         case SDL_EVENT_FINGER_CANCELED:
             m_touch.finger_up(event.tfinger.fingerID);
             break;
+        // The keyboard's layout changed: the keys' names follow it (key_layout.h).
+        case SDL_EVENT_KEYMAP_CHANGED:
+            refresh_key_layout();
+            break;
         // Another device in use: the on-screen pad is put away until the screen is touched again.
         case SDL_EVENT_KEY_DOWN:
             if (!event.key.repeat && static_cast<std::size_t>(event.key.scancode) < kKeyCount) {
                 m_went_down[static_cast<std::size_t>(event.key.scancode)] = 1;
+                m_switch.key(static_cast<int>(event.key.scancode), event.key.timestamp);
             }
             m_touch.hide();
             break;
@@ -151,34 +317,69 @@ void Input::handle_event(const SDL_Event& event) {
                 it->tapped[event.gbutton.button] = kTapReads;
             }
             pressed(event.gbutton.which, event.gbutton.timestamp);
+            m_switch.gamepad(event.gbutton.timestamp);
             m_touch.hide();
             break;
         // The mouse, for the mods (KeyboardMouse): gathered until the next update(). A touch screen's
         // fingers that SDL also reports as the mouse are not the mouse.
         case SDL_EVENT_MOUSE_MOTION:
-            if (event.motion.which != SDL_TOUCH_MOUSEID) {
-                m_dx += event.motion.xrel;
-                m_dy += event.motion.yrel;
+            if (event.motion.which != SDL_TOUCH_MOUSEID && event.motion.which != SDL_PEN_MOUSEID) {
+                // Captured, the mouse's own motion stands in for SDL's where it reads one.
+                if (!(m_km.captured && raw_mouse::active())) {
+                    m_dx += event.motion.xrel;
+                    m_dy += event.motion.yrel;
+                    m_rate.add(event.motion.timestamp, event.motion.xrel, event.motion.yrel);
+                }
+                m_switch.mouse_motion(event.motion.xrel, event.motion.yrel, event.motion.timestamp);
             }
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
             if (event.button.which != SDL_TOUCH_MOUSEID && event.button.button >= 1
                 && event.button.button <= 5) {
                 m_mouse_went_down |= 1u << (event.button.button - 1);
+                m_switch.mouse_button(event.button.timestamp);
             }
             break;
         case SDL_EVENT_MOUSE_WHEEL: {
             const float flip = event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -1.0f : 1.0f;
             m_wheel_x += event.wheel.x * flip;
             m_wheel_y += event.wheel.y * flip;
+            if (event.wheel.which != SDL_TOUCH_MOUSEID) {
+                m_switch.wheel(event.wheel.timestamp);
+            }
             break;
         }
+        // The gyro read (gyro.h): its own gamepad's, or the device's sensors.
+        case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
+            if (m_gyro_pad != nullptr && SDL_GetGamepadID(m_gyro_pad) == event.gsensor.which) {
+                if (event.gsensor.sensor == m_gyro_sensor) {
+                    gyro_sample(event.gsensor.data, event.gsensor.sensor_timestamp);
+                } else if (event.gsensor.sensor == m_accel_sensor) {
+                    m_gyro.accel(
+                        {event.gsensor.data[0], event.gsensor.data[1], event.gsensor.data[2]}
+                    );
+                }
+            }
+            break;
+        case SDL_EVENT_SENSOR_UPDATE:
+            if (m_gyro_pad == nullptr && m_device_gyro != nullptr) {
+                float d[3] = {event.sensor.data[0], event.sensor.data[1], event.sensor.data[2]};
+                device_axes(d);
+                if (event.sensor.which == SDL_GetSensorID(m_device_gyro)) {
+                    gyro_sample(d, event.sensor.sensor_timestamp);
+                } else if (m_device_accel != nullptr
+                           && event.sensor.which == SDL_GetSensorID(m_device_accel)) {
+                    m_gyro.accel({d[0], d[1], d[2]});
+                }
+            }
+            break;
         case SDL_EVENT_GAMEPAD_AXIS_MOTION:
             // A stick pushed well past its dead zone, not a resting stick's drift.
             if (event.gaxis.value > 16000 || event.gaxis.value < -16000) {
                 if (const auto it = find(event.gaxis.which); it != m_gamepads.end()) {
                     it->active_ns = event.gaxis.timestamp;
                 }
+                m_switch.gamepad(event.gaxis.timestamp);
                 m_touch.hide();
             }
             break;
@@ -448,7 +649,33 @@ void Input::assign_players() {
     m_devices_changed = true;
 }
 
+void Input::set_captured(bool captured) {
+    if (captured && !m_km.captured) {
+        raw_mouse::start();
+        pull_raw_mouse();  // what moved before the capture is not the player's turn
+    }
+    m_km.captured = captured;
+}
+
+void Input::pull_raw_mouse() {
+    float dx = 0.0f;
+    float dy = 0.0f;
+    raw_mouse::take(dx, dy);
+    if (m_km.captured && raw_mouse::active()) {
+        m_dx += dx;
+        m_dy += dy;
+        if (dx != 0.0f || dy != 0.0f) {
+            m_rate.add(SDL_GetTicksNS(), dx, dy);
+        }
+    }
+}
+
+void Input::mouse_rate(float& vx, float& vy) const {
+    m_rate.rate(SDL_GetTicksNS(), vx, vy);
+}
+
 void Input::update() {
+    pull_raw_mouse();
     int key_count = 0;
     const bool* state = SDL_GetKeyboardState(&key_count);
     // The keyboard counts only while the window has it, and not while Cmd/Win is held: a system
@@ -483,6 +710,13 @@ void Input::update() {
     m_mouse_went_down = 0;
     m_dx = m_dy = m_wheel_x = m_wheel_y = 0.0f;
 
+    // The gyro: player 1's gamepad may have changed (another controller picked up).
+    if (m_gyro.options().enabled && gamepad(0) != m_gyro_for) {
+        choose_gyro();
+    }
+    // The tick reads it only with the window focused (the built-in keyboard and mouse checks).
+    m_gyro.take(m_gyro_yaw, m_gyro_pitch);
+
     refresh_pads();
     play_rumble();
 }
@@ -492,6 +726,46 @@ void Input::set_motors(int port, const MotorCommand& command) {
         return;
     }
     m_motors[static_cast<std::size_t>(port)] = {command, SDL_GetTicksNS()};
+}
+
+void Input::set_extra_motors(const void* owner, int port, const MotorCommand& command) {
+    if (owner == nullptr || port < 0 || port >= kPadPorts) {
+        return;
+    }
+    const Motors motors{command, SDL_GetTicksNS()};
+    for (ExtraMotors& e : m_extra_motors) {
+        if (e.owner == owner && e.port == port) {
+            e.motors = motors;
+            return;
+        }
+    }
+    m_extra_motors.push_back({owner, port, motors});
+}
+
+void Input::drop_extra_motors(const void* owner) {
+    std::erase_if(m_extra_motors, [&](const ExtraMotors& e) {
+        return owner == nullptr || e.owner == owner;
+    });
+}
+
+MotorCommand Input::motors_now(int port) const {
+    if (port < 0 || port >= kPadPorts) {
+        return {};
+    }
+    return motors_at(port, SDL_GetTicksNS());
+}
+
+MotorCommand Input::motors_at(int port, std::uint64_t now) const {
+    const auto held = [&](const Motors& m) {
+        return m.ns != 0 && now - m.ns < kMotorHoldNs ? m.command : MotorCommand{};
+    };
+    MotorCommand command = held(m_motors[static_cast<std::size_t>(port)]);
+    for (const ExtraMotors& e : m_extra_motors) {
+        if (e.port == port) {
+            command = stronger(command, held(e.motors));
+        }
+    }
+    return command;
 }
 
 SDL_Haptic* Input::device_vibrator() {
@@ -562,9 +836,7 @@ void Input::play_rumble() {
     for (int port = 0; port < kPadPorts; ++port) {
         const auto p = static_cast<std::size_t>(port);
         const RumbleTuning& tuning = m_bindings[p].tuning.rumble;
-        const Motors& motors = m_motors[p];
-        const MotorCommand command =
-            motors.ns != 0 && now - motors.ns < kMotorHoldNs ? motors.command : MotorCommand{};
+        const MotorCommand command = motors_at(port, now);
         Rumble& r = m_rumble[p];
         SDL_Gamepad* g = r.gamepad;
         const bool vibrator = r.vibrator;
@@ -615,6 +887,7 @@ void Input::stop_rumble() {
         SDL_StopHapticRumble(m_vibrator);
     }
     m_motors = {};
+    m_extra_motors.clear();
 }
 
 void Input::refresh_pads() {
@@ -695,7 +968,8 @@ void Input::refresh_pads() {
             m_last[static_cast<std::size_t>(port)] = {};
             m_latch[static_cast<std::size_t>(port)] = {};
         }
-        if (keyboard_here && m_keyboard_table && !m_capturing) {
+        // A mod that took the keyboard presses pad 0 only: as player 2 the keys keep the table.
+        if (keyboard_here && (m_keyboard_table || port != 0) && !m_capturing) {
             apply_keys(m_bindings[static_cast<std::size_t>(port)], keys, pad);
         }
         if (port == 0) {

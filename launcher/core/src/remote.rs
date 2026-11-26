@@ -599,7 +599,7 @@ fn describe(
     let format = raw.get("format").and_then(Value::as_u64).unwrap_or(0);
     let folder = folder_of(path);
     if format == 1 {
-        // A data pack (editor/MODDING.md): named after its folder, or the repository.
+        // A data pack (extractor/MODDING.md): named after its folder, or the repository.
         let id = if folder.is_empty() { repo.to_ascii_lowercase() } else { folder.clone() };
         let pack_game = text("game");
         let (compatible, why) = if pack_game == game {
@@ -721,8 +721,8 @@ fn read_github(
     };
     // Newest first. GitHub's list is not in date order: a repository of many mods, each released
     // on its own tag, can list an older mod's release first, and every other mod's manifest would
-    // then be read as it was back then (openrac-mods listed xbox-icons-v1.1.0 first, from before
-    // the other mods took Going Commando, so they could not be installed for it). The dates are
+    // then be read as it was at that older release (a game added since would be missing, so the
+    // mods could not be installed for it). The dates are
     // GitHub's ISO 8601 in UTC, which sort as text; a release without one goes last.
     eligible.sort_by(|a, b| b.when().cmp(&a.when()));
     // What the manifests are read at: the release named, a branch or commit named, the newest

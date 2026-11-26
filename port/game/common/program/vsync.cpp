@@ -21,6 +21,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "common/breadcrumbs.h"
 #include "common/crash.h"
@@ -33,6 +34,8 @@
 #include "openrac/guest.h"
 #include "openrac/memory.h"
 #include "openrac/sound_engine.h"
+#include "program/control.h"
+#include "program/moby_states.h"
 #include "program/program.h"
 #include "program/undrawn_ticks.h"
 
@@ -40,6 +43,7 @@
 #include "debug_overlay.h"
 #include "frontend.h"
 #include "platform/performance_hint.h"
+#include "scene/moby_pose.h"
 #endif
 
 namespace openrac::program {
@@ -211,9 +215,20 @@ void apply_writes() {
 // before the first).
 std::chrono::steady_clock::time_point g_tick_resumed{};
 
-// [debug tools] The game's tick length, stretched by the overlay's slow motion (debug_overlay.h).
+// The game's tick length, stretched by a mod's slow motion (time_stretch) and the overlay's
+// [debug tools] (debug_overlay.h).
 std::chrono::microseconds tick_period() {
     auto period = std::chrono::microseconds(1000000 / tick_rate());
+    if (openrac_game_tick_stretch > 1.0f) {
+        period = std::chrono::microseconds(
+            std::llround(static_cast<double>(period.count()) * openrac_game_tick_stretch)
+        );
+    }
+    // A mod's slow motion (openrac_api.time_stretch): the same ticks, each lasting longer.
+    if (const float stretch = mods::time_stretch(); stretch > 1.0f) {
+        period =
+            std::chrono::microseconds(std::llround(static_cast<double>(period.count()) * stretch));
+    }
 #ifdef OPENRAC_FRONTEND
     if (g_window) {
         period = std::chrono::microseconds(
@@ -269,7 +284,25 @@ void finish() {
 
 // ---- The vertical blank ----
 
+// The game's own 50/60 Hz choice kept at 60 Hz, as options_menu::update does with a window. Without
+// one, a PAL game stayed at 50 Hz: it read the 50 Hz copy of each level, which edited levels do not
+// replace, and counted its time in fiftieths.
+static void keep_sixty_hz() {
+    const openrac_front_end* fe = openrac_game_front_end;
+    if (fe != nullptr && fe->video_mode != 0 && GREF(std::uint8_t, fe->video_mode) != 0) {
+        GREF(std::uint8_t, fe->video_mode) = 0;
+    }
+}
+
 int vsync() {
+    // The game's work for this tick, for OPENRAC_MOTION_LOG: from the end of the last wait to here.
+    const double tick_work =
+        g_tick_resumed.time_since_epoch().count() == 0
+            ? 0.0
+            : std::chrono::duration<double>(std::chrono::steady_clock::now() - g_tick_resumed)
+                  .count();
+    const auto entered = std::chrono::steady_clock::now();
+    double entered_late = 0.0, set_late = 0.0;  // after the tick's due time (OPENRAC_MOTION_LOG)
     crash::breadcrumb(
         crash::BreadcrumbThread::Main, "game tick yielded", g_frame, crash::BreadcrumbValue::Tick
     );
@@ -278,11 +311,14 @@ int vsync() {
     stats::game_yielded();
     // Render snapshots own their values, so next-tick writes precede the overlapping CPU capture.
     apply_writes();
+    keep_sixty_hz();
 #ifdef OPENRAC_FRONTEND
     // Prepare owned CPU data before waiting; graphics and profiling storage still transfer at completion.
     if (g_window) {
         const auto* ram = runtime::Memory::get().base();
         const std::span<const std::uint8_t> memory(ram, runtime::Memory::get().ram_size());
+        // Imported moby classes live past RAM (rac1/host/foreign_class.c): poses read them there.
+        scene::set_moby_class_region({ram + GUEST_PORT_LOW, GUEST_PORT_LOW_SIZE}, GUEST_PORT_LOW);
 
         // Only a completed handoff may present or begin the next graphics measurement frame.
         if (!frontend::prepare_frame(memory) || !frontend::finish_render()) {
@@ -307,6 +343,11 @@ int vsync() {
     sent_once = sent_once || sent;
     g_vsync_since_kick = true;
     report_stall(sent || !sent_once);
+    // A blank a send makes inside a picture the game said spans its sends draws nothing; the one
+    // that ends the picture draws the lists sent before its last too (program/picture_lists.h).
+    const bool within_picture = g_send_within_picture;
+    const std::vector<std::uint32_t> earlier =
+        within_picture ? std::vector<std::uint32_t>{} : g_picture_lists.take(g_chain);
     // With a window, the renderer draws the frame from the game's memory; without one, a frame is
     // only paced, at the game's frame rate.
 #ifdef OPENRAC_FRONTEND
@@ -319,6 +360,8 @@ int vsync() {
         // (not after a long stop, a level loading: the count below starts again from now).
         const bool counted = g_next_frame.time_since_epoch().count() != 0
                              && now <= g_next_frame + std::chrono::milliseconds(100);
+        entered_late = std::chrono::duration<double>(entered - g_next_frame).count();
+        set_late = std::chrono::duration<double>(now - g_next_frame).count();
         frontend::set_tick(
             g_next_frame.time_since_epoch().count() == 0 || now > g_next_frame + period
                 ? now
@@ -337,14 +380,19 @@ int vsync() {
         // is per run, like this file's other statics, until vsync's state is an object (11.4).
         static UndrawnTicks undrawn;
         const bool in_level = openrac_game_loaded_overlay() != OPENRAC_OVERLAY_EXE;
-        const bool keep = undrawn.keep(g_reports_draws, draws, in_level);
-        g_draws = 0;
+        // Inside a picture, what the game drew so far stays the picture's.
+        const bool keep = !within_picture && undrawn.keep(g_reports_draws, draws, in_level);
+        if (!within_picture) {
+            g_draws = 0;
+        }
 
         // Before the frame's measurements go to the render thread: the sound's health is a gauge of
         // this frame.
         watch_sound();
 
-        if (!sent && sent_once) {
+        if (within_picture) {
+            // The picture goes on: the window keeps what it shows until the blank that ends it.
+        } else if (!sent && sent_once) {
             if (!frontend::keep_picture()) {
                 leave();
             }
@@ -352,6 +400,7 @@ int vsync() {
                    && !frontend::frame(
                        std::span<const std::uint8_t>(ram, runtime::Memory::get().ram_size()),
                        g_chain,
+                       earlier,
                        draws
                    )) {
             leave();
@@ -363,6 +412,8 @@ int vsync() {
     sample_state();
     crash_test();
     mods::frame();
+    moby_states::tick();
+    control::tick();
     // The level being played, once per change: the launcher reads this line for Discord's presence.
     static int shown_level = OPENRAC_OVERLAY_EXE;
     static int shown_bolts = -1;
@@ -398,7 +449,7 @@ int vsync() {
         write_state_dump();
     }
 
-    if (g_options.frames >= 0 && g_frame >= g_options.frames) {
+    if ((g_options.frames >= 0 && g_frame >= g_options.frames) || control::quitting()) {
 #ifdef OPENRAC_FRONTEND
         // A fixed-length run can stop with its last owned snapshot still recording.
         if (g_window) {
@@ -415,7 +466,8 @@ int vsync() {
     // not a way to play, since the game's tick is its frame).
     static const bool& fps =
         stats::probe("OPENRAC_FPS", "the ticks per second over each 300 ticks, in the log");
-    static const bool uncapped = env::flag(env::Var::Uncapped);
+    static const bool uncapped =
+        env::flag(env::Var::Uncapped) || moby_states::requested() || control::requested();
     static steady_clock::time_point fps_from = now;
     // OPENRAC_WATCH=ADDRESS:COUNT[:i|d|l|h],...: COUNT floats (or words, with i) from each ADDRESS,
     // each frame, in the log. d: words of an executable's global, at the loaded level's copy of it.
@@ -534,14 +586,18 @@ int vsync() {
 #ifdef OPENRAC_FRONTEND
     // Until the next tick is due, frames at the display's rate (each swap waits for a refresh),
     // the scene moved on from the last tick's to this one's by when each is shown.
-    if (g_window && frontend::wants_between()) {
-        g_next_frame += frontend::take_shot_time();
-        for (int drawn; (drawn = frontend::between(g_next_frame)) != 0;) {
-            if (drawn < 0) {
-                leave();
-            }
+    if (g_window) {
+        int frames = 0;
+        if (frontend::wants_between()) {
             g_next_frame += frontend::take_shot_time();
+            for (int drawn; (drawn = frontend::between(g_next_frame)) != 0; ++frames) {
+                if (drawn < 0) {
+                    leave();
+                }
+                g_next_frame += frontend::take_shot_time();
+            }
         }
+        frontend::note_between(frames, tick_work, entered_late, set_late);
     }
 #endif
     {

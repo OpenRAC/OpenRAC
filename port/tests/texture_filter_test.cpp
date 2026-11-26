@@ -24,6 +24,7 @@
 #include "scene/level_renderer.h"
 #include "scene/screenshot.h"
 #include "scene_shaders.h"
+#include "tests/graph_fixture.h"
 #include "tests/texture_filter_reference.h"
 using namespace openrac;
 using namespace openrac::gl;
@@ -56,6 +57,8 @@ out vec4 v_probe_multiplier;
 flat out vec4 v_probe_selector;
 flat out int v_lit;
 flat out int v_glow;
+flat out int v_mod_material;
+flat out vec3 v_mod_rgb;
 out vec3 v_script_emission;
 flat out vec3 v_probe_ambient;
 out vec3 v_emission_colour;
@@ -64,7 +67,7 @@ void main(){
  vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);
  gl_Position=vec4(p*2-1,0,1);v_uv=p;v_stq=vec3(p,1);
  v_colour=vec4(1);v_normal=vec3(0,0,1);v_world_position=vec3(0);
- v_probe_multiplier=vec4(1);v_probe_selector=vec4(0);v_lit=1;v_glow=0;
+ v_probe_multiplier=vec4(1);v_probe_selector=vec4(0);v_lit=1;v_glow=0;v_mod_material=0;v_mod_rgb=vec3(1);
  v_script_emission=vec3(0);v_probe_ambient=vec3(0);v_emission_colour=vec3(0);v_fog_w=vec2(0,1);
 })";
 
@@ -244,7 +247,7 @@ public:
         const auto fallback_normal = m_frame.read_rgba();
         draw(1, 64, 64);
         glUniform1i(m_shader.uniform("upscaled_texture_colours_ready"), 0);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         CHECK(m_frame.read_rgba() == fallback_normal);
         CHECK(
             (m_upscaler ? m_upscaler->cache_builds() : 0)
@@ -374,7 +377,7 @@ private:
         m_pool.bind_upscaled_texture_colours(
             m_source, m_shader, static_cast<renderer::TextureFilter>(m), m_repeat_s, m_repeat_t
         );
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     }
 
     // Draws one production material variant with its authored coverage controls.
@@ -402,7 +405,7 @@ private:
         glUniform1i(material.uniform("textured"), 1);
         glUniform1i(material.uniform("tcc"), 1);
         glUniform1f(material.uniform("tex_alpha_scale"), 0.5f);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         return m_frame.read_rgba();
     }
 
@@ -471,7 +474,7 @@ private:
                     candidate.bind_upscaled_texture_colours(
                         handle, m_shader, renderer::TextureFilter::EdgeAware, false, false
                     );
-                    glDrawArrays(GL_TRIANGLES, 0, 3);
+                    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
                 },
                 renderer::ColourAttachments::Colour
             )

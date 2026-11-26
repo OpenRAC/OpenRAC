@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// WAV files: what a pack replaces a sound with (docs/port/MODS.md, editor/AUDIO_MODDING.md). Only
-// 16-bit PCM, mono or stereo, at 500 to 192000 Hz: a pack's check and an import (editor/audio.py,
+// WAV files: what a pack replaces a sound with (docs/port/MODS.md, extractor/AUDIO_MODDING.md). Only
+// 16-bit PCM, mono or stereo, at 500 to 192000 Hz: a pack's check and an import (extractor/audio.py,
 // check_wav and to_game_wav) keep to the same.
 
 #pragma once

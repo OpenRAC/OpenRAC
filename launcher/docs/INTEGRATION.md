@@ -20,7 +20,7 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) first for how the parts fit.
 | Browser preview with mock data                                                                | done; `yarn dev`                                                                                                                                                                                                                  |
 | Catalogue from `games/*/game.json` and `progress/summary.json`                                | done, tested against this checkout                                                                                                                                                                                                |
 | Disc and input status (names, sizes, links)                                                   | done; checksums are `openrac.py discs`'s, see [Disc verification](#disc-verification)                                                                                                                                             |
-| Detecting the checkout, Python, Godot, Docker                                                 | done                                                                                                                                                                                                                              |
+| Detecting the checkout, Python, Docker                                                        | done                                                                                                                                                                                                                              |
 | Setting a game up from the player's disc (OpenGOAL's extract and validate)                    | done; the extractor is tested on synthetic images, not yet run on a real disc from the desktop app                                                                                                                                |
 | Play (the native port)                                                                        | **unverified** for rac1/pal on Windows: `port-build` builds the port (tools/build_port.py), `play` runs it; rac2/ntsc's for developers only (`developer`, with a `warning`: it reaches the main menu); **planned** for the others |
 | Jobs: queue, live output, cancel (whole process tree)                                         | done, tested on Linux                                                                                                                                                                                                             |
@@ -66,11 +66,11 @@ One action:
 | `description` |                                                                       | one or two sentences for players: what it does, how long, what it needs                                                                                                                                                                      |
 | `kind`        | required                                                              | `setup`, `build`, `check`, `play` or `edit`: the game page's section                                                                                                                                                                         |
 | `state`       | default `planned`                                                     | see above                                                                                                                                                                                                                                    |
-| `program`     | for runnable states                                                   | `{python}`, `{godot}` or `{docker}` (the paths in Settings), a command on PATH (`bash`, `make`), or a path with placeholders (`{dir}/venv/bin/python`)                                                                                       |
+| `program`     | for runnable states                                                   | `{python}`, `{editor}` or `{docker}` (the paths in Settings, OpenRAC Editor's program), a command on PATH (`bash`, `make`), or a path with placeholders (`{dir}/venv/bin/python`)                                                            |
 | `args`        |                                                                       | the arguments, one per string; placeholders allowed; never a shell line                                                                                                                                                                      |
 | `cwd`         | default: the version's folder, or the checkout for repository actions | relative to the checkout (`"."` for the checkout itself)                                                                                                                                                                                     |
 | `platforms`   | default: all                                                          | `linux`, `macos`, `windows`; the others' actions are tucked away                                                                                                                                                                             |
-| `requires`    |                                                                       | what must be in place, each shown as a reason when missing: `disc`, `inputs`, `toolchains`, `python`, `godot`, `docker`, `artifact`                                                                                                          |
+| `requires`    |                                                                       | what must be in place, each shown as a reason when missing: `disc`, `inputs`, `toolchains`, `python`, `editor`, `docker`, `artifact`                                                                                                         |
 | `artifact`    |                                                                       | a file the action makes (a build) or needs (play the build), relative to the checkout; `{artifact}` in `args`                                                                                                                                |
 | `output`      |                                                                       | the folder the action writes its results in, relative to the checkout or `{data}/...`: the job's start (`output`) and exit (`outputs`) name it, and `open_output` opens it. A tool names the exact folder on a line `openrac-output: <path>` |
 | `detached`    | default false                                                         | start it and let it run (the game, an editor) instead of a job in Tasks                                                                                                                                                                      |
@@ -82,20 +82,26 @@ One action:
 
 Placeholders (anything else is rejected by the tests):
 
-| Placeholder           | Value                                                             |
-| --------------------- | ----------------------------------------------------------------- |
-| `{root}`              | the checkout, absolute                                            |
-| `{dir}`               | the version's folder, absolute (`…/games/rac1`)                   |
-| `{python}`, `{godot}` | the paths in Settings (refused while unset)                       |
-| `{docker}`            | the path in Settings, or `docker` from PATH                       |
-| `{disc}`              | the disc image found for the version (absolute)                   |
-| `{boot}`              | the boot executable `openrac.py setup` placed for it              |
-| `{artifact}`          | the action's `artifact`, absolute                                 |
-| `{serial}`, `{key}`   | `SCES_509.16`, `rac1/pal`                                         |
-| `{data}`              | the game's set-up folder, `<install>/active/<game>/data`          |
-| `{level}`             | the level a run is for, two digits (00 while listed)              |
-| `{path}`              | a file or folder the player chose for the run, absolute and there |
-| `{option}`            | one of the action's `options`, chosen for the run                 |
+| Placeholder         | Value                                                                                              |
+| ------------------- | -------------------------------------------------------------------------------------------------- |
+| `{root}`            | the checkout, absolute                                                                             |
+| `{dir}`             | the version's folder, absolute (`…/games/rac1`)                                                    |
+| `{python}`          | the path in Settings (refused while unset)                                                         |
+| `{docker}`          | the path in Settings, or `docker` from PATH                                                        |
+| `{disc}`            | the disc image found for the version (absolute)                                                    |
+| `{boot}`            | the boot executable `openrac.py setup` placed for it                                               |
+| `{artifact}`        | the action's `artifact`, absolute                                                                  |
+| `{serial}`, `{key}` | `SCES_509.16`, `rac1/pal`                                                                          |
+| `{data}`            | the game's set-up folder, `<install>/active/<game>/data`                                           |
+| `{level}`           | the level a run is for, two digits (00 while listed)                                               |
+| `{path}`            | a file or folder the player chose for the run, absolute and there                                  |
+| `{option}`          | one of the action's `options`, chosen for the run                                                  |
+| `{editor}`          | OpenRAC Editor's program, once downloaded (refused before)                                         |
+| `{editor_tools}`    | OpenRAC Editor's Python tools (`<editor>/openrac/tools`)                                           |
+| `{projects}`        | the level editor's projects: `assets/levels/<key>`, or `{data}/levels/<version>` in a carried copy |
+| `{levels}`          | the port's levels: `assets/port/<key>`, or `{data}/port/<version>` in a carried copy               |
+| `{packed}`          | the packed levels: `assets/packed/<key>`, or `{data}/packed/<version>` in a carried copy           |
+| `{states}`          | the game's states program (docs/port/MOBY_STATES.md)                                               |
 
 `cargo test -p openrac-launcher-core` checks the file against the checkout:
 known versions, unique ids, known placeholders (and no version placeholders in
@@ -155,9 +161,18 @@ OpenRAC's are:
   `ERRORS`); the job's output is in Tasks.
 - Ratchet & Clank names only a few files in the disc's ISO 9660 file system
   (RAC1: `SYSTEM.CNF`, the boot executable and `IOPRP243.IMG`) and reads the
-  rest by sector. So, unlike OpenGOAL's, the extract step also keeps the
-  image itself in `iso_data/<game>/disc.iso` (a hard link, a copy across
-  file systems) for the decompile step to read.
+  rest by sector. So, unlike OpenGOAL's, the extract step keeps the image
+  itself in `iso_data/<game>/disc.iso` (a hard link, a copy across file
+  systems; on Android a symbolic link to the launcher's own copy), which the
+  level tools read. The game itself never opens it: the extractor writes the
+  disc's files (the file system's at their paths, every other sector as lumps
+  cut where the game's table of contents points, `lumps/`) and `sectors.tsv`,
+  the map from each sector to its file, which the game reads by
+  (tools/openrac_common/disc_files.py, port/assets/disc/sector_map.h). A set-up
+  made before that has only `SYSTEM.CNF` and the boot executable beside the
+  image: Play waits for the step `disc-files` (_Unpack the disc's files_),
+  which the player's Play button runs first. At start the launcher removes
+  what older set-ups without a map hold beyond those (`install::tidy`).
 - A disc set up this way counts as the version's disc for the level editor
   (`{disc}` in its actions), so a player needs no `baserom/`.
 - Code: `core/src/install.rs` (the layout, the state on disk, the job's plan,
@@ -196,7 +211,7 @@ actions, as rac1/pal has on Windows:
   what the game is built from (`port/`, `games/<game>/`, the build's own
   files: git decides, [port_build.rs](../core/src/port_build.rs)). The notice
   only recommends: Play never builds a game that is built.
-- `port-levels`: `editor/extract.py port {disc} assets/port/rac1/pal`, the
+- `port-levels`: `extractor/extract.py port {disc} assets/port/rac1/pal`, the
   levels in the form the port draws (the worlds behind the menus too). Half
   a minute, once. Building runs it after the build the first time, and the
   game page offers it by itself when the game is built but they are missing.
@@ -208,19 +223,16 @@ actions, as rac1/pal has on Windows:
 A `play` action also gets the environment Settings asks for
 (`core/src/actions.rs`, `Action::plan`): `OPENRAC_DEVELOPER=1` with developer
 tools on, `OPENRAC_LOG=verbose` with Detailed game logs, and, on Windows,
-Linux and macOS with Renderer set to Vulkan (Advanced, `Config.renderer`),
+Linux with Renderer set to Vulkan, or on macOS with Renderer set to Metal (Advanced, `Config.renderer`),
 `OPENRAC_GL_API=vulkan`: the port's Vulkan renderer (the default)
 (`port/renderer/vulkan`) in place of OpenGL 4.1. Where Vulkan 1.3 cannot
 start, or the build has no Vulkan renderer, the game logs why and draws with
 OpenGL (`port/platform/window.cpp`). It applies from the game's next start.
 On macOS it runs on MoltenVK, which each game's application bundle carries
-(`port/cmake/MacApp.cmake`). On macOS only, Renderer also offers Metal:
-`OPENRAC_GL_API=metal`, the port's Metal renderer (`port/renderer/metal`),
-which likewise draws with OpenGL where Metal cannot start. A settings file
-that says `metal` on another system plays with Vulkan
-(`config::renderer_for`), and Enhanced graphics, Vulkan only, plays with
-Vulkan over it. OpenGL sets nothing. Android keeps its own choice under
-Graphics (`src-tauri/src/android.rs`).
+(`port/cmake/MacApp.cmake`). A saved `metal` value loads as `vulkan`.
+Enhanced graphics selects Vulkan regardless of the desktop setting. OpenGL sets
+no override. Android keeps its own choice under Graphics (`src-tauri/src/android.rs`).
+On iOS the launcher displays Metal as the renderer, and the game uses its bundled MoltenVK.
 
 Each version's levels have a folder of their own under one root, since the
 versions of a game share its data folder: `assets/port/<game>/<version>` in a
@@ -303,39 +315,40 @@ game page plays (`playerVersion`: the disc the player set up, or the one a
 developer with both discs chose on the game's page), so both discs go the
 same way and no region is named; developer mode names the version.
 
-| Action            | State (PAL / NTSC-U)   | What it does                                                                                           |
-| ----------------- | ---------------------- | ------------------------------------------------------------------------------------------------------ |
-| `editor-extract`  | unverified             | the disc's 19 levels into Godot projects, `assets/levels/rac1/pal` (NTSC-U: `assets/levels/rac1/ntsc`) |
-| `editor-import`   | unverified             | Godot reads one level's meshes and textures once, headless, so the first open is quick                 |
-| `editor-open`     | unverified             | the Godot editor on one level's project                                                                |
-| `editor-pack`     | unverified             | edited scenes back into that disc's level data, `assets/packed/rac1/pal` (`assets/packed/rac1/ntsc`)   |
-| `editor-preview`  | connected / unverified | Godot's player on an extracted level (Godot showing the editor's scenes, not the game)                 |
-| `editor-tests`    | unverified (PAL)       | the unit tests of `editor/`                                                                            |
-| `assets-export`   | unverified             | a level's models and textures from `assets/port/rac1/<version>` into `{data}/exports`                  |
-| `assets-import`   | unverified             | an edited export back as an overrides pack in `{data}/overrides`                                       |
-| `overrides-add`   | unverified             | a pack (.zip or folder) into `{data}/overrides`                                                        |
-| `overrides-stack` | unverified             | the packed levels and the packs that are on into `{data}/mods/<version>`, for that disc's levels       |
-| `play-edited`     | unverified / planned   | the game with `--mods {data}/mods/<version>`; NTSC-U's waits for its Play                              |
+The level editor's own steps (`editor-extract`, `editor-reexport`, `editor-import`, `editor-open`,
+`editor-pack`, `editor-preview`, `editor-show-packs`, `editor-hide-packs`) are not in this file:
+[OpenRAC Editor](https://github.com/OpenRAC/OpenRAC-Editor) brings them in its
+`openrac/editor.json`, in this file's form, and the launcher lists them beside each version's
+own once the player downloaded the editor from its releases (core `editor_install.rs`). An editor
+written against another `extractor/extractor_api.json` version is refused with what to update.
+
+| Action            | State (PAL / NTSC-U) | What it does                                                                                     |
+| ----------------- | -------------------- | ------------------------------------------------------------------------------------------------ |
+| `assets-export`   | unverified           | a level's models and textures from `assets/port/rac1/<version>` into `{data}/exports`            |
+| `assets-import`   | unverified           | an edited export back as an overrides pack in `{data}/overrides`                                 |
+| `overrides-add`   | unverified           | a pack (.zip or folder) into `{data}/overrides`                                                  |
+| `overrides-stack` | unverified           | the packed levels and the packs that are on into `{data}/mods/<version>`, for that disc's levels |
+| `play-edited`     | unverified / planned | the game with `--mods {data}/mods/<version>`; NTSC-U's waits for its Play                        |
 
 Exports and packs are the game's, shared by its versions: a pack records
-what each file replaces, and `overrides-stack` (`editor/overrides.py stack
+what each file replaces, and `overrides-stack` (`extractor/overrides.py stack
 --levels`) puts a pack made from the other disc's levels where it matches
-there ([editor/MODDING.md](../../editor/MODDING.md#packs-and-discs)). The
+there ([extractor/MODDING.md](../../extractor/MODDING.md#packs-and-discs)). The
 stacked folder is each version's own, `{data}/mods/<version>`, because what
 it holds is made for one disc's levels (texture names, packed sectors); the
 level packer's output is per version too, since it replaces that disc's
 sectors. The installed launcher's bundle (tools/bundle_standalone.py) carries
 none of these actions yet, and its header hides Mods.
 
-The unverified ones ran from a shell on macOS with real discs and Godot
-4.7.2 (extract into a new folder, the refusal of an existing one, the
+The unverified ones ran from a shell on macOS with real discs and OpenRAC Editor
+(extract into a new folder, the refusal of an existing one, the
 headless import, packing on each disc, exporting, importing and stacking a
 PAL pack onto both discs' levels, the tests); none has been run from the
 desktop app yet. The extractor needs Python 3.10 or newer, which is why
 Settings refuses an older one. It never overwrites a project folder, so once
 one exists the page offers Open, not Extract. The other games carry a planned
 `editor-extract` that says what the editor lacks for them
-([editor/README.md](../../editor/README.md)).
+([extractor/README.md](../../extractor/README.md)).
 
 **Gameplay mods** ([docs/port/MODS.md](../../docs/port/MODS.md)), native and
 script (`"type": "script"`, Luau files, interface 1.1, any platform), are not

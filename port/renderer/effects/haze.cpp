@@ -8,7 +8,9 @@
 
 #include "common/log.h"
 #include "common/stats.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
+#include "renderer/renderer.h"
 #include "renderer_shaders.h"
 
 namespace openrac::renderer {
@@ -65,31 +67,41 @@ void Haze::apply(
     m_shader.use();
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_copy.colour_texture());
-    const Mat4& m = view_projection;
-    for (std::size_t i = 0; i < patches.size(); ++i) {
-        const auto& p = patches[i];
-        // The ball's centre in clip space; its size on the screen from its distance.
-        const float x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12];
-        const float y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13];
-        const float w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15];
-        if (!(w > 0.05f) || !(p[3] > 0.0f) || !(p[4] > 0.0f)) {
-            continue;
+    const RasterTexture copy{m_copy.colour_texture()};
+    const RenderTarget target{output.id(), output.width(), output.height()};
+    const auto draw = [&] {
+        const Mat4& m = view_projection;
+        for (std::size_t i = 0; i < patches.size(); ++i) {
+            const auto& p = patches[i];
+            // The ball's centre in clip space; its size on the screen from its distance.
+            const float x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12];
+            const float y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13];
+            const float w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15];
+            if (!(w > 0.05f) || !(p[3] > 0.0f) || !(p[4] > 0.0f)) {
+                continue;
+            }
+            // The projection's scale on x and y: the length of its first two rows' turn part.
+            const float sx = std::hypot(m[0], m[4], m[8]);
+            const float sy = std::hypot(m[1], m[5], m[9]);
+            const float hx = p[3] * sx / w, hy = p[3] * sy / w;
+            const float cx = x / w, cy = y / w;
+            if (cx - hx > 1.0f || cx + hx < -1.0f || cy - hy > 1.0f || cy + hy < -1.0f) {
+                continue;
+            }
+            const float pixels =
+                std::min(p[4], 1.0f) * hy * 0.5f * static_cast<float>(output.height());
+            glUniform4f(m_shader.uniform("patch_place"), cx, cy, hx, hy);
+            glUniform4f(
+                m_shader.uniform("patch_wave"),
+                pixels,
+                seconds,
+                static_cast<float>(i) * 2.399f,
+                0.0f
+            );
+            glDrawArrays(GL_TRIANGLES, 0, 6);
         }
-        // The projection's scale on x and y: the length of its first two rows' turn part.
-        const float sx = std::hypot(m[0], m[4], m[8]);
-        const float sy = std::hypot(m[1], m[5], m[9]);
-        const float hx = p[3] * sx / w, hy = p[3] * sy / w;
-        const float cx = x / w, cy = y / w;
-        if (cx - hx > 1.0f || cx + hx < -1.0f || cy - hy > 1.0f || cy + hy < -1.0f) {
-            continue;
-        }
-        const float pixels = std::min(p[4], 1.0f) * hy * 0.5f * static_cast<float>(output.height());
-        glUniform4f(m_shader.uniform("patch_place"), cx, cy, hx, hy);
-        glUniform4f(
-            m_shader.uniform("patch_wave"), pixels, seconds, static_cast<float>(i) * 2.399f, 0.0f
-        );
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-    }
+    };
+    raster_pass("heat haze", target, {{}, {&copy, 1}}, draw);
     glBindVertexArray(0);
     glDepthMask(GL_TRUE);
 }

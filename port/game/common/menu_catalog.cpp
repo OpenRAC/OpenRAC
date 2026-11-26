@@ -47,7 +47,7 @@ constexpr Entry kEntries[] = {
      "How many pixels the 3D world is drawn with, against the window's. Lower it on a slow "
      "device; raise it for a sharper picture."},
     {Id::Msaa, Tab::Graphics, "Picture", kChoice, AG, "Anti-aliasing",
-     "Smooths the edges of the world's shapes. Each step costs the graphics card more."},
+     "Smooths edges in standard graphics. Enhanced Graphics always uses one sample per pixel."},
     {Id::Anisotropy, Tab::Graphics, "Picture", kChoice, AG, "Anisotropic filtering",
      "Keeps floors and walls sharp when seen at a slant. Cheap on most graphics cards."},
     {Id::DrawDistance, Tab::Graphics, "Picture", kChoice, AG, "Draw distance",
@@ -72,8 +72,8 @@ constexpr Entry kEntries[] = {
     {Id::FrameCounter, Tab::Graphics, "Frames", kChoice, AG, "Frame counter",
      "Shows the frames a second in a corner of the picture. F2 changes it too."},
     {Id::Hdr, Tab::Graphics, "HDR", kChoice, AG, "HDR",
-     "High dynamic range output, whenever the screen offers it. Turned on from Off, it starts "
-     "with the game's next start."},
+     "High dynamic range output, whenever the screen offers it, with Vulkan or with Metal on "
+     "macOS. Turned on from Off, it starts with the game's next start (at once with Metal)."},
     {Id::HdrPaperWhite, Tab::Graphics, "HDR", kChoice, A, "HDR paper white",
      "How bright the game's white is in HDR. System takes the brightness the system gives "
      "ordinary pictures."},
@@ -110,11 +110,11 @@ constexpr Entry kEntries[] = {
      "Bounced light, modern shadows and ambient occlusion over the original lighting. Off shows "
      "the game as the console drew it."},
     {Id::EnhancedLow, Tab::Enhanced, "Presets", kAction, A, "Low",
-     "Lower shadow resolution, performance upscaling and original textures."},
+     "75% render scale, low shadow resolution and performance upscaling."},
     {Id::EnhancedMedium, Tab::Enhanced, "Presets", kAction, A, "Medium",
-     "Medium shadow resolution, quality upscaling and edge-aware textures."},
+     "100% render scale, medium shadow resolution and balanced upscaling."},
     {Id::EnhancedHigh, Tab::Enhanced, "Presets", kAction, A, "High",
-     "High shadow resolution, native resolution and higher-quality ambient occlusion."},
+     "100% render scale, high shadow resolution and quality upscaling."},
     {Id::ShadowQuality, Tab::Enhanced, "Advanced", kChoice, A, "Shadow quality",
      "Off uses original shadows. Higher quality sharpens modern shadows at a higher GPU cost."},
     {Id::ShadowFilter, Tab::Enhanced, "Advanced", kChoice, A, "Shadow filtering",
@@ -125,8 +125,9 @@ constexpr Entry kEntries[] = {
      "Normal draws the world's textures as they are; Edge-aware enlarges them twice with sharp "
      "edges."},
     {Id::EffectsDetail, Tab::Enhanced, "Advanced", kChoice, A, "Effects detail",
-     "High draws every effect in full. Medium and Low take cheaper shortcuts that change the "
-     "picture a little: coarser water, simpler leaf shadows, and on Low coarser lighting."},
+     "Controls water geometry, foliage and blended lighting, and far shadow updates."},
+    {Id::EarlyLightingQuality, Tab::Enhanced, "Advanced", kChoice, A, "Early Lit cache quality",
+     "Normal stores one lighting sample per 4x4 pixels. High stores one per 2x2 pixels."},
     {Id::Upscaling, Tab::Enhanced, "Advanced", kChoice, A, "Upscaling",
      "Draws fewer pixels and builds the full picture from several frames. The named upscaler is "
      "the one this device uses."},
@@ -142,7 +143,7 @@ constexpr Entry kEntries[] = {
     {Id::Brightness, Tab::Enhanced, "Advanced", kChoice, A, "Brightness",
      "The picture's brightness under color correction."},
     {Id::EnhancedReset, Tab::Enhanced, "Advanced", kAction, A, "Reset to defaults",
-     "Puts every enhanced setting back as it came. Press twice: the first press only asks."},
+     "Restores Enhanced Graphics defaults and keeps your render scale. Press twice to confirm."},
     {Id::OcclusionHiZ, Tab::Enhanced, "Experimental", kSwitch, A, "Hierarchical depth (Hi-Z)",
      "An experimental method that uses a depth hierarchy to improve GTAO performance."},
     {Id::EnhancedAdvanced, Tab::Enhanced, "Developer settings", kSwitch, D,
@@ -214,6 +215,10 @@ constexpr Entry kEntries[] = {
      "The key and the controller button that open and close this menu. Any controller's Select "
      "and Start pressed together do too. The key is kept by its place on the keyboard; Alt "
      "counts pressed by itself, so Alt+Return still goes full screen."},
+    {Id::KeyboardMouse, Tab::Controls, "Keyboard and mouse", kPanel, D, "Keyboard and mouse",
+     "The mouse's sensitivity and feel, and the key for each action. Pick a key's row to replace "
+     "it (press the new key, mouse button or wheel; Esc cancels), add a second or remove one. A "
+     "mark: another action has that key too."},
     {Id::TouchActionButtons, Tab::Controls, "Touch controls", kSwitch, T, "Action buttons",
      "Buttons that show what they do (jump, fire, the ship's boost) and change with what the game "
      "is doing. Off: the DualShock's buttons."},
@@ -311,6 +316,122 @@ std::span<const Entry> entries() {
 
 const Entry& entry(Id id) {
     return kEntries[static_cast<int>(id)];
+}
+
+// Each entry's name for the mods, in Id's order. Never rename one: mods use them.
+constexpr std::array<const char*, kIds> kOptionNames = {
+    "full_screen",
+    "display_mode",
+    "monitor",
+    "menu_size",
+    "picture",
+    "gameplay_fov",
+    "hud",
+    "render_scale",
+    "msaa",
+    "anisotropy",
+    "draw_distance",
+    "active_distance",
+    "frame_rate",
+    "frame_cap",
+    "vsync",
+    "frame_counter",
+    "hdr",
+    "hdr_paper_white",
+    "hdr_peak",
+    "hdr_highlights",
+    "hdr_sdr_hue",
+    "hdr_sdr_chroma",
+    "hdr_blowout",
+    "hdr_status",
+    "low_latency",
+    "responsive_controls",
+    "gpu_breadcrumbs",
+    "enhanced_status",
+    "enhanced_graphics",
+    "enhanced_low",
+    "enhanced_medium",
+    "enhanced_high",
+    "shadow_quality",
+    "shadow_filter",
+    "occlusion_quality",
+    "texture_upscaling",
+    "effects_detail",
+    "early_lighting_quality",
+    "upscaling",
+    "sharpening",
+    "motion_blur",
+    "motion_blur_quality",
+    "color_correction",
+    "brightness",
+    "enhanced_reset",
+    "occlusion_hi_z",
+    "enhanced_advanced",
+    "enhanced_materials",
+    "volume",
+    "mute_in_background",
+    "skip_cutscenes",
+    "game_fixes",
+    "controls_file",
+    "controls_player",
+    "controls_player_reset",
+    "controls_status",
+    "controller_bindings",
+    "left_stick",
+    "right_stick",
+    "trigger_point",
+    "face_buttons",
+    "pad_background",
+    "rumble_strength",
+    "rumble_style",
+    "rumble_triggers",
+    "rumble_phone",
+    "connected_controllers",
+    "players_reset",
+    "player_one",
+    "player_two",
+    "menu_open",
+    "keyboard_mouse",
+    "touch_action_buttons",
+    "touch_button_size",
+    "touch_camera_speed",
+    "touch_move_controls",
+    "controls_reset",
+    "debug_overlay",
+    "moby_picker",
+    "object_viewer",
+    "meat_proxy_review",
+    "level_select",
+    "keep_paused",
+    "step_tick",
+    "speed",
+    "screenshot",
+    "record_gameplay",
+    "record_length",
+    "record_sweep",
+    "record_folder",
+    "slow_cpu",
+    "freecam",
+    "freecam_mode",
+    "freecam_inspect",
+    "freecam_speed",
+    "freecam_reset",
+    "freecam_exit",
+    "freecam_help",
+    "quit",
+};
+
+const char* option_name(Id id) {
+    return kOptionNames[static_cast<std::size_t>(id)];
+}
+
+std::optional<Id> option_named(std::string_view name) {
+    for (std::size_t i = 0; i < kOptionNames.size(); ++i) {
+        if (name == kOptionNames[i]) {
+            return static_cast<Id>(i);
+        }
+    }
+    return std::nullopt;
 }
 
 const char* tab_name(Tab tab) {

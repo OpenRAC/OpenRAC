@@ -1,8 +1,8 @@
 # renderer/ui
 
 What the game programs draw over the game's picture with the renderer's GL (`renderer/gl/gl.h`): Dear
-ImGui's draw lists on a window whose GL is the Vulkan renderer's, the on-screen pad, the frame-rate
-counter, the CPU-made picture of the developer level menu, and the logo these show. Library `openrac_renderer_ui`,
+ImGui's draw lists, the on-screen pad, the frame-rate counter, the CPU-made picture of the developer
+level menu, and the logo these show. Library `openrac_renderer_ui`,
 namespace `openrac::renderer::ui`. It holds the GL half of these overlays only: what they show and
 when (the debug overlay's panels, the pad's layout, the menu's levels and keys) stays with the
 program in `game/common` and `platform/`. The files came from `game/common` (restructure package
@@ -12,7 +12,7 @@ P2-06), which keeps no GL call of these overlays.
 
 | Header | Declares |
 |---|---|
-| [`imgui_gl.h`](imgui_gl.h) | `imgui_gl::init`, `render`, `shutdown`: ImGui's draw data drawn through the renderer's GL, for the window where ImGui's own OpenGL backend cannot load a system GL (the Vulkan renderer's) |
+| [`imgui_gl.h`](imgui_gl.h) | `imgui_gl::init`, `render`, `shutdown`: ImGui draw data recorded by OpenRAC on every graphics backend |
 | [`touch_overlay.h`](touch_overlay.h) | `touch_overlay::draw`, `release`: the on-screen pad of `platform/touch_pad.h` drawn over the window, one glass per control |
 | [`logo.h`](logo.h) | `logo::draw`, `Mask`: the OpenRAC logo (the launcher's paths) as a coverage mask made on the CPU, the mark alone or with the name, for the pad's options button and the drawer's header |
 | [`fps_counter.h`](fps_counter.h) | `fps_counter::frame_drawn`, `draw`, `release`: the player's `show_fps` counter, counted over the frames shown, drawn in the picture's top left corner |
@@ -30,6 +30,13 @@ P2-06), which keeps no GL call of these overlays.
   declaration.
 
 ## State and threads
+
+The touch overlay prepares the logo and atlas before declaring one RenderGraph pass for the
+window colour and its sampled textures. Vulkan and OpenGL/ES execute the same ordered list of
+quads. Each quad supplies its texture explicitly, including an unbound sampler for plain controls.
+ImGui uploads one draw list at a time and reuses its vertex and index buffers across the list's
+passes. User callbacks split the pass so they can perform their own work. Menus, the frame
+counter, and movie presentation share the colour upload and blit helpers.
 
 The host passes the selected `fps_counter::Mode` after each presentation. Basic mode shows FPS
 and elapsed frame time. Detailed mode shows elapsed CPU time outside the swap call and completed

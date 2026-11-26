@@ -3,6 +3,7 @@
 
 /** The shortest and the longest name, in characters. */
 export const NAME_MIN = 3;
+
 export const NAME_MAX = 16;
 
 const ALLOWED = /^[A-Za-z0-9_]*$/;
@@ -12,5 +13,6 @@ export function nameProblem(name: string): string | null {
   if (!ALLOWED.test(name)) return "Only letters, digits and underscores.";
   if (name.length < NAME_MIN) return `At least ${NAME_MIN} characters.`;
   if (name.length > NAME_MAX) return `At most ${NAME_MAX} characters.`;
+
   return null;
 }

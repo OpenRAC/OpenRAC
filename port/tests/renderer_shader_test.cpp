@@ -246,7 +246,7 @@ layout(std430,binding=0) buffer Output { vec4 sample_result[]; };
 uniform vec3 receiver_position,receiver_normal;
 void main(){vec3 light;float confidence;
 bool valid=sample_probe_grid(receiver_position,receiver_normal,vec3(0,0,.02),
-    vec3(0),vec3(4),vec2(1,0),vec3(2),0,false,light,confidence);
+    vec3(0),vec3(4),vec4(0,0,0,1),vec3(2),0,false,light,confidence);
 sample_result[0]=vec4(light,valid?confidence:0.);})";
     const auto calls = [](const std::vector<std::uint32_t>& code) {
         std::unordered_map<unsigned, std::string> names;
@@ -361,6 +361,15 @@ sample_result[0]=vec4(light,valid?confidence:0.);})";
 #endif
     namespace renderer_src = openrac::renderer::shaders;
     namespace viewer_src = openrac::scene::shaders;
+    Shader invalid;
+    CHECK(!invalid.build(
+        "invalid vertex",
+        "#version 410 core\nvoid main() { gl_Position = missing_position; }\n",
+        renderer_src::direct_frag,
+        why
+    ));
+    CHECK(contains(why, "invalid vertex: vertex shader:"));
+    CHECK(contains(why, "missing_position"));
     build("direct", renderer_src::direct_vert, renderer_src::direct_frag);
     build("effect", renderer_src::effect_vert, renderer_src::direct_frag);
     const std::string mesh_fragment = openrac::lighting::probe_mesh_fragment(viewer_src::mesh_frag);

@@ -265,6 +265,10 @@ def check(gen: Path, include_all: bool = False) -> tuple[list[str], dict]:
         starts = []
         for m in re.finditer(r"^(?:static\s+)?[A-Za-z_][\w\s\*]*?\b(\w+)\([^;{]*\)\s*\n\{", text, re.M):
             starts.append((m.start(), m.group(1)))
+        # A static of the file (a helper the console's compiler inlined, frontbin's TextA_3EB728)
+        # has no place of its own in the tables: it is in the file's program, where its other
+        # definitions are.
+        file_own = {o for _, name in starts for o in where.get(name.removesuffix("__game"), set())}
         for m in re.finditer(r"\bGFN\(", text):
             if text[max(0, m.start() - 8):m.start()].endswith("define "):
                 continue
@@ -290,7 +294,7 @@ def check(gen: Path, include_all: bool = False) -> tuple[list[str], dict]:
                 else:
                     break
             # A wrapped or hooked function's C is <name>__game: its places are <name>'s.
-            places = targets(expr, where.get((caller or "").removesuffix("__game"), set()))
+            places = targets(expr, where.get((caller or "").removesuffix("__game"), set()) or file_own)
             if places is None:
                 stats["unknown"] += 1
                 continue

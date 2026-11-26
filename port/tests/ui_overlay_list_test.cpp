@@ -67,6 +67,49 @@ void the_list_has_an_end() {
     CHECK(list.vertices().size() <= kOverlayVerticesMax);
 }
 
+void a_run_of_rectangles_and_text_is_one_batch() {
+    OverlayList list;
+    list.begin(1.0f);
+    list.rect(0, 0, 4, 4, 0xFF0000FFu);
+    list.text(10, 10, 8, 0x00FF00FFu, "HI");
+    list.rect(50, 50, 4, 4, 0x0000FFFFu);
+    CHECK(list.batches().size() == 1);
+    CHECK(list.batches()[0].first == 0 && list.batches()[0].blend == OverlayBlend::Alpha);
+    CHECK(list.batches()[0].count == list.vertices().size());
+}
+
+void rectangles_and_text_are_blended_as_set() {
+    OverlayList list;
+    list.begin(1.0f);
+    list.rect(0, 0, 4, 4, 0xFF0000FFu);  // alpha until told otherwise
+    CHECK(list.set_blend(2));
+    list.rect(10, 0, 4, 4, 0xFF0000FFu);
+    list.text(20, 0, 8, 0xFF0000FFu, "A");  // text is rectangles: blended as set
+    CHECK(list.set_blend(1));
+    list.rect(60, 0, 4, 4, 0xFF0000FFu);
+    const auto batches = list.batches();
+    CHECK(batches.size() == 3);
+    CHECK(batches[0].blend == OverlayBlend::Alpha);
+    CHECK(batches[1].blend == OverlayBlend::Subtract);
+    CHECK(batches[2].blend == OverlayBlend::Add);
+    CHECK(overlay_blend_known(0) && overlay_blend_known(1) && overlay_blend_known(2));
+    CHECK(!overlay_blend_known(3) && !overlay_blend_known(0xFFFFFFFFu));
+}
+
+void a_blend_this_build_lacks_is_refused_and_keeps_the_last() {
+    OverlayList list;
+    list.begin(1.0f);
+    CHECK(list.set_blend(2));
+    CHECK(!list.set_blend(3));
+    CHECK(!list.set_blend(0xFFFFFFFFu));
+    list.rect(0, 0, 4, 4, 0xFFFFFFFFu);
+    CHECK(list.batches().size() == 1 && list.batches()[0].blend == OverlayBlend::Subtract);
+    // A new frame starts as alpha again, whatever the last one set.
+    list.begin(1.0f);
+    list.rect(0, 0, 4, 4, 0xFFFFFFFFu);
+    CHECK(list.batches().size() == 1 && list.batches()[0].blend == OverlayBlend::Alpha);
+}
+
 // The bounds of what was drawn.
 struct Box {
     float left = 1e9f, top = 1e9f, right = -1e9f, bottom = -1e9f;
@@ -154,6 +197,9 @@ int main() {
     a_rectangle_is_two_triangles_of_its_colour();
     bad_numbers_are_left_out();
     the_list_has_an_end();
+    a_run_of_rectangles_and_text_is_one_batch();
+    rectangles_and_text_are_blended_as_set();
+    a_blend_this_build_lacks_is_refused_and_keeps_the_last();
     text_lights_the_font_and_keeps_its_shape();
     a_character_the_font_lacks_is_one_blank_cell();
     a_point_is_found_on_the_picture();

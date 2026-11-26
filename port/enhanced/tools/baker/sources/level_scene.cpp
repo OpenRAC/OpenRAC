@@ -154,7 +154,8 @@ void export_suns(const scene::LevelData& level, unsigned light_set, BakeScene& t
     }
 }
 
-// Whether the export carries Going Commando's liquid surfaces (bake-inputs/liquids.json).
+// Whether the export carries Going Commando's or Up Your Arsenal's liquid surfaces
+// (bake-inputs/liquids.json).
 bool rac2_liquids(const scene::LevelData& level) {
     if (level.dir.empty()) {
         return false;
@@ -168,20 +169,28 @@ bool rac2_liquids(const scene::LevelData& level) {
     if (source.empty()) {
         return false;
     }
-    if (manifest["game"].string() != "rac2" || source != kRac2SurfacesSource) {
+    const auto& game = manifest["game"].string();
+    if (!(game == "rac2" && source == kRac2SurfacesSource)
+        && !(game == "rac3" && source == kRac3StripsSource)) {
         throw std::runtime_error("Unsupported liquid surfaces bake input");
     }
     return true;
 }
 
-// Adds Going Commando's emissive liquid surfaces after the exported meshes, in their order.
+// Adds Going Commando's (and Up Your Arsenal's) emissive liquid surfaces after the exported meshes,
+// in their order.
 void export_rac2_liquids(const scene::LevelData& level, BakeSceneExport& out) {
     json::Value surfaces;
     std::string error;
     if (!json::parse_file((level.dir / "bake-inputs/liquids.json").string(), surfaces, error)) {
-        throw std::runtime_error("Going Commando liquid surfaces: " + error);
+        throw std::runtime_error("liquid surfaces: " + error);
     }
-    const auto triangles = rac2_liquid_triangles(surfaces);
+    json::Value manifest;
+    if (!json::parse_file((level.dir / "manifest.json").string(), manifest, error)) {
+        throw std::runtime_error(error);
+    }
+    const auto triangles = manifest["game"].string() == "rac3" ? rac3_liquid_triangles(surfaces)
+                                                               : rac2_liquid_triangles(surfaces);
     out.automatic_liquid_triangles += triangles.size();
     out.surface_instances += triangles.empty() ? 0 : 1;
     for (const auto& triangle : triangles) {

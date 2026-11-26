@@ -131,14 +131,6 @@ float echo_feedback(ReverbMode mode, std::uint8_t feedback) {
 
 }  // namespace
 
-std::string_view reverb_mode_name(ReverbMode mode) {
-    static constexpr std::string_view kNames[] = {
-        "off", "room", "studio A", "studio B", "studio C", "hall", "space", "echo", "delay", "pipe"
-    };
-    const auto i = static_cast<std::size_t>(mode);
-    return i < std::size(kNames) ? kNames[i] : "unknown";
-}
-
 std::optional<ReverbPreset> reverb_preset(ReverbMode mode) {
     auto p = [](float same,
                 float cross,
@@ -271,10 +263,10 @@ bool ReverbEffect::active() const {
     return m_enabled && m_network != nullptr;
 }
 
-std::array<int, 2> ReverbEffect::run(std::array<int, 2> send) {
+std::array<float, 2> ReverbEffect::run(std::array<float, 2> send) {
     // Nothing to do when the effect is off or has no network: the reverb adds silence.
     if (!active()) {
-        return {0, 0};
+        return {0.0f, 0.0f};
     }
 
     // A depth glide in progress moves the depth one step per sample until it reaches its target.
@@ -287,14 +279,14 @@ std::array<int, 2> ReverbEffect::run(std::array<int, 2> send) {
 
     // The send of each channel is band-limited before it enters the network.
     for (std::size_t ch = 0; ch < 2; ++ch) {
-        const auto s = static_cast<float>(send[ch]);
+        const float s = send[ch];
         m_lowpass[ch] = s + (m_lowpass[ch] - s) * kInputPole;
         x[ch] = m_lowpass[ch];
     }
 
     const std::array<float, 2> y = m_network->run(x);
     const float g = m_depth / 32768.0f;
-    return {static_cast<int>(std::lround(y[0] * g)), static_cast<int>(std::lround(y[1] * g))};
+    return {y[0] * g, y[1] * g};
 }
 
 }  // namespace openrac::audio

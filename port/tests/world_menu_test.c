@@ -137,7 +137,7 @@ void func_L00_00277A88__game(void) {
     func_L00_00235FF8(1);
 }
 
-void func_001FD3E8__game(void) {}
+void func_001FD3E8__hooked(void) {}
 
 /* The hero's held pieces shown again each tick (update_hero_item_moby_flags, wrapped by world.c):
  * no hero here. */

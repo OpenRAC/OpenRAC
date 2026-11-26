@@ -37,6 +37,9 @@ language server at the SDK's `types/rac1.d.luau` for autocomplete. How to use it
 | `openrac.touch_hint` | `(hint: string, on: boolean) -> ()` |
 | `openrac.set_setting` | `(key: string, value: any) -> boolean` |
 | `openrac.on_settings` | `(fn: () -> ()) -> ()` |
+| `openrac.button_label` | `(button: number) -> (string?, ("playstation" \| "letters" \| "keys")?)` |
+| `openrac.set_motors` | `(port: number, small_motor: boolean, large_motor: number) -> boolean` |
+| `openrac.menu_option_set` | `(option: string, state: "on" \| "off" \| "default") -> boolean` |
 | `openrac.pvars` | `(moby: number) -> { [string]: number }?` |
 
 ## Types
@@ -253,6 +256,30 @@ rac1.level.load_gameplay (Level_LoadGameplay) u32(i32): Loads a level's gameplay
 
 ```lua
 type Level_LoadGameplayFn = (full: number) -> number
+```
+
+### `Level_UpdatePlayFn`
+
+rac1.level.update_play (Level_UpdatePlay) void(): The level's tick in play (handle_pause_input, game mode 0): the pause, freeze and help triggers, then the mobys, the hero, the particles, the camera, the sound, the HUD's elements and the frame counters. A replacement that returns without calling the original holds the world for that tick, as the game's own change of mode does (a mod's menu over a frozen world: the freeze mode, rac1.freeze.update).
+
+```lua
+type Level_UpdatePlayFn = () -> ()
+```
+
+### `Freeze_UpdateFn`
+
+rac1.freeze.update (Freeze_Update) void(): The freeze mode's tick (update_mode_freeze, game mode 4, entered by mode_freeze_init(kind, ...)): the help, prompt and dialog screens over a frozen world, by mode_freeze_info's kind (0 to 8 are the game's). It runs the sound and, once the mode has been left, puts the sounds and the music back on. A mod's own kind runs here, before or after the original.
+
+```lua
+type Freeze_UpdateFn = () -> ()
+```
+
+### `Freeze_DrawFn`
+
+rac1.freeze.draw (Freeze_Draw) void(): The freeze mode's picture (draw_dialog_background_and_text): the frozen world drawn again with the HUD (the draw mask 0x100FF), then the freeze dialog's dim and box (draw_freeze_message_box). A mod's own freeze kind draws its own here.
+
+```lua
+type Freeze_DrawFn = () -> ()
 ```
 
 ### `Hero_ApproachSpeedFn`
@@ -541,6 +568,118 @@ rac1.vendor.icon_strip.draw (Vendor_DrawIconStrip) void(): Draws the Gadgetron v
 
 ```lua
 type Vendor_DrawIconStripFn = () -> ()
+```
+
+### `Vendor_DrawDetailsFn`
+
+rac1.vendor.draw_details (Vendor_DrawDetails) void(): Draws the vendor selected-item name and price panel.
+
+```lua
+type Vendor_DrawDetailsFn = () -> ()
+```
+
+### `UI_IconFrameFn`
+
+rac1.ui.icon_frame (UI_IconFrame) i32(i32,i32): Resolves an icon and animation frame to its HUD sprite frame.
+
+```lua
+type UI_IconFrameFn = (icon: number, frame: number) -> number
+```
+
+### `NPC_TryDialogFn`
+
+rac1.npc.try_dialog (NPC_TryDialog) i32(u32,u32): Tests an NPC interaction request; identifies the owner of a purchase dialogue.
+
+```lua
+type NPC_TryDialogFn = (moby: number, request: number) -> number
+```
+
+### `UI_DrawSpriteFn`
+
+rac1.ui.sprite.draw (UI_DrawSprite) void(i32,i32,i32,i32,i32,i32): Draws a HUD sprite as one packed GIF packet.
+
+```lua
+type UI_DrawSpriteFn = (frame: number, x: number, y: number, width: number, height: number, alpha: number) -> ()
+```
+
+### `Pickup_StartSceneFn`
+
+rac1.pickup.start_scene (Pickup_StartScene) void(i32): Reward acquisition presentation.
+
+```lua
+type Pickup_StartSceneFn = (scene: number) -> ()
+```
+
+### `GoldCase_StartDemoFn`
+
+rac1.gold_case.start_demo (GoldCase_StartDemo) void(u32,i32): Reward acquisition presentation.
+
+```lua
+type GoldCase_StartDemoFn = (moby: number, item: number) -> ()
+```
+
+### `Hero_EnterMoveStateFn`
+
+rac1.player.enter_move_state (Hero_EnterMoveState) i32(i32,i32): Puts the hero into a move state (+0x2084): HeroEnterMoveState in levels 0, 4, 7, 9, 10 and 13, and each other level's own copy of it (hero_set_state), one hook point. It keeps the states before it, clears the item locks (+0x20AC, and +0x20A7 when he is not in a vehicle), sets up the new state's control mode and motion, and starts its animation when force is non-zero. It refuses the change and returns 0 while the hero is dying or in a cutscene, unless force is 2, and for most states while he falls or is hurt with no health left; else it returns 1, or 0 where it passes him on to another state. Every change of his state goes through it: his update, his items, and the mobys and triggers that move him. A replacement can send him to another state by calling the original with that state (0x3F is the slow magnet walk on magnetic ground). Under a multiplayer stand-in the port's guard (hero_grab.c) takes the call first, and a mod does not see it.
+
+```lua
+type Hero_EnterMoveStateFn = (state: number, force: number) -> number
+```
+
+### `Hero_ResolveGravityModeFn`
+
+rac1.player.resolve_gravity_mode (Hero_ResolveGravityMode) i32(): The hero's gravity mode for the tick, which Hero_UpdateMotionInput stores at +0x20B3 as it starts: 0 pulls him along the world's down, 1 along the ground's normal (magnetic ground), 2 along the vector at +0x290. It returns +0x308, which the ground's update sets to 1 on magnetic ground with the Magneboots, but 1 in states 0x3F (the magnet walk), 0x70 and 0x71, and in state 0 on magnetic ground with the Magneboots while he has been in the air for under 4 ticks. Once a tick, in every level.
+
+```lua
+type Hero_ResolveGravityModeFn = () -> number
+```
+
+### `Hero_UpdateEquippedItemsFn`
+
+rac1.player.update_equipped_items (Hero_UpdateEquippedItems) void(): What the hero holds, once a tick from Hero_Update in every level: it locks item selection and use (+0x20A7, +0x20AC) while he is on magnetic ground with the Magneboots (+0x308 is 1), in control modes 0x15 and 0x16, or in water or dying, then spawns, updates, animates and lights the item mobys and runs the items (hero_update_items). Hero_EnterMoveState clears both locks on a change of state.
+
+```lua
+type Hero_UpdateEquippedItemsFn = () -> ()
+```
+
+### `Hero_SteerPlanarVelocityFn`
+
+rac1.player.steer_planar_velocity (Hero_SteerPlanarVelocity) void(f32): Steers the hero's planar velocity (+0xE0) toward his target speed (+0x190) along his move yaw (+0x180), by at most step a tick, up to three times that as it turns him (1.7 times in state 0x81); in gravity modes 1 and 2 it eases the velocity's length along the ground toward his target speed by step instead. steer_hero_planar_velocity in levels 0, 4, 7, 9, 10, 12, 13, 14 and 17, and its copy air_accel in the others, one hook point. The move states call it after setting the target speed and the step, the Thruster-Pack's hover (state 0x81) among them, so a replacement can steer the hero at a speed and acceleration of its own.
+
+```lua
+type Hero_SteerPlanarVelocityFn = (step: number) -> ()
+```
+
+### `Hero_UpdateMovementFn`
+
+rac1.player.update_movement (Hero_UpdateMovement) void(): The hero's movement for the state he is in (+0x2084), once a tick from Hero_UpdateMotionInput after it reads the stick: a case per state that sets his target speed and turn, steers or sets his velocity (+0xE0) and applies gravity, the Thruster-Pack's hover (state 0x81) among them. hero_update_movement in levels 0, 4, 7, 9, 10 and 13, and each other level's own build of it, one hook point. A replacement can move the hero itself in the states it wants and call the original for the others; his state's transitions come after it, later in Hero_Update.
+
+```lua
+type Hero_UpdateMovementFn = () -> ()
+```
+
+### `FX_DrawWorldQuadFn`
+
+rac1.fx.world_quad.draw (FX_DrawWorldQuad) void(u32,u32,i32): Queues one effect quad for the effect renderer (draw_world_quad): the 0x90-byte record at quad holds four corners (+0x00, x y z w each), four RGBA words (+0x40, alpha 0x80 opaque), four ST pairs (+0x50), then the GS words CLAMP, TEX0 (the texture), TEX1 and ALPHA (+0x70, +0x78, +0x80, +0x88); the corners go through the matrix at matrix when it is not 0. Most effects' draw callbacks call it, many times a frame: glows, flames, beams, shots. A replacement can rewrite the record (its colours, say) before it calls the original; the record is the caller's, which may draw it again. The port's own C, not the game's: the executable's quad routine, which a few draws call directly, is not this hook point.
+
+```lua
+type FX_DrawWorldQuadFn = (quad: number, matrix: number, mode: number) -> ()
+```
+
+### `FX_ThrusterFlame_DrawFn`
+
+rac1.fx.thruster_flame.draw (FX_ThrusterFlame_Draw) void(u32): Draws one of the Thruster-Pack's two flames (flame, a class 0xA7 moby; draw_joint_aligned_beam_effect), the draw callback its update queues each frame it burns: two quads of effect texture 0xC in the colour 0x80808080 and a glow of texture 0xB in 0x7F2020FF, through rac1.fx.world_quad.draw, then a ribbon of 196 points coloured from the table joint_beam_ribbon_colors. A replacement that sets a flag around the original can tell the flame's quads from the others in rac1.fx.world_quad.draw. The flame's sparks come from its update (rac1.moby.moby167.update) through rac1.fx.burst.spawn.
+
+```lua
+type FX_ThrusterFlame_DrawFn = (flame: number) -> ()
+```
+
+### `FX_SpawnBurstFn`
+
+rac1.fx.burst.spawn (FX_SpawnBurst) u32(u32,u32,i32,i32,i32,i32,f32): Spawns a spark (a type 0x15 particle; spawn_burst) at the vector at pos, moving by the vector at dir, for ticks ticks (none when 0): its RGBA colour fades from colour to fade as it shrinks from size, and while children is non-zero it throws off a spark of its current colour every other frame. Returns the particle, or 0. The sparks of many effects, explosions and debris among them; the Thruster-Pack's flames spawn theirs in 0x4F007FFF fading to 0x1FFFFFFF from their update (rac1.moby.moby167.update), so a replacement can recolour only those by swapping colour and fade while that update runs.
+
+```lua
+type FX_SpawnBurstFn = (pos: number, dir: number, colour: number, fade: number, ticks: number, children: number, size: number) -> number
 ```
 
 ### `MobyUpdateFn`

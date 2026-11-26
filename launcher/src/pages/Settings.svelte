@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { supports } from "$lib/capabilities";
-  import { SETTINGS_TEXT } from "$lib/modsText";
   // Three groups: where things are (folders), the programs the launcher uses,
   // and how the launcher itself behaves. Edits stay local until saved; the bar
   // that saves them stays in view at the bottom of the window. With `setup`,
@@ -8,33 +6,40 @@
   import AddToSteam from "$components/AddToSteam.svelte";
   import GpuDrivers from "$components/GpuDrivers.svelte";
   import Logo from "$components/Logo.svelte";
+  import MultiplayerServer from "$components/MultiplayerServer.svelte";
   import PathField from "$components/PathField.svelte";
+  import Rac3Gate from "$components/Rac3Gate.svelte";
   import {
     api,
+    type Check,
+    type Config,
+    type Detected,
     errorText,
     onAndroid,
     relaunchApp,
     updateBranchOf,
+    type UpdateChannel,
     updateChannelOf,
     updateSourceOf,
-    type Check,
-    type Config,
-    type Detected,
-    type UpdateChannel,
   } from "$lib/api";
   import { app, guardShown, lookForUpdate, saveConfig } from "$lib/app.svelte";
+  import { supports } from "$lib/capabilities";
   import { DISCORD_URL, PYTHON_URL, REPO_URL, SITE_URL } from "$lib/links";
+  import { SETTINGS_TEXT } from "$lib/modsText";
   import { nameProblem } from "$lib/multiplayerName";
+  import { serverProblem } from "$lib/multiplayerServer";
   import { applyPalette, PALETTES } from "$lib/palettes";
+  import { RAC3_SWITCH } from "$lib/rac3Gate";
+  import { tablist } from "$lib/tabs";
   import { applyAccent } from "$lib/themes";
   import { channelName, devBranches } from "$lib/updates";
-  import { tablist } from "$lib/tabs";
 
   let { setup = false }: { setup?: boolean } = $props();
 
   /** The saved settings; this page only shows once they are loaded. */
   function saved(): Config {
     if (!app.config) throw new Error("settings not loaded");
+
     return { ...app.config };
   }
 
@@ -43,7 +48,6 @@
   const EDITED = [
     "root",
     "python",
-    "godot",
     "docker",
     "discsDir",
     "installDir",
@@ -60,8 +64,11 @@
     "saveEditorAdvanced",
     "developer",
     "incrementalBuilds",
+    "rac3Dev",
     "discordClientId",
     "multiplayerName",
+    "multiplayerServerHost",
+    "multiplayerServerPort",
   ] as const satisfies (keyof Config)[];
   type Edited = Pick<Config, (typeof EDITED)[number]>;
 
@@ -83,28 +90,18 @@
   /** The game's Vulkan renderer, on the desktops (on macOS through the MoltenVK its bundle carries);
    *  Android chooses its own in Graphics (GpuDrivers). */
   const desktopRenderer = $derived(
-    app.info?.platform === "windows" || app.info?.platform === "linux" || app.info?.platform === "macos",
+    app.info?.platform === "windows" ||
+      app.info?.platform === "linux" ||
+      app.info?.platform === "macos",
   );
-  /** The game's Metal renderer is offered on macOS only. */
-  const metalRenderer = $derived(app.info?.platform === "macos");
-  /** The renderer the game starts with, as core/src/config.rs renderer_for has it: a Mac's Metal
-   *  is Vulkan anywhere else, anything unknown OpenGL. */
-  const shownRenderer = $derived<Config["renderer"]>(
-    draft.renderer === "metal"
-      ? metalRenderer
-        ? "metal"
-        : "vulkan"
-      : draft.renderer === "vulkan"
-        ? "vulkan"
-        : "opengl",
-  );
+  const isIos = $derived(app.info?.platform === "ios");
+  const rendererLabel = $derived(app.info?.platform === "macos" ? "Metal" : "Vulkan");
   /** Advanced opens by itself when something in it is on. */
   let advancedOpen = $state(
     saved().detailedGameLog ||
       saved().developer ||
       saved().saveEditorAdvanced ||
       saved().renderer === "vulkan" ||
-      saved().renderer === "metal" ||
       saved().safeRendering,
   );
 
@@ -115,16 +112,21 @@
   /** The branch the development builds come from, as the release's tag names it. */
   const devBranch = $derived(source?.channel?.replace(/^launcher-dev-/, "") ?? "master");
   /** The branch the fork's development builds follow when none is named: the one it was built from. */
-  const builtBranch = $derived(app.info?.updateChannels.dev.channel?.replace(/^launcher-dev-/, "") ?? "master");
+  const builtBranch = $derived(
+    app.info?.updateChannels.dev.channel?.replace(/^launcher-dev-/, "") ?? "master",
+  );
   /** A fork's branches with development builds, offered beside the field (asked once, when it shows). */
   let branches = $state<string[]>([]);
   $effect(() => {
     const dev = app.info?.updateChannels.dev;
-    if (channel === "dev" && dev?.fork && !branches.length) void devBranches(dev).then((b) => (branches = b));
+
+    if (channel === "dev" && dev?.fork && !branches.length)
+      void devBranches(dev).then((b) => (branches = b));
   });
 
   async function checkNow() {
     looked = "looking";
+
     try {
       // The channel and branch chosen here, before they are saved too.
       looked = (await lookForUpdate(draft)) ? "found" : "none";
@@ -145,32 +147,35 @@
     const names = [
       !askRoot && draft.root && "OpenRAC",
       !app.info?.standalone && !askPython && draft.python && "Python",
-      !app.info?.standalone && draft.godot && "Godot",
     ].filter(Boolean);
-    return names.length ? `${names.join(", ")}. Change them here if they are wrong.` : "Nothing yet.";
+
+    return names.length
+      ? `${names.join(", ")}. Change them here if they are wrong.`
+      : "Nothing yet.";
   });
 
   $effect(() => {
     void api.detect().then((d) => {
       found = d;
+
       // First run: take what was found for anything not set yet.
       if (setup) {
         askRoot = !draft.root && !d.roots.length;
         askPython = !app.info?.standalone && !draft.python && !d.pythons.length;
         draft.root ??= d.roots[0]?.path ?? null;
         draft.python ??= d.pythons[0]?.path ?? null;
-        draft.godot ??= d.godots[0]?.path ?? null;
         draft.docker ??= d.dockers[0]?.path ?? null;
       }
     });
   });
 
   /** Android saves by itself, so a change still waiting when the page is left is saved then. */
-  const kept = () => onAndroid && !setup && (saving || (changed && !nameError));
+  const kept = () => onAndroid && !setup && (saving || (changed && !formError));
 
   // A theme picked shows at once; left unsaved, the saved one comes back with the page's end.
   $effect(() => {
     applyPalette(draft.theme);
+
     return () => {
       if (!kept()) applyPalette(app.config?.theme);
     };
@@ -179,20 +184,34 @@
   // Game colours too, on the game picked.
   $effect(() => {
     const game = app.version?.split("/")[0] ?? null;
+
     applyAccent(game, draft.gameColors);
+
     return () => {
       if (!kept()) applyAccent(game, app.config?.gameColors ?? true);
     };
   });
 
-  const changed = $derived(!!app.config && JSON.stringify(edited(draft)) !== JSON.stringify(edited(app.config)));
+  const changed = $derived(
+    !!app.config && JSON.stringify(edited(draft)) !== JSON.stringify(edited(app.config)),
+  );
   /** What is wrong with the multiplayer name typed, if anything: nothing is saved until it is right. */
   const nameError = $derived(nameProblem(draft.multiplayerName));
+  /** The multiplayer server likewise (MultiplayerServer says what is wrong). iOS plays with no
+   *  online play, so it has no server to name. */
+  const serverError = $derived(
+    isIos ? null : serverProblem(draft.multiplayerServerHost, draft.multiplayerServerPort),
+  );
+  /** Anything typed that cannot be saved yet. */
+  const formError = $derived(nameError ?? serverError);
   /** The Multiplayer name shows only while a mod that uses it (the multiplayer mod) is on in one
    *  of the games; hidden, it keeps its value. */
   let nameUsed = $state(false);
   $effect(() => {
-    const games = [...new Set(app.library?.games.flatMap((g) => g.versions.map((v) => v.game)) ?? [])];
+    const games = [
+      ...new Set(app.library?.games.flatMap((g) => g.versions.map((v) => v.game)) ?? []),
+    ];
+
     if (setup || !games.length) return;
     void api.playerNameUsed(games).then(
       (used) => (nameUsed = used),
@@ -205,15 +224,18 @@
    *  A change that could not be written is not tried again until it changes again. */
   let unwritten = $state<string | null>(null);
   $effect(() => {
-    if (!onAndroid || setup || !changed || saving || nameError) return;
+    if (!onAndroid || setup || !changed || saving || formError) return;
     const now = JSON.stringify(edited(draft));
+
     if (now === unwritten) return;
     const timer = setTimeout(() => {
       void save(false).then(() => {
         const written = !!app.config && JSON.stringify(edited(app.config)) === now;
+
         unwritten = written ? null : now;
       });
     }, 600);
+
     return () => {
       clearTimeout(timer);
     };
@@ -222,23 +244,54 @@
   $effect(() => () => {
     if (kept() && !saving) void save(false);
   });
-  const tool = (t: "python" | "godot" | "docker") => (path: string) => api.checkTool(t, path);
+  const tool = (t: "python" | "docker") => (path: string) => api.checkTool(t, path);
   const root = (path: string): Promise<Check> => api.checkRoot(path);
   /** The install folder only has to be a place to write; the extractor makes what it needs inside. */
   const installFolder = (path: string): Promise<Check> =>
-    Promise.resolve({ ok: true, version: null, message: `Games are set up in ${path}/active/<game>/data` });
+    Promise.resolve({
+      ok: true,
+      version: null,
+      message: `Games are set up in ${path}/active/<game>/data`,
+    });
 
   /** The games folder is looked through when it is saved; what it holds shows on the Games page. */
   const gamesFolder = (path: string): Promise<Check> =>
-    Promise.resolve({ ok: true, version: null, message: `Disc images (.iso) are looked for in ${path}` });
+    Promise.resolve({
+      ok: true,
+      version: null,
+      message: `Disc images (.iso) are looked for in ${path}`,
+    });
 
   /** The save folder only has to be a place to write; the games make a folder per disc in it. */
   const saveFolder = (path: string): Promise<Check> =>
-    Promise.resolve({ ok: true, version: null, message: `Saves are kept in ${path}/<disc serial>` });
+    Promise.resolve({
+      ok: true,
+      version: null,
+      message: `Saves are kept in ${path}/<disc serial>`,
+    });
+
+  let rac3Gate = $state<Rac3Gate>();
+
+  /** Off: at once. On: only after the three prompts are confirmed; a cancel leaves it off. */
+  async function toggleRac3(e: Event) {
+    const box = e.currentTarget as HTMLInputElement;
+
+    if (!box.checked) {
+      draft.rac3Dev = false;
+
+      return;
+    }
+
+    // Not on yet: the box waits for the answer.
+    box.checked = false;
+    draft.rac3Dev = (await rac3Gate?.run()) ?? false;
+    box.checked = draft.rac3Dev;
+  }
 
   async function save(finish: boolean) {
     saving = true;
     let customId: string | null = draft.discordClientId?.trim() ?? null;
+
     if (customId === "") customId = null;
     const before = app.info ? updateSourceOf(app.info, app.config).manifest : null;
     const restart = draft.safeRendering !== saved().safeRendering;
@@ -249,19 +302,24 @@
       updateBranch: updateBranchOf(draft),
       setupComplete: (app.config?.setupComplete ?? false) || finish,
     });
+
     if (!written) {
       // The settings were not written (the toast says why): what was typed stays, and the
       // first run does not leave for a page with nothing in it.
       saving = false;
+
       return;
     }
+
     draft = saved();
+
     // Another channel or branch: what was found on the last one is not what this one offers.
     if (app.info && before !== updateSourceOf(app.info, app.config).manifest) {
       app.update = null;
       looked = "idle";
       if (app.config?.checkUpdates) lookForUpdate().catch(() => undefined);
     }
+
     saving = false;
     // The window's renderer is set before it opens.
     if (restart) await relaunchApp();
@@ -302,8 +360,9 @@
         />
         {#if !draft.root}
           <p class="dim note">
-            No copy yet? <button class="link" onclick={() => void api.openUrl(REPO_URL)}>Get OpenRAC</button>, then
-            choose its folder here.
+            No copy yet? <button class="link" onclick={() => void api.openUrl(REPO_URL)}
+              >Get OpenRAC</button
+            >, then choose its folder here.
           </p>
         {/if}
       {/if}
@@ -316,8 +375,9 @@
         />
         {#if !draft.python}
           <p class="dim note">
-            No Python yet? <button class="link" onclick={() => void api.openUrl(PYTHON_URL)}>Get Python</button>, then
-            choose it here.
+            No Python yet? <button class="link" onclick={() => void api.openUrl(PYTHON_URL)}
+              >Get Python</button
+            >, then choose it here.
           </p>
         {/if}
       {/if}
@@ -358,13 +418,6 @@
               check={tool("python")}
             />
           {/if}
-          <PathField
-            label="Godot"
-            hint="Godot 4.7 or newer, for the level editor (Mods). Optional."
-            bind:value={draft.godot}
-            candidates={found?.godots}
-            check={tool("godot")}
-          />
         {/if}
       </details>
     </section>
@@ -400,8 +453,9 @@
           />
           {#if !draft.root}
             <p class="dim note">
-              No copy yet? <button class="link" onclick={() => void api.openUrl(REPO_URL)}>Get OpenRAC</button>, then
-              choose its folder here.
+              No copy yet? <button class="link" onclick={() => void api.openUrl(REPO_URL)}
+                >Get OpenRAC</button
+              >, then choose its folder here.
             </p>
           {/if}
         {/if}
@@ -440,8 +494,8 @@
           <span class="text">
             <strong>In the Files app, under OpenRAC</strong>
             <small>
-              Your saves, settings, games and disc images. Uninstalling asks whether to keep the app's data: keep it,
-              and all of it is back when you install OpenRAC again.
+              Your saves, settings, games and disc images. Uninstalling asks whether to keep the
+              app's data: keep it, and all of it is back when you install OpenRAC again.
             </small>
           </span>
           <button onclick={() => void guardShown(api.showFiles())}>Open Files</button>
@@ -509,9 +563,17 @@
             bind:value={draft.multiplayerName}
           />
           <p id="multiplayer-name-note" class="dim note">
-            {nameError ?? "What other players see in online mods. 3 to 16 letters, digits and underscores."}
+            {nameError ??
+              "What other players see in online mods. 3 to 16 letters, digits and underscores."}
           </p>
         </div>
+      {/if}
+      <!-- Where every game's online play goes; the game gets it as OPENRAC_SERVER. -->
+      {#if !isIos}
+        <MultiplayerServer
+          bind:host={draft.multiplayerServerHost}
+          bind:port={draft.multiplayerServerPort}
+        />
       {/if}
     </section>
 
@@ -536,7 +598,9 @@
       <label class="setting">
         <span class="text">
           <strong>Look for mod updates at start</strong>
-          <small>Once a day, for the mods you added from a link. The Mods tab still looks when you ask.</small>
+          <small
+            >Once a day, for the mods you added from a link. The Mods tab still looks when you ask.</small
+          >
         </span>
         <input
           type="checkbox"
@@ -564,7 +628,12 @@
           <strong>{SETTINGS_TEXT.cleanUp}</strong>
           <small>{SETTINGS_TEXT.cleanUpLine}</small>
         </span>
-        <input type="checkbox" role="switch" class="switch" bind:checked={draft.cleanupUnusedDeps} />
+        <input
+          type="checkbox"
+          role="switch"
+          class="switch"
+          bind:checked={draft.cleanupUnusedDeps}
+        />
       </label>
       {#if app.info?.updateChannels && supports(app.info, "updates")}
         <div class="setting">
@@ -579,11 +648,15 @@
             </small>
           </span>
           <div class="segmented" role="radiogroup" aria-label="Update channel">
-            <button role="radio" aria-checked={channel === "stable"} onclick={() => (draft.updateChannel = "stable")}
-              >Stable</button
+            <button
+              role="radio"
+              aria-checked={channel === "stable"}
+              onclick={() => (draft.updateChannel = "stable")}>Stable</button
             >
-            <button role="radio" aria-checked={channel === "dev"} onclick={() => (draft.updateChannel = "dev")}
-              >Development</button
+            <button
+              role="radio"
+              aria-checked={channel === "dev"}
+              onclick={() => (draft.updateChannel = "dev")}>Development</button
             >
           </div>
         </div>
@@ -606,8 +679,9 @@
               {#each branches as branch (branch)}<option value={branch}></option>{/each}
             </datalist>
             <p class="dim note">
-              Development builds of this branch of <span class="mono">{app.info.updateChannels.dev.repository}</span>;
-              only a build newer than yours installs.
+              Development builds of this branch of <span class="mono"
+                >{app.info.updateChannels.dev.repository}</span
+              >; only a build newer than yours installs.
             </p>
           </div>
         {/if}
@@ -618,43 +692,39 @@
           disabled={looked === "looking" || !supports(app.info, "updates")}
           onclick={() => void checkNow()}>Check now</button
         >
-        {#if looked === "looking"}· Looking…{:else if app.update?.switchTo}· {channelName(app.update.switchTo)}
+        {#if looked === "looking"}· Looking…{:else if app.update?.missingBuild}· {app.update.name}
+          is out, but not yet for this system.
+          <button class="link" onclick={() => (app.showUpdateModal = true)}>Details</button
+          >{:else if app.update?.switchTo}· {channelName(app.update.switchTo)}
           {app.update.version} can replace this build.
           <button class="link" onclick={() => (app.showUpdateModal = true)}>Switch</button
           >{:else if looked === "found" || app.update}· {app.update?.name ?? "A new version"} is out.
-          <button class="link" onclick={() => (app.showUpdateModal = true)}>Update</button>{:else if looked === "none"}·
-          You have the latest ({app.info?.version ?? ""}).{:else if looked === "failed"}· Could not check: {lookError}.{/if}
+          <button class="link" onclick={() => (app.showUpdateModal = true)}>Update</button
+          >{:else if looked === "none"}· You have the latest ({app.info?.version ??
+            ""}).{:else if looked === "failed"}· Could not check: {lookError}.{/if}
         {#if source && supports(app.info, "updates")}
           · <button class="link" onclick={() => void api.openUrl(source.page)}>Releases</button>
           {#if draft.developer}
-            · <span class="mono">github.com/{source.repository} · {source.channel ?? "latest release"}</span>
+            · <span class="mono"
+              >github.com/{source.repository} · {source.channel ?? "latest release"}</span
+            >
           {/if}
         {/if}
       </p>
     </section>
 
-    {#if !app.info?.standalone && !onAndroid}
+    <!-- A player is asked for Python only when none was found; contributors find it in Developer. -->
+    {#if !app.info?.standalone && !onAndroid && !draft.developer && !app.config?.python}
       <section class="panel">
         <h2>Programs</h2>
         <PathField
-          label="Godot"
-          hint="Godot 4.7 or newer, for the level editor (Mods). Optional."
-          bind:value={draft.godot}
-          candidates={found?.godots}
+          label="Python"
+          hint="Python 3.10 or newer: OpenRAC's tools run with it."
+          bind:value={draft.python}
+          candidates={found?.pythons}
           detail={draft.developer}
-          check={tool("godot")}
+          check={tool("python")}
         />
-        <!-- A player is asked for Python only when none was found; contributors find it in Developer. -->
-        {#if !draft.developer && !app.config?.python}
-          <PathField
-            label="Python"
-            hint="Python 3.10 or newer: OpenRAC's tools run with it."
-            bind:value={draft.python}
-            candidates={found?.pythons}
-            detail={draft.developer}
-            check={tool("python")}
-          />
-        {/if}
       </section>
     {/if}
 
@@ -664,39 +734,48 @@
         <label class="setting">
           <span class="text">
             <strong>Detailed game logs</strong>
-            <small>Turn on when we ask you to. Logs and crash reports are under Help, on each game's page.</small>
+            <small
+              >Turn on when we ask you to. Logs and crash reports are under Help, on each game's
+              page.</small
+            >
           </span>
-          <input type="checkbox" role="switch" class="switch" bind:checked={draft.detailedGameLog} />
+          <input
+            type="checkbox"
+            role="switch"
+            class="switch"
+            bind:checked={draft.detailedGameLog}
+          />
         </label>
         {#if desktopRenderer}
-          <!-- What the game draws with (OPENRAC_GL_API, core/src/actions.rs); without Vulkan or
-               Metal it falls back to OpenGL by itself (port/platform/window.cpp). Metal is
-               offered on macOS only. -->
           <div class="setting">
             <span class="text">
               <strong>Renderer</strong>
               <small>
-                {shownRenderer === "vulkan"
-                  ? "Vulkan 1.3, the default; without it the game draws with OpenGL."
-                  : shownRenderer === "metal"
-                    ? "Metal; without it the game draws with OpenGL."
-                    : "OpenGL 4.1."}
+                {draft.renderer === "vulkan"
+                  ? `${rendererLabel} is the default. The game falls back to OpenGL if it cannot start.`
+                  : "OpenGL 4.1."}
                 From the game's next start: a running game keeps its renderer.
               </small>
             </span>
             <div class="segmented" role="radiogroup" aria-label="Renderer">
-              <button role="radio" aria-checked={shownRenderer === "vulkan"} onclick={() => (draft.renderer = "vulkan")}
-                >Vulkan</button
+              <button
+                role="radio"
+                aria-checked={draft.renderer === "vulkan"}
+                onclick={() => (draft.renderer = "vulkan")}>{rendererLabel}</button
               >
-              {#if metalRenderer}
-                <button role="radio" aria-checked={shownRenderer === "metal"} onclick={() => (draft.renderer = "metal")}
-                  >Metal</button
-                >
-              {/if}
-              <button role="radio" aria-checked={shownRenderer === "opengl"} onclick={() => (draft.renderer = "opengl")}
-                >OpenGL</button
+              <button
+                role="radio"
+                aria-checked={draft.renderer === "opengl"}
+                onclick={() => (draft.renderer = "opengl")}>OpenGL</button
               >
             </div>
+          </div>
+        {:else if isIos}
+          <div class="setting">
+            <span class="text">
+              <strong>Renderer</strong>
+            </span>
+            <span>Metal</span>
           </div>
         {/if}
         {#if app.info?.platform === "linux"}
@@ -705,22 +784,38 @@
           <label class="setting">
             <span class="text">
               <strong>Safe rendering</strong>
-              <small>For a launcher that crashes or stays blank. No page slides. The launcher restarts.</small>
+              <small
+                >For a launcher that crashes or stays blank. No page slides. The launcher restarts.</small
+              >
             </span>
-            <input type="checkbox" role="switch" class="switch" bind:checked={draft.safeRendering} />
+            <input
+              type="checkbox"
+              role="switch"
+              class="switch"
+              bind:checked={draft.safeRendering}
+            />
           </label>
         {/if}
         <label class="setting">
           <span class="text">
             <strong>Advanced save editing</strong>
-            <small>Every field of a save, raw bytes too. Your memory card is backed up first.</small>
+            <small>Every field of a save, raw bytes too. Your memory card is backed up first.</small
+            >
           </span>
-          <input type="checkbox" role="switch" class="switch" bind:checked={draft.saveEditorAdvanced} />
+          <input
+            type="checkbox"
+            role="switch"
+            class="switch"
+            bind:checked={draft.saveEditorAdvanced}
+          />
         </label>
         <label class="setting">
           <span class="text">
             <strong>Developer tools</strong>
-            <small>The Develop tab (builds, checks, decompilation, the console), disc serials and file names.</small>
+            <small
+              >The Develop tab (builds, checks, decompilation, the console), disc serials and file
+              names.</small
+            >
           </span>
           <input type="checkbox" role="switch" class="switch" bind:checked={draft.developer} />
         </label>
@@ -731,12 +826,30 @@
               <span class="text">
                 <strong>Incremental builds (for developers)</strong>
                 <small
-                  >After a change to OpenRAC, build only what changed instead of the game from scratch. A build folder
-                  OpenRAC cannot vouch for (another OpenRAC version, no build stamp) is still built from scratch. The
-                  Rebuild from scratch action stays.</small
+                  >After a change to OpenRAC, build only what changed instead of the game from
+                  scratch. A build folder OpenRAC cannot vouch for (another OpenRAC version, no
+                  build stamp) is still built from scratch. The Rebuild from scratch action stays.</small
                 >
               </span>
-              <input type="checkbox" role="switch" class="switch" bind:checked={draft.incrementalBuilds} />
+              <input
+                type="checkbox"
+                role="switch"
+                class="switch"
+                bind:checked={draft.incrementalBuilds}
+              />
+            </label>
+            <label class="setting">
+              <span class="text">
+                <strong>{RAC3_SWITCH.title}</strong>
+                <small>{RAC3_SWITCH.hint}</small>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                class="switch"
+                checked={draft.rac3Dev}
+                onchange={toggleRac3}
+              />
             </label>
             {#if !rootHere && !onAndroid}
               <PathField
@@ -789,7 +902,10 @@
             />
             <p class="dim note">
               To show your own name and art, create an app at
-              <button class="link" onclick={() => void api.openUrl("https://discord.com/developers/applications")}>
+              <button
+                class="link"
+                onclick={() => void api.openUrl("https://discord.com/developers/applications")}
+              >
                 discord.com/developers/applications
               </button>.
             </p>
@@ -809,11 +925,15 @@
   {/if}
 </div>
 
+<Rac3Gate bind:this={rac3Gate} />
+
 {#if !setup && changed && !onAndroid}
   <div class="save-bar" role="status">
     <span class="grow">You have unsaved changes.</span>
     <button disabled={saving} onclick={() => (draft = saved())}>Discard</button>
-    <button class="primary" disabled={saving || !!nameError} onclick={() => void save(false)}>Save</button>
+    <button class="primary" disabled={saving || !!formError} onclick={() => void save(false)}
+      >Save</button
+    >
   </div>
 {/if}
 
@@ -835,7 +955,11 @@
     padding: 24px;
     border-radius: var(--radius);
     background:
-      radial-gradient(80% 90% at 80% 0, color-mix(in srgb, var(--brand) 28%, transparent), transparent 70%),
+      radial-gradient(
+        80% 90% at 80% 0,
+        color-mix(in srgb, var(--brand) 28%, transparent),
+        transparent 70%
+      ),
       var(--panel);
   }
 

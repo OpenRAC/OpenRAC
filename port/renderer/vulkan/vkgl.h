@@ -31,6 +31,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -60,6 +61,8 @@ struct Config {
     // the system's loader.
     void* get_instance_proc_addr = nullptr;
     bool validation = false;  // the Khronos validation layer, where it is installed
+    // Explicit opt-in for tools with custom GLSL; normal package misses draw the error shader.
+    bool compile_missing_shaders = false;
     bool gpu_breadcrumbs = true;
     // For the tests: each presentation extension the backend asks of the device where it is
     // offered (VK_KHR_present_id, VK_KHR_present_wait, the FIFO latest-ready present mode), so a
@@ -71,6 +74,7 @@ struct Config {
     // and the device VK_EXT_hdr_metadata where offered. Off (the player's `hdr = off` at start),
     // the instance, the device and the swapchain are made as they always were.
     bool hdr_colour_spaces = false;
+    void (*device_work)(std::function<void()>) = nullptr;
 
     // An outside maker of the instance and the device, which then shares them (a mod's OpenXR
     // session, openrac_mod.h's openrac_vulkan_setup): each function stands in for the backend's
@@ -255,8 +259,7 @@ struct SubmissionCounters {
     std::uint64_t pipelines_created = 0;  // Draw-thread creations; excludes prewarm worker calls.
     // Pipelines a draw linked from parts (vk-pipeline-library), not counted in pipelines_created.
     std::uint64_t pipelines_linked = 0;
-    // Pipelines specialised with a program's modes (vk-mode-constants): asked of the workers, or
-    // made at their draw where there are none.
+    // Exact feature variants compiled for their first draw.
     std::uint64_t mode_pipelines = 0;
     // Pipelines made once the warm-up begin_pipeline_warmup started had passed.
     std::uint64_t pipelines_created_after_warmup = 0;
@@ -288,6 +291,7 @@ struct SubmissionCounters {
     std::uint64_t gpu_payload_bytes = 0;
     std::uint64_t shader_fp16_ops = 0, shader_fp32_ops = 0, shader_fp16_modules = 0;
     std::uint64_t shader_compiles = 0;  // glslang runs: shaders checked, programs compiled.
+    std::uint64_t shader_package_hits = 0, shader_package_misses = 0;
     double shader_compile_s = 0.0;      // The seconds those compiles took.
     std::uint64_t test_program_reuses = 0;  // Immutable driver object reuse in an opted-in test.
     std::uint64_t program_reuses = 0;       // Links that took a kept program's objects.
@@ -311,6 +315,12 @@ inline std::uint64_t commands_recorded(const SubmissionCounters& counters) {
 // made once that many frames have been presented counts in pipelines_created_after_warmup as well.
 // Until the first call no pipeline counts there.
 void begin_pipeline_warmup(std::uint32_t frames);
+
+// Ends the open pass drawing into `framebuffer`'s multisampled colour with that colour resolved
+// into `resolve_framebuffer`'s and the samples not stored (a tiled GPU then writes out only the
+// resolve). False, with nothing done, when no such pass is open or it cannot resolve in the pass;
+// the samples are undefined after a true one until drawn or copied again.
+bool resolve_dropping_samples(unsigned framebuffer, unsigned resolve_framebuffer);
 
 // For the tests: with `on`, an attachment glInvalidateFramebuffer let go is overwritten with
 // garbage (colour 1.0 in every channel, depth 0, stencil 0xA5) instead of being left undefined, so
@@ -346,8 +356,7 @@ bool test_present_paths(std::vector<std::uint8_t>& single, std::vector<std::uint
 std::uint64_t wait_for_pipeline_prewarm();
 
 // Whether the pre-warm workers still have a pipeline to make; false while the backend is closed.
-// A draw whose specialised pipeline they have not made yet uses one that reads its modes from the
-// uniforms (vk-mode-constants), so a measurement waits for this to be false.
+// A draw waits for its exact variant when a worker is already compiling it.
 bool pipeline_prewarm_busy();
 
 // For a level's load, behind its loading screen: waits until the pre-warm workers have made every
@@ -380,6 +389,12 @@ bool wait_for_present(std::chrono::nanoseconds timeout);
 
 // Shows the default framebuffer. The next frame slot is reclaimed on its first graphics use.
 void present();
+// The window thread supplies the drawable size when presentation runs on a worker.
+void present(int width, int height);
+#if defined(OPENRAC_IOS)
+// Native surface recreation must run on the game thread while the worker is idle.
+void restore_window_surface();
+#endif
 
 // The wait for the display, as platform::SwapInterval counts it: -1 adaptive, 0 none, 1 vsync.
 // Returns what the screen allows: the nearest of those.

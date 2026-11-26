@@ -98,7 +98,7 @@ bool prepared(NSURL* folder, NSDictionary* engine) {
     [source getResourceValue:&sourceBytes forKey:NSURLFileSizeKey error:nil];
     const unsigned long long required =
         isDirectory.boolValue ? 6ULL * 1024 * 1024 * 1024
-                              : sourceBytes.unsignedLongLongValue + 2ULL * 1024 * 1024 * 1024;
+                              : 2 * sourceBytes.unsignedLongLongValue + 2ULL * 1024 * 1024 * 1024;
     if (freeBytes && freeBytes.unsignedLongLongValue < required) {
         NSString* message =
             @"Espace insuffisant pour importer et préparer ce jeu. Libérez de l’espace dans "

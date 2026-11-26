@@ -35,8 +35,10 @@
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
+#include "renderer/direct/draw_state.h"
 #include "renderer/direct/gs.h"
 #include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
@@ -75,8 +77,19 @@ struct GlBlend {
     float fix = 0.0f;  // FIX / 128, unclamped, for SourceScale::Fix
     bool exact = true;
 };
-GlBlend translate_blend(const gs::Alpha& alpha);
 
+GlBlend translate_blend(const Blend& blend);
+// The game's GS blend (ALPHA's A, B, C, D and FIX) as native coefficients: the GIF interpreter's
+// and the effect records' translation (P4 moves the records to native blends, P8 retires it).
+Blend blend_from_gs(const gs::Alpha& alpha);
+
+inline GlBlend translate_blend(const gs::Alpha& alpha) {
+    return translate_blend(blend_from_gs(alpha));
+}
+
+// The game's TEST register's alpha and depth tests as native ones (the GIF interpreter's edge).
+AlphaTest alpha_test_from_gs(const gs::Test& test);
+DepthTest depth_test_from_gs(const gs::Test& test);
 
 struct DirectConfig {
     // The game's frame buffer: 512 x 448 for PAL Ratchet & Clank.
@@ -105,17 +118,17 @@ struct DirectState {
     TextureHandle texture = 0;
     bool texture_full_alpha = false;  // the texture's alpha runs to 0xFF, not 0x80
     bool tcc = false;
-    gs::Tfx tfx = gs::Tfx::Modulate;
+    TextureCombine combine = TextureCombine::Modulate;
     bool linear_mag = false;
     bool linear_min = false;
     bool clamp_s = false;
     bool clamp_t = false;
-    bool blend = false;
-    gs::Alpha alpha{0, 1, 0, 1, 0};
-    gs::Test test{};
+    Blend blend{};
+    AlphaTest alpha_test{};
+    DepthTest depth{};
     bool depth_write = true;
-    std::uint32_t fbmsk = 0;
-    gs::Scissor scissor{0, 511, 0, 447};
+    std::uint8_t colour_writes = kWriteColour;  // kWrite* bits
+    PixelRect scissor{};
     bool fog = false;
     std::uint32_t fog_colour = 0;
     // Textured from a frame buffer, or from a copy of part of one (the game's blur, bands and
@@ -136,6 +149,11 @@ struct DirectState {
     bool whole = false;
     // Cut at the picture's sides even with the HUD at the target's sides (kPictureMarker).
     bool picture = false;
+    // Textured from the frame recorder's snapshot `id` (openrac_frame_snapshot), 0 for none.
+    std::uint32_t snapshot_picture = 0;
+    // Textured from a split-screen view's picture (FrameInput::view_pictures, a GL texture), 0 for
+    // none.
+    unsigned view_picture = 0;
 
     bool operator==(const DirectState&) const = default;
 };
@@ -151,6 +169,9 @@ struct DirectDraw {
     // The first mobys since the target was last drawn into otherwise (a new panel): its depth is
     // cleared first. Mobys drawn one after another (Ratchet, then the Clank on his back) share it.
     bool clear_depth = false;
+    // Not 0: no vertices, the target as drawn so far kept as the recorder's snapshot `snapshot`
+    // (openrac_frame_snapshot).
+    std::uint32_t snapshot = 0;
 };
 
 // Draw diagnostics belong to the graphics owner; render jobs capture the producer's setting.
@@ -211,6 +232,10 @@ public:
 
     // The off-screen targets drawn to and not since overwritten by a transfer (their GS block).
     const std::vector<std::uint32_t>& offscreen_blocks() const { return m_offscreen; }
+    // The off-screen targets drawn to since the last call, but those a transfer has since started at
+    // (their GS block), and none from then on: what the world's effect quads drawn in between may
+    // have sampled, even when a later transfer took the target back as texture memory.
+    std::vector<std::uint32_t> take_drawn_blocks() { return std::exchange(m_drawn, {}); }
 
     // A GIF packet: tags and their data, as the game sends to the chip
     // (PATH3, or DIRECT through VIF1). Returns false if it is malformed;
@@ -223,6 +248,29 @@ public:
     // name the tick that recorded it, which the frontend reads) draws quads[index] there, in the
     // context the packets before it set up.
     void set_ui_quads(std::span<const UiQuad> quads) { m_ui_quads = quads; }
+
+    // The frame recorder's commands (docs/port/FRAME_RECORDER.md) drawn where they go in the 2D
+    // stream fed next: each splice's offset is in the whole 2D path, `base` the offset of the
+    // stream's first byte in it. Those not reached by the stream's end run at finish_commands().
+    void set_commands(
+        const FrameRecording* recording, std::span<const FrameSplice> splices, std::size_t base
+    ) {
+        m_recording = recording;
+        m_splices = splices;
+        m_splice_base = base;
+        m_next_splice = 0;
+    }
+
+    void finish_commands();
+    // One recorded command, drawn now (after what the stream drew so far).
+    void run_command(const FrameCommand& command);
+
+    // Split screen: the views' pictures (FrameInput::view_pictures), each drawn at its view's first
+    // World command of the commands run next.
+    void set_view_pictures(const std::array<unsigned, kFrameViews>& pictures) {
+        m_view_pictures = pictures;
+        m_views_drawn = 0;
+    }
 
     // Whether the moby markers drawn into the main frame become draws (FrameInput::screen_mobys).
     void set_screen_mobys(bool on) { m_screen_mobys = on; }
@@ -326,6 +374,28 @@ private:
     void write_prim(std::uint64_t value);
     void kick(bool draw);
     void native_quad(const UiQuad& quad);
+    // A UiItem of the recording: its own state, no register.
+    void native_item(const UiItem& item, std::span<const UiImage> images);
+    // A fill, clear or picture of the recording, over `command`'s rectangle.
+    void native_rect(const FrameCommand& command, const DirectState& state, float depth);
+    // A split-screen view's picture over its rectangle, at its World command (set_view_pictures).
+    void view_world(const FrameView& view);
+    // A draw of the mobys `value` names (count << 32 | list) in the target being drawn, as the
+    // moby markers make.
+    void moby_draw(std::uint64_t value);
+    // Runs the splices at or before byte `at` of the stream fed now.
+    void run_splices(std::size_t at);
+    const FrameRecording* m_recording = nullptr;
+    std::span<const FrameSplice> m_splices{};
+    std::size_t m_splice_base = 0;
+    std::size_t m_next_splice = 0;
+    // The recorder's own panel and scissor (TargetBegin, Scissor), 0 / unset for none.
+    std::uint32_t m_recorded_target = 0;
+    std::array<unsigned, kFrameViews> m_view_pictures{};
+    std::uint32_t m_views_drawn = 0;  // Bits of the views whose picture was drawn.
+    std::array<float, 2> m_recorded_centre{256.0f, 224.0f};
+    bool m_recorded_scissor_set = false;
+    PixelRect m_recorded_scissor{};
     std::span<const UiQuad> m_ui_quads{};
     bool m_screen_mobys = false;  // set_screen_mobys
     bool m_over_world = false;    // set_over_world
@@ -388,6 +458,8 @@ private:
     // Off-screen targets ever drawn to (their GS block): a FRAME narrower than the screen, which the
     // game renders a panel into and then draws as a texture.
     std::vector<std::uint32_t> m_offscreen;
+    // Those drawn to since take_drawn_blocks(), less those a transfer has since started at.
+    std::vector<std::uint32_t> m_drawn;
     // What each block's texture was last drawn as, for the log: a texture that stops being drawn
     // from the pool is what a 2D layer that flickers or goes shows.
     enum class TextureKind : std::uint8_t { Texture, Missing, Offscreen, Frame };
@@ -452,6 +524,9 @@ public:
 
     bool init(RenderState& state, std::string& error) override;
     void render(const FrameInput& input, RenderState& state) override;
+    void prepare(const FrameInput& input, RenderState& state) override;
+    bool reads_frame_depth() const override;
+    bool draws_nothing() const override;
     void release() override;
 
     // As a component of another renderer: feed packets, then flush() draws
@@ -475,7 +550,10 @@ public:
 private:
     const FrameInput* m_frame = nullptr;
     bool m_world_split = false;  // set_world_split, for the next render()
-    void apply(const DirectState& state, RenderState& render_state);
+    bool m_prepared = false;     // prepare() read this frame's packets; render() only draws
+    bool m_nothing = false;      // prepare() found nothing to draw
+    // Sets the GS draw state and returns the two sampled texture names.
+    std::array<unsigned, 2> apply(const DirectState& state, RenderState& render_state);
     void draw(const DirectDraw& draw, RenderState& render_state);
     bool m_background = false;  // flush(): the part before the world
     // flush(), on a target wider than the picture: the triangles being drawn are the whole
@@ -508,6 +586,16 @@ private:
     const Offscreen& offscreen(std::uint32_t block);
     // Puts the targets drawn to in g_offscreen_textures.
     void publish_offscreen();
+
+    // The frame recorder's snapshots (openrac_frame_snapshot), by id: GL textures of the target's
+    // size, first row at the bottom.
+    struct Picture {
+        unsigned texture = 0;
+        int width = 0, height = 0;
+    };
+
+    std::unordered_map<std::uint32_t, Picture> m_pictures;
+    void keep_snapshot(std::uint32_t id, const RenderTarget& target);
     std::size_t m_vbo_bytes = 0;
     std::string m_last_error;
     std::array<unsigned, 16> m_samplers{};
@@ -531,12 +619,16 @@ public:
           m_direct(direct) {}
 
     void render(const FrameInput& input, RenderState& state) override {
-        if (!input.direct_before_world.empty()) {
+        if (!input.direct_before_world.empty() || input.splices_before_world != 0) {
             m_direct.interpreter().set_ui_quads(input.ui_quads);
             m_direct.interpreter().set_screen_mobys(static_cast<bool>(input.screen_mobys));
             m_direct.interpreter().set_over_world(false);
             m_direct.set_frame_input(&input);
+            m_direct.interpreter().set_view_pictures(input.view_pictures);
+            m_direct.interpreter()
+                .set_commands(input.recording, input.splices.first(input.splices_before_world), 0);
             m_direct.submit(input.direct_before_world);
+            m_direct.interpreter().finish_commands();
             m_direct.flush(state, true);
             m_direct.set_world_split();
         }

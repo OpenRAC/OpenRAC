@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { devTag, updateSourceOf, type AppInfo, type Config } from "./api";
+
+import { type AppInfo, type Config, devTag, updateSourceOf } from "./api";
 import {
   checkGitHubRelease,
   gitHubRefusal,
@@ -8,8 +9,8 @@ import {
   offerUpdate,
   PUT_OFF_MS,
   switchingChannel,
-  updateLabel,
   type UpdateInfo,
+  updateLabel,
 } from "./updates";
 
 describe("isNewerVersion", () => {
@@ -54,7 +55,8 @@ describe("switching channel", () => {
   const dev = {
     ...stable,
     channel: "launcher-dev-develop",
-    manifest: "https://github.com/OpenRAC/OpenRAC/releases/download/launcher-dev-develop/latest.json",
+    manifest:
+      "https://github.com/OpenRAC/OpenRAC/releases/download/launcher-dev-develop/latest.json",
   };
 
   it("offers the other channel's older build, and only newer ones on the launcher's own", () => {
@@ -73,13 +75,21 @@ describe("switching channel", () => {
 
   it("names the switch on the button", () => {
     const update = { version: "0.10.0", switchTo: "stable" } as UpdateInfo;
+
     expect(updateLabel(update)).toBe("Switch to Stable 0.10.0");
     expect(updateLabel({ ...update, switchTo: null })).toBe("Update 0.10.0");
   });
 });
 
 describe("checkGitHubRelease", () => {
-  const source = { repository: "someone/OpenRAC", fork: true, channel: "launcher-dev-main", manifest: "", page: "" };
+  const source = {
+    repository: "someone/OpenRAC",
+    fork: true,
+    channel: "launcher-dev-main",
+    manifest: "",
+    page: "",
+  };
+
   afterEach(() => vi.unstubAllGlobals());
 
   it("says so when nothing is published where the launcher looks", async () => {
@@ -88,18 +98,31 @@ describe("checkGitHubRelease", () => {
   });
 
   it("says when GitHub's hourly limit lets it look again", async () => {
-    const headers = { "x-ratelimit-limit": "60", "x-ratelimit-remaining": "0", "x-ratelimit-reset": "10000" };
+    const headers = {
+      "x-ratelimit-limit": "60",
+      "x-ratelimit-remaining": "0",
+      "x-ratelimit-reset": "10000",
+    };
     const spent = new Response("", { status: 403, headers });
+
     expect(gitHubRefusal(spent, "here", (10_000 - 23 * 60 + 5) * 1000)).toBe(
       "GitHub's limit of 60 requests an hour from this network is used up; try again in 23 minutes (here)",
     );
-    expect(gitHubRefusal(new Response("", { status: 403 }), "here")).toBe("GitHub answered 403 (here)");
+    expect(gitHubRefusal(new Response("", { status: 403 }), "here")).toBe(
+      "GitHub answered 403 (here)",
+    );
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 403, headers })));
-    await expect(checkGitHubRelease("0.8.0-dev.3", source)).rejects.toThrow(/limit of 60 requests an hour/);
+    await expect(checkGitHubRelease("0.8.0-dev.3", source)).rejects.toThrow(
+      /limit of 60 requests an hour/,
+    );
   });
 
   it("reads a branch's version from the release's title", async () => {
-    const body = JSON.stringify({ tag_name: "launcher-dev-main", name: "OpenRAC Launcher 0.8.0-dev.4 (main)" });
+    const body = JSON.stringify({
+      tag_name: "launcher-dev-main",
+      name: "OpenRAC Launcher 0.8.0-dev.4 (main)",
+    });
+
     vi.stubGlobal(
       "fetch",
       vi.fn(() => Promise.resolve(new Response(body, { status: 200 }))),
@@ -109,16 +132,25 @@ describe("checkGitHubRelease", () => {
   });
 
   it("passes over a latest release that is not the launcher's", async () => {
-    const stable = { repository: "someone/OpenRAC", fork: true, channel: null, manifest: "", page: "" };
+    const stable = {
+      repository: "someone/OpenRAC",
+      fork: true,
+      channel: null,
+      manifest: "",
+      page: "",
+    };
     const sdk = JSON.stringify({ tag_name: "sdk-v1.0.1", name: "Mod SDK 1.0.1" });
     const list = JSON.stringify([
       { tag_name: "sdk-v1.0.1", name: "Mod SDK 1.0.1" },
       { tag_name: "launcher-v0.9.0", name: "draft", draft: true },
       { tag_name: "launcher-v0.8.4", name: "OpenRAC Launcher v0.8.4" },
     ]);
+
     vi.stubGlobal(
       "fetch",
-      vi.fn((url: string) => Promise.resolve(new Response(url.endsWith("/latest") ? sdk : list, { status: 200 }))),
+      vi.fn((url: string) =>
+        Promise.resolve(new Response(url.endsWith("/latest") ? sdk : list, { status: 200 })),
+      ),
     );
     expect((await checkGitHubRelease("0.8.3", stable))?.version).toBe("0.8.4");
     expect(await checkGitHubRelease("0.8.4", stable)).toBeNull();
@@ -128,8 +160,19 @@ describe("checkGitHubRelease", () => {
 describe("updateSourceOf", () => {
   const sources = (repository: string) => {
     const releases = `https://github.com/${repository}/releases`;
-    const stable = { repository, fork: repository !== "OpenRAC/OpenRAC", channel: null, manifest: "", page: releases };
-    const dev = { ...stable, channel: "launcher-dev-develop", page: `${releases}/tag/launcher-dev-develop` };
+    const stable = {
+      repository,
+      fork: repository !== "OpenRAC/OpenRAC",
+      channel: null,
+      manifest: "",
+      page: releases,
+    };
+    const dev = {
+      ...stable,
+      channel: "launcher-dev-develop",
+      page: `${releases}/tag/launcher-dev-develop`,
+    };
+
     return { updates: stable, updateChannels: { stable, dev } } as unknown as AppInfo;
   };
   const config = (updateChannel: "stable" | "dev", updateBranch: string | null) =>
@@ -143,6 +186,7 @@ describe("updateSourceOf", () => {
   it("follows the branch a fork's player named", () => {
     const fork = sources("someone/OpenRAC");
     const branch = updateSourceOf(fork, config("dev", " feature/x "));
+
     expect(branch.channel).toBe("launcher-dev-feature-x");
     expect(branch.manifest).toBe(
       "https://github.com/someone/OpenRAC/releases/download/launcher-dev-feature-x/latest.json",
@@ -153,6 +197,7 @@ describe("updateSourceOf", () => {
 
   it("keeps OpenRAC's own launcher on its own branch", () => {
     const upstream = sources("OpenRAC/OpenRAC");
+
     expect(updateSourceOf(upstream, config("dev", "feature/x"))).toBe(upstream.updateChannels.dev);
   });
 });

@@ -24,6 +24,7 @@
 #include "renderer/gl/shader.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -200,7 +201,7 @@ void fill(
     } else {
         glDisable(GL_BLEND);
     }
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glDisable(GL_BLEND);
 }
 

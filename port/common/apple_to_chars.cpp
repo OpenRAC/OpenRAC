@@ -216,12 +216,17 @@ std::to_chars_result std::to_chars(
     return std::to_chars(first, last, static_cast<double>(value), format, precision);
 }
 
-// The hash libc++'s headers use where the system's library has none.
+// Supply the out-of-line hash when the SDK expects it. Older headers hash inline.
+#if defined(_LIBCPP_AVAILABILITY_HAS_HASH_MEMORY) && _LIBCPP_AVAILABILITY_HAS_HASH_MEMORY
 size_t std::__hash_memory(__attribute__((noescape)) const void* data, size_t size) noexcept {
     return std::__murmur2_or_cityhash<size_t>()(data, size);
 }
+#endif
 
-void std::__libcpp_verbose_abort(const char* format, ...) noexcept {
+// Match the SDK declaration: Xcode 26 added noexcept.
+void std::__libcpp_verbose_abort(const char* format, ...) noexcept(
+    noexcept(std::__libcpp_verbose_abort("%s", ""))
+) {
     va_list args;
     va_start(args, format);
     std::vfprintf(stderr, format, args);

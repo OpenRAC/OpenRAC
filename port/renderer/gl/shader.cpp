@@ -5,12 +5,18 @@
 
 #include <algorithm>
 #include <format>
+#include <span>
 #include <utility>
+#include <vector>
 
+#include "common/log.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/gl_warmup.h"
 #include "renderer/gl/program_cache.h"
+#include "renderer/gl/shader_modes.h"
 #include "renderer/gl/shader_precision.h"
+#include "renderer/gl/shader_sources.h"
+#include "renderer/gl/shader_variants.h"
 #include "renderer/textures/texture_filter.h"
 #include "renderer_shaders.h"
 
@@ -23,19 +29,6 @@ namespace {
 constexpr int kSamplerUnits = 8;
 
 }  // namespace
-
-std::string shader_constants(std::string source, std::initializer_list<ShaderIntConstant> values) {
-    for (const auto& [name, value] : values) {
-        const std::string declaration = "uniform int " + std::string(name) + ";";
-        const std::string constant =
-            "const int " + std::string(name) + " = " + std::to_string(value) + ";";
-        for (auto at = source.find(declaration); at != std::string::npos;
-             at = source.find(declaration, at + constant.size())) {
-            source.replace(at, declaration.size(), constant);
-        }
-    }
-    return source;
-}
 
 std::string es_source(std::string_view source, bool noperspective, bool clip_distance) {
     // The version line, and the first line after it that is not a comment, are where the ES
@@ -99,8 +92,7 @@ std::string stage_source(std::string_view desktop_source) {
     }
     // Give shader stages the same single opt-in as the C++ resource gates.
     if (enhanced_rendering_available()) {
-        translated = source;
-        translated.insert(translated.find('\n') + 1, "#define OPENRAC_ENHANCED_RENDERING 1\n");
+        translated = shader_enhanced_source(source, true);
         source = translated;
     }
     // Desktop GL and ES retain the same arithmetic sources with ordinary FP32 aliases.
@@ -110,78 +102,230 @@ std::string stage_source(std::string_view desktop_source) {
     return std::string(source);
 }
 
-// Hands a stage to the driver to compile. Its status is not asked yet: with parallel compiles
-// (gl::parallel_shader_compile) the driver works on it while the next stage is handed over.
-GLuint start_compile(GLenum type, const std::string& source) {
+struct ShaderStage {
+    GLuint object;
+    GLenum type;
+};
+
+// GL can compile stages in parallel before linking. Vulkan parses them during program linking.
+ShaderStage create_stage(GLenum type, const std::string& source) {
     const GLuint shader = glCreateShader(type);
     const GLchar* text = source.data();
     const auto length = static_cast<GLint>(source.size());
     glShaderSource(shader, 1, &text, &length);
-    glCompileShader(shader);
-    return shader;
+    if (!is_vulkan()) {
+        glCompileShader(shader);
+    }
+    return {shader, type};
 }
 
-// Waits for the stage's compile: the shader, or 0 (deleted) with the compiler's log.
-GLuint finish_compile(GLuint shader, std::string& log) {
+// Waits for the stage and reports its compiler diagnostics on failure.
+bool check_stage(ShaderStage stage, std::string_view name, std::string& error) {
     GLint ok = 0;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
-    if (ok == 0) {
-        GLint size = 0;
-        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &size);
-        log.assign(static_cast<std::size_t>(size > 0 ? size : 1), '\0');
-        glGetShaderInfoLog(shader, size, nullptr, log.data());
-        glDeleteShader(shader);
+    glGetShaderiv(stage.object, GL_COMPILE_STATUS, &ok);
+    if (ok != 0) {
+        return true;
+    }
+
+    GLint size = 0;
+    glGetShaderiv(stage.object, GL_INFO_LOG_LENGTH, &size);
+    std::string log(static_cast<std::size_t>(std::max(size, 1)), '\0');
+    glGetShaderInfoLog(stage.object, size, nullptr, log.data());
+    const char* label = stage.type == GL_VERTEX_SHADER     ? "vertex shader"
+                        : stage.type == GL_FRAGMENT_SHADER ? "fragment shader"
+                                                           : "compute shader";
+    error = std::format("{}: {}: {}", name, label, log);
+    return false;
+}
+
+// Owns these stages until compilation and linking have finished.
+GLuint build_stages(
+    std::string_view name,
+    std::string_view step,
+    std::span<const ShaderStage> stages,
+    std::string& error
+) {
+    struct ReleaseStages {
+        std::span<const ShaderStage> stages;
+
+        ~ReleaseStages() {
+            for (const auto& stage : stages) {
+                glDeleteShader(stage.object);
+            }
+        }
+    } release{stages};
+
+    const bool vulkan = is_vulkan();
+    if (!vulkan && !std::ranges::all_of(stages, [&](auto stage) {
+            return check_stage(stage, name, error);
+        })) {
         return 0;
     }
-    return shader;
+    const GLuint program = glCreateProgram();
+    program_cache::prepare(program);
+
+    for (const auto& stage : stages) {
+        glAttachShader(program, stage.object);
+    }
+
+    glLinkProgram(program);
+
+    GLint ok = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &ok);
+
+    // A substituted Vulkan program links successfully but retains its missing-variant diagnosis.
+    if (vulkan && ok != 0) {
+        GLint size = 0;
+        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &size);
+        if (size > 1) {
+            std::string diagnostic(static_cast<std::size_t>(size), '\0');
+            GLsizei length = 0;
+            glGetProgramInfoLog(program, size, &length, diagnostic.data());
+            diagnostic.resize(static_cast<std::size_t>(std::max(length, 0)));
+            log::error("{}: {}", name, diagnostic);
+        }
+    }
+
+    if (ok == 0) {
+        GLint size = 0;
+        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &size);
+        std::string log(static_cast<std::size_t>(std::max(size, 1)), '\0');
+        glGetProgramInfoLog(program, size, nullptr, log.data());
+        glDeleteProgram(program);
+        error = std::format("{}: {}: {}", name, step, log);
+        // Recover the stage-specific error when a Vulkan link failed to parse its source.
+        if (vulkan) {
+            for (const auto& stage : stages) {
+                glCompileShader(stage.object);
+                if (!check_stage(stage, name, error)) {
+                    break;
+                }
+            }
+        }
+    }
+
+    return ok != 0 ? program : 0;
 }
 
-GLuint compile(GLenum type, std::string_view desktop_source, std::string& log) {
-    return finish_compile(start_compile(type, stage_source(desktop_source)), log);
-}
-
-// Compiles and links a program from final stage sources: the program, or 0 with `error`.
+// Compiles and links a graphics program from final stage sources, or returns 0 with an error.
 GLuint compile_program(
     std::string_view name,
     const std::string& vertex,
     const std::string& fragment,
     std::string& error
 ) {
-    // Both stages handed over before either is waited for.
-    const GLuint vs_started = start_compile(GL_VERTEX_SHADER, vertex);
-    const GLuint fs_started = start_compile(GL_FRAGMENT_SHADER, fragment);
-    std::string log;
-    const GLuint vs = finish_compile(vs_started, log);
-    if (vs == 0) {
-        glDeleteShader(fs_started);
-        error = std::format("{}: vertex shader: {}", name, log);
-        return 0;
+    const ShaderStage stages[] =
+        {create_stage(GL_VERTEX_SHADER, vertex), create_stage(GL_FRAGMENT_SHADER, fragment)};
+    return build_stages(name, "link", stages, error);
+}
+
+// Lists declared feature modes; Vulkan and MoltenVK select them in their pipeline backend.
+std::vector<std::string> feature_modes(const std::string& vertex, const std::string& fragment) {
+    std::vector<std::string> modes;
+
+    if (!is_vulkan()) {
+        shader_modes::append_names(vertex, modes);
+        shader_modes::append_names(fragment, modes);
+        std::erase_if(modes, [&](const std::string& mode) {
+            return shader_modes::declaration(vertex, mode).first == std::string::npos
+                   && shader_modes::declaration(fragment, mode).first == std::string::npos;
+        });
     }
-    const GLuint fs = finish_compile(fs_started, log);
-    if (fs == 0) {
-        glDeleteShader(vs);
-        error = std::format("{}: fragment shader: {}", name, log);
-        return 0;
+
+    return modes;
+}
+
+// Loads an exact native binary or compiles its identical sources through the supplied linker.
+template <typename Link>
+GLuint cached_program(const program_cache::Key& key, Link link, std::string& error) {
+    GLuint program = program_cache::load(key);
+
+    // Rejected or missing binaries are rebuilt without changing feature values.
+    if (program == 0) {
+        program = link(error);
+
+        if (program == 0) {
+            return 0;
+        }
+
+        program_cache::store(key, program);
     }
-    const GLuint program = glCreateProgram();
-    program_cache::prepare(program);
-    glAttachShader(program, vs);
-    glAttachShader(program, fs);
-    glLinkProgram(program);
-    glDeleteShader(vs);
-    glDeleteShader(fs);
-    GLint ok = 0;
-    glGetProgramiv(program, GL_LINK_STATUS, &ok);
-    if (ok == 0) {
-        GLint size = 0;
-        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &size);
-        log.assign(static_cast<std::size_t>(size > 0 ? size : 1), '\0');
-        glGetProgramInfoLog(program, size, nullptr, log.data());
-        glDeleteProgram(program);
-        error = std::format("{}: link: {}", name, log);
-        return 0;
-    }
+
+    gl_warmup::note_program(program, key);
     return program;
+}
+
+// Owns graphics templates so later feature combinations cannot outlive their source strings.
+shader_variants::Compiler graphics_variants(
+    std::string name, std::string vertex, std::string fragment, std::vector<std::string> modes
+) {
+    return [name = std::move(name),
+            vertex = std::move(vertex),
+            fragment = std::move(fragment),
+            modes = std::move(modes)](const std::vector<int>& values, std::string& error) {
+        const auto vs = shader_variants::specialise(vertex, modes, values);
+        const auto fs = shader_variants::specialise(fragment, modes, values);
+        return cached_program(
+            program_cache::key(vs, fs),
+            [&](std::string& why) { return compile_program(name, vs, fs, why); },
+            error
+        );
+    };
+}
+
+// Gives native compute GLSL its ES version and precision aliases before feature replacement.
+std::string compute_source(std::string_view source) {
+    std::string es;
+
+    // GLSL ES compute starts at version 310, independently of desktop graphics' 410 baseline.
+    if (is_es()) {
+        es = "#version 310 es\nprecision highp float;\nprecision highp int;\n"
+             "precision highp sampler2D;\n";
+        es += source.substr(source.find('\n') + 1);
+        source = es;
+    }
+
+    return stage_source(source);
+}
+
+// Links one native compute executable from final, already specialised stage source.
+GLuint compile_compute(std::string_view name, const std::string& source, std::string& error) {
+    const auto stage = create_stage(GL_COMPUTE_SHADER, source);
+    return build_stages(name, "compute link", std::span(&stage, 1), error);
+}
+
+// Owns compute templates and caches each exact set of feature constants independently.
+shader_variants::Compiler compute_variants(
+    std::string name, std::string source, std::vector<std::string> modes
+) {
+    return [name = std::move(name),
+            source = std::move(source),
+            modes = std::move(modes)](const std::vector<int>& values, std::string& error) {
+        const auto fixed = shader_variants::specialise(source, modes, values);
+        return cached_program(
+            program_cache::key(fixed, "OpenRAC compute variant v1"),
+            [&](std::string& why) { return compile_compute(name, fixed, why); },
+            error
+        );
+    };
+}
+
+// Sets the renderer's sampler contract through logical locations, including inactive samplers.
+void initialise_samplers(GLuint program) {
+    glUseProgram(program);
+
+    for (int unit = 0; unit < kSamplerUnits; ++unit) {
+        const std::string sampler = std::format("tex_T{}", unit);
+        const GLint location = glGetUniformLocation(program, sampler.c_str());
+
+        if (location >= 0) {
+            glUniform1i(location, unit);
+        }
+    }
+
+    glUniform1i(
+        glGetUniformLocation(program, "upscaled_texture_colours"), kUpscaledTextureColoursUnit
+    );
 }
 
 }  // namespace
@@ -207,82 +351,56 @@ Shader& Shader::operator=(Shader&& other) noexcept {
 bool Shader::build(
     std::string_view name, std::string_view vertex, std::string_view fragment, std::string& error
 ) {
-    // Share exactly the same RGB-only reconstruction across world shader paths.
-    constexpr std::string_view marker = "// OPENRAC_UPSCALED_TEXTURE_COLOURS_SOURCE";
-    std::string assembled;
-    if (const auto at = fragment.find(marker); at != std::string_view::npos) {
-        assembled = fragment;
-        assembled.replace(
-            at,
-            marker.size(),
-            enhanced_rendering_available()
-                ? shaders::upscaled_texture_colours_glsl
-                : "vec4 sample_upscaled_texture_colours(vec2 uv) { return texture(tex_T0, uv); }\n"
-        );
-        fragment = assembled;
-    }
+    const std::string assembled = shader_fragment_source(fragment, enhanced_rendering_available());
+    fragment = assembled;
     // The same sources as a program built before (this run, or an earlier one): the driver's
     // binary of it, without a compile (renderer/gl/program_cache.h).
     const std::string vertex_source = stage_source(vertex);
     const std::string fragment_source = stage_source(fragment);
-    const program_cache::Key key = program_cache::key(vertex_source, fragment_source);
-    GLuint program = program_cache::load(key);
+    const auto modes = feature_modes(vertex_source, fragment_source);
+    const auto make = graphics_variants(std::string(name), vertex_source, fragment_source, modes);
+
+    const GLuint program = make(std::vector<int>(modes.size(), 0), error);
+
+    // Initial zero-valued modes are an exact variant, never a generic executable.
     if (program == 0) {
-        program = compile_program(name, vertex_source, fragment_source, error);
-        if (program == 0) {
-            return false;
-        }
-        program_cache::store(key, program);
+        return false;
     }
-    gl_warmup::note_program(program, key);
+
     release();
     m_program = program;
     m_locations.clear();
-    glUseProgram(m_program);
-    for (int unit = 0; unit < kSamplerUnits; ++unit) {
-        const std::string sampler = std::format("tex_T{}", unit);
-        const GLint location = glGetUniformLocation(m_program, sampler.c_str());
-        if (location >= 0) {
-            glUniform1i(location, unit);
-        }
+
+    // Only programs with feature modes need logical uniform locations and selection hooks.
+    if (!modes.empty()) {
+        shader_variants::register_program(
+            program, vertex_source + '\n' + fragment_source, modes, make
+        );
     }
-    glUniform1i(
-        glGetUniformLocation(m_program, "upscaled_texture_colours"), kUpscaledTextureColoursUnit
-    );
+
+    initialise_samplers(m_program);
     return true;
 }
 
 bool Shader::build_compute(std::string_view name, std::string_view source, std::string& error) {
-    std::string log;
-    std::string es;
-    if (is_es()) {
-        const auto line = source.find('\n');
-        es = "#version 310 es\nprecision highp float;\nprecision highp int;\nprecision highp "
-             "sampler2D;\n";
-        es += source.substr(line + 1);
-        source = es;
-    }
-    const GLuint shader = compile(GL_COMPUTE_SHADER, source, log);
-    if (!shader) {
-        error = std::format("{}: {}", name, log);
+    const auto final_source = compute_source(source);
+    const auto modes = feature_modes(final_source, {});
+    const auto make = compute_variants(std::string(name), final_source, modes);
+    const GLuint program = make(std::vector<int>(modes.size(), 0), error);
+
+    // A failed exact link cannot become the Shader's executable.
+    if (program == 0) {
         return false;
     }
+
     release();
-    m_program = glCreateProgram();
-    glAttachShader(m_program, shader);
-    glLinkProgram(m_program);
-    glDeleteShader(shader);
-    GLint ok = 0;
-    glGetProgramiv(m_program, GL_LINK_STATUS, &ok);
-    if (!ok) {
-        GLint size = 0;
-        glGetProgramiv(m_program, GL_INFO_LOG_LENGTH, &size);
-        log.resize(static_cast<std::size_t>(std::max(size, 1)));
-        glGetProgramInfoLog(m_program, size, nullptr, log.data());
-        error = std::format("{}: {}", name, log);
-        release();
-        return false;
+    m_program = program;
+
+    // Compute programs with feature modes use the same stable locations as graphics programs.
+    if (!modes.empty()) {
+        shader_variants::register_program(program, final_source, modes, make);
     }
+
     return true;
 }
 

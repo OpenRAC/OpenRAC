@@ -26,9 +26,11 @@ read the decompilation) and Python 3.
   (`CMAKE_OSX_DEPLOYMENT_TARGET`). `--preset release-x86_64` builds for Intel
   Macs and `--preset release-universal` for Apple silicon and Intel in one
   binary; both build SDL3 in, as Homebrew's is for one architecture only.
+  Match MoltenVK's architecture to the game when packaging an Intel or universal build.
+  Use `OPENRAC_MOLTENVK_LIBRARY` to point CMake at the appropriate dylib if needed.
   With the Xcode app, `cmake --preset xcode` writes
   `build/xcode/openrac_port.xcodeproj`, to build, run and debug in Xcode (its
-  GPU frame capture shows the Metal renderer's passes).
+  GPU frame capture shows the Metal passes recorded by MoltenVK).
 - On Linux the build uses mold or lld and ccache when installed
   (`-DOPENRAC_PORT_FAST_BUILD=OFF` turns that off).
 - `python3 tools/build_port.py [GAME] [--source DIR]`, run from the top of
@@ -71,9 +73,10 @@ Its sources, shaders, tools and tests are in [`enhanced/`](enhanced/README.md).
 |---|---|
 | [runtime/](runtime/README.md) | Game memory laid out as the console's (a 4 GB reservation whose offsets are its addresses), the contract translated code is written against ([guest.h](runtime/include/openrac/guest.h)), the executable loader, the crash handler |
 | [tools/hostgen/](tools/hostgen/README.md) | Rewrites a decompilation's C for game memory, and reports what the program reaches that has no C |
+| [tools/shader_compiler/](tools/shader_compiler/README.md) | Compiles and embeds built-in Vulkan shader variants during the build |
 | [game/](game/README.md) | One directory per game version, plus [game/common/](game/common): the library replacements (disc, memory card, graphics, kernel, pads, sound) and the program, `openrac-<id>` |
 | [platform/](platform/README.md) | Window, pads, audio output, timing (SDL3) |
-| [renderer/](renderer/README.md) | The OpenGL 4.1 renderer, in OpenGOAL's style; [graph/](renderer/graph/README.md) plans passes and barriers, [ui/](renderer/ui/README.md) draws over the picture, [vulkan/](renderer/vulkan/README.md) runs it on Vulkan 1.3 (`OPENRAC_GL_API=vulkan`), [metal/](renderer/metal/README.md) on Metal (`OPENRAC_GL_API=metal`) |
+| [renderer/](renderer/README.md) | The OpenGL 4.1 renderer, in OpenGOAL's style. [graph/](renderer/graph/README.md) plans passes and barriers, [ui/](renderer/ui/README.md) draws over the picture, and [vulkan/](renderer/vulkan/README.md) runs it on Vulkan 1.3 through MoltenVK on Apple platforms. |
 | [scene/](scene/README.md) | A level and its live mobys, ready to draw |
 | [materials/](materials/README.md) | CPU-only material catalogs, override resolution and shared validation |
 | [viewer/](viewer/README.md) | `openrac-viewer`: one extracted level with a free camera |
@@ -82,9 +85,10 @@ Its sources, shaders, tools and tests are in [`enhanced/`](enhanced/README.md).
 | [audio/](audio/README.md), [media/](media/README.md) | The sound engine; the movie decoder |
 | [extract/](extract/README.md) | `openrac-extractor`: sets a game up from the player's disc |
 | [android/](android/README.md) | The Android build |
+| [mpui/](mpui/README.md) | The native multiplayer screens: lobby lists, staging, scoreboards and the servers' UI descriptions, drawn through each game's own 2D routines ([MULTIPLAYER_UI.md](../docs/port/MULTIPLAYER_UI.md)) |
 | [common/](common/README.md) | What every module may use: log, crash report, JSON reader, the PS2's float arithmetic, small helpers |
 | [tests/](tests) | The port's tests |
-| [docs/](docs/CODING_CONVENTIONS.md) | The coding conventions |
+| [docs/](../docs/CODING_CONVENTIONS.md) | The coding conventions |
 | [tools/](tools) | [conventions](tools/conventions/README.md) and [layering](tools/layering/README.md) checks (CI), [regress](tools/regress) runs, [versionmap](tools/versionmap/README.md), [perf](tools/perf) |
 
 ## How a game is built
@@ -186,7 +190,7 @@ OpenRAC's rules hold here ([CONTRIBUTING.md](../CONTRIBUTING.md),
 - Library replacements are written from what the game's code shows and what
   is public about each API, never from Sony's code or documentation.
 - Generated C and build output stay in build trees (`port/build/` is ignored).
-- Code follows [docs/CODING_CONVENTIONS.md](docs/CODING_CONVENTIONS.md):
+- Code follows [docs/CODING_CONVENTIONS.md](../docs/CODING_CONVENTIONS.md):
   layout ([.clang-format](.clang-format)), comments, naming, ownership,
   errors, the C boundary, layering. CI checks it with
   [tools/conventions](tools/conventions/README.md),

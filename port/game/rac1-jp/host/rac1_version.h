@@ -53,6 +53,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_CARD_SAVING 0xFC
 
 /* What this version leaves out of the shared C (rac1.h, RAC1_OMIT), and why. */
+/* The game's particle routines (particles.c, openrac_api.particle_spawn_ex) are checked at PAL's addresses only. */
+#define RAC1_OMIT_particle_spawn_ex 1
+/* The level camera's shake words (camera_override.c, openrac_api.camera_shake) are checked on PAL and NTSC-U only. */
+#define RAC1_OMIT_level_camera_shake 1
 /* The pause menu mobys' update at 0x0023B578: the decompilation has C for it (func_0023B578) since the
  * remnant in front of it was split off. */
 #define RAC1_OMIT_game_D_0023B578 1
@@ -86,15 +90,41 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_OMIT_func_001F75D0 1
 /* The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here). */
 #define RAC1_OMIT_func_001E9E70 1
+/* Native letterbox bars (letterbox.c): their caller state is proved on PAL v2.00's level 6 only. */
+#define RAC1_OMIT_func_001F5148 1
 /* FontPrintWindow as NTSC-J's own C calls it: its font_print_window_regular (src/versions/jp/game/render/draw/func_001F7560.c) draws with func_J_001F81F8, its own routine, not PAL v2.00's func_001F7070. */
 #define RAC1_FONT_PRINT_WINDOW func_001F81F8
+
+/* Imported moby classes (rac1/host/foreign_class.c): register_moby_class and
+ * resident_class_id_by_slot in this release (release_names.json, the release's check). */
+#define RAC1_FOREIGN_CLASSES 1
+#define RAC1_ADDR_0x00203E78u 0x00204D98u
+#define RAC1_ADDR_0x001B3C80u 0x001B3A80u
+
+/* Imported moby classes' tables (rac1/host/foreign_class.c): the level's camera, rail, volume and
+ * path globals in level 0's program (release_names.json: only toad_paths moves). */
+#define RAC1_ADDR_L00_0x0015F050u 0x0015F050u
+#define RAC1_ADDR_L00_0x0015F054u 0x0015F054u
+#define RAC1_ADDR_L00_0x0015F7ECu 0x0015F7ECu
+#define RAC1_ADDR_L00_0x0015F7F0u 0x0015F7F0u
+#define RAC1_ADDR_L00_0x001601A4u 0x001601A4u
+#define RAC1_ADDR_L00_0x001601A8u 0x001601A8u
+#define RAC1_ADDR_L00_0x001601ACu 0x001601ACu
+#define RAC1_ADDR_L00_0x001601B0u 0x001601B0u
+#define RAC1_ADDR_L00_0x001601B4u 0x001601B4u
+#define RAC1_ADDR_L00_0x001601B8u 0x001601B8u
+#define RAC1_ADDR_L00_0x001601BCu 0x001601BCu
+#define RAC1_ADDR_L00_0x001601C0u 0x001601C0u
+#define RAC1_ADDR_L00_0x001601C4u 0x001601C4u
+#define RAC1_ADDR_L00_0x001601C8u 0x001601C8u
+#define RAC1_ADDR_L00_0x001B0830u 0x001B0630u
+#define RAC1_ADDR_L00_0x001ABBC0u 0x001AB9C0u /* level_moby_groups */
 
 /* ---- generated below ---- */
 
 /* Addresses: games/rac1's, this version's (RAC1_LADDR: in level NN's program). */
 #define RAC1_ADDR(a) RAC1_ADDR_##a
 #define RAC1_LADDR(n, a) RAC1_ADDR_L##n##_##a
-#define RAC1_ADDR_0x0010E4C0u 0x0010E4C0u
 #define RAC1_ADDR_0x00137C80u 0x00137C80u
 #define RAC1_ADDR_0x0013CA40u 0x0013CA40u
 #define RAC1_ADDR_0x0013CC04u 0x0013CC04u
@@ -133,6 +163,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0015EEE0u 0x0015EEE0u
 #define RAC1_ADDR_0x0015EEE8u 0x0015EEE8u
 #define RAC1_ADDR_0x0015EF4Au 0x0015EF4Au
+#define RAC1_ADDR_0x0015EFD0u 0x0015EFD0u
 #define RAC1_ADDR_0x0015F000u 0x0015F000u
 #define RAC1_ADDR_0x0015F558u 0x0015F558u
 #define RAC1_ADDR_0x0015F564u 0x0015F564u
@@ -295,5 +326,14 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L14_0x001E9FA0u 0x001EA3A0u
 #define RAC1_ADDR_L17_0x00161240u 0x00161240u
 #define RAC1_ADDR_L18_0x001DFED0u 0x001E02D0u
+
+/* Reward presentation: release-checked names and regional decomp counterparts. */
+#define RAC1_ADDR_0x0014BFC0u 0x0014BFC0u
+#define RAC1_ADDR_L00_0x0015F4FCu 0x0015F4FCu
+#define RAC1_ADDR_L00_0x001611B0u 0x001611B0u
+#define RAC1_ADDR_L00_0x001CA320u 0x001CA720u
+#define RAC1_ADDR_L00_0x001CA7C0u 0x001CABC0u
+#define RAC1_ADDR_L01_0x0015F504u 0x0015F504u
+#define RAC1_ADDR_L01_0x00309078u 0x00309C28u
 
 #endif /* OPENRAC_RAC1_VERSION_H */

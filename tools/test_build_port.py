@@ -23,7 +23,7 @@ OPENRAC_RAC1_PAL_SOURCE:PATH=C:/work/rac1-decomp
 WITH_EQUALS:STRING=a=b
 """
 BUILD = ["cmake", "--build", "--preset", "release", "--parallel", str(build_port.build_jobs()),
-         "--target", "openrac-rac1-pal", "openrac-extractor"]
+         "--target", "openrac-rac1-pal", "openrac-rac1-pal-states", "openrac-extractor"]
 
 # main() lowers its own priority (background.lower_priority); not the test runner's.
 _priority = mock.patch.object(build_port.background, "lower_priority", return_value=True)
@@ -59,7 +59,9 @@ class Reading(unittest.TestCase):
 
     def test_names_follow_the_games(self):
         self.assertEqual(build_port.source_variable("rac1-pal"), "OPENRAC_RAC1_PAL_SOURCE")
-        self.assertEqual(build_port.targets(["rac1-pal"]), ["openrac-rac1-pal", "openrac-extractor"])
+        self.assertEqual(build_port.targets(["rac1-pal"]),
+                         ["openrac-rac1-pal", "openrac-rac1-pal-states", "openrac-extractor"])
+        self.assertEqual(build_port.targets(["rac2-ntsc"]), ["openrac-rac2-ntsc", "openrac-extractor"])
         self.assertIn("rac1-pal", build_port.games())
         self.assertEqual(build_port.default_source("rac1-pal"), build_port.ROOT / "games" / "rac1" / "decomp")
 
@@ -310,6 +312,13 @@ class Commands(unittest.TestCase):
             options = build_port.embree_options(machine)
             self.assertFalse([key for key in options if key.startswith("EMBREE_ISA_")], machine)
             self.assertEqual(options["EMBREE_STATIC_LIB"], "ON")
+
+    def test_embree_uses_the_dll_runtime_on_windows_only(self):
+        # The baker links the DLL runtime (/MD): a static Embree (/MT) does not link with it.
+        options = build_port.embree_options("AMD64", windows=True)
+        self.assertEqual(options["CMAKE_MSVC_RUNTIME_LIBRARY"], "MultiThreadedDLL")
+        self.assertEqual(options["CMAKE_POLICY_DEFAULT_CMP0091"], "NEW")
+        self.assertNotIn("CMAKE_MSVC_RUNTIME_LIBRARY", build_port.embree_options("x86_64", windows=False))
 
     def test_embree_is_compiled_with_the_builds_cxxflags(self):
         # The launcher's Linux builds put -stdlib=libc++ in CXXFLAGS; Embree must not drop it, and

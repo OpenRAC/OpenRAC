@@ -44,6 +44,34 @@ Take hooks only while your mod loads (in `openrac_mod_load`, in your C++
 `load`, or at the top level of a script). Hook points are the same on every
 disc a mod supports.
 
+## Calling a hook point yourself (interface 1.21)
+
+A mod sometimes does what the game does at a hook point itself: a weapon of the
+mod's takes its rounds as the game's weapons do. Calling the hook point, rather
+than redoing the game's work, lets the other mods on it apply: another mod's
+infinite ammo then covers your weapon too.
+
+`hook_entry(name, signature)` gives the hook point's entry, the function the
+game calls there: calling it runs the chain from the mod loaded last down to the
+game's own code, as when the game calls it. It takes an id or an alias and the
+same signature as `hook`, so it is the same on every disc, where `function()`
+needs the disc's own name of the function. It is null for a hook point this
+OpenRAC lacks or another signature.
+
+```cpp
+// C++: typed by the hook point, asked by its id.
+if (const auto take_ammo = mod.hook_entry<openrac::rac1::Weapon_TakeAmmo>()) {
+    if (take_ammo(item, 1) == 0) {
+        // too little ammo: the game's own answer, or another mod's
+    }
+}
+```
+
+In C, `api->hook_entry("rac1.weapon.take_ammo", OPENRAC_RAC1_SIG_Weapon_TakeAmmo)`.
+
+If your mod took the same hook point, its own replacement runs too: tell your
+own call apart (a flag set around it) when the replacement must not act on it.
+
 ## Stable ids
 
 Every hook point has a permanent **id** of the form
@@ -74,6 +102,13 @@ in `openrac/games/rac2.h` (`OPENRAC_RAC2_HOOK_<name>`) and
 job it has the same `<area>.<name>` (`rac2.player.take_damage`), so a mod for
 both games ([several games](manifest.md#a-mod-for-several-games)) reads alike in
 each. Its signatures are rac2's own.
+
+Ratchet & Clank: Up Your Arsenal's are `rac3.<area>.<name>` on its PAL (`pal`)
+and NTSC-U (`ntsc`) discs, in `openrac/games/rac3.h` (`OPENRAC_RAC3_HOOK_<name>`)
+and [its reference](reference/hooks-rac3.md): the hero's damage and death, item
+gifts and upgrades, the vendor's price and list, ammo, bolt drops and pickups,
+enemies' deaths, hits and the level's load. Where one does a rac2 hook point's
+job it has the same `<area>.<name>` (`rac3.item.give`).
 
 ## Moby updates (experimental)
 
@@ -111,6 +146,20 @@ mod.hook<openrac::rac1::Hero_Update>([&](auto /*original*/) {
 
 Keep calling the original when the mod is off (the board put away): the game
 moves him again from where the pose left him.
+
+A prop of a skinned `.glb` can bend: `mod.prop_set_skin(id, matrices, count)` (1.33)
+gives it one 4 by 4 matrix per joint, column-major, each taking the mesh's bind-pose
+vertex to where the joint puts it (the identity is the bind pose), and `prop_pose`
+still places the whole mesh. `openrac_api.prop_set_skin` in `openrac_mod.h` numbers the
+joints and says the rest.
+A moby of the game's can look like something else: `mod.model_create("x.glb")` makes a model
+of a mesh in the mod's folder (1.33), and `mod.moby_model_slot(slot, model)` draws the moby in
+that array slot with it (`moby_list` and `moby_slot_of` name the slot). The game's update,
+collision and animation are untouched; only what is drawn changes. `openrac_api.moby_model_slot`
+in `openrac_mod.h` says what the matrix, the pose flag and the slot's lifetime are.
+`mod.moby_model_class(class, scope, model)` (1.33) does the same for every moby of a class, in the world
+(`OPENRAC_MODEL_WORLD`) or in the game's menus (`OPENRAC_MODEL_MENU`, the bolt price icon and the vendor's
+preview); it changes all those mobys for every player running the mod, so a slot is the narrower choice.
 
 ## What a hook cannot do
 

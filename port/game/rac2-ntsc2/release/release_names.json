@@ -25,6 +25,8 @@
   "global: versionmap (between)": 444,
   "global: versionmap (exact)": 245,
   "function: a shared definition the release's build did not place (gone)": 4600,
+  "function: one only the release's build gave an address, by a name of its own C": 6,
+  "function: one the release lacks, where its build linked the primary's C": 65,
   "function: one the release lacks, where its build linked the release's own C": 19,
   "short name: left as it is": 151,
   "short name: the release's build": 1274,
@@ -26271,6 +26273,9 @@
    "func_2E3470": "func_2E4178",
    "func_2E3738": "func_2E4440"
   },
+  "src/levels/01_oozla/L01_002C37C8.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
+  },
   "src/levels/01_oozla/L01_003CAFE0-g8.c": {
    "func_355780": "func_356978"
   },
@@ -26333,6 +26338,16 @@
    "func_3FC1B0": "func_3FD750",
    "func_41F230": "func_420A08"
   },
+  "src/levels/02_maktar_nebula/L02_003F5430-g8.c": {
+   "func_L00_0030C7F8": "func_L00_0030D9F8",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
+  },
+  "src/levels/02_maktar_nebula/L02_003F5430.c": {
+   "module_l00_call_handler_2": "func_0029CC48"
+  },
+  "src/levels/02_maktar_nebula/L02_003F9C10-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030EFB8"
+  },
   "src/levels/02_maktar_nebula/L02_0040A4A8.c": {
    "func_2F1F70": "func_2F2D58",
    "func_316220": "func_3174E8",
@@ -26343,6 +26358,9 @@
    "func_366BD8": "func_367EA0",
    "func_3FC1B0": "func_3FD750",
    "func_41F230": "func_420A08"
+  },
+  "src/levels/03_endako/L03_002CCB70-decider.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
   },
   "src/levels/03_endako/L03_002CCB70-g8.c": {
    "func_35E450": "func_35F778",
@@ -26388,6 +26406,9 @@
    "func_2EF670": "func_2F04D0",
    "func_2F0000": "func_2F0E60",
    "func_321988": "func_322D00"
+  },
+  "src/levels/03_endako/L03_003C7018-menu.c": {
+   "sub_object_get_value_second": "func_L00_00445248"
   },
   "src/levels/03_endako/L03_003C8660-qcopy.c": {
    "func_31B920": "func_31CC98"
@@ -26472,6 +26493,9 @@
    "func_31BA88": "func_31CE00",
    "func_32ECF8": "func_330128"
   },
+  "src/levels/04_barlow/L04_002EDBC8.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
+  },
   "src/levels/04_barlow/L04_00422A00-g8.c": {
    "func_3325E0": "func_3337D0"
   },
@@ -26535,6 +26559,9 @@
    "func_37B888": "func_37CAF8",
    "func_37B948": "func_37CBB8",
    "func_37C160": "func_37D3D0"
+  },
+  "src/levels/05_feltzin_system/L05_0041DF58-g8.c": {
+   "module_l00_call_handler_2": "func_0029CC48"
   },
   "src/levels/06_notak/L06_0041DED8-g8.c": {
    "func_32D5C8": "func_32E430",
@@ -26624,6 +26651,9 @@
    "func_2E5480": "func_2E6088",
    "func_338D20": "func_339EF0"
   },
+  "src/levels/07_siberius/L07_002C3CC0.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
+  },
   "src/levels/07_siberius/L07_003F4578-follow-g8.c": {
    "func_2E4248": "func_2E4E50",
    "func_2E4310": "func_2E4F18",
@@ -26703,6 +26733,9 @@
    "func_31F9E0": "func_320BA8",
    "func_355188": "func_356270"
   },
+  "src/levels/08_tabora/L08_002D90C8-fn.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
+  },
   "src/levels/08_tabora/L08_002D90C8.c": {
    "func_2F9DF0": "func_2FAA40",
    "func_2F9E60": "func_2FAAB0",
@@ -26742,6 +26775,9 @@
    "func_328A38": "func_329BB0",
    "func_32A170": "func_32B2E8"
   },
+  "src/levels/09_dobbo/L09_002C9738.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
+  },
   "src/levels/09_dobbo/L09_003FEA48-g8.c": {
    "func_2EA110": "func_2EAD98",
    "func_2EA750": "func_2EB3D8",
@@ -26780,9 +26816,19 @@
   "src/levels/09_dobbo/L09_004082D0.c": {
    "func_325E78": "func_3270C8"
   },
+  "src/levels/10_hrugis_cloud/L10_00421790-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030EFB8",
+   "module_l00_call_handler_2": "func_0029CC48"
+  },
   "src/levels/10_hrugis_cloud/L10_00424028.c": {
    "func_337518": "func_3387A0",
    "func_42DF10": "func_42FC50"
+  },
+  "src/levels/10_hrugis_cloud/L10_00424528-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030EFB8"
+  },
+  "src/levels/11_joba/L11_002DE9E0-decider.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
   },
   "src/levels/11_joba/L11_003973F8-qcopy.c": {
    "func_300D78": "func_301A78",
@@ -26810,6 +26856,10 @@
    "func_488268": "func_489D30",
    "func_4882F0": "func_489DB8"
   },
+  "src/levels/11_joba/L11_0043E1A0-main-g64.c": {
+   "func_L00_0030DD70": "func_L00_0030EFB8",
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030EFB8"
+  },
   "src/levels/11_joba/L11_0043E1A0.c": {
    "func_2F8AD0": "func_2F9490",
    "func_300150": "func_300E50",
@@ -26818,6 +26868,10 @@
    "func_417238": "func_4189A8",
    "func_417270": "func_4189E0",
    "func_4172E8": "func_418A58"
+  },
+  "src/levels/11_joba/L11_004427B8-g8.c": {
+   "func_L00_0030C7F8": "func_L00_0030D9F8",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
   },
   "src/levels/11_joba/L11_004465F8-g8.c": {
    "func_2FD7E8": "func_2FE4E8",
@@ -26844,6 +26898,9 @@
    "func_80300D98": "func_80301A98",
    "func_80301000": "func_80301D00"
   },
+  "src/levels/12_todano/L12_002CF7B0-decider.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
+  },
   "src/levels/12_todano/L12_00388090-flags-g8.c": {
    "func_314008": "func_3150E0",
    "func_3248E0": "func_31F2D8",
@@ -26863,6 +26920,7 @@
    "func_3296A8": "func_32A7B0"
   },
   "src/levels/12_todano/L12_00398E50.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030EFB8",
    "func_2F0A60": "func_2F1658",
    "func_2F15C8": "func_2F21C0",
    "func_2F2950": "func_2F3548",
@@ -26943,6 +27001,7 @@
    "func_328DA8": "func_32A0A0"
   },
   "src/levels/14_aranos_prison/L14_003F4F98-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030EFB8",
    "func_3030C0": "func_303D60",
    "func_385CB8": "func_387180"
   },
@@ -26971,6 +27030,15 @@
    "func_80329048": "func_8032A2A0",
    "func_803804E8": "func_80381760"
   },
+  "src/levels/15_gorn/L15_0042E1B0-g8.c": {
+   "module_l00_call_handler_2": "func_0029CC48"
+  },
+  "src/levels/15_gorn/L15_00430DF0-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030EFB8"
+  },
+  "src/levels/16_snivelak/L16_002C6378-decider.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
+  },
   "src/levels/16_snivelak/L16_00403900.c": {
    "func_2E74B8": "func_2E8218",
    "func_2E7590": "func_2E82F0",
@@ -26994,6 +27062,9 @@
    "func_320B58": "func_321E48",
    "func_327E68": "func_329158"
   },
+  "src/levels/18_damosel/L18_002E68B0-decider.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
+  },
   "src/levels/18_damosel/L18_002E68B0.c": {
    "func_308860": "func_3095B0",
    "func_308EE8": "func_309C38",
@@ -27006,6 +27077,9 @@
    "func_3F80A0": "func_3F9510",
    "func_3F8A98": "func_3F9F08",
    "func_3F8C08": "func_3FA078"
+  },
+  "src/levels/19_grelbin/L19_002CAAB0-fn.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
   },
   "src/levels/19_grelbin/L19_003E9400-g8.c": {
    "func_2BBFD8": "func_2BC0E0",
@@ -27028,6 +27102,9 @@
   "src/levels/19_grelbin/L19_003E9400.c": {
    "func_2EB590": "func_2EC0D0",
    "func_2EB5C0": "func_2EC100"
+  },
+  "src/levels/20_yeedil/L20_002DEBE0-decider.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
   },
   "src/levels/22_dobbo_orbit/L22_00358778.c": {
    "func_2F36F0": "func_2F4458",
@@ -27063,6 +27140,19 @@
   },
   "src/levels/23_damosel_orbit/L23_00416388-g8.c": {
    "func_31A108": "func_31B350"
+  },
+  "src/levels/23_damosel_orbit/L23_00416388-hud-g16.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030EFB8",
+   "module_l00_call_handler_2": "func_0029CC48"
+  },
+  "src/levels/23_damosel_orbit/L23_00416388.c": {
+   "module_l00_call_handler": "func_L00_0030DB30"
+  },
+  "src/levels/23_damosel_orbit/L23_004177F8-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030EFB8"
+  },
+  "src/levels/25_wupash_nebula/L25_00373ED0-hud-g8.c": {
+   "module_l00_call_handler_2": "func_0029CC48"
   },
   "src/levels/30_insomniac_museum/L30_0032AAF0.c": {
    "func_2FB3C8": "func_2FC000",
@@ -27103,6 +27193,9 @@
    "func_326C10": "func_327CC8",
    "func_33A020": "func_33B190"
   },
+  "src/levels/shared/L00_002A4EF0.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
+  },
   "src/levels/shared/L00_002A6420-g8.c": {
    "func_2ACA08": "func_2ACA80",
    "func_2ACF88": "func_2AD000",
@@ -27116,16 +27209,25 @@
    "func_319684": "func_31A8E4",
    "func_35F3A8": "func_3605F0"
   },
+  "src/levels/shared/L00_002CB3A8-decider.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
+  },
   "src/levels/shared/L00_002D3400.c": {
    "func_2EE0D0": "func_2EEE38",
    "func_2EE108": "func_2EEE70",
    "func_2EE5D8": "func_2EF340"
+  },
+  "src/levels/shared/L00_002D3798-g8.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
   },
   "src/levels/shared/L00_002D7940.c": {
    "func_2EDD48": "func_2EEAB0"
   },
   "src/levels/shared/L00_002F4400.c": {
    "func_2F4490": "func_2F5270"
+  },
+  "src/levels/shared/L00_002FC7A0.c": {
+   "sub_object_get_value_second": "func_L00_00445248"
   },
   "src/levels/shared/L00_00316F60-g8.c": {
    "func_2EE138": "func_2EEEA0",
@@ -27134,6 +27236,9 @@
   },
   "src/levels/shared/L00_00358D98.c": {
    "func_3747B0": "func_375AD8"
+  },
+  "src/levels/shared/L00_0036F488-g8.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
   },
   "src/levels/shared/L00_0037E668.c": {
    "func_32B2C8": "func_32C5F0"
@@ -27345,6 +27450,9 @@
   "src/levels/shared/L05_003D33E8.c": {
    "func_332AB8": "func_333D40"
   },
+  "src/levels/shared/L05_0041C1F0-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030EFB8"
+  },
   "src/levels/shared/L05_00428350.c": {
    "func_2FC560": "func_2FCE78",
    "func_3065F8": "func_307360",
@@ -27376,12 +27484,18 @@
   "src/levels/shared/L09_003F9468.c": {
    "func_33E658": "func_33F8B8"
   },
+  "src/levels/shared/L13_002D5ED8-decider.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
+  },
   "src/levels/shared/L13_002D5ED8-g8.c": {
    "func_31A718": "func_31B9D8",
    "func_3248E0": "func_325BD0",
    "func_326C70": "func_327F60",
    "func_333240": "func_3345E0",
    "func_3F8C68": "func_3FA180"
+  },
+  "src/levels/shared/L16_002B5EE0-state-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030EFB8"
   },
   "src/levels/shared/L17_00326F38.c": {
    "func_2EEEB8": "func_2EFC98",
@@ -27390,6 +27504,9 @@
   },
   "src/levels/shared/L18_00427BE0.c": {
    "func_3DB8F8": "func_3DCD30"
+  },
+  "src/levels/shared/L22_002D0C98-decider.c": {
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
   },
   "src/levels/shared/L22_002D0C98-g8.c": {
    "func_2F3A80": "func_2F47E8",
@@ -27411,6 +27528,10 @@
    "func_3330A8": "func_3343D8",
    "func_383120": "func_384588"
   },
+  "src/levels/shared/L22_003A5018-hud-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030EFB8",
+   "module_l00_call_handler_2": "func_0029CC48"
+  },
   "src/pal/levels/01_oozla/L01_003D1FD0.c": {
    "func_3120A8": "func_3132C8",
    "func_355780": "func_356978"
@@ -27430,6 +27551,19 @@
    "func_31E3C0": "func_31F6B8",
    "func_31E6A0": "func_31F998",
    "func_332710": "func_333AC0"
+  },
+  "src/pal/levels/02_maktar_nebula/L02_003FE328.c": {
+   "module_l00_call_handler_2": "func_0029CC48"
+  },
+  "src/pal/levels/02_maktar_nebula/L02_004013F8-g8.c": {
+   "func_L00_0030C7F8": "func_L00_0030D9F8",
+   "module_l00_call_handler_with_arg_4": "func_L00_0030D9F8"
+  },
+  "src/pal/levels/02_maktar_nebula/L02_00401980-cc-g8.c": {
+   "func_L00_0030C7F8": "func_L00_0030D9F8"
+  },
+  "src/pal/levels/02_maktar_nebula/L02_00405040-cc-g8.c": {
+   "func_L00_0030C7F8": "func_L00_0030D9F8"
   },
   "src/pal/levels/03_endako/L03_003CEA00-g8.c": {
    "func_2EF110": "func_2EFF70",
@@ -27726,6 +27860,10 @@
    "func_316958": "func_317AF8",
    "func_316A68": "func_317C08"
   },
+  "src/pal/levels/10_hrugis_cloud/L10_00426618-cc-g8.c": {
+   "func_L00_0030CF60": "func_0029CC48",
+   "func_L00_0030DD70": "func_L00_0030EFB8"
+  },
   "src/pal/levels/11_joba/L11_0043C288.c": {
    "func_802F8AD0": "func_802F9490",
    "func_80338398": "func_803395B0"
@@ -27736,6 +27874,10 @@
   "src/pal/levels/11_joba/L11_0043E660-cc.c": {
    "func_32E480": "func_32F698",
    "func_3739C0": "func_374BB0"
+  },
+  "src/pal/levels/11_joba/L11_004439E4-main-g64.c": {
+   "func_L00_0030DD70": "func_L00_0030EFB8",
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030EFB8"
   },
   "src/pal/levels/11_joba/L11_004439E4.c": {
    "func_2F8AD0": "func_2F9490",
@@ -27833,6 +27975,9 @@
    "func_423B30": "func_4250F0",
    "func_423BD8": "func_425198"
   },
+  "src/pal/levels/15_gorn/L15_004334B0-cc-g8.c": {
+   "func_L00_0030CF60": "func_0029CC48"
+  },
   "src/pal/levels/16_snivelak/L16_003F9F10.c": {
    "func_313EA0": "func_315118"
   },
@@ -27879,6 +28024,19 @@
   "src/pal/levels/23_damosel_orbit/L23_003C3978-flags.c": {
    "func_367150": "func_368398"
   },
+  "src/pal/levels/23_damosel_orbit/L23_0041C820-cc-g8.c": {
+   "func_L00_0030DD70": "func_L00_0030EFB8"
+  },
+  "src/pal/levels/23_damosel_orbit/L23_00420558.c": {
+   "module_l00_call_handler": "func_L00_0030DB30"
+  },
+  "src/pal/levels/23_damosel_orbit/L23_00422D10-cc.c": {
+   "func_L00_0030CF60": "func_0029CC48",
+   "func_L00_0030DD70": "func_L00_0030EFB8"
+  },
+  "src/pal/levels/25_wupash_nebula/L25_00411D00-cc-g8.c": {
+   "func_L00_0030CF60": "func_0029CC48"
+  },
   "src/pal/levels/30_insomniac_museum/L30_00387518.c": {
    "func_2FB3C8": "func_2FC000",
    "func_3132D8": "func_314318"
@@ -27900,6 +28058,12 @@
    "func_3080D0": "func_308E20",
    "func_319684": "func_31A8E4",
    "func_35F3A8": "func_3605F0"
+  },
+  "src/pal/levels/shared/L00_002D6408-g8.c": {
+   "func_L00_0030C7F8": "func_L00_0030D9F8"
+  },
+  "src/pal/levels/shared/L00_0030F000.c": {
+   "sub_object_get_value_second": "func_L00_00445248"
   },
   "src/pal/levels/shared/L00_003771D8.c": {
    "func_3747B0": "func_375AD8"
@@ -27980,6 +28144,9 @@
    "func_333240": "func_3345E0",
    "func_3F8C68": "func_3FA180"
   },
+  "src/pal/levels/shared/L16_003C6A00-cc-g8.c": {
+   "func_L00_0030DD70": "func_L00_0030EFB8"
+  },
   "src/pal/levels/shared/L22_0033BBB0-g8.c": {
    "func_2F3A80": "func_2F47E8",
    "func_2F3AB0": "func_2F4818",
@@ -27989,6 +28156,10 @@
   },
   "src/pal/levels/shared/L22_0039EBE4-g8.c": {
    "func_2F4BE0": "func_2F5948"
+  },
+  "src/pal/levels/shared/L22_003A83A8-hud-g8.c": {
+   "level_l00_call_module_handler_with_arg_9": "func_L00_0030EFB8",
+   "module_l00_call_handler_2": "func_0029CC48"
   },
   "src/us2/game/0029C648-g8.c": {
    "func_L00_0030CF60": "func_0029CC48"
@@ -28055,6 +28226,14 @@
   },
   "src/us2/levels/15_gorn/L15_0042F6D0-cc-g8.c": {
    "func_L00_0030CF60": "func_0029CC48"
+  },
+  "src/us2/levels/22_dobbo_orbit/L22_002BF2B8-sw.c": {
+   "PH_G1": "func_002837D0",
+   "PH_G2": "func_002AB150",
+   "PH_G3": "func_00283B30",
+   "PH_G4": "func_00283B48",
+   "PH_F5": "func_L02_003940C0",
+   "PH_F6": "func_L02_00395D20"
   },
   "src/us2/levels/23_damosel_orbit/L23_00418CF8-cc-g8.c": {
    "func_L00_0030DD70": "func_L00_0030EFB8"

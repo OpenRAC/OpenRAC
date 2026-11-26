@@ -1,0 +1,1061 @@
+{
+  "about": "What port/tools/hostgen/release_carry_rac3.py needs of NTSC-U besides rac3-decomp's tables and rac3-pal's port: the keys of hostgen.json that are this disc's own, the pairs and addresses checked by hand, each with its evidence.",
+  "game": "rac3",
+  "id": "rac3-ntsc",
+  "primary": "rac3-pal",
+  "hostgen": {
+    "about": "Keys over rac3-pal's carried hostgen.json (null removes one; a dict is merged unless it has \"replace\").",
+    "id": "rac3-ntsc",
+    "title": "Ratchet & Clank: Up Your Arsenal (NTSC-U)",
+    "serial": "SCUS_973.53",
+    "frame_rate": 60,
+    "tick_rate": 60,
+    "tick_rate_why": "The NTSC-U game leaves its settings word 0x00143950 at 0 and takes the 60 Hz branch PAL never takes (rac3-pal/README.md, Ticks): it counts in sixtieths.",
+    "sources": [
+      "src/boot_elf",
+      "src/frontbin",
+      "src/us/boot_elf",
+      "src/us/frontbin"
+    ],
+    "skip": [
+      "src/boot_elf/core/libgcc",
+      "src/boot_elf/text/3C6718.c",
+      "src/frontbin/3C6360.c"
+    ],
+    "groups": [
+      {
+        "path": "src/frontbin",
+        "suffix": "frontbin",
+        "overlay": 100
+      },
+      {
+        "path": "src/us/frontbin",
+        "suffix": "frontbin",
+        "overlay": 100
+      }
+    ],
+    "derived": {
+      "table": "release/release_names.json"
+    },
+    "release": {
+      "version": "us",
+      "table": "release/release_names.json"
+    },
+    "host_shared": [
+      "../rac3-pal/host"
+    ],
+    "headers": "../rac3-pal/headers",
+    "places": "config/us/levels/functions.tsv",
+    "place_kinds_as_levels": [
+      "frontbin"
+    ],
+    "places_are_functions": true,
+    "asm": {
+      "retail": {
+        "image": "baserom/SCUS_973.53.iso",
+        "required": true,
+        "programs": {
+          "frontbin": 100
+        }
+      },
+      "signatures": {
+        "func_0038B448": "void (int, int, int, int, int, int, int, int, float, long long, long long)",
+        "func_L01_002F8918": "int (int)",
+        "func_L01_002F8F60": "int (int, int, int, int, int, int)",
+        "func_L01_0044A0E8": "void (unsigned int, int, int, int, int, int, float)",
+        "func_L01_004EA040": "void (void)",
+        "func_L01_004DC1C0": "void (int)",
+        "func_L01_00416B38": "void (int)",
+        "func_L01_004176F8": "int (int)",
+        "func_L01_004200A8": "void (void)",
+        "func_L01_004D3998": "int (void)",
+        "func_L01_00443840": "void (unsigned int, unsigned int)",
+        "func_L01_004412D0": "void (unsigned int, int, int)",
+        "func_L01_004B6E88": "int (int)",
+        "func_L01_004B6C98": "int (void)",
+        "func_L01_00416BF8": "int (int)",
+        "func_L01_0050D980": "int (int, int)",
+        "func_L01_00416640": "void (int)",
+        "func_L01_0050D8F8": "int (int, int)",
+        "func_L39_00596BA0": "void (int, int)",
+        "func_L01_003E7478": "void (unsigned int, unsigned int, unsigned int)",
+        "func_L39_005187A0": "int (int, int, int, float)",
+        "func_001369D0": "float (float)",
+        "func_0013A100": "int (int, int)",
+        "func_003DFE10": "int (int, int, int, int, int, int, int, int)",
+        "func_L01_003378E0": "int (int, int)",
+        "func_L01_0033A5A0": "int (int, int, int)",
+        "func_L01_0034EE28": "float (int)",
+        "func_L01_003B3D38": "int (int, int, int)",
+        "func_L01_003BACC8": "int (int, int, int)",
+        "func_L01_003BC850": "int (int, int, int)",
+        "func_L01_003C2480": "int (int, int, int)",
+        "func_L01_003C61E8": "float (int, int, float)",
+        "func_L01_003CA280": "int (int, int, int)",
+        "func_L01_003CE1D8": "int (int, int, int)",
+        "func_L01_00405438": "int (int, int, int, int, int, int, int)",
+        "func_L01_00436500": "float (int)",
+        "func_L01_00440918": "float (float, float)",
+        "func_L01_004409C0": "float (float)",
+        "func_L01_004420D0": "int (int, int, float, int, int, int)",
+        "func_L01_00442280": "float (float, float, float)",
+        "func_L01_00442BF8": "int (int, int, int, int)",
+        "func_L01_00442DA8": "float (int, int, int, float)",
+        "func_L01_00443080": "int (int, float, float, float, int)",
+        "func_L01_00444358": "int (int, int, int)",
+        "func_L01_004443B0": "float (int, int)",
+        "func_L01_004455F0": "float (int, int, int, float, float, float, float)",
+        "func_L01_00445758": "float (int, int, int, float, float, float, float)",
+        "func_L01_0044DE78": "float (int, int, int)",
+        "func_L01_0044E128": "float (int, int, int)",
+        "func_L01_0044E300": "float (int)",
+        "func_L01_0044E480": "float (int, int, int)",
+        "func_L01_0044E4B8": "float (int, int, int)",
+        "func_L01_00453408": "float (int, int, int, int, int, int, float)",
+        "func_L01_00459910": "float (int, int, int, int)",
+        "func_L01_0045D488": "float (int, int)",
+        "func_L01_00474678": "float (int, int, float, float, float)",
+        "func_L01_004746C8": "float (int, int, float, float, float)",
+        "func_L01_00484718": "int (int, int, int)",
+        "func_L01_004943C8": "float (int, float, float)",
+        "func_L01_004C57B0": "float (float)",
+        "func_L01_004DC0D0": "int (int)",
+        "func_L01_004DC1A8": "float (int)",
+        "func_L01_004E1368": "float (int, int)",
+        "func_L01_004E5630": "float (int)",
+        "func_L01_004E56A8": "float (int, int, float, float, float, float)",
+        "func_L01_004E7B48": "float (int, int)",
+        "func_L01_004EA9A8": "float (void)",
+        "func_L01_004EB350": "int (float, float)",
+        "func_L01_004EC818": "float (int)",
+        "func_L01_004F1018": "float (int, int)",
+        "func_L01_0050B850": "int (int, int)",
+        "func_L01_0050C4A0": "float (float, float, float)",
+        "func_L01_0050D430": "float (int)",
+        "func_L01_0050D4D8": "float (int)",
+        "func_L01_0050D870": "float (int)",
+        "func_L02_0030F8D0": "float (float)",
+        "func_L02_0042D0D0": "int (int, int, float)",
+        "func_L03_0032C1C8": "int (int, int, int)",
+        "func_L03_0034A588": "float (int, int, float)",
+        "func_L03_0034A880": "float (int, int, int, float, float)",
+        "func_L03_00395B38": "float (int)",
+        "func_L03_00395D18": "float (int)",
+        "func_L03_00396000": "int (int, int, int)",
+        "func_L03_00397B98": "float (int, int)",
+        "func_L03_0043BF68": "int (int, int, float)",
+        "func_L04_00359090": "int (int, int, int)",
+        "func_L04_00378600": "int (int, int, int)",
+        "func_L04_00378850": "float (int)",
+        "func_L04_003CF6A8": "int (int, int, int)",
+        "func_L04_003E3ED8": "float (int)",
+        "func_L04_003E4078": "int (int, int, int)",
+        "func_L04_00452680": "float (int)",
+        "func_L04_004AF8A0": "int (int, int, int, int, int)",
+        "func_L04_004B70D0": "int (int, int, int)",
+        "func_L04_004B75B0": "int (int, int, int)",
+        "func_L04_004EBEA0": "int (int)",
+        "func_L05_0043DD10": "float (float, float, float)",
+        "func_L06_00352460": "float (int, int)",
+        "func_L06_00352510": "int (int, int, int, float)",
+        "func_L06_003534C8": "int (int, int, int, int, int, float)",
+        "func_L06_00457C58": "float (int, int, int, float, float)",
+        "func_L07_00333118": "float (int)",
+        "func_L07_003A4950": "int (int, int)",
+        "func_L07_003B9310": "int (int, int)",
+        "func_L07_003C01F0": "float (int)",
+        "func_L12_003D3D70": "float (void)",
+        "func_L12_003DCB50": "int (int, int, int)",
+        "func_L12_003E2850": "int (int, int, int)",
+        "func_L18_003DECE8": "int (int, int, int)",
+        "func_L18_003E1B68": "int (int, int, int)",
+        "func_L18_003E6258": "int (int, int, int)",
+        "func_L18_003E7C40": "int (int, int, int)",
+        "func_L19_00307200": "float (int)",
+        "func_L19_004FD920": "float (float, float, float)",
+        "func_L20_003F23E8": "int (int, int, int, int)",
+        "func_L21_003A8650": "int (int, int, int)",
+        "func_L21_003AE380": "int (int, int, int)",
+        "func_L23_003A51B8": "float (int, int, int)",
+        "func_L23_003B31C8": "int (int, int, int, int)",
+        "func_L23_004BDA28": "int (int)",
+        "func_L24_00357F20": "int (int, int, float, float, float, float, float)",
+        "func_L24_003598E8": "float (int)",
+        "func_L30_0034BF98": "float (int)",
+        "func_L30_003A7DE8": "float (int, float)",
+        "func_L30_004A9D20": "int (int)",
+        "func_L30_004B8E30": "int (float, int)",
+        "func_L30_004E2A88": "float (void)",
+        "func_L31_003471A8": "int (int, int, int, int)",
+        "func_L32_00347CA0": "float (int)",
+        "func_L39_004B4008": "int (int, int, int, int, int, int, int)",
+        "func_L39_004B4600": "int (int, int)",
+        "func_L39_004B48A0": "int (int, int, int, int, int, int)",
+        "func_L39_004B5108": "int (int, int, int)",
+        "func_L39_004B5548": "int (int, int, int, int, int, int, int, int)",
+        "func_L39_004B5D68": "int (int, int, int, int, int, int, int, int)",
+        "func_L39_004B6608": "int (int, int, int, int)",
+        "func_L39_004C3C28": "int (int, int, int, int)",
+        "func_L39_004CDF00": "int (int, int, int, int, int, int, int)",
+        "func_L39_004D7F68": "int (int, int, int, int, int, int, int, float, float)",
+        "func_L39_004D89C0": "int (int, int, int, int, int, int)",
+        "func_L39_004D8AB0": "int (int, int, int, int, int, int)",
+        "func_L39_004DF208": "int (int, int, int)",
+        "func_L39_004E48E8": "int (int, int, int, int, int, int)",
+        "func_L39_004FCDD0": "int (int, int, int, int)",
+        "func_L39_00516AB8": "int (int, int, int, int, int, float)",
+        "func_L39_0059F650": "int (int, int, int, int, int, int)",
+        "func_L39_005B2568": "float (float, float)",
+        "func_L39_005B25C8": "float (void)",
+        "func_L39_005DADC8": "float (int)",
+        "func_L39_005DADE8": "float (int)",
+        "func_L39_0062F240": "float (int, int)",
+        "func_L39_0062F8B8": "float (int, int)",
+        "func_L39_0062FD90": "float (int, int)",
+        "func_L39_0062FE30": "float (int, int)",
+        "func_L39_00630DD8": "float (int, float, float)",
+        "func_L39_00631430": "float (int, int, int)",
+        "func_L39_00641FF0": "float (int, int, int)",
+        "func_L39_00645998": "int (int)",
+        "func_L39_006C1C70": "int (int, int)",
+        "func_L39_006C5050": "int (int, int, int, int)",
+        "func_L39_006C9968": "int (int, int)",
+        "func_L39_006C9F98": "int (int, int, int)",
+        "func_L39_006CA580": "int (int, int, int, int, int)",
+        "func_L39_006CC600": "int (int, int, int, int, int)",
+        "func_L39_006DB418": "int (int, int, int, int, int)",
+        "func_L39_006DE168": "float (void)",
+        "func_L40_003F1C98": "float (int, float, float)",
+        "func_L01_00308068": "float (int, int, float, int, int, int)",
+        "func_L01_0030A958": "float (int, int, float, int, int, int)",
+        "func_L01_0030D500": "float (int, int, float, int, int, int)",
+        "func_L01_00316A08": "float (int, int, float, int, int, int)",
+        "func_L01_00323C78": "int (int, int, int)",
+        "func_L01_0032A968": "int (int, int, int)",
+        "func_L01_00340438": "int (int, int, int)",
+        "func_L01_0034CE48": "float (int, int, float, int, int, int)",
+        "func_L01_0037B758": "float (int, int, float, int, int, int)",
+        "func_L01_003AA588": "float (int, int, float)",
+        "func_L01_003B60F8": "int (int, int, int, float)",
+        "func_L01_003DA090": "int (int, int, int)",
+        "func_L01_003E0200": "int (int, int, int)",
+        "func_L01_00443D00": "float (int, int, int, int, float)",
+        "func_L01_0044DCE0": "float (int, int, int)",
+        "func_L01_0044E4E8": "float (int)",
+        "func_L01_0045A420": "float (int, int)",
+        "func_L01_004967D0": "int (int, int, float, float)",
+        "func_L01_0049AEB0": "int (int, int, float, float)",
+        "func_L01_0049C088": "int (int, int, float, float)",
+        "func_L01_0049DDD0": "int (int, int, float, float)",
+        "func_L01_0049ED00": "int (int, int, float, float)",
+        "func_L01_004BE138": "int (int, int, int, float, float)",
+        "func_L01_004C7720": "int (int, int, int)",
+        "func_L05_00354C60": "float (int, int, int)",
+        "func_L05_00355070": "int (int, int, int)",
+        "func_L07_00352B20": "int (int, int, int, float)",
+        "func_L09_003BD7B8": "int (int, int, int, int, int)",
+        "func_L20_00400958": "int (int, int, float)",
+        "func_L30_003487E0": "float (int, int)",
+        "func_L30_00348BF8": "int (int, int, int)",
+        "func_L31_00345CF0": "int (int, int, int, float)",
+        "func_L31_00348690": "float (int)",
+        "func_L31_003487A0": "float (int)",
+        "func_L31_0034AA60": "float (int, int)",
+        "func_L31_003A3948": "float (int, int, int, float)",
+        "func_L31_00421540": "float (int, int, int)",
+        "func_L33_00351B88": "float (int)",
+        "func_L39_004B3D88": "int (int, int, int, int, int)",
+        "func_L39_004B74F8": "int (int, int, int, int, int, int)",
+        "func_L39_004BB6C8": "int (int, int)",
+        "func_L39_004BC2F8": "int (int, int, int)",
+        "func_L39_004C2EE0": "int (int, int, int, int)",
+        "func_L39_004C3D68": "int (int, int, int, int)",
+        "func_L39_004CA3D0": "int (int, int, int, int, int)",
+        "func_L39_004CDDE0": "int (int, int, int, int, int)",
+        "func_L39_004CFD30": "float (int)",
+        "func_L39_004D12C8": "int (int)",
+        "func_L39_004D1A00": "int (int)",
+        "func_L39_004D4B18": "int (int, int, int, int, int, int, int, int)",
+        "func_L39_004D4C68": "int (int, int, int, int)",
+        "func_L39_004DF520": "int (int, int, int, int)",
+        "func_L39_004E34B0": "int (int, int, int, int, int, int, int, int)",
+        "func_L39_004E4368": "int (int)",
+        "func_L39_004EBDE0": "int (int, int, int, int)",
+        "func_L39_004EF850": "int (int, int, int, int)",
+        "func_L39_004F5D80": "int (int)",
+        "func_L39_004FA180": "int (int, int, int, int)",
+        "func_L39_004FA3B0": "int (int, int, int, int)",
+        "func_L39_004FAE50": "int (int, int, int, int)",
+        "func_L39_004FC170": "int (int)",
+        "func_L39_004FC3C0": "int (int, int, int, int)",
+        "func_L39_0050C7E8": "int (int, int, int)",
+        "func_L39_00516460": "int (int, int, int, int, int)",
+        "func_L39_00516888": "int (int, int, int, int, int)",
+        "func_L39_00516BC8": "int (int, int, int, int, int)",
+        "func_L39_0053BAB0": "float (int, int)",
+        "func_L39_00557D58": "float (int, int, float)",
+        "func_L39_00557FE0": "float (int, int, int, float)",
+        "func_L39_005A9F78": "int (int, int, int, int, int, int)",
+        "func_L39_005BD4E8": "float (int, int, int, int, float, float)",
+        "func_L39_005C1C50": "int (int, int, int, int)",
+        "func_L39_005FF860": "int (int, int)",
+        "func_L39_00600B30": "int (int, int, int, int, int)",
+        "func_L39_00606D90": "int (int, int, int, int, int, int)",
+        "func_L39_00619758": "int (int, int)",
+        "func_L39_0062FFD0": "float (int, int)",
+        "func_L39_00636B08": "float (int, int, int, float, float, float, float)",
+        "func_L39_00670488": "float (int, int, int, int, int, int)",
+        "func_L39_00675F10": "int (int)",
+        "func_L39_0067F258": "int (int, int, int, int, int)",
+        "func_L39_006811C8": "float (int, int, int, int, int)",
+        "func_L39_00681398": "int (int, int, int, int, int)",
+        "func_L39_00684EC0": "int (int, int, int, int, int)",
+        "func_L39_006C8858": "int (int, int, int, int, int)",
+        "func_L39_006CA708": "int (int, int, int, int, int)",
+        "func_L39_006DE498": "float (int, int)",
+        "func_L39_006DE4E0": "float (int, int)",
+        "func_L40_0053C788": "int (int, int)",
+        "func_003BA748__frontbin": "void (int, float, float)",
+        "func_L39_004D4E30": "int (int, int, int, int, int, int, int, int)",
+        "func_L39_00678170": "int (int, int, int, int, int)",
+        "func_003869E8__frontbin": "void (int, int, int, int, int, int, int, int, float, long long, long long)",
+        "func_L01_003A81F0": "int (int, int, int, int, int, int, int, int)",
+        "func_L01_003E2638": "float (int, float)",
+        "func_L01_003EB2F0": "int (int, int, int, int, int, int)",
+        "func_L01_0040AD50": "int (int, int, float, int, int, int)",
+        "func_L01_00472EF8": "float (int, int, int, int)",
+        "func_L01_00443390": "float (int, int, int, int)",
+        "func_L06_003522B0": "int (int, int, int, int, int)",
+        "func_L07_003325B0": "float (int, int, int, float)",
+        "func_L16_00345700": "float (int, float, float)",
+        "func_L16_003457B0": "float (int, float, float)",
+        "func_L39_004D1260": "int (int, int, int, int)",
+        "func_L39_004D1998": "int (int, int, int, int)",
+        "func_L39_004FFFE8": "int (int, int, int, int, int)",
+        "func_L39_0050DA08": "int (int, int)",
+        "func_L39_0050F158": "int (int, int, int, int, int)",
+        "func_L39_005A2628": "int (int, int, int, int, int, int)",
+        "func_L39_006095C0": "int (int, int, int, int, int, int)",
+        "func_L39_006397B8": "float (int, float, float, float)",
+        "func_L40_003F1CF8": "float (int, int, int, int, float)",
+        "func_003BE988__frontbin": "float (int, int)",
+        "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
+        "func_L39_004CBE78": "int (int)",
+        "func_L39_004F14C0": "int (int, int)",
+        "func_L01_004369B8": "int (int, int, int, int)"
+      },
+      "signature_allow": {
+        "func_001369D0": "a hidden entry inside a function on both discs, with no inventory row (no NTSC-U name): its translation from 0x001369D0 is the tail of the function around it and never sets $f0, while the multiplayer menu's callers (func_L39_0066C540, func_L39_0066C910) read the float the PAL C declares (f32 func_001369D0(f32)); the entry's real code is to be found",
+        "func_00392B88": null,
+        "func_L01_00410800": null,
+        "func_L01_00410820": null,
+        "func_L01_00417B48": null,
+        "func_L01_00420320": null,
+        "func_L01_00420340": null,
+        "func_L01_00478ED8": null,
+        "func_L01_00478FB0": null,
+        "func_L01_004932C0": null,
+        "func_L01_00493448": null,
+        "func_L01_0048CB78": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+        "func_L01_0048E2F8": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+        "func_L01_0048F508": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+        "func_L01_00498098": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+        "func_L01_004991C8": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+        "func_L01_0049A2D0": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+        "func_L01_004BD480": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees"
+      },
+      "variant_callees": null,
+      "variant_callees_why": "rac3-pal's folded-wrapper table (variant_callees.py) is written for PAL's places; NTSC-U has none yet, so its check runs without that part",
+      "signature_allow_why": "null: rac3-pal's allow entries for its folded-wrapper check, which NTSC-U runs without (variant_callees), removed here"
+    },
+    "candidates_left_out": {
+      "func_00385A98": "Clang cannot read it: it calls func_0038DF00, which it does not declare",
+      "func_0038D5B0": "Clang cannot read it: a K&R definition under an assembler name (`expected ';' at end of declaration`)",
+      "func_003EE310": "Clang cannot read it: it calls func_003EDBE0 with an argument its declaration does not take",
+      "func_0039F348": "Clang cannot read it: a K&R definition under an assembler name (`expected ';' at end of declaration`)",
+      "func_003A2028": "Clang cannot read it in the NTSC-U view: use of undeclared identifier 'func_003A1AD0'",
+      "func_003A7480": "Clang cannot read it: it calls func_003A6F28, which it does not declare",
+      "func_003AAA00": "Clang cannot read it in the NTSC-U view: use of undeclared identifier 'func_11F940'",
+      "func_003ABA48": "Clang cannot read it in the NTSC-U view: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
+      "func_003AFFA8": "Clang cannot read it: use of undeclared identifier 'func_11F940'",
+      "func_003ABBE8": "Clang cannot read it: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
+      "func_003B0FF0": "Clang cannot read it: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
+      "func_003C5A98": "Clang cannot read it: too many arguments to function call, expected 1, have 3"
+    },
+    "asm_signatures_why": "func_0038B448 (PAL func_0038B500, the turned glyph quad host/ui2d.c wraps), run from the disc on both discs since its VU0 helpers are inline assembly Clang cannot read: the wrapper's prototype, with its colour and texture words signed. FontPrint (PAL's func_0038EBC8): host/ui2d.c wraps it as a void function, as PAL's prototype has it; NTSC-U's assembly leaves $v0 as a callee's, which hostgen took for a result; the follow camera's stick read (PAL's func_L01_003E92F8, whose C gives PAL its prototype): host/camera_latch.c wraps it with the camera and the two axes' addresses, NTSC-U's copy being assembly here After the rac3-decomp 4e0324fd bump: 93 NTSC-U functions translated from the disc whose newly matched PAL C (status differs here) declared fewer argument registers, or a callee's int result where its caller reads $f0 (or $v0 of a void one): each takes the registers its code reads (hostgen's signature check, the extra ones after the declared parameters) and the result its callers read.",
+    "places_in_release": true,
+    "places_why": "NTSC-U's own level catalogue, in its own names: every level function is translated from the disc's level programs (no src/levels C yet: its names and its levels' data are PAL's)",
+    "call_copies": null,
+    "call_copies_why": "rac3-pal's table (call_copies_rac3.py) holds PAL's places; NTSC-U's catalogue has its own, to be written the same way",
+    "split_places_why": "NTSC-U's own tables/split_places.tsv: the multiplayer maps' copies of the font width wrapper (func_L01_00410820) are their own function, func_L39_005187A0, whose name the carry leaves out as no function of NTSC-U's catalogue; its signature below, as rac3-pal's func_L39_005189A0",
+    "more_places": {
+      "replace": true,
+      "func_L01_004C78D8": "23:004A9230",
+      "func_L01_004C78E0": "03:004B4EE0,24:004AC6D0",
+      "func_L01_004D4C50": "03:004C2250,24:004B9A40",
+      "func_L01_004D75F8": "03:004C4BF8,24:004BC3E8",
+      "func_L01_004026A0": "03:003EFF28,11:003DC210,16:00412630,23:003E5828",
+      "func_L01_004D4B48": "23:004B64A0"
+    },
+    "more_places_why": "rac3-pal's are PAL's places: the Vid-comic password panel's getter and clear (Phoenix 03, Insomniac Museum 24), the help box's flag setter (Holostar Studios as Clank, 23) and the draw callback adder (03, 11, 16, 23) are filed under another row; the real twins at NTSC-U's places",
+    "from_assembly": [
+      "func_L39_004B4008",
+      "func_L39_004B5548",
+      "func_L39_004B6608",
+      "func_L39_004CDF00",
+      "func_L39_004D89C0",
+      "func_L39_004D8AB0",
+      "func_00387778",
+      "func_003AD9F0",
+      "func_003C0160",
+      "func_00391E78__frontbin",
+      "func_003BE710",
+      "func_0039DB38__frontbin"
+    ],
+    "pad_reader_why": "func_0039DB38__frontbin is the proven pad reader, but two flick-history lookback bounds differ from PAL at +0x7F0 and +0x850 (3 to 4 and 4 to 5). Keep NTSC-U's instructions rather than compiling PAL's C after the hand pair makes its name available.",
+    "roots": [
+      "func_003932B0__frontbin"
+    ],
+    "roots_why": "func_003932B0__frontbin: NTSC-U's twin of PAL's func_00397B10 (one constant changed, so map.tsv has no pair), whose address func_00391E78 stores; reached only through it.",
+    "from_assembly_why": "func_00387778 (the clip view, PAL func_003877A0), func_003AD9F0 (PAL func_003ADB90), func_003C0160 (PAL func_003C0268): map.tsv's match, but their C reads globals and calls functions config/us/names.tsv places for the front end or not at all (func_00387778's D_001D9A10, D_00334F00 to D_00335D50 and func_0027AB40; func_003C0160's D_001DA348 to D_001DA390 aliases, all moved by +0x30 or +0x80 on NTSC-U), so hostgen made each a stub that does nothing. func_00391E78__frontbin (PAL func_003966D8) stores the address of PAL's func_00397B10, which NTSC-U has as 0x003932B0 with one constant changed (5, not 4). Run from the disc's instructions instead. func_003BE710 (PAL func_003BE800, the level loader's state that levels 27 and 28 run through the table at 0x0031C910): map.tsv's match since rac3-decomp 45baf7e5, but its C reads the per-caller aliases D_001D8D28_003BE800 to D_001DA2D0_003BE800g, which config/us/names.tsv gives no boot_elf value, so hostgen made it a stub that does nothing (before, NTSC-U ran it from assembly as a twin of a left-out definition)."
+  },
+  "pairs": {
+    "about": "Function pairs taken as they are where map.tsv pairs nothing: PAL's name, NTSC-U's, the evidence.",
+    "func_0012BEE8": {
+      "is": "func_0012BEE8",
+      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+    },
+    "func_0012DA60": {
+      "is": "func_0012DA60",
+      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+    },
+    "func_0012F608": {
+      "is": "func_0012F608",
+      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+    },
+    "func_0012F728": {
+      "is": "func_0012F728",
+      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+    },
+    "func_0012FF40": {
+      "is": "func_0012FF40",
+      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+    },
+    "func_00123C20": {
+      "is": "func_00123C20",
+      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+    },
+    "func_001249F0": {
+      "is": "func_001249F0",
+      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+    },
+    "func_00126020": {
+      "is": "func_00126020",
+      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+    },
+    "func_0012BE28": {
+      "is": "func_0012BE28",
+      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+    },
+    "func_001315D8": {
+      "is": "func_001315D8",
+      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+    },
+    "func_0013D1E8": {
+      "is": "func_0013D1E8",
+      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+    },
+    "func_003F02C8": {
+      "is": "func_003F0168",
+      "why": "the Widget3D text class's type id (jr ra; li v0, 2): the same 8 bytes at 0x003F0168, after the same 36-byte remnant (PAL 0x003F02A0, NTSC-U 0x003F0140), and the class's vtable (PAL 0x001D9798, NTSC-U 0x001D97D8) points there at +0xC. NTSC-U's inventory counts the 8 bytes into f_003F0140, so map.tsv has no twin; without it the main menu's labels were never set (func_003E7EE8 looked their setter up under a garbage type id)"
+    },
+    "func_003F0AB8": {
+      "is": "func_003F0938",
+      "why": "the next class's type id: the same 8 bytes at 0x003F0938, after the same 20-byte remnant (PAL 0x003F0AA0, NTSC-U 0x003F0920), the only place they occur after it; as func_003F02C8"
+    },
+    "func_003EFF10__frontbin": {
+      "is": "func_003EA9A8__frontbin",
+      "why": "frontbin's copy of func_003F02C8: the same 8 bytes at 0x003EA9A8 after the same 36-byte remnant (PAL 0x003EFEE8, NTSC-U 0x003EA980)"
+    },
+    "func_003F0700__frontbin": {
+      "is": "func_003EB178__frontbin",
+      "why": "frontbin's copy of func_003F0AB8: the same 8 bytes at 0x003EB178 after the same 20-byte remnant (PAL 0x003F06E8, NTSC-U 0x003EB160), the only place they occur"
+    },
+    "func_003A2DC8__frontbin": {
+      "is": "func_0039DB38__frontbin",
+      "why": "config/us/names.tsv places frontbin's func_003A2DC8 at 0x0039DB38; its inventory gives the same 2412-byte extent. Both discs' frontbin programs give one masked instruction-window match there, with all 603 words matching apart from relocated calls and flick-history lookback bounds at +0x7F0 and +0x850 (3 to 4, 4 to 5). The paired NTSC-U update 0x0039E4B0 calls this reader at +0xE8 and +0x3B0. The release keeps the reader from assembly, not PAL's C."
+    },
+    "func_L01_00460980": {
+      "is": "func_003A2F98",
+      "why": "Veldin's clear is byte-identical for all 240 bytes at PAL 0x00460980 and NTSC-U 0x0045D4D8, the only masked-window match. config/us/levels/functions.tsv names the NTSC-U row func_003A2F98, kind boot_elf, with 34 level places and the same da03d6c8989f4d0d digest as PAL's func_003A2CD8 row; the host symbol is the catalogue's boot name, not a fabricated L01 name."
+    },
+    "func_L01_00460A70": {
+      "is": "func_L01_0045D5C8",
+      "why": "PAL's func_003A2DC8 row places the reader at L01 0x00460A70; NTSC-U's func_0039DB38 frontbin row places it at L01 0x0045D5C8. Both discs' Veldin programs give one masked-window match there across all 603 words, differing only in three relocated calls and the two NTSC-U flick-history lookback bounds also present in frontbin. The paired NTSC-U update 0x0045DF40 calls 0x0045D5C8 at +0xE8 and +0x3B0."
+    }
+  },
+  "addresses": {
+    "about": "NTSC-U's value of a PAL address the shared host C writes as RAC3_ADDR() that no global of names.tsv gives: PAL's address, NTSC-U's, the evidence.",
+    "0x001D4CF4": {
+      "is": "0x001D4CF4",
+      "why": "the active pad's not-ready flag the pad update writes ($gp - 0x7BBC: NTSC-U's func_003A3A00 stores to it as PAL's func_003A3B40 does, asm/us/boot_elf/13_text/f_003A3A00.s at 0x003A3A64, and both programs' $gp is 0x001DC8B0, config/gp.tsv)"
+    },
+    "0x001D55D0": {
+      "is": "0x001D55D0",
+      "why": "the two font headers (FontUpload func_0038E2B0 reads them, FontSelect func_0038E530 copies the selected one's into 0x001D55C0): NTSC-U's boot program registers a font's header at the same address (f_0038E140: lui 0x1D, addiu 0x55D0, the font's index times 4, sw), and Veldin's FontSelect reads it there too (f_0040D548)"
+    },
+    "0x001A4D30": {
+      "is": "0x001A4D30",
+      "why": "hero_carried, hero + 0x150: the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes hero_carried at NTSC-U 0x001A4D30"
+    },
+    "0x001A50E0": {
+      "is": "0x001A50E0",
+      "why": "hero_ledge_block, hero + 0x500 (rac3-decomp include/structs/hero.h); the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes the block at NTSC-U 0x001A50E0"
+    },
+    "0x001439F4": {
+      "is": "0x001439F4",
+      "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_004D0E90 (NTSC-U func_L01_004CD1D0) +0x68, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
+    },
+    "0x00143A70": {
+      "is": "0x00143A70",
+      "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_0049FBC8 (NTSC-U func_L01_0049C368) +0x1DC, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
+    },
+    "0x001A71A0": {
+      "is": "0x001A71A0",
+      "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_003090E0 (NTSC-U func_L01_00308E58) +0x80, 31 of 31 places agree"
+    },
+    "0x00142660": {
+      "is": "0x00142660",
+      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x120, 34 of 34 places agree"
+    },
+    "0x00142668": {
+      "is": "0x00142668",
+      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00301798 (NTSC-U func_L01_003015F0) +0x94, 3 of 3 places agree"
+    },
+    "0x001427F0": {
+      "is": "0x001427F0",
+      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0030F0B0 (NTSC-U func_L01_0030EDC0) +0xC0, 18 of 18 places agree"
+    },
+    "0x001A4C70": {
+      "is": "0x001A4C70",
+      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004E51A0 (NTSC-U func_L01_004E13D8) +0x20, 3 of 3 places agree"
+    },
+    "0x001A57BC": {
+      "is": "0x001A57BC",
+      "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001A5780 and 0x001A57F8, both moved by +0x0 (NTSC-U 0x001A5780, 0x001A57F8)"
+    },
+    "0x001A5E08": {
+      "is": "0x001A5E08",
+      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0034DBE8 (NTSC-U func_L01_0034D168) +0x8, 3 of 3 places agree"
+    },
+    "0x001A71A4": {
+      "is": "0x001A71A4",
+      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_003261E8 (NTSC-U func_L01_00325CE8) +0x100, 8 of 8 places agree"
+    },
+    "0x001A71D2": {
+      "is": "0x001A71D2",
+      "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001A71C5 and 0x001A71D4, both moved by +0x0 (NTSC-U 0x001A71C5, 0x001A71D4)"
+    },
+    "0x001BBC40": {
+      "is": "0x001BBC40",
+      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x78, 24 of 24 places agree"
+    },
+    "0x001C5290": {
+      "is": "0x001C5290",
+      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00325F60 (NTSC-U func_L01_00325A60) +0xA8, 2 of 2 places agree"
+    },
+    "0x001D4C40": {
+      "is": "0x001D4C40",
+      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004CA270 (NTSC-U func_L01_004C6638) +0x138, 7 of 7 places agree"
+    },
+    "0x001D4CA0": {
+      "is": "0x001D4CA0",
+      "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001D4C80 and 0x001D4CA8, both moved by +0x0 (NTSC-U 0x001D4C80, 0x001D4CA8)"
+    }
+  },
+  "libraries_left_out": {
+    "func_003A2BC0__frontbin": "PAL-only overlay pad startup: NTSC-U's boot caller 0x003984CC initializes the core records through 0x003A2E80; frontbin enters at 0x0037D200 and calls the existing-pad iterator 0x0039E8E0 at +0x400 and +0x8D4 without pad/library initialization. Its records start at 0x001D5680, above the retained pad records and core pointers; no NTSC startup is invented or substituted.",
+    "func_L01_00460868": "PAL-only overlay pad startup: NTSC-U's level 1 entry 0x003EE988 uses iterator 0x0045E370 and updater 0x0045DF40 on the boot-initialized core pad records. All 34 NTSC-U SP programs start their records at 0x001D5680, overlap no pad/core-pointer state, and have no calls to pad/library init or port open and no GP-relative stores to the port-one core pointers. Preserve that lifecycle rather than bind a nonexistent overlay initializer.",
+    "func_003AA3C8__frontbin": "DrawWidgetSpriteFrontbin: since rac3-decomp f9ea1754 NTSC-U's release view names PAL's frontbin func_003AA3C8 func_003A4E70 without its program's suffix, so frontbin's C calls a stub and the row would bind the boot program's address (inside func_003A4688); left out until the release view names it as frontbin's again"
+  },
+  "pad_lifecycle_why": "The NTSC-U initializer 0x003A2E80 is the boot program's real entry, one relocated clear call being its only difference from PAL's 280-byte initializer. It initializes eight 0x5C0-byte records at 0x001CD0C0..0x001CFEC0 and pointers at 0x001D52FC/5300/5304. Overlay loads begin at 0x001D5680 and retain those records plus the ready flag 0x001D4CF4. Frontbin and Veldin have no direct calls or data pointers to boot pad init/clear or pad-library init/open; PAL's frontbin clear belongs only to its omitted overlay initializer, not to the NTSC update graph. The updater field offsets and core GP references agree across releases; only calls and the switch-table address at +0x7C differ. Keep NTSC reader instructions and remove PAL-only startup dependencies from its compiled update graph, not by pairing another program's symbol or adding stubs.",
+  "globals": {
+    "about": "NTSC-U's value of a global of the executable that the C of a match function reads and config/us/names.tsv gives no boot_elf row for (release_rac3.py): PAL's name, NTSC-U's address, the evidence.",
+    "D_00225BC0": {
+      "is": "0x00225C40",
+      "why": "func_003877A0 (NTSC-U func_00387778, match): its four quadword stores of the clip view read addiu 0x5BC0 on PAL and 0x5C40 on NTSC-U, the only other difference its +0x80 neighbours (0x5900 -> 0x5980); names.tsv gives frontbin's D_00225BC0 the same 00225C40"
+    },
+    "D_001D8530": {
+      "is": "0x001D8530",
+      "why": "func_003ADB90 (NTSC-U func_003AD9F0, match): every instruction but its jals is the same on both discs, so D_001D8530 (formed in it) is at the same address; names.tsv gives frontbin's D_001D8530 the same 001D8530"
+    },
+    "D_001D9DD4_003A76A0": {
+      "is": "0x001D9E54",
+      "why": "func_003A76A0 (NTSC-U func_003A7528, match): its read of the table's second word is lw -0x6228 (0x001D9DD8) on PAL and lw -0x61A8 (0x001D9E58) on NTSC-U; names.tsv gives func_003A72A0's alias D_001D9DD4_003A72A0 the same 001D9E54"
+    }
+  },
+  "front_globals": {
+    "about": "NTSC-U's value of a global of the front end (frontbin, a program of its own) that the C of a match function of frontbin reads and config/us/names.tsv gives a boot_elf row only for (release_rac3.py): PAL's name, NTSC-U's address in frontbin, the evidence. The boot program's row is another datum: frontbin's .text starts at 0x0037D100 on NTSC-U (README.md), PAL's at 0x00381080 as the boot program's.",
+    "D_0037FBE0": {
+      "is": "0x0037BC30",
+      "why": "func_003BD030 (NTSC-U func_003B7B50, match), the scene switch's callbacks (value, init, step, event, render, finish; 24 bytes a row): its instruction 0x1C0 is addiu -0x420 on lui 0x0038 (0x0037FBE0) on PAL, addiu -0x43D0 (0x0037BC30) on NTSC-U, in frontbin as loaded (RAM dumps of both discs); frontbin's 1,778 comparable twins of map.tsv reach it so with no other vote, and its neighbours D_0037FA64 (0x0037BAB4) and D_0037FFE8 (0x0037C038) in names.tsv move the same -0x3FB0. The boot program's 0x0037FC70 is frontbin's code there: its row 8 read the words 0x7FA300C0, 0x27B000D0, 0x27A500A0 and 0x0C0EFCBE as init, step, event and render, and New Game from frontbin never left the loading screen"
+    },
+    "D_0037FCB8": {
+      "is": "0x0037BD08",
+      "why": "func_003BD030 (NTSC-U func_003B7B50, match), the scene switch's rules (from, to, row, two arguments; 16 bytes each): its instruction 0x114 is addiu -0x348 on lui 0x0038 (0x0037FCB8) on PAL, addiu -0x42F8 (0x0037BD08) on NTSC-U, in frontbin as loaded; the twins reach it so with no other vote, the same -0x3FB0 as D_0037FBE0. At the boot program's 0x0037FD48, frontbin's code, no rule matched and the switch took the default row 8"
+    }
+  },
+  "level_addresses": {
+    "about": "NTSC-U's address of a PAL level's global the shared host C writes as RAC3_LADDR(level, address): Lnn:PAL's address, NTSC-U's, the evidence (rac3_level_pairs.py).",
+    "L01:001DF960": {
+      "is": "001DF9E0",
+      "why": "the same instruction of the same code: func_L01_004B9810 (NTSC-U func_L01_004B5C78) +0x2C8, 1 of 1 places agree"
+    },
+    "L01:001D64F0": {
+      "is": "001D64F0",
+      "why": "between the same code's 0x001D64E8 and 0x001D64FA, both moved by +0x0 (NTSC-U 0x001D64E8, 0x001D64FA)"
+    },
+    "L01:001D64F4": {
+      "is": "001D64F4",
+      "why": "between the same code's 0x001D64E8 and 0x001D64FA, both moved by +0x0 (NTSC-U 0x001D64E8, 0x001D64FA)"
+    },
+    "L01:001E2A40": {
+      "is": "001E2AC0",
+      "why": "the same instruction of the same code: func_L01_00313708 (NTSC-U func_L01_00313400) +0x5C, 65 of 65 places agree"
+    },
+    "L01:002C5600": {
+      "is": "002C5640",
+      "why": "the same instruction of the same code: func_L01_00305880 (NTSC-U func_L01_00305620) +0x24, 133 of 133 places agree"
+    },
+    "L01:001D6694": {
+      "is": "001D6694",
+      "why": "the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 46 of 46 places agree"
+    },
+    "L01:001DBCA4": {
+      "is": "001DBCE4",
+      "why": "between the same code's 0x001DBCA0 and 0x001DBCBC, both moved by +0x40 (NTSC-U 0x001DBCE0, 0x001DBCFC)"
+    },
+    "L01:001DF97C": {
+      "is": "001DF9FC",
+      "why": "the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x68, 2 of 2 places agree"
+    },
+    "L01:001E0050": {
+      "is": "001E00D0",
+      "why": "between the same code's 0x001E002C and 0x001E0054, both moved by +0x80 (NTSC-U 0x001E00AC, 0x001E00D4)"
+    },
+    "L01:001E0278": {
+      "is": "001E02F8",
+      "why": "the same instruction of the same code: func_L01_004618E8 (NTSC-U func_L01_0045E440) +0x1C, 5 of 5 places agree"
+    },
+    "L01:001E0280": {
+      "is": "001E0300",
+      "why": "the same instruction of the same code: func_L01_004618E8 (NTSC-U func_L01_0045E440) +0xC, 8 of 8 places agree"
+    },
+    "L01:001E0E10": {
+      "is": "001E0E90",
+      "why": "between the same code's 0x001E0DF0 and 0x001E0E90, both moved by +0x80 (NTSC-U 0x001E0E70, 0x001E0F10)"
+    },
+    "L01:001E1068": {
+      "is": "001E10E8",
+      "why": "the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x6C, 96 of 96 places agree"
+    },
+    "L01:001E29E0": {
+      "is": "001E2A60",
+      "why": "the same instruction of the same code: func_L01_003649E8 (NTSC-U func_L01_00363C60) +0x74, 13 of 13 places agree"
+    },
+    "L01:001E2AA0": {
+      "is": "001E2B20",
+      "why": "the same instruction of the same code: func_L01_003E4428 (NTSC-U func_L01_003E2638) +0x14, 8 of 8 places agree"
+    },
+    "L01:001E2B90": {
+      "is": "001E2C10",
+      "why": "the same instruction of the same code: func_L01_003E7000 (NTSC-U func_L01_003E5198) +0x44, 5 of 5 places agree"
+    },
+    "L01:001E7580": {
+      "is": "001E7600",
+      "why": "the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 9 of 9 places agree"
+    },
+    "L01:001E7880": {
+      "is": "001E7900",
+      "why": "the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x88, 1 of 1 places agree"
+    },
+    "L01:001EA840": {
+      "is": "001EA8C0",
+      "why": "between the same code's 0x001EA7C0 and 0x001EA940, both moved by +0x80 (NTSC-U 0x001EA840, 0x001EA9C0)"
+    },
+    "L01:00220A40": {
+      "is": "00220AC0",
+      "why": "between the same code's 0x00220840 and 0x00220E40, both moved by +0x80 (NTSC-U 0x002208C0, 0x00220EC0)"
+    },
+    "L12:001D66E4": {
+      "is": "001D66E4",
+      "why": "the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 46 of 46 places agree"
+    },
+    "L19:001D66D4": {
+      "is": "001D66D4",
+      "why": "the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 48 of 48 places agree"
+    },
+    "L39:0024CAD0": {
+      "is": "0024CBD0",
+      "why": "the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x6C, 95 of 95 places agree"
+    },
+    "L39:0024DE20": {
+      "is": "0024DF20",
+      "why": "the same instruction of the same code: func_L39_0067A4E0 (NTSC-U func_L39_00677AE8) +0x18, 1 of 1 places agree"
+    },
+    "L39:0025D6C0": {
+      "is": "0025D7C0",
+      "why": "the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 10 of 10 places agree"
+    },
+    "L39:0025F580": {
+      "is": "0025F680",
+      "why": "the same instruction of the same code: func_L39_005B25C8 (NTSC-U func_L39_005B06C8) +0xE8, 1 of 1 places agree"
+    },
+    "L01:001DCA14": {
+      "is": "001DCA54",
+      "why": "the same instruction of the same code: func_L01_00325F60 (NTSC-U func_L01_00325A60) +0x70, 3 of 3 places agree"
+    },
+    "L01:001E001C": {
+      "is": "001E009C",
+      "why": "the same instruction of the same code: func_L01_002FBB10 (NTSC-U func_L01_002FBAE8) +0x58, 185 of 185 places agree"
+    },
+    "L01:001E0024": {
+      "is": "001E00A4",
+      "why": "the same instruction of the same code: func_L01_00438EA0 (NTSC-U func_L01_00435DE0) +0x10, 39 of 39 places agree"
+    },
+    "L01:001E0100": {
+      "is": "001E0180",
+      "why": "the same instruction of the same code: func_L01_00325F60 (NTSC-U func_L01_00325A60) +0x23C, 21 of 21 places agree"
+    },
+    "L01:001DFD0C": {
+      "is": "001DFD8C",
+      "why": "the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x160, 6 of 6 places agree"
+    },
+    "L01:001DFD20": {
+      "is": "001DFDA0",
+      "why": "the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x8, 1 of 1 places agree"
+    },
+    "L01:001DFD24": {
+      "is": "001DFDA4",
+      "why": "the same instruction of the same code: func_L01_0041C4A0 (NTSC-U func_L01_00419D98) +0x34, 4 of 4 places agree"
+    },
+    "L01:002E60D0": {
+      "is": "002E6110",
+      "why": "the same instruction of the same code: func_L01_0041BFE8 (NTSC-U func_L01_004198E0) +0xC, 3 of 3 places agree"
+    },
+    "L39:0024BF90": {
+      "is": "0024C090",
+      "why": "the same instruction of the same code: func_L39_005B25C8 (NTSC-U func_L39_005B06C8) +0x1B8, 1 of 1 places agree"
+    },
+    "L01:001DF988": {
+      "is": "001DFA08",
+      "why": "the same instruction of the same code: func_L01_00404808 (NTSC-U func_L01_00402498) +0x4, 5 of 5 places agree"
+    },
+    "L01:001DF98C": {
+      "is": "001DFA0C",
+      "why": "the same instruction of the same code: func_L01_00404A10 (NTSC-U func_L01_004026A0) +0x4, 4 of 4 places agree"
+    },
+    "L01:001DF990": {
+      "is": "001DFA10",
+      "why": "the same instruction of the same code: func_L01_004048D0 (NTSC-U func_L01_00402560) +0x4, 4 of 4 places agree"
+    },
+    "L01:001DF994": {
+      "is": "001DFA14",
+      "why": "the same instruction of the same code: func_L01_00404998 (NTSC-U func_L01_00402628) +0x8, 2 of 2 places agree"
+    },
+    "L01:001DF998": {
+      "is": "001DFA18",
+      "why": "the same instruction of the same code: func_L01_00404AD8 (NTSC-U func_L01_00402768) +0x20, 1 of 1 places agree"
+    },
+    "L01:001DF9A8": {
+      "is": "001DFA28",
+      "why": "the same instruction of the same code: func_L01_00404AD8 (NTSC-U func_L01_00402768) +0x2C, 1 of 1 places agree"
+    },
+    "L01:001DF9B8": {
+      "is": "001DFA38",
+      "why": "the same instruction of the same code: func_L01_00404AD8 (NTSC-U func_L01_00402768) +0x4, 2 of 2 places agree"
+    },
+    "L01:001E2880": {
+      "is": "001E2900",
+      "why": "the same instruction of the same code: func_L01_00305D30 (NTSC-U func_L01_00305AD0) +0x68, 18 of 18 places agree"
+    },
+    "L01:001E8480": {
+      "is": "001E8500",
+      "why": "the same instruction of the same code: func_L01_00404808 (NTSC-U func_L01_00402498) +0x2C, 2 of 2 places agree"
+    },
+    "L01:001E8580": {
+      "is": "001E8600",
+      "why": "the same instruction of the same code: func_L01_00404808 (NTSC-U func_L01_00402498) +0x24, 2 of 2 places agree"
+    },
+    "L01:001E8680": {
+      "is": "001E8700",
+      "why": "the same instruction of the same code: func_L01_00404A10 (NTSC-U func_L01_004026A0) +0x2C, 2 of 2 places agree"
+    },
+    "L01:001E8780": {
+      "is": "001E8800",
+      "why": "the same instruction of the same code: func_L01_00404A10 (NTSC-U func_L01_004026A0) +0x24, 2 of 2 places agree"
+    },
+    "L01:001E8880": {
+      "is": "001E8900",
+      "why": "the same instruction of the same code: func_L01_004048D0 (NTSC-U func_L01_00402560) +0x2C, 2 of 2 places agree"
+    },
+    "L01:001E8980": {
+      "is": "001E8A00",
+      "why": "the same instruction of the same code: func_L01_004048D0 (NTSC-U func_L01_00402560) +0x24, 2 of 2 places agree"
+    },
+    "L01:001E8A80": {
+      "is": "001E8B00",
+      "why": "the same instruction of the same code: func_L01_00404998 (NTSC-U func_L01_00402628) +0x30, 1 of 1 places agree"
+    },
+    "L01:001E8B80": {
+      "is": "001E8C00",
+      "why": "the same instruction of the same code: func_L01_00404998 (NTSC-U func_L01_00402628) +0x2C, 1 of 1 places agree"
+    },
+    "L01:001E1060": {
+      "is": "001E10E0",
+      "why": "the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x44, 8 of 8 places agree"
+    },
+    "L01:001E1074": {
+      "is": "001E10F4",
+      "why": "the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x3C, 8 of 8 places agree"
+    },
+    "L01:001E6DB4": {
+      "is": "001E6E34",
+      "why": "the same instruction of the same code: func_L01_00423DF0 (NTSC-U func_L01_004210C0) +0x8, 2 of 2 places agree"
+    },
+    "L01:001EA7C0": {
+      "is": "001EA840",
+      "why": "the same instruction of the same code: func_L01_0047E908 (NTSC-U func_L01_0047B0A8) +0x124, 13 of 13 places agree"
+    },
+    "L01:00404858": {
+      "is": "004024E8",
+      "why": "the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404858's twin is NTSC-U's func_L01_004024E8, the pair rac3-ntsc's carried libraries.tsv binds"
+    },
+    "L01:00404A60": {
+      "is": "004026F0",
+      "why": "the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404A60's twin is NTSC-U's func_L01_004026F0, the pair rac3-ntsc's carried libraries.tsv binds"
+    },
+    "L01:00404920": {
+      "is": "004025B0",
+      "why": "the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404920's twin is NTSC-U's func_L01_004025B0, the pair rac3-ntsc's carried libraries.tsv binds"
+    },
+    "L01:00404998": {
+      "is": "00402628",
+      "why": "the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404998's twin is NTSC-U's func_L01_00402628, the pair rac3-ntsc's carried libraries.tsv binds"
+    },
+    "L01:00404B28": {
+      "is": "004027B8",
+      "why": "the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404B28's twin is NTSC-U's func_L01_004027B8, the pair rac3-ntsc's carried libraries.tsv binds"
+    },
+    "L02:001DE4C0": {
+      "is": "001DE540",
+      "why": "the same instruction of the same code: func_L01_0032FF68 (NTSC-U func_L01_0032FA40) +0x8, 47 of 47 places agree"
+    },
+    "L02:001E1140": {
+      "is": "001E11C0",
+      "why": "the same instruction of the same code: func_L01_00305D30 (NTSC-U func_L01_00305AD0) +0x68, 21 of 21 places agree"
+    },
+    "L02:0026EB80": {
+      "is": "0026EC00",
+      "why": "the same instruction of the same code: func_L02_0030FC68 (NTSC-U func_L02_0030F930) +0x1C, 3 of 3 places agree"
+    },
+    "L01:001D64EC": {
+      "is": "001D64EC",
+      "why": "between the same code's 0x001D64E8 and 0x001D64FA, both moved by +0x0 (NTSC-U 0x001D64E8, 0x001D64FA)"
+    },
+    "L01:001DF948": {
+      "is": "001DF9C8",
+      "why": "the same instruction of the same code: func_L01_003F1478 (NTSC-U func_L01_003EF538) +0xD0, 24 of 24 places agree"
+    },
+    "L39:00245BB4": {
+      "is": "00245D34",
+      "why": "between the same code's 0x00245BB0 and 0x00245BCC, both moved by +0x180 (NTSC-U 0x00245D30, 0x00245D4C)"
+    },
+    "L39:0024BD00": {
+      "is": "0024BE00",
+      "why": "the same instruction of the same code: func_L39_0059C910 (NTSC-U func_L39_0059B580) +0x4, 2 of 2 places agree"
+    },
+    "L39:0024BD04": {
+      "is": "0024BE04",
+      "why": "the same instruction of the same code: func_L39_00589538 (NTSC-U func_L39_005883C8) +0x9C, 5 of 5 places agree"
+    },
+    "L39:00575CC8": {
+      "is": "00574F88",
+      "why": "the level program's entry (its ELF header: PAL 0x00575CC8, NTSC-U 0x00574F88)"
+    },
+    "L01:001E0020": {
+      "is": "001E00A0",
+      "why": "the same instruction of the same code: func_L01_0042AF50 (NTSC-U func_L01_004281A8) +0xB8, 19 of 19 places agree"
+    },
+    "L39:0024B9FC": {
+      "is": "0024BAFC",
+      "why": "the same instruction of the same code: func_L39_00589538 (NTSC-U func_L39_005883C8) +0x40, 6 of 6 places agree"
+    },
+    "L39:0024BCEC": {
+      "is": "0024BDEC",
+      "why": "between the same code's 0x0024BCE4 and 0x0024BCF8, both moved by +0x100 (NTSC-U 0x0024BDE4, 0x0024BDF8)"
+    },
+    "L39:0024C188": {
+      "is": "0024C288",
+      "why": "the same instruction of the same code: func_L01_004C97C8 (NTSC-U func_L01_004C5C08) +0x28, 4 of 4 places agree"
+    },
+    "L39:0024C190": {
+      "is": "0024C290",
+      "why": "the same instruction of the same code: func_L01_004C97C8 (NTSC-U func_L01_004C5C08) +0x8, 6 of 6 places agree"
+    },
+    "L39:0024C940": {
+      "is": "0024CA40",
+      "why": "between the same code's 0x0024C920 and 0x0024C9A0, both moved by +0x100 (NTSC-U 0x0024CA20, 0x0024CAA0)"
+    },
+    "L39:0025D9C0": {
+      "is": "0025DAC0",
+      "why": "the same instruction of the same code: func_L39_0059C910 (NTSC-U func_L39_0059B580) +0x60, 3 of 3 places agree"
+    },
+    "L39:002961C0": {
+      "is": "002962C0",
+      "why": "between the same code's 0x00294FC0 and 0x002965C0, both moved by +0x100 (NTSC-U 0x002950C0, 0x002966C0)"
+    },
+    "L01:001E0D70": {
+      "is": "001E0DF0",
+      "why": "between the same code's 0x001E0D30 and 0x001E0DC0, both moved by +0x80 (NTSC-U 0x001E0DB0, 0x001E0E40)"
+    },
+    "L01:001E0D80": {
+      "is": "001E0E00",
+      "why": "between the same code's 0x001E0D30 and 0x001E0DC0, both moved by +0x80 (NTSC-U 0x001E0DB0, 0x001E0E40)"
+    },
+    "L01:001E0D90": {
+      "is": "001E0E10",
+      "why": "between the same code's 0x001E0D30 and 0x001E0DC0, both moved by +0x80 (NTSC-U 0x001E0DB0, 0x001E0E40)"
+    },
+    "L01:001E0DB0": {
+      "is": "001E0E30",
+      "why": "between the same code's 0x001E0D30 and 0x001E0DC0, both moved by +0x80 (NTSC-U 0x001E0DB0, 0x001E0E40)"
+    },
+    "L01:001FCB40": {
+      "is": "001FCBC0",
+      "why": "the same instruction of the same code: func_L01_00444F38 (NTSC-U func_L01_00441E00) +0xEC, 2 of 2 places agree"
+    },
+    "L39:0024C8A0": {
+      "is": "0024C9A0",
+      "why": "between the same code's 0x0024C890 and 0x0024C8F0, both moved by +0x100 (NTSC-U 0x0024C990, 0x0024C9F0)"
+    },
+    "L39:0024C8B0": {
+      "is": "0024C9B0",
+      "why": "between the same code's 0x0024C890 and 0x0024C8F0, both moved by +0x100 (NTSC-U 0x0024C990, 0x0024C9F0)"
+    },
+    "L39:0024C8C0": {
+      "is": "0024C9C0",
+      "why": "between the same code's 0x0024C890 and 0x0024C8F0, both moved by +0x100 (NTSC-U 0x0024C990, 0x0024C9F0)"
+    },
+    "L39:0024C8E0": {
+      "is": "0024C9E0",
+      "why": "between the same code's 0x0024C890 and 0x0024C8F0, both moved by +0x100 (NTSC-U 0x0024C990, 0x0024C9F0)"
+    },
+    "L39:00271500": {
+      "is": "00271600",
+      "why": "the same instruction of the same code: func_L01_00444F38 (NTSC-U func_L01_00441E00) +0xEC, 2 of 2 places agree"
+    },
+    "L02:001E5E40": {
+      "is": "001E5EC0",
+      "why": "the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 13 of 13 places agree"
+    },
+    "L02:001D5477": {
+      "is": "001D5477",
+      "why": "the same instruction of the same code: func_L01_003F1E98 (NTSC-U func_L01_003EFF58) +0x20, 4 of 4 places agree"
+    },
+    "L02:001DC568": {
+      "is": "001DC5A8",
+      "why": "between the same code's 0x001DC518 and 0x001DC570, both moved by +0x40 (NTSC-U 0x001DC558, 0x001DC5B0)"
+    },
+    "L02:001E00D4": {
+      "is": "001E0154",
+      "why": "the same instruction of the same code: func_L02_003102A8 (NTSC-U func_L02_0030FF70) +0x10, 5 of 5 places agree"
+    },
+    "L02:001E00DC": {
+      "is": "001E015C",
+      "why": "the same instruction of the same code: func_L02_0030FC68 (NTSC-U func_L02_0030F930) +0x280, 1 of 1 places agree"
+    },
+    "L02:001E00E0": {
+      "is": "001E0160",
+      "why": "the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0x84, 1 of 1 places agree"
+    },
+    "L02:001E00E4": {
+      "is": "001E0164",
+      "why": "the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0x78, 1 of 1 places agree"
+    },
+    "L02:001E00E8": {
+      "is": "001E0168",
+      "why": "the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0xB4, 1 of 1 places agree"
+    },
+    "L02:001E00EC": {
+      "is": "001E016C",
+      "why": "the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0xAC, 1 of 1 places agree"
+    }
+  },
+  "mp_hostgen": {
+    "about": "Keys over rac3-pal's carried mp/hostgen.json (the multiplayer executable, I5BOOTN.ELF).",
+    "id": "rac3-ntsc-mp",
+    "title": "Ratchet & Clank: Up Your Arsenal (NTSC-U), multiplayer",
+    "serial": "SCUS_973.53",
+    "frame_rate": 60,
+    "tick_rate": 60,
+    "asm": {
+      "gp": "0x00248140",
+      "retail": {
+        "image": "baserom/SCUS_973.53.iso"
+      }
+    },
+    "gp_why": "NTSC-U's level 39 $gp (config/gp.tsv), the program the executable runs its menus in, as PAL's 0x00247FC0 is both",
+    "host_dir": "../host",
+    "host_shared": [
+      "../../rac3-pal/host"
+    ],
+    "host_why": "the shared host C (rac3-pal's), read through rac3-ntsc's host/rac3_names.tsv, as the NTSC-U program's own",
+    "relocate": [
+      2366336,
+      7340032
+    ],
+    "relocate_why": "the programs' range from level 39's .lit, NTSC-U's 0x00241B80 (its level ELF; PAL's .lit starts at 0x00241A00, the boot program's rule: the first loaded program's .lit), up to 0x00700000 as PAL's",
+    "inner_extents": {
+      "places": "config/us/levels/functions.tsv"
+    },
+    "level_copies": {
+      "places": "config/us/levels/functions.tsv"
+    }
+  },
+  "mp_addresses": {
+    "about": "NTSC-U's address of a multiplayer executable global the host C writes as RAC3_MADDR(address) that rac3_mp_pairs.py does not pair: PAL's address, NTSC-U's, why.",
+    "0x00241458": {
+      "is": "0x002415D8",
+      "why": "the two font headers: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U adds 0x15D8 to 0x00240000)"
+    },
+    "0x00241470": {
+      "is": "0x002415F0",
+      "why": "the font FontSelect chose last: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U's map copies store it at 0x002415F0)"
+    },
+    "0x00241CE8": {
+      "is": "0x00241E68",
+      "why": "the core's pointer to the current font's page handles: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U reads 0x00241E68 beside 0x00241E6C)"
+    },
+    "0x00241CEC": {
+      "is": "0x00241E6C",
+      "why": "the core's pointer to the current font's palette handles, beside 0x00241CE8: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00)"
+    },
+    "0x00242820": {
+      "is": "0x002429A0",
+      "why": "level 39's (and the maps') pointer to the current font's page handles: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U's map copies store 0x002429A0)"
+    },
+    "0x00242824": {
+      "is": "0x002429A4",
+      "why": "level 39's (and the maps') pointer to the palette handles, beside 0x00242820: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00)"
+    },
+    "0x00230000": {
+      "is": "0x00230000",
+      "why": "the screen whose size (+0x150, +0x152) SetScissor keeps its rectangle within: PAL mp_func_00299218 and NTSC-U mp_func_002991F8, the same instructions, both read 0x00230150 and 0x00230152"
+    },
+    "0x002412DC": {
+      "is": "0x0024145C",
+      "why": "the level whose program is loaded: read at $gp - 0x6CE4 in both cores (PAL 0x00199150, 0x002945BC, 0x00295534 with $gp 0x00247FC0; NTSC-U 0x00199290, 0x00295524 with $gp 0x00248140)"
+    }
+  }
+}

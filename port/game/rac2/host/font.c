@@ -14,8 +14,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "gui_texts.h"
 #include "openrac/guest.h"
 #include "rac2.h"
+#include "ui_quads.h"
 
 unsigned long long func_0027C878(int index);
 int func_0027F178(gaddr text, int length);
@@ -42,56 +44,91 @@ int func_00336A40(gaddr object);
 #define FONT_SMALL RAC2_ADDR(0x00263EF0u)
 #define FONT_THIRD RAC2_ADDR(0x00264290u)
 
+static void record_print(
+    int x, int y, uint32_t colour, gaddr text, int length, int width, gaddr table
+);
+
 /* Print in the large font (texture 1) and the small one (texture 2). */
 void func_0027F538(int x, int y, int style, gaddr text, int length) {
+    record_print(
+        x, y, (uint32_t)style, text, length, func_0027F178(text, length), OPENRAC_DATA(FONT_LARGE)
+    );
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(1), (int)OPENRAC_DATA(FONT_LARGE));
 }
 
+gaddr rac2_save_score_text(gaddr text); /* save_marks.c */
+
 void func_0027F5B8(int x, int y, int style, gaddr text, int length) {
+    text = rac2_save_score_text(text);
+    record_print(
+        x, y, (uint32_t)style, text, length, func_0027F198(text, length), OPENRAC_DATA(FONT_SMALL)
+    );
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(2), (int)OPENRAC_DATA(FONT_SMALL));
 }
 
 /* Right-aligned (x is the right edge). */
 void func_0027F980(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F178(text, length);
+    record_print(
+        x, y, (uint32_t)style, text, length, func_0027F178(text, length), OPENRAC_DATA(FONT_LARGE)
+    );
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(1), (int)OPENRAC_DATA(FONT_LARGE));
 }
 
 void func_0027FA10(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F198(text, length);
+    record_print(
+        x, y, (uint32_t)style, text, length, func_0027F198(text, length), OPENRAC_DATA(FONT_SMALL)
+    );
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(2), (int)OPENRAC_DATA(FONT_SMALL));
 }
 
 /* Centred on x; the left edge is returned. */
 int func_0027FAA8(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F178(text, length) >> 1;
+    record_print(
+        x, y, (uint32_t)style, text, length, func_0027F178(text, length), OPENRAC_DATA(FONT_LARGE)
+    );
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(1), (int)OPENRAC_DATA(FONT_LARGE));
     return x;
 }
 
 int func_0027FB40(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F198(text, length) >> 1;
+    record_print(
+        x, y, (uint32_t)style, text, length, func_0027F198(text, length), OPENRAC_DATA(FONT_SMALL)
+    );
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(2), (int)OPENRAC_DATA(FONT_SMALL));
     return x;
 }
 
 int func_0027FBD8(int x, int y, int style, gaddr text, int length) {
     x -= func_0027F1B8(text, length) >> 1;
+    record_print(
+        x, y, (uint32_t)style, text, length, func_0027F1B8(text, length), OPENRAC_DATA(FONT_THIRD)
+    );
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(3), (int)OPENRAC_DATA(FONT_THIRD));
     return x;
 }
 
-/* The same through 0x0027FC70, which takes no style. */
+/* The same through 0x0027FC70: text wrapped in a box (x is the box, y the colour). Their button
+ * icons are found by their glyphs (ui2d.c). */
 void func_00280190(int x, int y, gaddr text, int length) {
+    openrac_rac2_box_text_begin(OPENRAC_DATA(FONT_LARGE));
     func_0027FC70(x, y, (int)text, length, func_0027C878(1), (int)OPENRAC_DATA(FONT_LARGE));
+    openrac_rac2_box_text_end();
 }
 
 void func_00280200(int x, int y, gaddr text, int length) {
+    openrac_rac2_box_text_begin(OPENRAC_DATA(FONT_SMALL));
     func_0027FC70(x, y, (int)text, length, func_0027C878(2), (int)OPENRAC_DATA(FONT_SMALL));
+    openrac_rac2_box_text_end();
 }
 
 void func_00280270(int x, int y, gaddr text, int length) {
+    openrac_rac2_box_text_begin(OPENRAC_DATA(FONT_THIRD));
     func_0027FC70(x, y, (int)text, length, func_0027C878(3), (int)OPENRAC_DATA(FONT_THIRD));
+    openrac_rac2_box_text_end();
 }
 
 static float f32_at(gaddr a) {
@@ -104,6 +141,64 @@ static int32_t s32_at(gaddr a) {
     int32_t v;
     memcpy(&v, G(a), sizeof v);
     return v;
+}
+
+/* The texts drawn since the keyboard and mouse last took them (gui_texts.h). */
+static openrac_rac2_gui_text g_texts[OPENRAC_RAC2_GUI_TEXTS_MAX];
+static int g_text_count = 0;
+
+int openrac_rac2_take_gui_texts(openrac_rac2_gui_text* out) {
+    const int n = g_text_count;
+    memcpy(out, g_texts, sizeof(g_texts[0]) * (size_t)n);
+    g_text_count = 0;
+    return n;
+}
+
+/* The cell of a text's first button icon: a character whose glyph (4 bytes in the font's table:
+ * u, v, offset, advance) is on row 96 at one of key_prompts.h's cells; -1 for none. */
+static int icon_cell(gaddr text, int length, gaddr table) {
+    static const int cell_u[10] = {0, 24, 48, 72, 96, 120, 144, 168, 208, 232};
+    if (text == 0 || table == 0) {
+        return -1;
+    }
+    const uint8_t* q = (const uint8_t*)G(text);
+    for (int i = 0; q[i] != 0 && i < 256 && (length < 0 || i < length); ++i) {
+        if (q[i] >= 0x20) {
+            continue;
+        }
+        const uint8_t* g = (const uint8_t*)G(table + (gaddr)q[i] * 4u);
+        for (int c = 0; c < 10 && g[1] == 96; ++c) {
+            if (g[0] == cell_u[c]) {
+                return c;
+            }
+        }
+    }
+    return -1;
+}
+
+/* A text of `width` at (x, y) in the font's 16-pixel line at `scale`. */
+static void record_text(
+    gaddr o, float x, float y, int width, float scale, uint32_t colour, int cell
+) {
+    if (g_text_count < OPENRAC_RAC2_GUI_TEXTS_MAX) {
+        openrac_rac2_gui_text* t = &g_texts[g_text_count++];
+        t->element = o;
+        t->colour = colour;
+        t->x0 = x;
+        t->y0 = y;
+        t->x1 = x + (float)width;
+        t->y1 = y + 16.0f * scale;
+        t->cell = cell;
+    }
+}
+
+/* A print, for a click on it: one with a button icon in it as itself (element 0, in no list), a
+ * plain one as an item of a list drawn as prints (element 1, as the cheats' and skill points'). */
+static void record_print(
+    int x, int y, uint32_t colour, gaddr text, int length, int width, gaddr table
+) {
+    const int cell = icon_cell(text, length, table);
+    record_text(cell >= 0 ? 0u : 1u, (float)x, (float)y, width, 1.0f, colour, cell);
 }
 
 /* The GUI's text element draw (0x00336A78, the decompilation's C with the
@@ -133,6 +228,15 @@ void func_00336A78(gaddr o) {
     }
     const int colour = s32_at((gaddr)s32_at(o + 12));
     const unsigned long long tex0 = func_0027C878(s32_at(o + 56));
+    record_text(
+        o,
+        x,
+        f32_at(p0 + 4),
+        width,
+        f32_at(p1),
+        (uint32_t)colour,
+        icon_cell((gaddr)s32_at(o + 64), -1, (gaddr)s32_at(o + 52))
+    );
     func_0027F640(
         x,
         f32_at(p0 + 4),

@@ -44,6 +44,24 @@ u32 wad_compressed_size(ByteView bytes);
 // compressed size are ignored). Throws AssetError on a malformed stream.
 std::vector<u8> wad_decompress(ByteView bytes);
 
+// The stream as the game's own routine reads it (Going Commando's 0x0029D4D0, checked against
+// the NTSC-U disc; Deadlocked's routine uses this too, not checked). Clean streams give the same
+// output as wad_decompress. On a stream whose header and packets disagree (the game's map cache
+// can make one) the routine:
+//   - checks the compressed size only between packets, so the last packet may read past it;
+//   - goes on at the next 0x2000-byte chunk after a pad packet;
+//   - stores 3 little literal bytes, so up to 2 bytes past the output get written;
+//   - lets a match reach back before the output.
+// It traps on a literal packet right after literal bytes; this throws AssetError there.
+// `memory` starts at the header and holds all that may be read; `before` is the memory before
+// the output. `bytes` is what gets written, `size` is the routine's result.
+struct GameWadOutput {
+    std::vector<u8> bytes;
+    std::size_t size = 0;
+};
+
+GameWadOutput wad_decompress_as_game(ByteView memory, ByteView before);
+
 // A WAD stream that wad_decompress turns back into `data`.
 std::vector<u8> wad_compress(ByteView data);
 

@@ -12,6 +12,8 @@ namespace openrac::vkgl::detail {
 struct GraphBinding;
 
 [[nodiscard]] bool graph_pipeline_active();
+// A viewport diagnostic may write only an attachment declared writable by the owning pass.
+[[nodiscard]] bool graph_colour_write_allowed(const Target& target);
 [[nodiscard]] bool graph_pipeline_records(VkCommandBuffer command);
 
 // Exposes a dispatch's declarations during descriptor preparation without authorizing GPU work.
@@ -31,6 +33,7 @@ private:
 
 [[nodiscard]] bool compute_metadata_only();
 void validate_compute_sampler(const Sampled& sampled);
+void validate_material_sampler(const Sampled& sampled);
 void validate_compute_outputs(std::span<const BufferRef> storage);
 [[nodiscard]] BufferRef compute_storage_binding(const ProgramBlock& block, BufferRef buffer);
 void validate_graph_image_access(
@@ -59,6 +62,7 @@ public:
     const renderer::graph::Pass& pass;
     const std::span<const GraphBinding> bindings;
     const VkCommandBuffer target;  // Null follows the main stream, including deferred secondaries.
+    const std::uint64_t material_scope;
 
 private:
     renderer::graph::RecordingScope m_commands;

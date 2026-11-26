@@ -28,6 +28,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory_resource>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -85,7 +86,7 @@ void set_enabled(Client client, bool on);
 inline constexpr unsigned kGpu = 1;  // Scope: time the section's GL commands on the GPU as well
 
 struct Section {
-    std::string name;
+    std::pmr::string name;
     int depth = 0;
     double cpu_ms = 0.0;
     double gpu_ms = -1.0;  // -1: not measured (not asked for, no timer queries, or not back yet)
@@ -170,6 +171,10 @@ enum class FrameKind : std::uint8_t {
 const char* frame_kind_name(FrameKind kind);
 
 struct Frame {
+    explicit Frame(std::pmr::memory_resource* storage = std::pmr::get_default_resource())
+        : sections(storage),
+          gauges(storage) {}
+
     std::uint64_t serial = 0;  // counts every frame begun
     std::uint64_t tick = 0;    // the game tick it shows
     FrameKind kind = FrameKind::Tick;
@@ -188,8 +193,8 @@ struct Frame {
     bool passes_sampled = false;
     bool passes_split = false;
     std::array<std::uint64_t, kCounterCount> counters{};
-    std::vector<Section> sections;
-    std::vector<std::pair<std::string, double>> gauges;
+    std::pmr::vector<Section> sections;
+    std::pmr::vector<std::pair<std::pmr::string, double>> gauges;
 
     // The time of the top-level section of that name, or 0.
     double cpu_ms(std::string_view section) const;

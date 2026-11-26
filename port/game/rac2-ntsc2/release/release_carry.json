@@ -1,16 +1,16 @@
 {
  "about": "How release_carry.py paired what the primary release's port names: what rests on less than the same code, and what it found nowhere.",
  "counts": {
-  "function: by hand": 16,
+  "function: by hand": 22,
   "function: called": 30,
-  "function: changed": 88,
+  "function: changed": 89,
   "function: found": 28,
-  "function: near": 46,
-  "function: same": 733,
+  "function: near": 73,
+  "function: same": 796,
   "global: aligned": 6,
   "global: between": 18,
-  "global: exact": 112,
-  "global: the release's build": 122
+  "global: exact": 116,
+  "global: the release's build": 142
  },
  "functions": {
   "func_001158F8": [
@@ -156,7 +156,7 @@
   "func_002A6C58": [
    "func_002A7AA8",
    "near",
-   "libraries.tsv Moby_RecordDeath"
+   "host C"
   ],
   "func_002B6480": [
    "func_002B73A0",
@@ -202,6 +202,11 @@
    "func_002FAB0C",
    "near",
    "libraries.tsv Vendor_DrawList"
+  ],
+  "func_002FB1A0": [
+   "func_002FC008",
+   "near",
+   "libraries.tsv Vendor_Preview"
   ],
   "func_00310010": [
    "func_00310E08",
@@ -253,6 +258,11 @@
    "changed",
    "RAC2_K TEXT_WIDESCREEN"
   ],
+  "func_0033ED88": [
+   "func_0033FDD8",
+   "by hand",
+   "host C"
+  ],
   "func_00341540": [
    "func_00342450",
    "changed",
@@ -288,6 +298,16 @@
    "changed",
    "host C"
   ],
+  "func_0034CEA0": [
+   "func_0034DBE0",
+   "near",
+   "RAC2_K HUD_BOLT_TEXT"
+  ],
+  "func_0034DB98": [
+   "func_0034E8D8",
+   "near",
+   "host C"
+  ],
   "func_0034E4F8": [
    "func_0034F240",
    "changed",
@@ -298,15 +318,50 @@
    "changed",
    "libraries.tsv Hero_TakeDamage"
   ],
+  "func_L00_002A6DD0": [
+   "func_L00_002A6DD0",
+   "near",
+   "libraries.tsv Hero_Update"
+  ],
+  "func_L00_00300618": [
+   "func_L00_003012A0",
+   "near",
+   "host C"
+  ],
   "func_L00_00303990": [
    "func_L00_00304660",
    "changed",
    "libraries.tsv Level_Load"
   ],
+  "func_L00_00373D40": [
+   "func_L00_00375068",
+   "changed",
+   "libraries.tsv ArmorVendor_Buy"
+  ],
+  "func_L00_003AA4C8": [
+   "func_L00_003AB8F8",
+   "near",
+   "host C"
+  ],
+  "func_L00_00403730": [
+   "func_L00_00404C18",
+   "near",
+   "host C"
+  ],
+  "func_L00_00408800": [
+   "func_L00_00409CF0",
+   "near",
+   "host C"
+  ],
   "func_L00_00438E68": [
    "func_L00_0043A470",
    "near",
    "extra_params"
+  ],
+  "func_L01_002A8C48": [
+   "func_L01_002A8D48",
+   "near",
+   "libraries.tsv Hero_Update"
   ],
   "func_L01_003CEDA0": [
    "func_L01_003D01F8",
@@ -322,6 +377,11 @@
    "func_L01_004179C0",
    "by hand",
    "libraries.tsv Moby_BoxBreakerPickup_Update"
+  ],
+  "func_L03_002AD540": [
+   "func_L03_002AD640",
+   "near",
+   "libraries.tsv Hero_Update"
   ],
   "func_L03_003C7018": [
    "func_L03_003C8620",
@@ -383,6 +443,11 @@
    "near",
    "host C"
   ],
+  "func_L08_0041EBF8": [
+   "func_L08_004201E0",
+   "by hand",
+   "host C"
+  ],
   "func_L10_00421790": [
    "func_L10_00422CA8",
    "near",
@@ -412,6 +477,11 @@
    "func_L13_002C58E8",
    "near",
    "calls_as"
+  ],
+  "func_L14_003F4F98": [
+   "func_L14_003F64E0",
+   "near",
+   "overrides"
   ],
   "func_L15_0042E1B0": [
    "func_L15_0042F6D0",

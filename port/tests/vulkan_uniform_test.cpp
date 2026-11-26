@@ -18,6 +18,7 @@
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 using namespace openrac;
@@ -115,7 +116,7 @@ void test_bindless_upscaled_colours(unsigned vertex_array, bool reference) {
         glViewport(n, 0, 1, 1);
         glUniform1i(shader.uniform("upscaled_texture_colours"), n % 2);
         glUniform1i(shader.uniform("upscaled_texture_colours_ready"), n / 2);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     }
 
     const auto after = vkgl::submission_counters();
@@ -181,7 +182,7 @@ void main() {
         glUniform1f(shader.uniform("material_metallic"), value);
         glUniform1f(shader.uniform("foliage_reflectivity"), value);
         glUniform1i(shader.uniform("material_fallback"), draw % 3 + 1);
-        glDrawArrays(GL_TRIANGLES, draw * 6, 6);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, draw * 6, 6);
     }
     const auto after = vkgl::submission_counters();
     if (!reference) {
@@ -210,7 +211,7 @@ void test_pipeline_depth_state(const renderer::FrameBuffer& target) {
     for (const GLenum comparison : {GL_LESS, GL_GREATER, GL_LESS, GL_GREATER}) {
         glDepthFunc(comparison);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         // A failed depth comparison must leave the black clear colour untouched.
         const int expected = comparison == GL_GREATER ? 255 : 0;
         check_red_pixel(target, expected);
@@ -233,7 +234,7 @@ void test_pipeline_blend_state(const renderer::FrameBuffer& target) {
         }
 
         glClear(GL_COLOR_BUFFER_BIT);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         // RGBA8 rounds half intensity to its nearest integer.
         const int expected = blend ? 128 : 255;
         check_red_pixel(target, expected);
@@ -332,7 +333,7 @@ void main() {
                 glTexBuffer(wgl::GL_TEXTURE_BUFFER, formats[unit], buffer);
             }
         }
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto pixels = target.read_rgba();
         CHECK((pixels == std::vector<std::uint8_t>{0, 0, 0, 255}));
     }
@@ -470,7 +471,7 @@ void main() {
 // Draws the fixture's triangle into pixel `x` of its target.
 void draw_bounce_pixel(int x) {
     glViewport(x, 0, 1, 1);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
 }
 
 // Tests that two states differing in one input give different pipelines or descriptor sets, and
@@ -645,7 +646,7 @@ std::vector<std::uint8_t> draw_cull_cases(
         glCullFace(c.cull_face);
         glFrontFace(c.front);
         glViewport(static_cast<int>(n), 0, 1, 1);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     }
 
     glDisable(GL_CULL_FACE);
@@ -670,36 +671,36 @@ std::vector<std::uint8_t> draw_depth_stencil_cases(
 
     glViewport(0, 0, 1, 1);
     glDepthFunc(GL_ALWAYS);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glViewport(1, 0, 1, 1);
     glDepthFunc(GL_NEVER);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glDepthFunc(GL_ALWAYS);
     glEnable(GL_STENCIL_TEST);
     glStencilFunc(GL_EQUAL, 1, 0xff);
     glViewport(2, 0, 1, 1);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
 
     // Write stencil without colour, then require the written value to draw white.
     glViewport(3, 0, 1, 1);
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     glStencilFunc(GL_ALWAYS, 1, 0xff);
     glStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_KEEP, GL_INCR_WRAP);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glStencilFunc(GL_EQUAL, 1, 0xff);
     glStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_KEEP, GL_KEEP);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
 
     // A masked depth write must leave the cleared depth, so equality fails.
     glViewport(4, 0, 1, 1);
     glDisable(GL_STENCIL_TEST);
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     glDepthMask(GL_FALSE);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glDepthFunc(GL_EQUAL);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glDepthMask(GL_TRUE);
     glDepthFunc(GL_LESS);
     glDisable(GL_DEPTH_TEST);
@@ -800,7 +801,7 @@ std::vector<std::uint8_t> draw_texture(
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture);
     glUniform1i(shader.uniform("picture"), 0);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     return target.read_rgba();
 }
 
@@ -912,7 +913,7 @@ void main() { result = colour; }
                 }
                 glViewport(static_cast<int>(i), 0, 1, 1);
                 glUniform1i(shader.uniform("selected"), selections[i]);
-                glDrawArrays(GL_TRIANGLES, 0, 3);
+                openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             }
             const auto after = vkgl::submission_counters();
             CHECK(after.uniform_uploads - before.uniform_uploads == (separate ? 2u : 8u));
@@ -964,7 +965,7 @@ void test_draw_uniform_layouts(unsigned vao) {
             for (int i = 0; i < 4; ++i) {
                 glViewport(i, 0, 1, 1);
                 glUniform1i(shader.uniform("selected"), i);
-                glDrawArrays(GL_TRIANGLES, 0, 3);
+                openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             }
             const auto after = vkgl::submission_counters();
             CHECK(
@@ -987,19 +988,16 @@ void test_draw_uniform_layouts(unsigned vao) {
     CHECK(vkgl::submission_counters().validation_errors == 0);
 }
 
-// A program's mode uniforms as constants of its pipelines (vk-mode-constants): the same pixels as
-// with the uniforms read, before and after the workers made the specialised pipelines, and for a
-// mode with more values than are worth a pipeline each.
+// Tests exact feature variants, repeated-key reuse and more than four values without a generic pipeline.
 void test_mode_constants(unsigned vao) {
     using renderer::render_opt::Opt;
-    std::vector<std::uint8_t> reference_pixels;
-    for (const bool constants : {false, true}) {
-        renderer::render_opt::set(Opt::VkModeConstants, constants);
-        renderer::Shader shader;
-        std::string error;
-        CHECK(shader.build(
-            "mode constants",
-            R"(#version 410 core
+    const bool libraries = renderer::render_opt::enabled(Opt::VkPipelineLibrary);
+    renderer::render_opt::set(Opt::VkPipelineLibrary, false);
+    renderer::Shader shader;
+    std::string error;
+    CHECK(shader.build(
+        "mode constants",
+        R"(#version 410 core
 // openrac_mode: side unused
 uniform int side;
 uniform int unused;
@@ -1010,7 +1008,7 @@ void main() {
     colour = side != 0 ? vec4(1, 0, 0, 1) : vec4(0, 0, 1, 1);
 }
 )",
-            R"(#version 410 core
+        R"(#version 410 core
 // openrac_mode: tint, side, many
 uniform int tint;
 uniform int side;
@@ -1028,59 +1026,62 @@ void main() {
     result.a = float(many & 7) / 7.0;
 }
 )",
-            error
-        ));
-        // Their GL names stay, whatever the backend calls them.
-        CHECK(shader.uniform("side") >= 0 && shader.uniform("tint") >= 0);
-        CHECK(shader.uniform("many") >= 0);
-        renderer::FrameBuffer target;
-        CHECK(target.create(8, 1, error));
-        glBindVertexArray(vao);
-        glDisable(GL_BLEND);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        error
+    ));
+    // Their GL names stay, whatever the backend calls them.
+    CHECK(shader.uniform("side") >= 0 && shader.uniform("tint") >= 0);
+    CHECK(shader.uniform("many") >= 0);
+    renderer::FrameBuffer target;
+    CHECK(target.create(8, 1, error));
+    glBindVertexArray(vao);
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_SCISSOR_TEST);
 
-        struct Draw {
-            int side, tint, many;
-        };
+    struct Draw {
+        int side, tint, many;
+    };
 
-        // `many` takes six values: the uniform is read from the fifth on.
-        const std::array<Draw, 8> draws = {
-            {{0, 0, 7}, {1, 0, 6}, {0, 1, 5}, {1, 1, 4}, {0, 2, 3}, {1, 2, 2}, {1, 0, 7}, {0, 1, 7}}
-        };
-        const std::vector<std::uint8_t> expected = {0,   0,   255, 255, 255, 0,   0,   219,
-                                                    0,   128, 255, 182, 255, 128, 0,   146,
-                                                    0,   0,   255, 109, 255, 255, 0,   73,
-                                                    255, 0,   0,   255, 0,   128, 255, 255};
-        const auto before = vkgl::submission_counters();
+    // Six ordinary values and INT_MAX must all remain exact variants.
+    const std::array<Draw, 8> draws = {
+        {{0, 0, 7},
+         {1, 0, 6},
+         {0, 1, 5},
+         {1, 1, 4},
+         {0, 2, 3},
+         {1, 2, 2},
+         {1, 0, 7},
+         {0, 1, 2147483647}}
+    };
+    const std::vector<std::uint8_t> expected = {0,   0,   255, 255, 255, 0,   0, 219, 0,   128, 255,
+                                                182, 255, 128, 0,   146, 0,   0, 255, 109, 255, 255,
+                                                0,   73,  255, 0,   0,   255, 0, 128, 255, 255};
+    const auto before = vkgl::submission_counters();
 
-        // The first frame may draw with stand-ins; the next ones after the workers are done.
-        for (unsigned frame = 0; frame < 3; ++frame) {
-            glBindFramebuffer(GL_FRAMEBUFFER, target.id());
-            shader.use();
-            glUniform1f(shader.uniform("shade"), 128.0f / 255.0f);
-            for (unsigned i = 0; i < draws.size(); ++i) {
-                glViewport(static_cast<int>(i), 0, 1, 1);
-                glUniform1i(shader.uniform("side"), draws[i].side);
-                glUniform1i(shader.uniform("tint"), draws[i].tint);
-                glUniform1i(shader.uniform("many"), draws[i].many);
-                glDrawArrays(GL_TRIANGLES, 0, 3);
-            }
-            const auto pixels = target.read_rgba();
-            CHECK(pixels == expected);
-            if (!constants) {
-                reference_pixels = pixels;
-            } else {
-                CHECK(pixels == reference_pixels);
-            }
-            vkgl::present();
-            vkgl::wait_for_pipeline_prewarm();
+    // Each first-use key creates one exact variant; subsequent frames reuse every key.
+    for (unsigned frame = 0; frame < 3; ++frame) {
+        glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+        shader.use();
+        glUniform1f(shader.uniform("shade"), 128.0f / 255.0f);
+        for (unsigned i = 0; i < draws.size(); ++i) {
+            glViewport(static_cast<int>(i), 0, 1, 1);
+            glUniform1i(shader.uniform("side"), draws[i].side);
+            glUniform1i(shader.uniform("tint"), draws[i].tint);
+            glUniform1i(shader.uniform("many"), draws[i].many);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         }
-
-        const auto after = vkgl::submission_counters();
-        CHECK((after.mode_pipelines > before.mode_pipelines) == constants);
+        const auto pixels = target.read_rgba();
+        CHECK(pixels == expected);
+        const auto current = vkgl::submission_counters();
+        CHECK(current.mode_pipelines - before.mode_pipelines == draws.size());
+        CHECK(current.pipelines_created - before.pipelines_created == draws.size());
+        vkgl::present();
+        vkgl::wait_for_pipeline_prewarm();
     }
-    renderer::render_opt::reset();
+
+    const auto after = vkgl::submission_counters();
+    CHECK(after.mode_pipelines - before.mode_pipelines == draws.size());
+    renderer::render_opt::set(Opt::VkPipelineLibrary, libraries);
     CHECK(vkgl::submission_counters().validation_errors == 0);
 }
 
@@ -1206,7 +1207,7 @@ void main() {
             constants(i == 2 || i == 3 ? 0.25f : 0.5f, i % 2 != 0);
             glBindTexture(GL_TEXTURE_2D, textures[i == 3 ? 1 : 0]);
             glViewport(static_cast<int>(i), 0, 1, 1);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         }
         const auto after = vkgl::submission_counters();
         CHECK(after.uniform_uploads - before.uniform_uploads == (reference ? 5u : 3u));
@@ -1231,7 +1232,7 @@ void main() {
         constants(0.5f, false);
         glBindTexture(GL_TEXTURE_2D, textures[0]);
         glViewport(0, 0, 1, 1);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         CHECK(frame.read_rgba() == pixels);
         context.window().swap();
     }
@@ -1247,7 +1248,7 @@ void main() {
         for (unsigned i = 0; i < draws; ++i) {
             constants((i / 8) % 2 ? 0.25f : 0.5f, false);
             glBindTexture(GL_TEXTURE_2D, textures[(i / 16) % 2]);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         }
         const auto elapsed =
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
@@ -1310,7 +1311,7 @@ void main() {
     for (unsigned i = 0; i < 1200; ++i) {
         glUniform1i(rollover.uniform("selected"), static_cast<int>(i % 512));
         glViewport(static_cast<int>(i % 5), 0, 1, 1);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     }
     const auto after_rollover = vkgl::submission_counters();
     if (!reference) {

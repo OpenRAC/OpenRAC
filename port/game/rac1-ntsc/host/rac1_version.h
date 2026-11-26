@@ -29,6 +29,12 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 }
 
 /* What this version leaves out of the shared C (rac1.h, RAC1_OMIT), and why. */
+/* List ownership: the NTSC decomp's wrapper ABI/carry has not been validated here; retain its path. */
+#define RAC1_OMIT_frame_list_ownership 1
+/* Native letterbox bars (letterbox.c): the caller state is proved on PAL v2.00 level 6 only. */
+#define RAC1_OMIT_func_001F5148 1
+/* The game's particle routines (particles.c, openrac_api.particle_spawn_ex) are checked at PAL's addresses only. */
+#define RAC1_OMIT_particle_spawn_ex 1
 /* Level 0's 0x2EC6B8: the NTSC decomp's catalogue places its func_001E9448 there, which returns 0. */
 #define RAC1_OMIT_func_L00_002EDB68 1
 /* PAL's assign_moby_class_data, whose level vtbl is at another address in each program. */
@@ -76,6 +82,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x001B3580u 0x001B3200u
 #define RAC1_ADDR_0x001B3900u 0x001B3580u
 #define RAC1_ADDR_0x001E8F00u 0x001E8B80u
+/* register_moby_class (foreign_class.c). */
+#define RAC1_ADDR_0x00203E78u 0x00203640u
+/* resident_class_id_by_slot (foreign_class.c). */
+#define RAC1_ADDR_0x001B3C80u 0x001B3900u
 
 /* Where this version's decompilation declares a function otherwise: the type in its prototypes. */
 /* ParseBin's result, the loaded level's entry. */
@@ -115,6 +125,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * word at +8 at +0x48 of the transfer state (PAL +0x46). */
 #define func_00204FC0 game_FUN_00204790
 #define func_0020D348 game_FUN_0020c4f8
+#define func_0020D440 game_FUN_0020c5f0
+#define func_0020D440__game game_FUN_0020c5f0__game
 #define func_00118D80 game_FlushCache
 #define RAC1_TYPE_func_00204FC0_params void
 #define RAC1_TRANSFER_PAD08 0x48
@@ -214,6 +226,9 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_00222B80 game_FUN_L00_002223f8
 #define func_L00_00217718__game game_FUN_L00_00216f90__game
 #define RAC1_ADDR_L00_0x00166F00u 0x00166E00u
+/* The level camera's shake channels (camera_override.c rac1_camera_shake): gCameraLvl is D_L00_00166C80 here (PAL D_L00_00166D80), its shake at +0x160. Paired by
+ * the code that reads it (93 sites for the camera, the shake word's own reader), both in the US level-0 program. */
+#define RAC1_ADDR_L00_0x00166EE0u 0x00166DE0u
 
 /* The page menu's (front_end.c, mod_ui.cpp), checked by hand in the US data and code: the title's
  * main page (initialize_menu_preview_scene's), the Options page (its back is the main page, its
@@ -310,7 +325,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_00277A88 game_FUN_L00_00276bd0
 #define func_L00_00277A88__game game_FUN_L00_00276bd0__game
 #define func_001FD3E8 game_FUN_001fce28
-#define func_001FD3E8__game game_FUN_001fce28__game
+#define func_001FD3E8__hooked game_FUN_001fce28__hooked
 #define RAC1_ADDR_L00_0x0015F808u 0x0015F728u
 #define RAC1_ADDR_L00_0x0015F8D0u 0x0015F7F0u
 #define RAC1_ADDR_L00_0x0015F8E8u 0x0015F808u
@@ -349,16 +364,40 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L02_0x0015FA20u 0x0015F948u
 
 /* The ship computer's list (rac1/host/destinations.c): the NTSC decomp declares FUN_00221800
- * (the same bytes as PAL's) as void (menu, s32). */
+ * (the same bytes as PAL's) as void (menu, s32). Its levels' copy, FUN_L00_0027f448, is a function
+ * of its own there, so host/ship_menu.c sends it through the same wrap and runs that copy's C. */
+int rac1_ntsc_ship_menu_game(gaddr menu, int unused);
 #define RAC1_SHIP_MENU_RESULT void
 #define RAC1_SHIP_MENU_PARAMS gaddr menu, int unused
-#define RAC1_SHIP_MENU_CALL(menu) (func_00222848__game(menu, unused), 0)
+#define RAC1_SHIP_MENU_CALL(menu) rac1_ntsc_ship_menu_game(menu, unused)
 #define RAC1_SHIP_MENU_RETURN(result)                                                              \
     do {                                                                                           \
         (void)(result);                                                                            \
         return;                                                                                    \
     } while (0)
+/* print_moby_class_sizes, wrapped for the imported moby classes (foreign_class.c). */
+#define RAC1_FOREIGN_CLASSES 1
+#define func_L00_00242120 game_FUN_L00_00241788
+#define func_L00_00242120__game game_FUN_L00_00241788__game
 
+/* Imported moby classes' tables (rac1/host/foreign_class.c): the level's camera, rail, volume and
+ * path globals in level 0's program (the level loader's stores in this version's C (gen/prep load_level_gameplay.c)). */
+#define RAC1_ADDR_L00_0x0015F050u 0x0015EF50u
+#define RAC1_ADDR_L00_0x0015F054u 0x0015EF54u
+#define RAC1_ADDR_L00_0x0015F7ECu 0x0015F70Cu
+#define RAC1_ADDR_L00_0x0015F7F0u 0x0015F710u
+#define RAC1_ADDR_L00_0x001601A4u 0x001600E4u
+#define RAC1_ADDR_L00_0x001601A8u 0x001600E8u
+#define RAC1_ADDR_L00_0x001601ACu 0x001600ECu
+#define RAC1_ADDR_L00_0x001601B0u 0x001600F0u
+#define RAC1_ADDR_L00_0x001601B4u 0x001600F4u
+#define RAC1_ADDR_L00_0x001601B8u 0x001600F8u
+#define RAC1_ADDR_L00_0x001601BCu 0x001600FCu
+#define RAC1_ADDR_L00_0x001601C0u 0x00160100u
+#define RAC1_ADDR_L00_0x001601C4u 0x00160104u
+#define RAC1_ADDR_L00_0x001601C8u 0x00160108u
+#define RAC1_ADDR_L00_0x001B0830u 0x001B04B0u
+#define RAC1_ADDR_L00_0x001ABBC0u 0x001AB840u /* level_moby_groups */
 /* draw_visibomb_outside_zone_overlay in the NTSC decomp's visibomb_zone_timer.c:
  * PAL's DrawTiledScreenOverlay (func_L01_00303810), including the retail call under the wrap. */
 #define func_L01_00303810 game_FUN_L01_00302438
@@ -410,6 +449,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_001FFFB8__game game_FUN_001ff780__game
 #define func_L00_0023B140 game_FUN_L00_0023a7a8
 #define func_L00_0023B140__game game_FUN_L00_0023a7a8__game
+#define func_00217EE8 game_FUN_00217048
+#define func_00217F68 game_FUN_002170c8
+#define func_00218188 game_FUN_002172c0
+#define func_002181F0 game_FUN_00217328
 #define func_0021A610 game_FUN_002196b8
 #define func_0021A610__game game_FUN_002196b8__game
 #define func_L00_002781D8 game_FUN_L00_002772c0
@@ -498,7 +541,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_001F1D20 game_FUN_L00_001f19a0
 #define func_L00_001F2BE8 game_FUN_L00_001f2868
 #define func_L00_001F34F0 game_FUN_L00_001f3170
-#define func_L00_001FD1D8 func_L00_001FD228
+#define func_L00_001FD1D8__game func_L00_001FD228__game
 #define func_L00_001FE688 func_L00_001FE6D8
 #define func_L00_001FEE50 func_L00_001FEEA0
 #define func_L00_001FEE98 func_L00_001FEEE8
@@ -513,7 +556,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_002110C0 game_FUN_L00_00210a08
 #define func_L00_002110C0__game game_FUN_L00_00210a08__game
 #define func_L00_00222B80 game_FUN_L00_002223f8
-#define func_L00_00222B80__game game_FUN_L00_002223f8__game
+#define func_L00_00222B80__hooked game_FUN_L00_002223f8__hooked
 #define func_L00_0024F054 func_L00_0024E01C
 #define func_L00_00250928 game_FUN_L00_0024f8f0
 #define func_L00_002514B8 game_FUN_0020d580
@@ -545,60 +588,61 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L01_00231960 game_FUN_L01_00231348
 #define func_L01_00231960__game game_FUN_L01_00231348__game
 #define func_L01_0023D688 game_FUN_L01_0023cf98
-#define func_L01_0023D688__game game_FUN_L01_0023cf98__game
+#define func_L01_0023D688__hooked game_FUN_L01_0023cf98__hooked
 #define func_L02_0020A690 func_L02_0020A390
 #define func_L02_0022BE40 game_FUN_L02_0022b728
-#define func_L02_0022BE40__game game_FUN_L02_0022b728__game
+#define func_L02_0022BE40__hooked game_FUN_L02_0022b728__hooked
 #define func_L02_00250720 game_FUN_L02_0024f748
 #define func_L02_00250720__game game_FUN_L02_0024f748__game
 #define func_L03_00216D38 game_FUN_L03_00216648
-#define func_L03_00216D38__game game_FUN_L03_00216648__game
+#define func_L03_00216D38__hooked game_FUN_L03_00216648__hooked
 #define func_L03_00292AC0 game_FUN_L03_00291918
 #define func_L03_0029ED60 game_FUN_L03_0029dba8
 #define func_L03_0029ED60__hooked game_FUN_L03_0029dba8__hooked
 #define func_L03_002DDD58 func_L03_002DC990
 #define func_L05_0024D680 game_FUN_L05_0024cee8
-#define func_L05_0024D680__game game_FUN_L05_0024cee8__game
+#define func_L05_0024D680__hooked game_FUN_L05_0024cee8__hooked
 #define func_L05_0030DED8 game_FUN_L05_0030ca80
 #define func_L05_0030DED8__hooked game_FUN_L05_0030ca80__hooked
 #define func_L06_00235E08 game_FUN_L06_002356a0
-#define func_L06_00235E08__game game_FUN_L06_002356a0__game
+#define func_L06_00235E08__hooked game_FUN_L06_002356a0__hooked
 #define func_L07_002F9418 func_L07_002F8038
 #define func_L07_0030D8E8 game_FUN_L07_0030c508
 #define func_L07_0030D8E8__hooked game_FUN_L07_0030c508__hooked
 #define func_L07_0030E800 func_L07_0030D420
 #define func_L08_00231228 game_FUN_L08_00230b38
-#define func_L08_00231228__game game_FUN_L08_00230b38__game
+#define func_L08_00231228__hooked game_FUN_L08_00230b38__hooked
 #define func_L08_002DB448 func_L08_002DA0D0
 #define func_L11_0024E240 game_FUN_L11_0024db50
-#define func_L11_0024E240__game game_FUN_L11_0024db50__game
+#define func_L11_0024E240__hooked game_FUN_L11_0024db50__hooked
 #define func_L11_0030F4F8 game_FUN_L11_0030e088
 #define func_L11_0030F4F8__hooked game_FUN_L11_0030e088__hooked
 #define func_L12_002407C0 game_FUN_L12_002400d0
-#define func_L12_002407C0__game game_FUN_L12_002400d0__game
+#define func_L12_002407C0__hooked game_FUN_L12_002400d0__hooked
 #define func_L12_002C0310 game_FUN_L12_002bf140
 #define func_L12_002C0310__hooked game_FUN_L12_002bf140__hooked
 #define func_L13_0030B340 game_FUN_L13_00309e88
 #define func_L13_0030B340__hooked game_FUN_L13_00309e88__hooked
+#define func_L10_002DB688 game_FUN_L10_002da2c8
+#define func_L10_002DB688__hooked game_FUN_L10_002da2c8__hooked
 #define func_L14_0020CAE0 func_L14_0020C760
 #define func_L14_002306C8 game_FUN_L14_0022ff58
-#define func_L14_002306C8__game game_FUN_L14_0022ff58__game
+#define func_L14_002306C8__hooked game_FUN_L14_0022ff58__hooked
 #define func_L14_003047D8 func_L14_00303350
 #define func_L15_00217348 game_FUN_L15_00216c38
-#define func_L15_00217348__game game_FUN_L15_00216c38__game
+#define func_L15_00217348__hooked game_FUN_L15_00216c38__hooked
 #define func_L16_0021EA88 game_FUN_L16_0021e398
-#define func_L16_0021EA88__game game_FUN_L16_0021e398__game
+#define func_L16_0021EA88__hooked game_FUN_L16_0021e398__hooked
 #define func_L17_0021ED38 game_FUN_L17_0021e530
-#define func_L17_0021ED38__game game_FUN_L17_0021e530__game
+#define func_L17_0021ED38__hooked game_FUN_L17_0021e530__hooked
 #define func_L18_002284E0 game_FUN_L18_00227dd0
-#define func_L18_002284E0__game game_FUN_L18_00227dd0__game
+#define func_L18_002284E0__hooked game_FUN_L18_00227dd0__hooked
 #define func_L18_00282F48 game_FUN_L18_00281fa8
 #define func_L18_002FC168 func_L18_002FAD08
 
 /* Addresses: games/rac1's, this version's (RAC1_LADDR: in level NN's program). */
 #define RAC1_ADDR(a) RAC1_ADDR_##a
 #define RAC1_LADDR(n, a) RAC1_ADDR_L##n##_##a
-#define RAC1_ADDR_0x0010E4C0u 0x0010E4C0u
 #define RAC1_ADDR_0x0013CA40u 0x0013C940u
 #define RAC1_ADDR_0x0013D010u 0x0013CF10u
 #define RAC1_ADDR_0x0013D490u 0x0013D388u
@@ -629,6 +673,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0015EE84u 0x0015ED84u
 #define RAC1_ADDR_0x0015EE98u 0x0015ED98u
 #define RAC1_ADDR_0x0015EF4Au 0x0015EE4Au
+#define RAC1_ADDR_0x0015EFD0u 0x0015EED0u
 #define RAC1_ADDR_0x0015F000u 0x0015EF00u
 #define RAC1_ADDR_0x0015F558u 0x0015F458u
 #define RAC1_ADDR_0x0015F564u 0x0015F464u
@@ -768,5 +813,21 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_00222848__game game_FUN_00221800__game
 #define func_L00_00290030 game_FUN_L00_0028ed58
 #define func_L00_00290030__game game_FUN_L00_0028ed58__game
+
+/* Reward presentation: release-checked names and regional decomp counterparts. */
+#define RAC1_ADDR_0x0014BFC0u 0x0014BEC0u
+#define RAC1_ADDR_L00_0x0015F4FCu 0x0015F3FCu
+#define RAC1_ADDR_L00_0x001611B0u 0x001610F0u
+#define RAC1_ADDR_L00_0x001CA320u 0x001CA020u
+#define RAC1_ADDR_L00_0x001CA7C0u 0x001CA4C0u
+#define RAC1_ADDR_L01_0x0015F504u 0x0015F404u
+#define RAC1_ADDR_L01_0x00309078u 0x00307CA0u
+#define func_0020BFC8 game_FUN_0020b178
+#define func_L00_0029A300 game_FUN_L00_00298f90
+#define func_L00_0029A300__game game_FUN_L00_00298f90__game
+#define func_L00_0029A7D0 game_FUN_L00_00299460
+#define func_L00_0029BA20 game_FUN_L00_0029a6b0
+#define func_L00_0029C070 game_FUN_L00_0029ad08
+#define func_L01_00309078__game game_FUN_L01_00307ca0__game
 
 #endif /* OPENRAC_RAC1_VERSION_H */

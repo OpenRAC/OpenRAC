@@ -1,11 +1,12 @@
 <script lang="ts">
   // Develop's console: what ran, what runs, what waits, and each job's output, as a contributor
   // reads it. The list filters by state; a finished check or build can be run again.
-  import { onAndroid, type ActionView } from "$lib/api";
+  import { type ActionView, onAndroid } from "$lib/api";
   import { app, cancel, clearFinished, clock, jobs, run } from "$lib/app.svelte";
   import { copyText } from "$lib/clipboard";
   import { jobDuration, jobTranscript, TRANSCRIPT_REFUSED } from "$lib/jobText";
   import type { Job, JobState } from "$lib/queue";
+
   import Icon from "./Icon.svelte";
 
   const STATES: Record<JobState, { text: string; tone: string }> = {
@@ -26,14 +27,20 @@
   let filter = $state<Filter>("all");
   const shown = $derived.by(() => {
     const states = FILTERS.find((f) => f.id === filter)?.states ?? [];
+
     return [...jobs.list].reverse().filter((j) => states.includes(j.state));
   });
-  const count = (f: (typeof FILTERS)[number]) => jobs.list.filter((j) => f.states.includes(j.state)).length;
+  const count = (f: (typeof FILTERS)[number]) =>
+    jobs.list.filter((j) => f.states.includes(j.state)).length;
 
-  const selected = $derived(jobs.list.find((j) => j.key === jobs.selected) ?? jobs.list.at(-1) ?? null);
+  const selected = $derived(
+    jobs.list.find((j) => j.key === jobs.selected) ?? jobs.list.at(-1) ?? null,
+  );
   /** Which version or the checkout a job was for, in a few words. */
   function where(job: Job): string {
-    if (job.scope.kind === "repository") return job.actionId.startsWith("install:") ? "Set-up" : "Checkout";
+    if (job.scope.kind === "repository")
+      return job.actionId.startsWith("install:") ? "Set-up" : "Checkout";
+
     return job.scope.key;
   }
 
@@ -47,7 +54,11 @@
         ? app.library?.repository
         : app.library?.games.flatMap((g) => g.versions).find((v) => v.key === scope.key)?.actions;
     const action = list?.find((a) => a.id === job.actionId && a.thisPlatform) ?? null;
-    return action && action.runnable && !action.detached && ["setup", "build", "check"].includes(action.kind)
+
+    return action &&
+      action.runnable &&
+      !action.detached &&
+      ["setup", "build", "check"].includes(action.kind)
       ? action
       : null;
   }
@@ -57,6 +68,7 @@
   // Keep the newest line in view, unless the reader has scrolled up.
   $effect(() => {
     const lines = selected?.lines.length ?? 0;
+
     if (lines && follow && output) output.scrollTop = output.scrollHeight;
   });
 
@@ -71,27 +83,39 @@
     </div>
     <div class="filters" role="radiogroup" aria-label="Show">
       {#each FILTERS as f (f.id)}
-        <button role="radio" aria-checked={filter === f.id} class:on={filter === f.id} onclick={() => (filter = f.id)}
-          >{f.label}{#if f.id !== "all" && count(f) > 0}<span class="n">{count(f)}</span>{/if}</button
+        <button
+          role="radio"
+          aria-checked={filter === f.id}
+          class:on={filter === f.id}
+          onclick={() => (filter = f.id)}
+          >{f.label}{#if f.id !== "all" && count(f) > 0}<span class="n">{count(f)}</span
+            >{/if}</button
         >
       {/each}
     </div>
     {#if !jobs.list.length}
       <p class="muted">
-        Nothing has run yet. Run an action from {onAndroid ? "a version" : "the checkout or a version"}; its output
-        shows here.
+        Nothing has run yet. Run an action from {onAndroid
+          ? "a version"
+          : "the checkout or a version"}; its output shows here.
       </p>
     {:else if !shown.length}
       <p class="muted">No job is {FILTERS.find((f) => f.id === filter)?.label.toLowerCase()}.</p>
     {/if}
     {#each shown as job (job.key)}
-      <button class="job" class:on={selected?.key === job.key} onclick={() => (jobs.selected = job.key)}>
+      <button
+        class="job"
+        class:on={selected?.key === job.key}
+        onclick={() => (jobs.selected = job.key)}
+      >
         <span class="row">
           {#if job.state === "running"}<span class="spinner"></span>{/if}
           <strong class="grow clip">{job.title}</strong>
         </span>
         <span class="row">
-          <span class={`pill ${STATES[job.state].tone}`}><span class="dot"></span>{STATES[job.state].text}</span>
+          <span class={`pill ${STATES[job.state].tone}`}
+            ><span class="dot"></span>{STATES[job.state].text}</span
+          >
           <span class="dim small clip grow mono">{where(job)}</span>
           <span class="dim small">{jobDuration(job, clock.now)}</span>
         </span>
@@ -116,13 +140,16 @@
           >
         {/if}
         {#if selected.state === "running" || selected.state === "queued"}
-          <button class="small" onclick={() => void cancel(selected)}><Icon name="x" size={14} />Cancel</button>
+          <button class="small" onclick={() => void cancel(selected)}
+            ><Icon name="x" size={14} />Cancel</button
+          >
         {/if}
       </div>
       <pre
         bind:this={output}
         onscroll={(e) => {
           const el = e.currentTarget;
+
           follow = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
         }}>{#each selected.lines as l, i (i)}<span class:err={l.stream === "stderr"}
             >{l.line}

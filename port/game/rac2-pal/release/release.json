@@ -25,6 +25,14 @@
  },
  "pairs": {
   "about": "Function pairs taken as they are where nothing else pairs them: the primary's name, the release's (in the release's names), the evidence.",
+  "func_002B88F0": {
+   "is": "func_002B94A8",
+   "why": "pad_decode_reading: PAL's poll_pad_device_state (func_PAL_002B91B0, src/pal/game/002B91B0-g8.c, paired with func_002B85F8) hands its report to its own reader, func_PAL_002B94A8 (src/pal/game/002B94A8.c), where v1.01's calls func_002B88F0; the port's poll (rac2/host/pad_state.c) calls the release's reader"
+  },
+  "func_002A05A8": {
+   "is": "game_FUN_002A0F68",
+   "why": "MobyAnimAdvance's caller in the moby loop: PAL's moby_update_live_mobys (func_L00_0032F058) calls game_FUN_002A0F68 where v1.01's calls func_002A05A8 (src/pal/game/002A0F68.c, the PAL copy of the routine); func_002A0F68 itself has no C on PAL"
+  },
   "func_0027F640": {
    "is": "func_0027FB48",
    "why": "FontPrintScaled: between func_0027F5B8 and func_0027F980 as in v1.01; the same calls in order (func_00283CE0 x3, func_0027E1A0 x3, func_00283CE0) after a new first call of func_002FC560; 832 bytes for 808"
@@ -80,10 +88,22 @@
   "func_0026F7A0": {
    "is": "func_0026F610",
    "why": "returns 0 (jr $ra; daddu $v0, $zero, $zero) at 0x0026F610, after the same two empty stubs as in v1.01; the catalogue does not list it"
+  },
+  "func_L08_0041EBF8": {
+   "is": "func_L08_00423EA0",
+   "why": "The PAL mining vehicle update in src/pal/levels/shared/L08_00423EA0-g8.c; same thrust sequence, including both signed scales, with PAL timing constants. Host wrapper calls the original body."
+  },
+  "func_0033ED88": {
+   "is": "func_00340D78",
+   "why": "The PAL ship statistics draw in src/pal/game/0033D838-g84.c; same three global counts with larger widgets and shifted label IDs. Host replacement uses release-specific fields and preserves the original when disabled."
   }
  },
  "constants": {
   "about": "RAC2_K constants taken as they are: name, value, the evidence.",
+  "SEEKER_SPAWN_ARGS": {
+   "value": "4",
+   "why": "PAL's effect_spawn_owned_moby (func_PAL_L00_003ADC68, versionmap near, 572 bytes as v1.01's) takes v1.01's four arguments and stores the 5 at pvars +0x78 itself"
+  },
   "PAUSE_LIST_COUNT": {
    "value": "0x1CC",
    "why": "func_00341610 as func_00343690: sw $a0, 0x1CC($s0) at +0x7c, as v1.01's at +0x74 (the list's count)"
@@ -110,6 +130,10 @@
   "func_0012B180": {
    "is": "func_0012B180",
    "why": "the hand C's function between func_0012B0D8 and func_0012B198, which the catalogue lists at the same addresses in both releases; the same bytes from 0x0012B134 to 0x0012B198 in both executables"
+  },
+  "func_V1_L01_00321178": {
+   "is": "func_L01_00323068",
+   "why": "PAL has its own C of moby_l01_turn_toward_target (func_PAL_L01_00323068, the same fingerprint), so the view marks v1.01's func_V1_, a stub with no C. The entry hooks the overrides carry (0x003D2898 in level 2, 0x00448968 in 6, 0x00409F00 in 9) jal this function's copy in their level on the disc (0x003335E0, 0x0036E2B0, 0x00329DF0). With the stub, PAL's dropped Chickenbots hung in the air"
   }
  },
  "hand": {
@@ -179,6 +203,50 @@
     "F500f9762_FUN_002A04B8": {
      "is": "func_002A0E78",
      "why": "v1.01's C of gfx_start_color_fade and its sibling (func_002AB800, func_002AB8C0: PAL's FUN_002AC290, FUN_002AC3C0) calls get_moby_color (v1.01 func_002A04B8) by its F500f9762_ spelling, which PAL's build gives no value (PAL builds its own copies, src/pal/game/002AC290.c), so the view would keep v1.01's address, another function in PAL (PAL's 0x002A04B8); PAL's own code at 0x002AC290 calls 0x002A0E78 here"
+    }
+   },
+   "src/pal/levels/shared/L01_003E4058-sw-g8.c": {
+    "ref_L00_003DD6A8_00": {
+     "is": "func_L00_00327350",
+     "why": "PAL's levels' Spider Bot update (rac2-decomp src/pal/levels/shared/L01_003E4058-sw-g8.c) reuses the executable copy's ref_L00_003DD6A8_ names, which PAL's release table values with the executable's functions; each level's copy calls func_L00_00327350 here, not the executable's func_002B0C18"
+    },
+    "ref_L00_003DD6A8_12": {
+     "is": "func_L00_003BBCE0",
+     "why": "PAL's levels' Spider Bot update (rac2-decomp src/pal/levels/shared/L01_003E4058-sw-g8.c) reuses the executable copy's ref_L00_003DD6A8_ names, which PAL's release table values with the executable's functions; each level's copy calls helper_set_active_flag (func_L00_003BBCE0) here, not the executable's moby_set_linked_flag (func_003188B8). The executable's reads its pointer at 0x001AF8F0, a float (0.04) in Todano, so the bot's blast crashed reading 0x3D23D772"
+    },
+    "ref_L00_003DD6A8_18": {
+     "is": "func_L00_002C4480",
+     "why": "PAL's levels' Spider Bot update (rac2-decomp src/pal/levels/shared/L01_003E4058-sw-g8.c) calls the level's own hero state change when the bot lands (28: the hero steers the bot) and when it ends (0); PAL's release table values the name with the executable's empty level hook func_PAL_0026F5B8, which the levels' copies never call (each jals its level's function: func_L11_002D9038 in Joba, func_L12_002C8C58 in Todano). Named so, the hero never took control: the next update saw game mode 28 missing and blew the bot up at once, without its blast (T-101). func_L00_002C4480 is this call's row in call_copies.tsv, so each level reaches its own copy's target"
+    },
+    "ref_L00_003DD6A8_25": {
+     "is": "func_L00_003E3248",
+     "why": "PAL's levels' Spider Bot update (rac2-decomp src/pal/levels/shared/L01_003E4058-sw-g8.c) reuses the executable copy's ref_L00_003DD6A8_ names, which PAL's release table values with the executable's functions; each level's copy calls func_L00_003E3248 here, not the executable's func_00329208"
+    },
+    "ref_L00_003DD6A8_41": {
+     "is": "func_L00_003E20B8",
+     "why": "PAL's levels' Spider Bot update (rac2-decomp src/pal/levels/shared/L01_003E4058-sw-g8.c) hands the bot's timer drawing to func_0029C0F0 by address; each level's copy forms its own copy's address (func_L00_003E20B8: 0x003FA7E0 in Joba), not the executable's func_00328190, which is other code while a level is loaded"
+    }
+   },
+   "src/pal/levels/shared/L00_003E1874-sw-g8.c": {
+    "ref_L00_003DD6A8_00": {
+     "is": "func_L00_00327350",
+     "why": "PAL's levels 0 and 4 Spider Bot update (rac2-decomp src/pal/levels/shared/L00_003E1874-sw-g8.c) reuses the executable copy's ref_L00_003DD6A8_ names, which PAL's release table values with the executable's functions; each level's copy calls func_L00_00327350 here, not the executable's func_002B0C18"
+    },
+    "ref_L00_003DD6A8_12": {
+     "is": "func_L00_003BBCE0",
+     "why": "PAL's levels 0 and 4 Spider Bot update (rac2-decomp src/pal/levels/shared/L00_003E1874-sw-g8.c) reuses the executable copy's ref_L00_003DD6A8_ names, which PAL's release table values with the executable's functions; each level's copy calls helper_set_active_flag (func_L00_003BBCE0) here, not the executable's moby_set_linked_flag (func_003188B8). The executable's reads its pointer at 0x001AF8F0, a float (0.04) in Todano, so the bot's blast crashed reading 0x3D23D772"
+    },
+    "ref_L00_003DD6A8_18": {
+     "is": "func_L00_002C4480",
+     "why": "PAL's levels 0 and 4 Spider Bot update (rac2-decomp src/pal/levels/shared/L00_003E1874-sw-g8.c) calls the level's own hero state change when the bot lands (28: the hero steers the bot) and when it ends (0); PAL's release table values the name with the executable's empty level hook func_PAL_0026F5B8, which the levels' copies never call (each jals its level's function: func_L11_002D9038 in Joba, func_L12_002C8C58 in Todano). Named so, the hero never took control: the next update saw game mode 28 missing and blew the bot up at once, without its blast (T-101). func_L00_002C4480 is this call's row in call_copies.tsv, so each level reaches its own copy's target"
+    },
+    "ref_L00_003DD6A8_25": {
+     "is": "func_L00_003E3248",
+     "why": "PAL's levels 0 and 4 Spider Bot update (rac2-decomp src/pal/levels/shared/L00_003E1874-sw-g8.c) reuses the executable copy's ref_L00_003DD6A8_ names, which PAL's release table values with the executable's functions; each level's copy calls func_L00_003E3248 here, not the executable's func_00329208"
+    },
+    "ref_L00_003DD6A8_41": {
+     "is": "func_L00_003E20B8",
+     "why": "PAL's levels 0 and 4 Spider Bot update (rac2-decomp src/pal/levels/shared/L00_003E1874-sw-g8.c) hands the bot's timer drawing to func_0029C0F0 by address; each level's copy forms its own copy's address (func_L00_003E20B8: 0x003FA7E0 in Joba), not the executable's func_00328190, which is other code while a level is loaded"
     }
    }
   },

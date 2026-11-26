@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <format>
 
+#include "renderer/frame/colour_transfer.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/precise_depth.h"
 
@@ -15,25 +16,28 @@ using namespace openrac::gl;
 
 namespace {
 
-bool g_precise_depth_wanted = false;  // request_precise_depth's
+// Attaches implicit MSAA storage to the bound renderbuffer and framebuffer. A rejected colour
+// attachment can leave a complete depth-only framebuffer, so completeness alone is insufficient.
+bool attach_implicit_samples(
+    GLuint colour, GLenum depth_format, GLsizei samples, GLsizei width, GLsizei height
+) {
+    glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, samples, depth_format, width, height);
 
-// A driver that lists GL_EXT_multisampled_render_to_texture but would not complete such a target:
-// multisampled buffers from then on.
-bool g_implicit_refused = false;
+    // Do not attempt the colour attachment if the depth allocation already failed.
+    if (glGetError() != GL_NO_ERROR) {
+        return false;
+    }
 
-// The depth and stencil format of the frame buffers: 32-bit float depth with precise depth.
-GLenum depth_stencil_format() {
-    return precise_depth() ? GL_DEPTH32F_STENCIL8 : GL_DEPTH24_STENCIL8;
+    glFramebufferTexture2DMultisampleEXT(
+        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colour, 0, samples
+    );
+    return glGetError() == GL_NO_ERROR;
 }
 
 }  // namespace
 
-void request_precise_depth(bool wanted) {
-    g_precise_depth_wanted = wanted;
-}
-
 bool precise_depth() {
-    return g_precise_depth_wanted && glClipControl != nullptr;
+    return glClipControl != nullptr;
 }
 
 FrameBuffer::~FrameBuffer() {
@@ -74,12 +78,28 @@ void FrameBuffer::allocate_colour(bool float_colour) {
 bool FrameBuffer::create(
     int width, int height, std::string& error, int samples, bool texture_depth, bool float_colour
 ) {
+    return create_target(
+        width, height, error, samples, texture_depth, float_colour, ResolveMode::AllowImplicit
+    );
+}
+
+bool FrameBuffer::create_target(
+    int width,
+    int height,
+    std::string& error,
+    int samples,
+    bool texture_depth,
+    bool float_colour,
+    ResolveMode resolve_mode
+) {
     release();
     m_width = width;
     m_height = height;
     m_samples = std::clamp(samples, 1, max_samples());
     m_float = float_colour;
     const GLenum colour_format = float_colour ? GL_RGBA16F : GL_RGBA8;
+    const bool float_depth = precise_depth();
+    const GLenum depth_format = float_depth ? GL_DEPTH32F_STENCIL8 : GL_DEPTH24_STENCIL8;
     allocate_colour(float_colour);
     m_texture_depth = texture_depth;
     if (texture_depth && m_samples != 1) {
@@ -99,18 +119,24 @@ bool FrameBuffer::create(
     // writes every sample to memory and reads it back for the resolve, four times a plain frame's
     // traffic at 4x, each frame. A second framebuffer holds the same texture with one sample, for
     // reading and copying what was drawn.
-    m_implicit = m_samples > 1 && !g_implicit_refused && glFramebufferTexture2DMultisampleEXT != nullptr
+    m_implicit = m_samples > 1 && resolve_mode == ResolveMode::AllowImplicit
+                 && glFramebufferTexture2DMultisampleEXT != nullptr
                  && glRenderbufferStorageMultisampleEXT != nullptr;
     if (m_implicit) {
-        glRenderbufferStorageMultisampleEXT(
-            GL_RENDERBUFFER, m_samples, depth_stencil_format(), width, height
-        );
-        glFramebufferTexture2DMultisampleEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_colour, 0,
-                                             m_samples);
+        // AMD ES can reject the colour attachment despite advertising the extension.
+        if (!attach_implicit_samples(m_colour, depth_format, m_samples, width, height)) {
+            return create_target(
+                width,
+                height,
+                error,
+                samples,
+                texture_depth,
+                float_colour,
+                ResolveMode::ExplicitOnly
+            );
+        }
     } else if (m_samples > 1) {
-        glRenderbufferStorageMultisample(
-            GL_RENDERBUFFER, m_samples, depth_stencil_format(), width, height
-        );
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, m_samples, depth_format, width, height);
         glGenRenderbuffers(1, &m_multisample);
         glBindRenderbuffer(GL_RENDERBUFFER, m_multisample);
         glRenderbufferStorageMultisample(GL_RENDERBUFFER, m_samples, colour_format, width, height);
@@ -122,12 +148,12 @@ bool FrameBuffer::create(
             glTexImage2D(
                 GL_TEXTURE_2D,
                 0,
-                depth_stencil_format(),
+                depth_format,
                 width,
                 height,
                 0,
                 GL_DEPTH_STENCIL,
-                precise_depth() ? GL_FLOAT_32_UNSIGNED_INT_24_8_REV : GL_UNSIGNED_INT_24_8,
+                float_depth ? GL_FLOAT_32_UNSIGNED_INT_24_8_REV : GL_UNSIGNED_INT_24_8,
                 nullptr
             );
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -135,7 +161,7 @@ bool FrameBuffer::create(
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         } else {
-            glRenderbufferStorage(GL_RENDERBUFFER, depth_stencil_format(), width, height);
+            glRenderbufferStorage(GL_RENDERBUFFER, depth_format, width, height);
         }
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_colour, 0);
     }
@@ -157,8 +183,9 @@ bool FrameBuffer::create(
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     if (status != GL_FRAMEBUFFER_COMPLETE && m_implicit) {
-        g_implicit_refused = true;
-        return create(width, height, error, samples, texture_depth, float_colour);
+        return create_target(
+            width, height, error, samples, texture_depth, float_colour, ResolveMode::ExplicitOnly
+        );
     }
     if (status != GL_FRAMEBUFFER_COMPLETE) {
         error = std::format("framebuffer {}x{} with {} sample(s) incomplete ({:#x})", width, height, m_samples,
@@ -252,6 +279,7 @@ void FrameBuffer::release() {
     m_texture_depth = false;
     m_samples = 1;
     m_implicit = false;
+    m_samples_let_go = false;
     m_width = 0;
     m_height = 0;
 }
@@ -260,27 +288,44 @@ unsigned FrameBuffer::resolved() const {
     if (m_resolve == 0) {
         return m_framebuffer;
     }
-    if (m_implicit) {
+    if (m_implicit || m_samples_let_go) {
         return m_resolve;  // the texture holds the resolved colour already
     }
-    // As blit_to: neither the scissor nor the colour mask applies to a copy.
-    glDisable(GL_SCISSOR_TEST);
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_framebuffer);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_resolve);
-    glBlitFramebuffer(0, 0, m_width, m_height, 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    blit_colour(
+        "framebuffer resolve",
+        m_framebuffer,
+        m_resolve,
+        {{0, 0}, {m_width, m_height}, {0, 0}, {m_width, m_height}},
+        true
+    );
     return m_resolve;
 }
 
+void FrameBuffer::restore_samples() {
+    if (!m_samples_let_go) {
+        return;
+    }
+    m_samples_let_go = false;
+    // As blit_to: neither the scissor nor the colour mask applies to a copy.
+    glDisable(GL_SCISSOR_TEST);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_resolve);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_framebuffer);
+    glBlitFramebuffer(
+        0, 0, m_width, m_height, 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT, GL_NEAREST
+    );
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+}
+
 std::vector<std::uint8_t> read_rgba(unsigned framebuffer, int width, int height) {
+    // There is no image to read until a target has been sized.
+    if (width <= 0 || height <= 0) {
+        return {};
+    }
     const auto row = static_cast<std::size_t>(width) * 4;
     std::vector<std::uint8_t> pixels(row * static_cast<std::size_t>(height));
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
-    glPixelStorei(GL_PACK_ALIGNMENT, 1);
-    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    read_colour(framebuffer, width, height, pixels);
     // GL's rows run bottom to top.
     for (int y = 0; y < height / 2; ++y) {
         auto top = pixels.begin() + static_cast<std::ptrdiff_t>(static_cast<std::size_t>(y) * row);
@@ -297,23 +342,22 @@ std::vector<std::uint8_t> FrameBuffer::read_rgba() const {
 }
 
 void FrameBuffer::blit_to(unsigned target, int dst_width, int dst_height) const {
-    // A blit is clipped by the scissor and the colour mask like a draw: neither applies to a copy
-    // (the renderers set both again for their own draws).
-    glDisable(GL_SCISSOR_TEST);
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     // A multisampled target copies to one of another size only through its resolved colour.
-    const unsigned source = m_implicit || (m_samples > 1 && (dst_width != m_width || dst_height != m_height))
-                                ? resolved()
-                                : m_framebuffer;
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, source);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target);
-    const bool same_size = dst_width == m_width && dst_height == m_height;
-    glBlitFramebuffer(
-        0, 0, m_width, m_height, 0, 0, dst_width, dst_height, GL_COLOR_BUFFER_BIT,
-        same_size ? GL_NEAREST : GL_LINEAR
+    const unsigned source =
+        m_implicit || m_samples_let_go
+                || (m_samples > 1 && (dst_width != m_width || dst_height != m_height))
+            ? resolved()
+            : m_framebuffer;
+    blit_colour(
+        "framebuffer copy",
+        source,
+        target,
+        {{0, 0},
+         {m_width, m_height},
+         {0, 0},
+         {dst_width, dst_height},
+         dst_width != m_width || dst_height != m_height}
     );
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 }  // namespace openrac::renderer

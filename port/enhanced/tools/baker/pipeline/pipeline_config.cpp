@@ -101,7 +101,7 @@ void option(Options& options, const std::string& key, const std::string& value) 
     }
 }
 
-// Rejects region controls that Python previously validated before sending its final request.
+// Rejects region controls whose types or values do not match the defaults.
 void validate_regions(const json::Value& settings, const json::Value& defaults) {
     // Authored volumes are optional. The other fields have scalar defaults.
     for (const auto& [key, value] : settings.members()) {

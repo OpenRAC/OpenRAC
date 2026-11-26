@@ -22,7 +22,7 @@ Where to find what. Start with the first table.
 |---|---|
 | [docs/port](port/README.md) | The port, OpenGOAL's way: the design ([DESIGN.md](port/DESIGN.md)) and the order of work ([ROADMAP.md](port/ROADMAP.md)) |
 | [port/](../port/README.md) | The code: how it fits together, building and testing it |
-| [port/docs/CODING_CONVENTIONS.md](../port/docs/CODING_CONVENTIONS.md) | How the port's C++ and C are written, and what CI checks |
+| [docs/CODING_CONVENTIONS.md](CODING_CONVENTIONS.md) | How the port's C++ and C are written, and what CI checks |
 | [port/WORKFLOW.md](port/WORKFLOW.md) | From a player's report to a fix and a release |
 | [port/BACKFILL.md](port/BACKFILL.md) | Which functions to fill in with C for the port, and the check that says they are right |
 | [port/KNOWN_ISSUES.md](port/KNOWN_ISSUES.md) | Bugs that are understood and guarded but not properly fixed yet |
@@ -36,7 +36,8 @@ Where to find what. Start with the first table.
 | Document | For |
 |---|---|
 | [launcher/README.md](../launcher/README.md) | The launcher: using it, developing it, [connecting a game](../launcher/docs/INTEGRATION.md) |
-| [editor/README.md](../editor/README.md) | The Godot level editor: extracting your levels, what it reads, its code |
+| [extractor/README.md](../extractor/README.md) | The extractor: reading your disc's levels, models, textures and sounds for the port and for packs |
+| [OpenRAC Editor](https://github.com/OpenRAC/OpenRAC-Editor) | The level editor, a program of its own: the launcher downloads it from its releases ([its guide](https://github.com/OpenRAC/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md)) |
 
 ## The decompilations
 

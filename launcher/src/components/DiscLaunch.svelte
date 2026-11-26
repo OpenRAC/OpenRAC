@@ -5,6 +5,9 @@
   // at each moment), with the click and the drive's sound (driveSounds.ts). Then `ondone` starts the game. B, Back or a tap before the click puts the disc
   // back (`oncancel`). The console is the launcher's own drawing, with no maker's marks.
   import { onMount } from "svelte";
+
+  import { discPrint } from "$lib/discArt";
+  import { type DriveSounds, driveSounds } from "$lib/driveSounds";
   import {
     blackAt,
     consoleAt,
@@ -18,9 +21,8 @@
     travelAt,
     turnsAt,
   } from "$lib/insertion";
-  import { discPrint } from "$lib/discArt";
-  import { driveSounds, type DriveSounds } from "$lib/driveSounds";
   import { ACCENTS } from "$lib/themes";
+
   import Disc from "./Disc.svelte";
 
   let {
@@ -86,10 +88,17 @@
   let smeared = false;
 
   /** Draws the print `steps` times over `degrees`, each fainter, so all weigh the same. */
-  function smearInto(canvas: HTMLCanvasElement, img: HTMLImageElement, degrees: number, steps: number) {
+  function smearInto(
+    canvas: HTMLCanvasElement,
+    img: HTMLImageElement,
+    degrees: number,
+    steps: number,
+  ) {
     const g = canvas.getContext("2d");
+
     if (!g) return;
     const s = canvas.width;
+
     for (let k = 0; k < steps; k++) {
       g.save();
       g.globalAlpha = 1 / (k + 1);
@@ -116,10 +125,12 @@
     fromY = (from.top + from.height / 2 - top) / fit;
     fromScale = from.width / fit / SIZE;
     diagonal = Math.hypot(screen.w, screen.h);
+
     if (box) {
       box.style.left = `${left}px`;
       box.style.top = `${top}px`;
     }
+
     if (holeEl) {
       holeEl.style.left = `${left + SX * fit}px`;
       holeEl.style.top = `${top + SY * fit}px`;
@@ -139,12 +150,15 @@
 
     if (ink) ink.style.opacity = `${into}`;
     if (light) light.style.opacity = `${into * 0.14}`;
+
     if (stage) {
       stage.style.opacity = `${into}`;
       stage.style.visibility = over ? "hidden" : "";
     }
+
     // The console gives a little as the lid shuts.
     const knock = Math.sin(Math.PI * clamp01((t - shutAt() + 0.04) / 0.2)) * 1.5;
+
     if (box)
       box.style.transform = `perspective(1600px) rotateX(14deg) translate3d(0, ${(1 - into) * 60 + knock}px, 0) scale(${fit})`;
 
@@ -153,11 +167,14 @@
       const y = (fromY - SY) * (1 - go);
       const scale = (fromScale + (1 - fromScale) * go) * (1 + lift);
       const z = 2 + lift * 600 + (1 - go) * 160;
+
       // Taken in hand it tips towards the player a little.
       discEl.style.transform = `translate3d(${x}px, ${y}px, ${z}px) rotateX(${lift * -60}deg) scale(${scale})`;
     }
+
     if (spinEl) spinEl.style.transform = `rotate(${spinAt(t) % 360}deg)`;
     const turns = turnsAt(t) / 15;
+
     if (arc) arc.style.opacity = `${smeared ? Math.min(1, turns * 4) : 0}`;
     if (ring) ring.style.opacity = `${smeared ? clamp01((turns - 0.25) / 0.45) : 0}`;
     if (blurEl) blurEl.style.opacity = `${smeared ? 0 : speedAt(t) * 0.6}`;
@@ -167,9 +184,11 @@
       shadeEl.style.opacity = `${go ** 3 * Math.max(0, 0.75 - lift * 3)}`;
       shadeEl.style.transform = `scale(${1 + lift * 1.6})`;
     }
+
     if (lidEl) {
       lidEl.style.transform = `translateZ(8px) rotateX(${104 * (1 - lid)}deg)`;
     }
+
     // Open, it catches the light.
     if (litEl) litEl.style.opacity = `${1 - lid}`;
     ledEl?.classList.toggle("on", t >= shutAt());
@@ -178,6 +197,7 @@
       holeEl.style.opacity = black > 0 && !over ? "1" : "0";
       holeEl.style.transform = `scale(${Math.max(0.001, (black * diagonal * 2.6) / HOLE)})`;
     }
+
     // The last of the circle's growth hands over to plain black, which stays until the game covers
     // the launcher: one flat layer, nothing to fall apart while Android takes the window away.
     if (allEl) allEl.style.opacity = `${over ? 1 : clamp01((black - 0.7) / 0.3)}`;
@@ -192,16 +212,20 @@
     measure();
     paint();
     el?.focus();
+
     if (print) {
       const img = new Image();
+
       img.onload = () => {
         if (!arc || !ring) return;
         smearInto(arc, img, 40, 12);
         smearInto(ring, img, 360, 48);
         smeared = true;
       };
+
       img.src = print;
     }
+
     // The press has just happened: the page may play sound now.
     sounds = driveSounds(seatedAt(), duration() - seatedAt());
     const begun = performance.now();
@@ -209,21 +233,28 @@
     const tick = (now: number) => {
       t = Math.max(0, (now - begun) / 1000);
       paint();
+
       if (t >= duration()) {
         if (!done) {
           done = true;
           ondone();
         }
+
         return;
       }
+
       frame = requestAnimationFrame(tick);
     };
+
     frame = requestAnimationFrame(tick);
+
     const resized = () => {
       measure();
       paint();
     };
+
     addEventListener("resize", resized);
+
     return () => {
       cancelAnimationFrame(frame);
       removeEventListener("resize", resized);
@@ -271,8 +302,16 @@
           <div class="spindle"></div>
         </div>
       </div>
-      <div class="shade" bind:this={shadeEl} style={`left: ${SX - SIZE / 2}px; top: ${SY - SIZE / 2}px`}></div>
-      <div class="disc" bind:this={discEl} style={`left: ${SX - SIZE / 2}px; top: ${SY - SIZE / 2}px`}>
+      <div
+        class="shade"
+        bind:this={shadeEl}
+        style={`left: ${SX - SIZE / 2}px; top: ${SY - SIZE / 2}px`}
+      ></div>
+      <div
+        class="disc"
+        bind:this={discEl}
+        style={`left: ${SX - SIZE / 2}px; top: ${SY - SIZE / 2}px`}
+      >
         <div class="spin" bind:this={spinEl}>
           <Disc {game} {version} {title} />
           {#if print}
@@ -428,7 +467,12 @@
     inset: 0;
     width: 100%;
     height: 100%;
-    mask: radial-gradient(circle closest-side, transparent 0 12.6%, black 13% 99.2%, transparent 100%);
+    mask: radial-gradient(
+      circle closest-side,
+      transparent 0 12.6%,
+      black 13% 99.2%,
+      transparent 100%
+    );
   }
 
   .shade {

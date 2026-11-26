@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Captures compatibility draws, dispatches and buffer uploads as graph work.
+// Declares framebuffer clears and buffer transfers.
 #include "renderer/vulkan/graph/graph_immediate_work.h"
 
 #include "common/profiler.h"
@@ -27,7 +27,7 @@ void checked(Result<void> result) {
 }
 }  // namespace
 
-// Draws and clears share attachment preservation and discard semantics.
+// Clears preserve the aspects with existing contents.
 void GraphImmediateWork::capture_attachment(
     GraphExecution& execution, graph::Pass& pass, Image* image, graph::Aspect aspect
 ) {
@@ -52,111 +52,6 @@ void GraphImmediateWork::capture_attachment(
                                           : graph::Layout::DepthAttachment},
          defined ? graph::Load::Preserve : graph::Load::Discard}
     );
-}
-
-void GraphImmediateWork::draw(
-    const std::function<void()>& record, GpuPage* page, unsigned indirect
-) {
-    const profiling::Zone timing("Immediate graph raster");
-    const auto* program = g->programs.find(g->state.program);
-    if (!program || !program->linked) {
-        return;
-    }
-    prepare_frame();
-    const auto target = target_of(g->state.draw_framebuffer);
-    if ((!target.colour && !target.depth) || target.width <= 0 || target.height <= 0
-        || g->state.viewport[2] <= 0 || g->state.viewport[3] <= 0) {
-        return;
-    }
-    // Flush an earlier packet before establishing this pass's resource entry states.
-    gpu_flush_draws();
-    GraphExecution execution;
-    execution.m_recording->attachment_fallback = true;
-    graph::Pass pass{"immediate raster"};
-    pass.execution = graph::Stage::VertexShader | graph::Stage::FragmentShader;
-    checked(execution.capture_graphics_reads(pass));
-    capture_attachment(execution, pass, target.colour, graph::Aspect::Colour);
-    capture_attachment(execution, pass, target.depth, graph::Aspect::Depth);
-    if (target.depth && has_stencil(target.depth->format) && g->state.stencil_test) {
-        capture_attachment(execution, pass, target.depth, graph::Aspect::Stencil);
-    }
-    auto& recording = *execution.m_recording;
-    const auto input = [&](std::string_view name, BufferRef region, graph::Stage stage) {
-        const auto handle = checked(recording.import_buffer(name, region, true));
-        pass.buffers.push_back(
-            {handle,
-             {region.offset, region.size},
-             {stage, graph::Access::Read, graph::Layout::Buffer}}
-        );
-    };
-    const auto& array = vertex_array();
-    for (const auto& attribute : program->compiled.attributes) {
-        if (attribute.location < 0 || attribute.location >= kAttributes) {
-            continue;
-        }
-        const auto& bound = array.attributes[attribute.location];
-        auto* buffer = bound.enabled ? g->buffers.find(bound.buffer) : nullptr;
-        if (!buffer || !buffer->size || bound.format == VK_FORMAT_UNDEFINED) {
-            continue;
-        }
-        input(
-            "raster vertices",
-            page && bound.divisor ? BufferRef{page->output.buffer, 0, page->output.size}
-                                  : resolve(*buffer, bound.divisor == 0 || buffer->storage),
-            graph::Stage::VertexInput
-        );
-    }
-    if (auto* elements = g->buffers.find(array.elements); elements && elements->size) {
-        input("raster indices", resolve(*elements), graph::Stage::VertexInput);
-    }
-    if (page) {
-        input(
-            "raster indirect arguments",
-            {page->arguments.buffer, 0, page->arguments.size},
-            graph::Stage::DrawIndirect
-        );
-    } else if (auto* arguments = g->buffers.find(indirect); arguments && arguments->size) {
-        input("raster indirect arguments", resolve(*arguments), graph::Stage::DrawIndirect);
-    }
-    execution.add_pass(std::move(pass));
-    checked(execution.run([&](unsigned) { record(); }));
-}
-
-void GraphImmediateWork::dispatch(const std::function<void()>& record) {
-    const profiling::Zone timing("Immediate graph compute");
-    const auto* program = g->programs.find(g->state.program);
-    if (!program || !program->linked || !program->compute_pipeline) {
-        return;
-    }
-    prepare_frame();
-    end_rendering(PassEnd::Compute);
-    GraphExecution execution;
-    graph::Pass pass{"immediate compute"};
-    pass.execution = graph::Stage::ComputeShader;
-    checked(execution.capture_compute_reads(pass));
-    for (const auto& block : program->compiled.storage) {
-        if (block.binding < 0 || block.binding >= static_cast<int>(kUniformBindings)) {
-            continue;
-        }
-        const auto name = g->state.storage_bindings[block.binding];
-        const auto* buffer = g->buffers.find(name);
-        if (!buffer || !buffer->size) {
-            continue;
-        }
-        const auto handle = checked(execution.import_buffer("compute storage", name));
-        // Compatibility compute reflection does not expose read/write qualifiers.
-        // One combined access preserves the entire buffer conservatively.
-        std::erase_if(pass.buffers, [&](const graph::BufferUse& use) {
-            return use.buffer.index == handle.index;
-        });
-        pass.buffers.push_back(
-            {handle,
-             {0, buffer->size},
-             {graph::Stage::ComputeShader, graph::Access::ReadWrite, graph::Layout::Buffer}}
-        );
-    }
-    execution.add_pass(std::move(pass));
-    checked(execution.run([&](unsigned) { record(); }));
 }
 
 void GraphImmediateWork::copy_buffer(

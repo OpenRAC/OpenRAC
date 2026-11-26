@@ -7,7 +7,10 @@
 #include <string>
 
 #include "common/log.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
+#include "renderer/renderer.h"
+#include "renderer/ui/overlay_draw_sources.h"
 
 namespace openrac::renderer::ui {
 
@@ -16,23 +19,31 @@ using namespace openrac::gl;
 namespace {
 
 // The picture's positions to device coordinates, y down; colours as they come.
-constexpr const char* kVertex = R"glsl(#version 410 core
-layout(location = 0) in vec2 position;
-layout(location = 1) in vec4 colour;
-out vec4 v_colour;
-void main() {
-    v_colour = colour;
-    gl_Position = vec4(position.x / 256.0 - 1.0, 1.0 - position.y / 224.0, 0.0, 1.0);
-}
-)glsl";
+using shader_sources::renderer_ui_overlay_draw::kVertex;
 
-constexpr const char* kFragment = R"glsl(#version 410 core
-in vec4 v_colour;
-out vec4 out_colour;
-void main() {
-    out_colour = v_colour;
+using shader_sources::renderer_ui_overlay_draw::kFragment;
+
+// What the blending does for `blend`, which the list has already checked is one it has. In each the
+// frame's alpha is kept (the alpha factors are 0 and 1 whichever equation: dst * 1 +- src * 0).
+// Subtract is the game's own "destination minus source * alpha" (the GS pass of
+// renderer/world/gs_pass.cpp): GL's reverse subtract is dst * dfactor - src * sfactor, here
+// dst - src * alpha, and a colour target holds nothing below 0.
+void set_blend(OverlayBlend blend) {
+    switch (blend) {
+        case OverlayBlend::Alpha:
+            glBlendEquation(GL_FUNC_ADD);
+            glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+            break;
+        case OverlayBlend::Add:
+            glBlendEquation(GL_FUNC_ADD);
+            glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ONE);
+            break;
+        case OverlayBlend::Subtract:
+            glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
+            glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ONE);
+            break;
+    }
 }
-)glsl";
 
 }  // namespace
 
@@ -56,6 +67,17 @@ bool OverlayDraw::ready() {
 void OverlayDraw::draw(
     unsigned framebuffer, int width, int height, std::span<const OverlayVertex> vertices
 ) {
+    const OverlayBatch all{0, static_cast<std::uint32_t>(vertices.size()), OverlayBlend::Alpha};
+    draw(framebuffer, width, height, vertices, {&all, 1});
+}
+
+void OverlayDraw::draw(
+    unsigned framebuffer,
+    int width,
+    int height,
+    std::span<const OverlayVertex> vertices,
+    std::span<const OverlayBatch> batches
+) {
     if (vertices.empty() || width <= 0 || height <= 0 || !ready()) {
         return;
     }
@@ -68,8 +90,6 @@ void OverlayDraw::draw(
     glDisable(GL_CULL_FACE);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glEnable(GL_BLEND);
-    glBlendEquation(GL_FUNC_ADD);
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
     m_shader.use();
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, m_buffer);
@@ -91,21 +111,44 @@ void OverlayDraw::draw(
         stride,
         reinterpret_cast<const void*>(offsetof(OverlayVertex, rgba))
     );
-    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size()));
+    const RasterBuffer geometry{m_buffer, vertices.size_bytes()};
+    // Upload and vertex layout are complete before the pass borrows the buffer.
+    raster_pass("mod overlay", {framebuffer, width, height}, {{&geometry, 1}}, [&] {
+        bool blend_set = false;
+        OverlayBlend blend = OverlayBlend::Alpha;
+        for (const OverlayBatch& batch : batches) {
+            if (batch.count == 0
+                || static_cast<std::size_t>(batch.first) + batch.count > vertices.size()) {
+                continue;
+            }
+            if (!blend_set || batch.blend != blend) {
+                set_blend(batch.blend);
+                blend = batch.blend;
+                blend_set = true;
+            }
+            glDrawArrays(
+                GL_TRIANGLES, static_cast<GLint>(batch.first), static_cast<GLsizei>(batch.count)
+            );
+        }
+    });
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // Whoever draws next finds the default equation, as it did before there was a subtract.
+    glBlendEquation(GL_FUNC_ADD);
     glDisable(GL_BLEND);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void OverlayDraw::release() {
-    m_shader.release();
+    if (m_buffer != 0) {
+        glDeleteBuffers(1, &m_buffer);
+        m_buffer = 0;
+    }
     if (m_vao != 0) {
         glDeleteVertexArrays(1, &m_vao);
-        glDeleteBuffers(1, &m_buffer);
+        m_vao = 0;
     }
-    m_vao = 0;
-    m_buffer = 0;
+    m_shader.release();
     m_failed = false;
 }
 

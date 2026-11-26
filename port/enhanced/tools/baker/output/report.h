@@ -45,6 +45,9 @@ private:
 // Machine-readable resolved transport and grid settings, including room-local emission gains.
 std::string describe_level_bake_profile(const LevelBakeProfile& profile);
 
+// Return the probe header prefix as hex for scripts, after unwrapping LZ4 if needed.
+std::string probe_header_bytes(const std::filesystem::path& path);
+
 // Shared human-readable transport/grid description for both CLI paths.
 std::string describe_probe_bake(
     const scene::LevelData& level,

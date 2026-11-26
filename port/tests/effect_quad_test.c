@@ -28,14 +28,14 @@ int main(void) {
     GREF(uint16_t,0x28D146)=(uint16_t)((input.tex0>>37)&0x3FFF);
     GREF(uint32_t,0x28D140)=0x345000;
     GREF(uint32_t,0x28D148)=0x346000;
-    func_L00_001FD1D8(0x1000,0,0);
+    func_L00_001FD1D8__game(0x1000, 0, 0);
     CHECK(submitted==1 && !memcmp(&input,&captured,0x90));
     /* RAC1's quads do not opt into the physical attachment contract. */
     CHECK(captured.attachment == 0);
     CHECK(captured.pixels == 0x346000 && captured.clut == 0x345000 && captured.source == 1);
     /* The texture is cached after its upload frame. */
     GREF(int,0x25F558)=0;
-    func_L00_001FD1D8(0x1000,0x2000,0);
+    func_L00_001FD1D8__game(0x1000, 0x2000, 0);
     CHECK(
         submitted == 2 && captured.pixels == 0x346000 && captured.clut == 0x345000
         && captured.source == 2
@@ -51,7 +51,7 @@ int main(void) {
     func_001F7EF8(0x1000,0,0);
     CHECK(submitted==3 && !memcmp(&input,&captured,0x90));
     input.tex0=0x5678; memcpy(ram+0x1000,&input,0x90);
-    func_L00_001FD1D8(0x1000,0,0);
+    func_L00_001FD1D8__game(0x1000, 0, 0);
     CHECK(submitted == 4 && captured.pixels == 0 && captured.clut == 0 && captured.source == 0);
     puts("effect quad: OK"); return 0;
 }

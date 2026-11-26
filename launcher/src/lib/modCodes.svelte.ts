@@ -2,8 +2,8 @@
 // from outside (openrac://modset/CODE). ModSetReview.svelte, at the launcher's top, shows it.
 import { api, onModsetLink, type VersionView } from "./api";
 import { app, toast } from "./app.svelte";
-import { playerVersion } from "./player.svelte";
 import { MOD_CODES as T } from "./modsText";
+import { playerVersion } from "./player.svelte";
 
 export const modCode = $state<{
   /** The code to review, and the disc it is reviewed for. */
@@ -20,26 +20,36 @@ export const modCode = $state<{
 export function versionFor(game?: string): VersionView | null {
   const games = app.library?.games ?? [];
   const last = app.version?.split("/")[0];
-  const wanted = game ? [games.find((g) => g.id === game)] : [games.find((g) => g.id === last), ...games];
+  const wanted = game
+    ? [games.find((g) => g.id === game)]
+    : [games.find((g) => g.id === last), ...games];
+
   for (const g of wanted) {
     const v = g ? playerVersion(g) : null;
+
     if (v) return v;
   }
+
   return null;
 }
 
 /** Opens a code's review. Without a version, the disc played. */
 export function openCode(text: string, version?: VersionView | null) {
   const v = version ?? versionFor();
+
   if (!v) {
     toast(T.noGame, "error");
+
     return;
   }
+
   if (modCode.open && modCode.busy) {
     modCode.queued = { text, version: v };
     toast(T.queued, "info");
+
     return;
   }
+
   modCode.open = { text, version: v };
 }
 
@@ -57,12 +67,15 @@ export function modsChanged() {
 /** Opens the link waiting, if one is. */
 export async function takeCodeLink() {
   const link = await api.modsetTakeLink();
+
   if (link) openCode(link);
 }
 
 /** Links from outside: the one that started the launcher, then any that come. */
 export async function followCodeLinks(): Promise<() => void> {
   const stop = await onModsetLink(() => void takeCodeLink());
+
   void takeCodeLink();
+
   return stop;
 }

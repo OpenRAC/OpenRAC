@@ -1,0 +1,430 @@
+{
+  "format": 1,
+  "source_commit": "4ea93ceaf43aec055e19211d36512e847860bac2",
+  "points": {
+    "RESET_MOBY_FUNCS": {
+      "ntsc": {
+        "symbol": "func_L00_00300618",
+        "source": "src/levels/shared/L00_002FC7A0-00300618-g8.c",
+        "definition": "LoadLevelData",
+        "definition_sha256": "8e3b1f66ead2a55f24cae5ca86b98a4414523cce3770ce080cd52711facad0b2"
+      },
+      "pal": {
+        "symbol": "func_L00_003021B0",
+        "source": "src/pal/levels/shared/L00_003021B0-g8.c",
+        "definition": "LoadLevelData_pal",
+        "definition_sha256": "e78847484ababe53ba3c51c2f79d9de30eca8e3f7cc2dd86b6cb00a7480723ec"
+      },
+      "ntsc2": {
+        "symbol": "func_L00_003012A0",
+        "source": "src/us2/levels/shared/L00_003012A0-g8.c",
+        "definition": "load_level_data_us2",
+        "definition_sha256": "ea2f3b55588f1ea0b59c0e08c2b334b30e5caf30672d40ed50a4dec9ed5de5fe"
+      },
+      "expected_queries": 2
+    },
+    "SPECIAL_MENU_FUNCS": {
+      "ntsc": {
+        "symbol": "func_002CF340",
+        "source": "src/game/002CF340-g8.c",
+        "definition": "menu_update_extras_unlocks",
+        "definition_sha256": "d27414f078d5a1c961210575435040f6d0b0ae7452f5f0aa828b431ef48b8190"
+      },
+      "pal": {
+        "symbol": "func_002D0290",
+        "source": "src/pal/game/002D022C-g8.c",
+        "definition": "menu_update_extras_unlocks_pal",
+        "definition_sha256": "d6e83ddace901919ee57676993fc5a85f7ba03a86320a6f2e10c9c3ebc2025bc"
+      },
+      "ntsc2": {
+        "symbol": "func_002D02A0",
+        "source": "src/us2/game/002D0158-g8.c",
+        "definition": "menu_update_extras_unlocks_us2",
+        "definition_sha256": "1fe6ca22201474829be26df5954304dc873e0fb84ca1dea6f831f87bf0a79cac"
+      },
+      "expected_queries": 4
+    },
+    "SHORTCUT_MENU_FUNCS": {
+      "ntsc": {
+        "symbol": "func_002D0FA0",
+        "source": "src/game/002CD8C0-g8.c",
+        "definition": "menu_handle_eight_entry_input",
+        "definition_sha256": "2e3f63c883e2791d1151c6ecdfb9a58d74dc12324d38b2ff2f97b789f10fc947"
+      },
+      "pal": {
+        "symbol": "func_002D1EB0",
+        "source": "src/pal/game/002D1EB0-menu-g8.c",
+        "definition": "menu_handle_eight_entry_input_pal",
+        "definition_sha256": "7c7e17cf3716d9efb3490bbdd6b9f78d2001080e8a16fc98092a567cc290ee4f"
+      },
+      "ntsc2": {
+        "symbol": "func_002D1F28",
+        "source": "src/us2/game/002D1F28-cc-g8.c",
+        "definition": "menu_handle_eight_entry_input_us2",
+        "definition_sha256": "24d9b1425f066666ff86eaa417643c926589b8956f69f91c0a1ce3200adda922"
+      },
+      "expected_queries": 1
+    },
+    "MAKTAR_ARENA_MENU_FUNC": {
+      "ntsc": {
+        "symbol": "func_L02_003FD8B8",
+        "source": "src/levels/02_maktar_nebula/L02_003FD8B8-g8.c",
+        "definition": "arena_update_challenge_menu",
+        "definition_sha256": "478b0ee18de48a9b28bbc7267e4c75d9f12d6c10cd2c7385dd51f922088d4821"
+      },
+      "pal": {
+        "symbol": "func_L02_00402030",
+        "source": "src/pal/levels/02_maktar_nebula/L02_00402030-g8.c",
+        "definition": "arena_update_challenge_menu_pal",
+        "definition_sha256": "de37edfa70fbd18320c6a0fe67523739e63ef178150a05c9afe660f2c728c264"
+      },
+      "ntsc2": {
+        "symbol": "func_L02_003FEE58",
+        "source": "src/levels/02_maktar_nebula/L02_003FD8B8-g8.c",
+        "definition": "arena_update_challenge_menu",
+        "definition_sha256": "478b0ee18de48a9b28bbc7267e4c75d9f12d6c10cd2c7385dd51f922088d4821"
+      },
+      "expected_queries": 3
+    },
+    "JOBA_ARENA_MENU_FUNC": {
+      "ntsc": {
+        "symbol": "func_L11_00443498",
+        "source": "src/levels/11_joba/L11_00443498-g8.c",
+        "definition": "UpdateJobaClassSelectionMenu",
+        "definition_sha256": "89ea745255219c692242abf19320546d3ef8e07879de2707d721321f50f39280"
+      },
+      "pal": {
+        "symbol": "func_L11_00448CF0",
+        "source": "src/pal/levels/11_joba/L11_00448CF0-g8.c",
+        "definition": "UpdateJobaClassSelectionMenu_pal",
+        "definition_sha256": "9d5326dcb4bc8eda6194c144b9a5439e6dd00a9720a9c8569209542765fae6d9"
+      },
+      "ntsc2": {
+        "symbol": "func_L11_00444CE8",
+        "source": "src/levels/11_joba/L11_00443498-g8.c",
+        "definition": "UpdateJobaClassSelectionMenu",
+        "definition_sha256": "89ea745255219c692242abf19320546d3ef8e07879de2707d721321f50f39280"
+      },
+      "expected_queries": 3
+    },
+    "MAKTAR_ARENA_DISPLAY_PREV_FUNC": {
+      "ntsc": {
+        "symbol": "func_L02_003FDDE8",
+        "source": "src/levels/02_maktar_nebula/L02_003FDDE8-g8.c",
+        "definition": "arena_draw_menu_help_prompts",
+        "definition_sha256": "be9f115ee73c75f72dc5e2a51846977641f02486f8768f98cef7dd029df1eca2"
+      },
+      "pal": {
+        "symbol": "func_L02_00402560",
+        "shared": true,
+        "source": "src/levels/02_maktar_nebula/L02_003FDDE8-g8.c",
+        "definition": "arena_draw_menu_help_prompts",
+        "definition_sha256": "be9f115ee73c75f72dc5e2a51846977641f02486f8768f98cef7dd029df1eca2"
+      },
+      "ntsc2": {
+        "symbol": "func_L02_003FF388",
+        "source": "src/levels/02_maktar_nebula/L02_003FDDE8-g8.c",
+        "definition": "arena_draw_menu_help_prompts",
+        "definition_sha256": "be9f115ee73c75f72dc5e2a51846977641f02486f8768f98cef7dd029df1eca2"
+      },
+      "expected_queries": 1
+    },
+    "MAKTAR_ARENA_DISPLAY_NEXT_FUNC": {
+      "ntsc": {
+        "symbol": "func_L02_003FE250",
+        "source": "src/levels/02_maktar_nebula/L02_003FE250-g8.c",
+        "definition": "arena_draw_menu_panel",
+        "definition_sha256": "31d219bedd02902391feecbfe736c6611191ccdb2d389b7f2a404ffbdfec8647"
+      },
+      "pal": {
+        "symbol": "func_L02_004029E0",
+        "source": "src/pal/levels/02_maktar_nebula/L02_004029E0-g8.c",
+        "definition": "arena_draw_menu_panel_pal",
+        "definition_sha256": "bbffbec8dde7fb879ddcfbca3557dcb0cd093e97241c50050e79da689308fcc0"
+      },
+      "ntsc2": {
+        "symbol": "func_L02_003FF808",
+        "source": "src/us2/levels/02_maktar_nebula/L02_003FF808-g8.c",
+        "definition": "arena_draw_menu_panel_us2",
+        "definition_sha256": "898f601d0650fc2091e1f83f576f31109075adb5ec2c69eba10fd7d32f07a807"
+      },
+      "expected_queries": 1
+    },
+    "JOBA_ARENA_DISPLAY_PREV_FUNC": {
+      "ntsc": {
+        "symbol": "func_L11_00443940",
+        "source": "src/levels/11_joba/L11_00443940-g8.c",
+        "definition": "joba_menu_draw_help_prompts",
+        "definition_sha256": "4c2b01ee122cec7f94a934579abcbcbb29cddb7f4363603dd693dff17dbe8897"
+      },
+      "pal": {
+        "symbol": "func_L11_00449198",
+        "shared": true,
+        "source": "src/levels/11_joba/L11_00443940-g8.c",
+        "definition": "joba_menu_draw_help_prompts",
+        "definition_sha256": "4c2b01ee122cec7f94a934579abcbcbb29cddb7f4363603dd693dff17dbe8897"
+      },
+      "ntsc2": {
+        "symbol": "func_L11_00445190",
+        "source": "src/levels/11_joba/L11_00443940-g8.c",
+        "definition": "joba_menu_draw_help_prompts",
+        "definition_sha256": "4c2b01ee122cec7f94a934579abcbcbb29cddb7f4363603dd693dff17dbe8897"
+      },
+      "expected_queries": 1
+    },
+    "JOBA_ARENA_DISPLAY_NEXT_FUNC": {
+      "ntsc": {
+        "symbol": "func_L11_00443D78",
+        "source": "src/levels/11_joba/L11_00443D78-g8.c",
+        "definition": "joba_menu_draw_selection_panel",
+        "definition_sha256": "8269c5c241d34120d55b535a1e51542950562fa5aa52ad88532303a8cef74d1e"
+      },
+      "pal": {
+        "symbol": "func_L11_004495E8",
+        "source": "src/pal/levels/11_joba/L11_004495E8-g8.c",
+        "definition": "joba_menu_draw_selection_panel_pal",
+        "definition_sha256": "f311df277f1f666ffb94a9aff5b0042ddb7ace9362b429436187ce3a8f6f219b"
+      },
+      "ntsc2": {
+        "symbol": "func_L11_004455E0",
+        "source": "src/us2/levels/11_joba/L11_004455E0-g8.c",
+        "definition": "joba_menu_draw_selection_panel_us2",
+        "definition_sha256": "ac9da66e6ccdd90393561e752a3efa19e13eb1417015329bd572ba04b9260045"
+      },
+      "expected_queries": 1
+    },
+    "SPACESHIP_MENU_FUNCS": {
+      "ntsc": {
+        "symbol": "func_L05_0041EF00",
+        "source": "src/levels/05_feltzin_system/L05_0041EF00-g8.c",
+        "definition": "menu_draw_feltzin_mission_result",
+        "definition_sha256": "4a111b1ac723eeb41c544ea19289f9aac000ed238d01ee11337489f593bb9a95"
+      },
+      "pal": {
+        "symbol": "func_L05_00423C50",
+        "source": "src/pal/levels/05_feltzin_system/L05_00423C50-g8.c",
+        "definition": "menu_draw_feltzin_mission_result_pal",
+        "definition_sha256": "7067c20715a10c9adbe7fa414f236b558ced5f80ba6bed1ba9dfb99eb05435ff"
+      },
+      "ntsc2": {
+        "symbol": "func_L05_00420420",
+        "source": "src/us2/levels/05_feltzin_system/L05_00420420-g8.c",
+        "definition": "menu_draw_feltzin_mission_result_us2",
+        "definition_sha256": "68bdfc2017221ae8b9f9e56022606443e4be7119e96e2cf508b2527b1935961c"
+      },
+      "expected_queries": 6
+    },
+    "START_SPACESHIP_CHALLENGE_FUNCS": {
+      "ntsc": {
+        "symbol": "func_L05_0041ED18",
+        "source": "src/levels/shared/L05_0041ED18-g8.c",
+        "definition": "LockedEntryMenuInput",
+        "definition_sha256": "944acde7d45c14d56c731e0a97f123b61cbdcb8c31fb35b096d8852f2d86b9c2"
+      },
+      "pal": {
+        "symbol": "func_L05_00423A68",
+        "source": "src/pal/levels/shared/L05_00423A68-g8.c",
+        "definition": "LockedEntryMenuInput_pal",
+        "definition_sha256": "495f975c82082cc6a865c82e6f4513179c04237151780954dccb130a655f36a1"
+      },
+      "ntsc2": {
+        "symbol": "func_L05_00420238",
+        "source": "src/us2/levels/shared/L05_00420238-g8.c",
+        "definition": "LockedEntryMenuInput_us2",
+        "definition_sha256": "efd57b6001ea1c3c64015993e1d706b282fef6d3787b7f1ca239b595786d3430"
+      },
+      "expected_queries": 6
+    },
+    "HOVERBIKE_MENU_FUNCS": {
+      "ntsc": {
+        "symbol": "func_L04_0040AD28",
+        "source": "src/levels/shared/L04_00402D90-results-g8.c",
+        "definition": "race_draw_results_panel",
+        "definition_sha256": "3e3af04e21ba9a200818a427e509fa16c01f66c3f485b54a98155c85f8767c8a"
+      },
+      "pal": {
+        "symbol": "func_L04_0040F2B0",
+        "source": "src/pal/levels/shared/L04_0040F2AC-panel-g8.c",
+        "definition": "race_draw_results_panel_pal",
+        "definition_sha256": "38b4ec426cec4717573686d3801c85d9f00c45d183b16d95bd8b451058c52269"
+      },
+      "ntsc2": {
+        "symbol": "func_L04_0040C228",
+        "source": "src/us2/levels/shared/L04_0040C224-panel-g8.c",
+        "definition": "race_draw_results_panel_us2",
+        "definition_sha256": "2cce86b7e6e61265de32dfa27f7c2317a356f9130aff66df9c9790fa47cea701"
+      },
+      "expected_queries": 1
+    },
+    "START_HOVERBIKE_CHALLENGE_FUNCS": {
+      "ntsc": {
+        "symbol": "func_L04_0040BA68",
+        "source": "src/levels/shared/L04_00402D90-select-g8.c",
+        "definition": "UpdateRaceSelectionMenu",
+        "definition_sha256": "ab90ba55920612001d019bf244f4a89b60737ad7a57d2479323ac4dd99a5f407"
+      },
+      "pal": {
+        "symbol": "func_L04_00410020",
+        "shared": true,
+        "source": "src/levels/shared/L04_00402D90-select-g8.c",
+        "definition": "UpdateRaceSelectionMenu",
+        "definition_sha256": "ab90ba55920612001d019bf244f4a89b60737ad7a57d2479323ac4dd99a5f407"
+      },
+      "ntsc2": {
+        "symbol": "func_L04_0040CF60",
+        "source": "src/us2/levels/shared/L04_0040CF60-g8.c",
+        "definition": "race_selection_menu_update_us2",
+        "definition_sha256": "e9131112eb1a738c093e57b8827e805b6fbc2731850fa7dfd135bb5b7cdcd0be"
+      },
+      "expected_queries": 1
+    },
+    "OOZLA_CONTROLLER_FUNC": {
+      "ntsc": {
+        "symbol": "func_L01_003E8ED8",
+        "source": "src/levels/01_oozla/L01_003E8ED8-g8.c",
+        "definition": "hint_message_controller_update",
+        "definition_sha256": "05369fb31ec3af50d93f2083747137a335b9a9bdf53bc1e5dcf7fd5964ad344b"
+      },
+      "pal": {
+        "symbol": "func_L01_003ED6B0",
+        "source": "src/pal/levels/01_oozla/L01_003ED6B0-g8.c",
+        "definition": "hint_message_controller_update_pal",
+        "definition_sha256": "3159295a0a69e5e1d28e84071c8bbe30cdfc138bad9d193bf80e815efd01a5e8"
+      },
+      "ntsc2": {
+        "symbol": "func_L01_003EA3B0",
+        "source": "src/levels/01_oozla/L01_003E8ED8-g8.c",
+        "definition": "hint_message_controller_update",
+        "definition_sha256": "05369fb31ec3af50d93f2083747137a335b9a9bdf53bc1e5dcf7fd5964ad344b"
+      },
+      "expected_queries": 1
+    },
+    "MAKTAR_CONTROLLER_FUNC": {
+      "ntsc": {
+        "symbol": "func_L02_00409D78",
+        "source": "src/levels/02_maktar_nebula/L02_00409D78-g8.c",
+        "definition": "hint_trigger_update",
+        "definition_sha256": "b8e15bbc1d673a1c3b86a4c437abb1f21515cdcc19d8821e93baa3ad28f78e58"
+      },
+      "pal": {
+        "symbol": "func_L02_0040E800",
+        "source": "src/pal/levels/02_maktar_nebula/L02_0040E800-g8.c",
+        "definition": "hint_trigger_update_pal",
+        "definition_sha256": "461bc697985120840f6b6fb3caf60b1c5bf5ce0fb88c55ab65e33be0dcd2f38b"
+      },
+      "ntsc2": {
+        "symbol": "func_L02_0040B4C0",
+        "source": "src/levels/02_maktar_nebula/L02_00409D78-g8.c",
+        "definition": "hint_trigger_update",
+        "definition_sha256": "b8e15bbc1d673a1c3b86a4c437abb1f21515cdcc19d8821e93baa3ad28f78e58"
+      },
+      "expected_queries": 1
+    },
+    "BARLOW_SPAWN_CONTROLLER_FUNC": {
+      "ntsc": {
+        "symbol": "func_L04_00456628",
+        "source": "src/levels/04_barlow/L04_00422A00.c",
+        "definition": "barlow_item_pickup_trigger_update",
+        "definition_sha256": "4777453d5b7aabdf2f36a281f5b44d408b1434784a47dbd830c483e35f9efad0"
+      },
+      "pal": {
+        "symbol": "func_L04_0045C268",
+        "source": "src/pal/levels/04_barlow/L04_0045B130.c",
+        "definition": "barlow_item_pickup_trigger_update_pal",
+        "definition_sha256": "3ec2eb2f5bc2d243e76be2e67c4e40acc652214e6827f07fdfa54f9fbf75a74b"
+      },
+      "ntsc2": {
+        "symbol": "func_L04_00457DD8",
+        "source": "src/levels/04_barlow/L04_00422A00.c",
+        "definition": "barlow_item_pickup_trigger_update",
+        "definition_sha256": "4777453d5b7aabdf2f36a281f5b44d408b1434784a47dbd830c483e35f9efad0"
+      },
+      "expected_queries": 1
+    },
+    "JOBA_CONTROLLER_FUNC": {
+      "ntsc": {
+        "symbol": "func_L11_00472E10",
+        "source": "src/levels/11_joba/L11_00472E10-g8.c",
+        "definition": "collectible_spot_update",
+        "definition_sha256": "ebc751fd4d4b0043a7e34d1f2a04a1545f26cf1ea7fedca5aa3fa2952b0068da"
+      },
+      "pal": {
+        "symbol": "func_L11_004791F0",
+        "source": "src/pal/levels/11_joba/L11_004791F0-g8.c",
+        "definition": "collectible_spot_update_pal",
+        "definition_sha256": "3223e7cef6f50bdfeaea241470ee66c9b03be384b54f11072c7601014e0e1afe"
+      },
+      "ntsc2": {
+        "symbol": "func_L11_004748C8",
+        "source": "src/levels/11_joba/L11_00472E10-g8.c",
+        "definition": "collectible_spot_update",
+        "definition_sha256": "ebc751fd4d4b0043a7e34d1f2a04a1545f26cf1ea7fedca5aa3fa2952b0068da"
+      },
+      "expected_queries": 1
+    },
+    "TABORA_CONTROLLER_FUNC": {
+      "ntsc": {
+        "symbol": "func_L08_003F6E18",
+        "source": "src/levels/08_tabora/L08_003F6E18-g8.c",
+        "definition": "tabora_progress_update",
+        "definition_sha256": "385a0db2dc354ffe99432b332df849e39bce778db40703714ddbbc1f1ffaedd5"
+      },
+      "pal": {
+        "symbol": "func_L08_003FB598",
+        "source": "src/pal/levels/08_tabora/L08_003FB594-g8.c",
+        "definition": "tabora_progress_update_pal",
+        "definition_sha256": "d3d414c9a20e71d5e30510f890d5df880967676dcda54d233e1b441011482e1f"
+      },
+      "ntsc2": {
+        "symbol": "func_L08_003F82B0",
+        "source": "src/us2/levels/08_tabora/L08_003F82AC-g8.c",
+        "definition": "tabora_progress_update_us2",
+        "definition_sha256": "2047e04b96cf9a480f0d5c0b275629076608b52e252ff03db7dbbc9779b9f4a3"
+      },
+      "expected_queries": 1
+    },
+    "DAMOSEL_CONTROLLER_FUNC": {
+      "ntsc": {
+        "symbol": "func_L18_003F90A0",
+        "source": "src/levels/18_damosel/L18_003F90A0-g8.c",
+        "definition": "UpdateDamoselGroupTriggerController",
+        "definition_sha256": "18d9fd6477cdf0f5d09e4acd821cf3e0a2a1014c7f1c71dc9507ac2708358e70"
+      },
+      "pal": {
+        "symbol": "func_L18_003FD180",
+        "source": "src/pal/levels/18_damosel/L18_003FD180-sw-g8.c",
+        "definition": "damosel_group_trigger_update_pal",
+        "definition_sha256": "56b9361214b85753fe4fde77bc63da37772eb5d91819aedf5b563a903c42312b"
+      },
+      "ntsc2": {
+        "symbol": "func_L18_003FA510",
+        "source": "src/us2/levels/18_damosel/L18_003FA510-sw-g8.c",
+        "definition": "UpdateDamoselGroupTriggerController_us2",
+        "definition_sha256": "25fdcd41beb026ef0e93684e88d363945591eeed46c6234e67f03d5b261a57ba"
+      },
+      "expected_queries": 1
+    },
+    "SWAMP_MONSTER_GATE_FUNC": {
+      "ntsc": {
+        "symbol": "func_L01_00405300",
+        "source": "src/levels/01_oozla/L01_003DA740-pose.c",
+        "definition": "move_to_pose_update",
+        "definition_sha256": "be7b9943d002ee070092b14d8d4a46342c0fa1876a9316b0c1d98642d4922157"
+      },
+      "pal": {
+        "symbol": "func_L01_0040A290",
+        "shared": true,
+        "source": "src/levels/01_oozla/L01_003DA740-pose.c",
+        "definition": "move_to_pose_update",
+        "definition_sha256": "be7b9943d002ee070092b14d8d4a46342c0fa1876a9316b0c1d98642d4922157"
+      },
+      "ntsc2": {
+        "symbol": "func_L01_00406860",
+        "source": "src/levels/01_oozla/L01_003DA740-pose.c",
+        "definition": "move_to_pose_update",
+        "definition_sha256": "be7b9943d002ee070092b14d8d4a46342c0fa1876a9316b0c1d98642d4922157"
+      },
+      "expected_queries": 1
+    }
+  }
+}

@@ -13,11 +13,17 @@
 
 namespace openrac::lighting {
 // Whether exports of `game` (a manifest's "game", "rac1") and `version` ("pal") can be baked and
-// their bakes loaded: Ratchet & Clank's PAL and NTSC-U discs, and Going Commando's three discs.
+// their bakes loaded: Ratchet & Clank's PAL v2.00 and NTSC-U discs, Going Commando's three discs
+// and Up Your Arsenal's PAL and NTSC-U discs (launcher/core enhanced.rs, supported, keeps the same
+// list).
 bool bake_identity_supported(std::string_view game, std::string_view version);
 
 // The same for a port id ("rac1-pal", "rac2-ntsc").
 bool bake_identity_supported(std::string_view game_version);
+
+// The highest level number of `game` (a manifest's "game"): 18 for Ratchet & Clank, 30 for Going
+// Commando, 53 for Up Your Arsenal (its multiplayer maps).
+int highest_level(std::string_view game);
 
 struct ProbeActivation {
     BakeSettings bake;
@@ -29,6 +35,11 @@ struct ProbeLookRegion {
     Float3 minimum{}, maximum{};
     float feather = 0;
     float diffuse_gain = 1;
+};
+
+// Authored evidence for supported floor patches without a nearby gameplay object.
+struct PlayableArea {
+    Float3 minimum{}, maximum{};
 };
 
 inline constexpr unsigned kProbeLookRegions = 12;
@@ -52,6 +63,7 @@ struct LevelBakeProfile {
     LegacyProbeSampling legacy_sampling;
     std::optional<bool> legacy_nearby_lights;
     std::vector<ProbeLookRegion> look_regions;
+    std::vector<PlayableArea> playable_areas;
     std::vector<BakeAreaEmitter> area_lights;
     Float3 sparse_spacing{256, 256, 256};
     Float3 dense_spacing{4, 4, 4};

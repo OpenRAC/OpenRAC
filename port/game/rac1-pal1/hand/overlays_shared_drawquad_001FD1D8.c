@@ -8,8 +8,9 @@
  */
 #include "common.h"
 
-/* Where the next VIF packet goes (read and written through $gp). */
-extern unsigned char *D_00161280;
+/* Where the next VIF packet goes (read and written through $gp). PAL v1 has it at
+ * 0x161180, not v2's 0x161280: the old address sent the nanotech orb's packet over libc's data. */
+extern unsigned char *D_00161180;
 /* The strip's packet head (five quadwords) and the unpack headers for its three arrays. */
 extern unsigned char D_L00_001C3FA0[];
 extern unsigned char D_L00_00160E80[];
@@ -41,7 +42,7 @@ static unsigned char *pad_to_quad(unsigned char *out) {
  * gets the packet's length in quadwords less one.
  */
 void func_L00_001FDA48(int n, unsigned char *xyz, unsigned char *colours, unsigned char *uvs, int flag) {
-    unsigned char *start = D_00161280;
+    unsigned char *start = D_00161180;
     unsigned char *out = start;
     unsigned int count = (unsigned int)n << 16;
     int i;
@@ -82,5 +83,5 @@ void func_L00_001FDA48(int n, unsigned char *xyz, unsigned char *colours, unsign
     out += 16;
 
     *(unsigned int *)start |= (unsigned int)((out - start) >> 4) - 1;
-    D_00161280 = out;
+    D_00161180 = out;
 }

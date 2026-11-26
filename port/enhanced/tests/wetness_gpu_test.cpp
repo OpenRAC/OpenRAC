@@ -25,6 +25,7 @@
 #include "scene/material_overrides.h"
 #include "scene_shaders.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 #ifdef OPENRAC_VULKAN
 #include "renderer/vulkan/vkgl.h"
@@ -166,7 +167,7 @@ void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Posit
     for (int capture = 0; capture <= 2; ++capture) {
         glUniform1i(shader.uniform("environment_count"), capture != 0 ? 1 : 0);
         glUniform1i(shader.uniform("reflection_outside"), capture == 2 ? 1 : 0);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         std::array<unsigned char, 32> pixels{};
         glReadPixels(0, 0, 8, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
         for (unsigned i = 0; i < 8; ++i) {
@@ -422,7 +423,7 @@ result=vec4(b&255u,(b>>8)&255u,(b>>16)&255u,b>>24)/255.;})",
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         std::array<unsigned char, 20> pixels{};
         glReadPixels(0, 0, 5, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
         std::array<float, 5> result{};

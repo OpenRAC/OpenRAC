@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { ActionView, GameView, VersionView } from "./api";
 import { acceptWarning, extractorError, forgetWarning, jobs } from "./app.svelte";
 import { isBuilt, isPlaying, playerState, rebuildSteps, updateStep } from "./player.svelte";
 import type { Job } from "./queue";
-import type { ActionView, GameView, VersionView } from "./api";
 
 const version = { key: "rac1/pal", game: "rac1" } as VersionView;
 
@@ -47,6 +48,7 @@ describe("isPlaying", () => {
 
   it("is false when the job has ended", () => {
     const ended = job("play-edited");
+
     ended.state = "succeeded";
     jobs.list.push(ended);
     expect(isPlaying(version)).toBe(false);
@@ -73,7 +75,12 @@ function versionWith(actions: ActionView[]): VersionView {
 
 function gameOf(v: VersionView): GameView {
   const extracted = { version: v.key } as NonNullable<GameView["install"]>["extracted"];
-  return { id: "rac1", versions: [v], install: { compiled: false, extracted } } as unknown as GameView;
+
+  return {
+    id: "rac1",
+    versions: [v],
+    install: { compiled: false, extracted },
+  } as unknown as GameView;
 }
 
 describe("rebuild", () => {
@@ -83,11 +90,13 @@ describe("rebuild", () => {
 
   it("builds from scratch where the platform builds", () => {
     const v = versionWith([step("port-build"), step("port-rebuild"), step("port-levels")]);
+
     expect(rebuildSteps(v)?.map((a) => a.id)).toEqual(["port-rebuild"]);
   });
 
   it("reads and checks the levels again where nothing is built (Android)", () => {
     const v = versionWith([step("port-levels"), step("port-levels-check", { runnable: false })]);
+
     expect(rebuildSteps(v)?.map((a) => a.id)).toEqual(["port-levels", "port-levels-check"]);
   });
 
@@ -98,6 +107,7 @@ describe("rebuild", () => {
 
   it("counts the game built once its program is there, levels or not", () => {
     const v = versionWith([step("play", { done: true, runnable: false })]);
+
     expect(isBuilt(gameOf(v), v)).toBe(true);
   });
 
@@ -109,9 +119,37 @@ describe("rebuild", () => {
       step("port-levels-check", { done: true }),
     ]);
     const state = playerState(gameOf(v), v);
+
     expect(state.kind).toBe("rebuild");
     expect(state.label).toBe("Rebuild");
     expect(state.disabled).toBe(false);
+  });
+});
+
+describe("a set-up made before the game read the disc's files", () => {
+  beforeEach(() => {
+    jobs.list.length = 0;
+  });
+
+  it("unpacks them first, from the image it kept, then gets the rest ready", () => {
+    const blockers = ["needs the disc's files (Unpack the disc's files)"];
+    const v = versionWith([
+      step("disc-files"),
+      step("play", { done: true, runnable: false, blockers }),
+      step("port-levels", { done: true }),
+      step("port-levels-check", { done: true }),
+    ]);
+    const state = playerState(gameOf(v), v);
+
+    expect(state.kind).toBe("levels");
+    expect(state.label).toBe("Unpack and play");
+    expect(state.disabled).toBe(false);
+  });
+
+  it("is ready to play once they are there", () => {
+    const v = versionWith([step("disc-files", { done: true }), step("play", { done: true })]);
+
+    expect(playerState(gameOf(v), v).kind).toBe("play");
   });
 });
 
@@ -131,6 +169,7 @@ describe("a game this launcher can neither find nor build", () => {
   it("is not offered a Rebuild that only reads the levels again", () => {
     expect(rebuildSteps(v)).toBeNull();
     const state = playerState(gameOf(v), v);
+
     expect(state.kind).toBe("blocked");
     expect(state.disabled).toBe(true);
     expect(state.status).toBe("Needs a newer launcher");
@@ -138,6 +177,7 @@ describe("a game this launcher can neither find nor build", () => {
 
   it("is offered its build once the launcher has one", () => {
     const buildable = versionWith([...v.actions, step("port-build")]);
+
     expect(rebuildSteps(buildable)?.map((a) => a.id)).toEqual(["port-build"]);
     expect(playerState(gameOf(buildable), buildable).kind).toBe("build");
   });
@@ -147,9 +187,14 @@ describe("extractorError", () => {
   it("is the reason of the extractor's last error line", () => {
     const lines = [
       { line: "disc.iso: 3 files on the disc, boot executable SCES_509.16" },
-      { line: "error 4001: the image is not a version of this game that OpenRAC knows (SLUS_123.45)" },
+      {
+        line: "error 4001: the image is not a version of this game that OpenRAC knows (SLUS_123.45)",
+      },
     ];
-    expect(extractorError(lines)).toBe("The image is not a version of this game that OpenRAC knows (SLUS_123.45)");
+
+    expect(extractorError(lines)).toBe(
+      "The image is not a version of this game that OpenRAC knows (SLUS_123.45)",
+    );
   });
 
   it("is nothing when the extractor named no error", () => {
@@ -199,12 +244,14 @@ describe("updateStep", () => {
 
   it("rebuilds from scratch by default", () => {
     const got = updateStep(versionWith(both), false);
+
     expect(got).toMatchObject({ incremental: false, cleanBecause: null });
     expect(got?.action.id).toBe("port-rebuild");
   });
 
   it("builds incrementally with the Incremental builds setting", () => {
     const got = updateStep(versionWith(both), true);
+
     expect(got).toMatchObject({ incremental: true, cleanBecause: null });
     expect(got?.action.id).toBe("port-build");
   });
@@ -212,6 +259,7 @@ describe("updateStep", () => {
   it("still builds from scratch, and says why, when the build folder is unusable", () => {
     const v = { ...versionWith(both), portCleanReason: "it was built by another OpenRAC version" };
     const got = updateStep(v, true);
+
     expect(got?.action.id).toBe("port-rebuild");
     expect(got?.incremental).toBe(false);
     expect(got?.cleanBecause).toBe("it was built by another OpenRAC version");
@@ -220,7 +268,12 @@ describe("updateStep", () => {
   });
 
   it("falls back to what can run", () => {
-    expect(updateStep(versionWith([step("port-build"), step("port-rebuild", { runnable: false })]), false)).toBeNull();
+    expect(
+      updateStep(
+        versionWith([step("port-build"), step("port-rebuild", { runnable: false })]),
+        false,
+      ),
+    ).toBeNull();
     expect(updateStep(versionWith([step("port-rebuild")]), true)?.action.id).toBe("port-rebuild");
     expect(updateStep(versionWith([]), true)).toBeNull();
   });

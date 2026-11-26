@@ -3,10 +3,11 @@
 //
 // The frame cap with VSync off, simulated: program::vsync's ticks and frontend::between's frames
 // on a simulated clock, with frames that cost a varying time and a system sleep that wakes late,
-// paced the old way (each frame held by its start, the system's sleep), with the precise wait
-// only (as the low-latency frames still are), and the new way (held by its showing). It prints, and checks, how evenly the frames reach the screen
-// (the spread of the times between two swaps) and how far the moment each picture shows is from
-// the moment it is shown at (the motion's judder). The arithmetic is the frontend's own
+// paced three ways: each frame held by its start with the system's sleep, held by its start with
+// the precise wait (as the low-latency frames are), and the frontend's choice (held by its showing
+// above the tick rate). It prints, and checks, how evenly the frames reach the screen (the spread
+// of the times between two swaps) and how far the moment each picture shows is from the moment it
+// is shown at (the motion's judder). The arithmetic is the frontend's own
 // (frontend/pacing.h, frame_pacing.h, common/precise_wait.h); the loop is a model of
 // interpolation.cpp's, which needs a window.
 
@@ -229,46 +230,46 @@ private:
 int main() {
     std::printf(
         "VSync off, 60 ticks a second of 1-2 ms, frames of 1.75-3.25 ms (2%% +3 ms spikes);\n"
-        "the old pacing -> the precise wait only (low-latency frames, caps up to the tick rate)\n"
+        "the system sleep -> the precise wait only (low-latency frames, caps up to the tick rate)\n"
         "-> held by the showing (caps above the tick rate):\n"
     );
     for (const Timer timer : {kLinux, kWindows}) {
         for (const double cap : {30.0, 60.0, 120.0, 144.0, 240.0}) {
             // The edge the frontend picks (interpolation.cpp, cap_edge).
             const CapEdge edge = cap > 60.0 ? CapEdge::Present : CapEdge::Start;
-            const Result before = Simulation(CapEdge::Start, false, timer, cap).run();
+            const Result system_sleep = Simulation(CapEdge::Start, false, timer, cap).run();
             const Result precise = Simulation(CapEdge::Start, true, timer, cap).run();
-            const Result after = Simulation(edge, true, timer, cap).run();
+            const Result chosen = Simulation(edge, true, timer, cap).run();
             std::printf(
                 "%-19s cap %3.0f: frame time spread %.3f -> %.3f -> %.3f ms, judder %.3f -> "
                 "%.3f -> %.3f ms, frames %d -> %d -> %d, tick late by %.2f -> %.2f -> %.2f ms, "
                 "held %.2f ms\n",
                 timer.name,
                 cap,
-                before.interval_spread_ms,
+                system_sleep.interval_spread_ms,
                 precise.interval_spread_ms,
-                after.interval_spread_ms,
-                before.judder_ms,
+                chosen.interval_spread_ms,
+                system_sleep.judder_ms,
                 precise.judder_ms,
-                after.judder_ms,
-                before.frames,
+                chosen.judder_ms,
+                system_sleep.frames,
                 precise.frames,
-                after.frames,
-                before.tick_late_most_ms,
+                chosen.frames,
+                system_sleep.tick_late_most_ms,
                 precise.tick_late_most_ms,
-                after.tick_late_most_ms,
-                after.held_ms
+                chosen.tick_late_most_ms,
+                chosen.held_ms
             );
             // Never worse; for more frames than ticks, evener frames and motion at the same frame
             // rate, the tick never more than half a tick after its time.
-            CHECK(after.interval_spread_ms <= before.interval_spread_ms * 1.05);
-            CHECK(after.frames >= before.frames - 1);
-            CHECK(after.tick_late_most_ms < 1000.0 / 60.0 / 2.0);
+            CHECK(chosen.interval_spread_ms <= system_sleep.interval_spread_ms * 1.05);
+            CHECK(chosen.frames >= system_sleep.frames - 1);
+            CHECK(chosen.tick_late_most_ms < 1000.0 / 60.0 / 2.0);
             if (edge == CapEdge::Present) {
-                CHECK(after.interval_spread_ms < 0.5 * before.interval_spread_ms);
-                CHECK(after.judder_ms < 0.6 * before.judder_ms);
+                CHECK(chosen.interval_spread_ms < 0.5 * system_sleep.interval_spread_ms);
+                CHECK(chosen.judder_ms < 0.6 * system_sleep.judder_ms);
                 // The latency it costs: a frame waits for its swap only its margin, a few ms.
-                CHECK(after.held_ms < 3.0);
+                CHECK(chosen.held_ms < 3.0);
             }
         }
     }

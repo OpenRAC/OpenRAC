@@ -24,8 +24,14 @@
 #include "check.h"
 #include "common/log.h"
 #include "mods.h"
+#include "openrac/game_host.h"
 #include "openrac/memory.h"
 #include "openrac/script_binding.h"
+
+// mod_play.cpp asks the game for its play host (pickup_animation); there is no game here.
+extern "C" {
+const openrac_game_play* openrac_game_play_host = nullptr;
+}
 
 namespace fs = std::filesystem;
 using namespace openrac;

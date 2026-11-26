@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { MAX_LINES, Queue } from "./queue";
 
 const repo = { kind: "repository" } as const;
@@ -8,6 +9,7 @@ describe("queue", () => {
     const q = new Queue();
     const a = q.add(repo, "discs", "Identify discs");
     const b = q.add(repo, "setup", "Place inputs");
+
     expect(q.next()).toBe(a);
     q.started(a, 7, "python3 tools/openrac.py discs");
     expect(q.next()).toBeUndefined();
@@ -22,6 +24,7 @@ describe("queue", () => {
   it("keeps the folders a job wrote, for Open folder", () => {
     const q = new Queue();
     const a = q.add(repo, "editor-pack", "Pack");
+
     expect(a.outputs).toEqual([]);
     q.started(a, 5, "cmd");
     q.apply({ type: "exit", id: 5, code: 0, cancelled: false, outputs: ["/data/packed/pal"] });
@@ -31,6 +34,7 @@ describe("queue", () => {
   it("keeps events that arrive before the job's id is known", () => {
     const q = new Queue();
     const a = q.add(repo, "discs", "Identify discs");
+
     q.apply({ type: "output", id: 3, stream: "stderr", line: "early" });
     q.apply({ type: "exit", id: 3, code: 2, cancelled: false, outputs: [] });
     q.started(a, 3, "cmd");
@@ -42,6 +46,7 @@ describe("queue", () => {
   it("reports the end of a job once, whenever its event arrives", () => {
     const q = new Queue();
     const a = q.add(repo, "play", "Play");
+
     // The event comes after the start call returned: the end is there to be taken.
     q.started(a, 4, "cmd");
     q.apply({ type: "exit", id: 4, code: 0, cancelled: false, outputs: [] });
@@ -52,6 +57,7 @@ describe("queue", () => {
   it("reports the end of a job whose event came before its id was known", () => {
     const q = new Queue();
     const a = q.add(repo, "play", "Play");
+
     // The event comes first: nothing can be reported until the id is known.
     q.apply({ type: "exit", id: 4, code: 0, cancelled: false, outputs: [] });
     expect(q.takeEnded()).toBeUndefined();
@@ -64,6 +70,7 @@ describe("queue", () => {
   it("forgets the jobs it is done with", () => {
     const q = new Queue();
     const a = q.add(repo, "a", "A");
+
     q.started(a, 1, "cmd");
     q.apply({ type: "exit", id: 1, code: 0, cancelled: false, outputs: [] });
     q.clear();
@@ -76,6 +83,7 @@ describe("queue", () => {
     const a = q.add(repo, "a", "A");
     const b = q.add(repo, "b", "B");
     const c = q.add(repo, "c", "C");
+
     q.refused(a, "A: needs Python (Settings)");
     expect(a.state).toBe("failed");
     q.started(b, 1, "cmd");
@@ -92,6 +100,7 @@ describe("queue", () => {
     const q = new Queue();
     const play = q.add(repo, "play", "Play");
     const next = q.add(repo, "b", "B");
+
     q.launched(play, "openrac-rac1-pal");
     expect(play.state).toBe("succeeded");
     expect(q.running()).toBeUndefined();
@@ -101,8 +110,10 @@ describe("queue", () => {
   it("drops the oldest lines of a chatty job", () => {
     const q = new Queue();
     const a = q.add(repo, "a", "A");
+
     q.started(a, 1, "cmd");
-    for (let i = 0; i < MAX_LINES + 10; i++) q.apply({ type: "output", id: 1, stream: "stdout", line: String(i) });
+    for (let i = 0; i < MAX_LINES + 10; i++)
+      q.apply({ type: "output", id: 1, stream: "stdout", line: String(i) });
     expect(a.lines.length).toBe(MAX_LINES);
     expect(a.lines[0]?.line).toBe("10");
   });
@@ -110,6 +121,7 @@ describe("queue", () => {
   it("applies a batch of lines and an exit in order", () => {
     const q = new Queue();
     const a = q.add(repo, "a", "A");
+
     q.started(a, 1, "cmd");
     const lines = Array.from({ length: MAX_LINES + 10 }, (_, i) => ({
       type: "output" as const,
@@ -117,6 +129,7 @@ describe("queue", () => {
       stream: "stdout" as const,
       line: String(i),
     }));
+
     q.applyAll([...lines, { type: "exit", id: 1, code: 0, cancelled: false, outputs: [] }]);
     expect(a.lines.length).toBe(MAX_LINES);
     expect(a.lines[0]?.line).toBe("10");
@@ -128,6 +141,7 @@ describe("queue", () => {
   it("keeps a batch's early lines until the job's start returns", () => {
     const q = new Queue();
     const a = q.add(repo, "a", "A");
+
     q.applyAll([
       { type: "output", id: 4, stream: "stdout", line: "first" },
       { type: "output", id: 4, stream: "stderr", line: "second" },
@@ -143,6 +157,7 @@ describe("queue", () => {
     const ntsc = { kind: "version", key: "rac1/ntsc" } as const;
     const groups = [["play", "play-edited"]];
     const play = q.add(pal, "play", "Play");
+
     // The same action, or another of its group, in the same scope.
     expect(q.live(pal, "play", "", groups)).toBe(play);
     expect(q.live(pal, "play-edited", "", groups)).toBe(play);
@@ -151,6 +166,7 @@ describe("queue", () => {
     expect(q.live(pal, "port-build", "", groups)).toBeUndefined();
     // An action with other inputs is another job; with the same ones, the same.
     const level = q.add(pal, "editor-open", "Open level 3", 0, '{"level":3}');
+
     expect(q.live(pal, "editor-open", '{"level":3}', groups)).toBe(level);
     expect(q.live(pal, "editor-open", '{"level":4}', groups)).toBeUndefined();
     // Once it has ended, asking again starts it again.

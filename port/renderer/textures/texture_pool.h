@@ -30,6 +30,7 @@
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "renderer/direct/gs.h"
@@ -38,6 +39,8 @@
 #include "renderer/textures/texture_pack.h"
 
 namespace openrac::renderer {
+
+struct UiIndexed;
 
 class Shader;
 
@@ -51,6 +54,7 @@ struct ImageUpload {
     std::uint32_t width = 0;
     std::uint32_t height = 0;
     std::vector<std::uint8_t> data;  // raster order, in dpsm
+    bool generated = false;          // the game produces these pixels at runtime
 
     // Past the pages this transfer can replace, as TexturePool::upload_at resolves them.
     std::uint32_t end_block() const;
@@ -112,6 +116,14 @@ public:
     // Gives `texture` the frames of a texture pack's animated replacement (texture_pack.h): its
     // image stays the first frame, and gl_texture() gives the frame of the game's tick. Null:
     // none. Each frame's GL texture is made at its first use and freed with the texture.
+    // Gives `texture` a mipmap chain, made from its first level when its GL texture is next made
+    // (here at once when it has one already): the game's effect strips that tile a picture across
+    // the world with a mipmapped TEX1 (the water planes' surface) read it so, where its UI and quad
+    // textures keep one level. True when the texture has a chain now; false for a texture whose
+    // blocks come from a texture pack (they carry the pack's own levels) or an unknown handle.
+    bool ensure_mipmaps(TextureHandle texture);
+    bool has_mipmaps(TextureHandle texture) const;
+
     void animate(TextureHandle texture, std::shared_ptr<const texture_pack::Animation> animation);
 
     // Gives `texture` a texture pack KTX2's picture in GPU blocks (texture_pack.h): its GL texture
@@ -165,7 +177,6 @@ public:
         const auto found = m_placed.find(tbp);
         return found != m_placed.end() ? std::optional<TextureHandle>(found->second) : std::nullopt;
     }
-    void clear_placements();
 
     // A TEX0 with CLD set has loaded the CLUT at its CBP into the chip's CLUT buffer: the draws
     // after it read their palette from what was there then, even after the game puts something
@@ -185,6 +196,21 @@ public:
 
     TextureHandle placeholder() const { return m_placeholder; }
 
+    // The name a texture pack knows `texture` by (texture_pack.h), when the pool worked it out (a
+    // pack, a dump or an interface run is on); 0 otherwise.
+    std::uint64_t pack_hash(TextureHandle texture) const {
+        return m_entries[texture - 1].pack_hash;
+    }
+
+    // The texture of a native 2D image (renderer::UiImage) whose content hashes to `hash`: made
+    // from `image` the first time, the same handle from then on (for the pool's life). Its alpha
+    // is the game's (0x80 opaque); bilinear, one level.
+    // A texture pack's picture stands in for it (texture_pack.h, by its RGBA texels; or a
+    // PCSX2-format pack's, by `indexed`'s indices and palette when given).
+    TextureHandle ui_image(
+        std::uint64_t hash, const Rgba8Image& image, const UiIndexed* indexed = nullptr
+    );
+
     // A distance field of `source` for drawing text sharp at any size, four times its size: in
     // alpha the signed distance to the glyphs' edge (0.5 on the edge, 1/8 per source texel), in red
     // the glyphs' own opacity (0..1) held up to that edge; made once per content of the source.
@@ -203,6 +229,8 @@ public:
     bool has_cropped_replacement(TextureHandle texture) const;
     // Whether a texture pack's picture replaced `texture` (an upload's conversion).
     bool has_pack_replacement(TextureHandle texture) const;
+    // Whether a PCSX2 texture has been replaced by a picture from the pack (a DDS or PNG read from disk).
+    bool has_pcsx2_replacement(TextureHandle texture) const;
     std::array<float, 2> uv_scale(TextureHandle texture) const;
 
     // Whether `texture` has an animated replacement's frames (animate()).
@@ -217,6 +245,8 @@ public:
     // The GL texture, created on first use. Filtering and wrapping are set
     // by whoever binds it. An animated texture's is its frame at the tick (set_tick).
     unsigned gl_texture(TextureHandle texture);
+    // Prepares the image a draw would sample without starting an unseen animation.
+    std::pair<unsigned, unsigned> prepare_draw_texture(TextureHandle texture);
 
     // Creates the GL textures of `textures` that have none yet, as gl_texture() would at their
     // first use (the same texels, mip chain and sampler parameters, by the same code), so that
@@ -238,6 +268,9 @@ public:
         bool repeat_s = true,
         bool repeat_t = true
     );
+    // Binds `texture` on the active unit with its wrap (a second texture of a draw; unit 0 takes
+    // bind_upscaled_texture_colours).
+    void bind_wrapped(TextureHandle texture, bool repeat_s, bool repeat_t);
     void set_upscaled_texture_colours(std::unique_ptr<UpscaledTextureColours> source);
     // Drop cached world colours while keeping the game's source textures.
     void clear_upscaled_texture_colours();
@@ -256,7 +289,13 @@ public:
     // Live textures, the placeholder included.
     std::size_t size() const;
 
+    // Whether an interface run notes this pool's textures (renderer/textures/interface_run.h): not
+    // a pool that rebuilds them.
+    void set_noting(bool noting) { m_noting = noting; }
+
 private:
+    bool m_noting = true;
+    std::unordered_map<std::uint64_t, TextureHandle> m_ui_images;  // ui_image(), by hash
     struct Key {
         std::uint32_t tbp, tbw, tw, th, cbp;
         std::uint8_t psm, cpsm;
@@ -264,12 +303,13 @@ private:
         std::uint64_t pixels_hash, clut_hash, crop_border_hash;
         // Visible draws must not reuse a conversion that omitted its empty-alpha dump.
         bool skip_empty_alpha;
+        bool generated;
 
         bool operator==(const Key&) const = default;
     };
 
     struct KeyHash {
-        // Hashes the sampling fields and empty-alpha export policy.
+        // Hashes the sampling fields and export policy.
         std::size_t operator()(const Key& key) const;
     };
 
@@ -317,6 +357,9 @@ private:
         Rgba8Image image;
         bool cropped_replacement = false;
         bool pack_replacement = false;
+        // A sharper picture of it the GPU draws instead (sharp_cells.h), or null.
+        std::shared_ptr<const Rgba8Image> sharp;
+        bool pcsx2_replacement = false;
         std::array<float, 2> uv_scale{1.0f, 1.0f};
         AlphaScale scale = AlphaScale::Gs;
         std::string name;
@@ -344,6 +387,7 @@ private:
     // Creates entry `e`'s GL texture and uploads its texels: the one place a texture is made,
     // for gl_texture() at a first use and for prepare() at a level's load.
     void create_gl(Entry& e);
+    unsigned draw_texture(Entry& entry, bool used);
     // A GL texture of `image` as entry `e`'s would be made (its mip chain and filters).
     unsigned upload_gl(const Entry& e, const Rgba8Image& image);
     // Entry `e`'s GL texture made from its blocks, or 0 when the GPU cannot take them (then it is

@@ -1,5 +1,5 @@
 # The port's module layering, read by layering.py (README.md here); the layers are those of
-# port/docs/CODING_CONVENTIONS.md, section 18. Paths are relative to port/. One row per line,
+# docs/CODING_CONVENTIONS.md, section 18. Paths are relative to port/. One row per line,
 # its columns separated by tabs; a line starting with # is a comment.
 #
 #   search	DIR               where a quoted include is looked for after the including file's own
@@ -40,8 +40,8 @@ module	platform/	platform
 module	assets/	assets
 module	audio/	audio
 module	media/	media
+module	mpui/	mpui
 module	renderer/vulkan/	renderer/vulkan
-module	renderer/metal/	renderer/metal
 module	renderer/world/	renderer/world
 module	renderer/	renderer
 module	materials/	materials
@@ -49,6 +49,7 @@ module	scene/	scene
 module	enhanced/tests/	tests
 module	enhanced/	enhanced
 module	game/common/	game/common
+module	ui/	ui
 module	game/*/	game/*
 module	viewer/	viewer
 module	extract/	extract
@@ -62,11 +63,11 @@ module	tests/	tests
 # android and ios (the apps' glue) and tests are the programs.
 layer	0	sdk common
 layer	1	runtime
-layer	2	platform assets audio media
-layer	3	renderer renderer/vulkan renderer/metal renderer/world materials
+layer	2	platform assets audio media mpui
+layer	3	renderer renderer/vulkan renderer/world materials
 layer	4	scene
 layer	5	enhanced
-layer	6	game/common
+layer	6	game/common ui
 layer	7	game/*
 layer	8	viewer extract tools android ios tests
 
@@ -78,8 +79,9 @@ allow	audio	assets
 allow	media	assets
 allow	renderer/world	renderer
 allow	renderer/vulkan	renderer renderer/world
-allow	renderer/metal	renderer renderer/vulkan renderer/world
-allow	tests	viewer extract ios
+allow	tests	viewer extract ios tools
+# The 2D layer every game shares records through the host program's recorder (openrac/frame.h).
+allow	ui	game/common
 
 # Known violations (docs/restructure/PROGRESS.md names the packages).
 # platform -> renderer/vulkan: the window opens the Vulkan backend itself; no package yet.

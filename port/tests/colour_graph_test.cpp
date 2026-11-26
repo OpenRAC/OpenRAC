@@ -25,6 +25,7 @@
 #include "renderer/vulkan/graph/graph_execution.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -164,7 +165,7 @@ std::vector<std::uint8_t> Fixture::read_snapshot(
     glBindTexture(GL_TEXTURE_2D, snapshot.depth_texture());
     glUniform1i(depth.uniform("source_depth"), 0);
     CHECK(renderer::graphics_shader_reads("snapshot depth reader"));
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     auto result = output.read_rgba();
     const std::array<std::uint8_t, 4> packed{result[0], result[1], result[2], result[3]};
     CHECK(std::abs(std::bit_cast<float>(packed) - .25f) < 0.000001f);
@@ -490,7 +491,7 @@ std::vector<std::uint8_t> ordered_blending(Fixture& fixture) {
     }));
     // Outgoing bucket state must also reach work beyond the shared scope.
     glScissor(0, 0, side, side);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto pixels = fixture.output.read_rgba();
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_BLEND);

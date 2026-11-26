@@ -3,7 +3,7 @@
 //
 // A thread that its owner joins when it goes: what std::jthread gives, without the stop token. The
 // launcher's Linux builds use a C++ library that keeps std::jthread behind an experimental switch
-// (libc++ before 18), so the port uses this where it would use std::jthread
+// (libc++ 19 and older), so the port uses this where it would use std::jthread
 // (CODING_CONVENTIONS.md, section 11.6).
 
 #pragma once

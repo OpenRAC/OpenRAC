@@ -84,6 +84,9 @@ void openrac_ee_break(const char* function, uint32_t address);
 /* A jump through a register to a place the function's tables do not list: logged, and the
  * function returns. */
 void openrac_ee_lost(const char* function, uint32_t target);
+/* COP0's Count register (mfc0 $9): the EE's 294.912 MHz cycle counter, from the host's steady clock.
+ * The game reads it only to time its own work (Up Your Arsenal's multiplayer maps' 0x0043F4F8). */
+uint32_t openrac_ee_count(void);
 
 #ifdef __cplusplus
 }

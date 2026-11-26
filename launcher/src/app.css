@@ -198,8 +198,16 @@ body::after {
   pointer-events: none;
   mix-blend-mode: screen;
   background:
-    radial-gradient(90% 620px at 50% 0, color-mix(in srgb, var(--glow) 13%, transparent), transparent 72%),
-    radial-gradient(60% 380px at 50% 0, color-mix(in srgb, var(--glow) 7%, transparent), transparent 70%);
+    radial-gradient(
+      90% 620px at 50% 0,
+      color-mix(in srgb, var(--glow) 13%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+      60% 380px at 50% 0,
+      color-mix(in srgb, var(--glow) 7%, transparent),
+      transparent 70%
+    );
 }
 
 /* While the launcher starts (main.ts, App.svelte), its accent goes on at once, not eased in. */
@@ -421,7 +429,8 @@ button[data-on] {
   /* Not a dialog's backdrop, a button over the whole window that went grey under the pointer,
      nor a link-like button (.link), which a touch screen left lit after a tap (:where keeps the
      weight as it was). */
-  html:where(:not([data-input="pad"])) button:hover:not(:disabled):where(:not(.backdrop):not(.link)),
+  html:where(:not([data-input="pad"]))
+    button:hover:not(:disabled):where(:not(.backdrop):not(.link)),
   html:where(:not([data-input="pad"])) .button:hover {
     background-color: var(--control-hi);
   }
@@ -559,9 +568,23 @@ input[type="search"] {
   padding: 8px 12px;
 }
 
-:is(input[type="text"], input[type="search"], input[type="number"], input[type="url"], textarea, select):focus-visible,
+:is(
+  input[type="text"],
+  input[type="search"],
+  input[type="number"],
+  input[type="url"],
+  textarea,
+  select
+):focus-visible,
 html[data-input="pad"]
-  :is(input[type="text"], input[type="search"], input[type="number"], input[type="url"], textarea, select):focus {
+  :is(
+    input[type="text"],
+    input[type="search"],
+    input[type="number"],
+    input[type="url"],
+    textarea,
+    select
+  ):focus {
   outline: none;
   box-shadow: inset 0 0 0 2px var(--amber);
 }
@@ -1203,7 +1226,8 @@ body {
 
 /* A finger needs 44 px (Material's 48 dp less the space around): every button and field keeps
    its look and grows to that height, so they all stay the same height. */
-html[data-platform="android"] :is(button, input:not([type="checkbox"], [type="radio"], [type="range"]), select) {
+html[data-platform="android"]
+  :is(button, input:not([type="checkbox"], [type="radio"], [type="range"]), select) {
   min-height: 44px;
 }
 
@@ -1213,7 +1237,8 @@ html[data-platform="android"] .segmented button {
 }
 
 /* 16 px text in a field on Android, so the WebView does not zoom in on focus. */
-html[data-platform="android"] :is(input[type="text"], input[type="search"], input[type="number"], textarea, select) {
+html[data-platform="android"]
+  :is(input[type="text"], input[type="search"], input[type="number"], textarea, select) {
   font-size: 1rem;
 }
 

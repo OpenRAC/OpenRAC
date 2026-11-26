@@ -1,0 +1,4 @@
+# Functions with no C that the game may reach without a call in C: named in a global's initializer,
+# behind a libraries.tsv wrap row, or held in the disc's data (checks/data_refs.tsv). hostgen.json
+# "data_allow" (hostgen.py data_guard). Every other one fails the build: give it C instead.
+# name or place	reason

@@ -18,6 +18,8 @@
 #include "common/json.h"
 #include "common/log.h"
 #include "openrac/game_host.h"
+#include "program/control.h"
+#include "program/moby_states.h"
 
 namespace openrac::program {
 namespace {
@@ -30,8 +32,11 @@ namespace {
         "usage: {} --data <install>/active/{}/data [--cards DIR] [--frames N] [--stop-on-missing] "
         "[--level N] [--skip-movies] [--unlock-all-weapons] [--unlock-all-gadgets] "
         "[--mods DIR] [--map] [--ship-map] [--destinations] "
-        "[--check-levels] [--settings FILE] [--controls DIR] "
-        "[--plugins FILE] [--probes DIR] [--no-mods] [--debug-overlay] [--debug-dump FILE]",
+        "[--check-levels] [--interface-run FILE] "
+        "[--interface-export DIR [--interface-runs FILE]... [--only font,interface,effects]] "
+        "[--settings FILE] [--controls DIR] "
+        "[--plugins FILE] [--probes DIR] [--no-mods] [--debug-overlay] [--debug-dump FILE] "
+        "[--moby-states FILE [--moby-states-ticks N]] [--control]",
         program_name(),
         openrac_game.game
     );
@@ -167,12 +172,26 @@ fs::path levels_or_flat(const fs::path& own) {
     return own;
 }
 
+fs::path games_root_of(const fs::path& data) {
+    fs::path own = data.lexically_normal();
+    if (!own.has_filename()) {
+        own = own.parent_path();
+    }
+    if (own.filename() != "data") {
+        return {};
+    }
+    const fs::path active = own.parent_path().parent_path();
+    return active.filename() == "active" ? active : fs::path{};
+}
+
 fs::path default_levels(const fs::path& data) {
     return levels_or_flat(data / "port" / game_version());
 }
 
 Options parse(int argc, char** argv) {
     Options o;
+    fs::path moby_states_out;
+    long moby_states_ticks = 300;
 
     for (int i = 1; i < argc; i++) {
         const std::string a = argv[i];
@@ -212,6 +231,12 @@ Options parse(int argc, char** argv) {
             o.frames = std::stol(value());
         } else if (a == "--level") {
             openrac_game_start_level = std::stoi(value());
+        } else if (a == "--moby-states") {
+            moby_states_out = value();
+        } else if (a == "--moby-states-ticks") {
+            moby_states_ticks = std::stol(value());
+        } else if (a == "--control") {
+            control::request();
         } else if (a == "--skip-movies") {
             o.skip_movies = true;
         } else if (a == "--unlock-all-weapons") {
@@ -232,6 +257,18 @@ Options parse(int argc, char** argv) {
             o.expect_destinations = true;
         } else if (a == "--asm-part") {
             o.asm_part = value();
+        } else if (a == "--interface-run") {
+            o.interface_run = value();
+        } else if (a == "--interface-export") {
+            o.interface_export = value();
+            if (o.interface_export.empty()) {
+                // An empty folder would start the game instead of exporting.
+                usage("--interface-export needs a folder");
+            }
+        } else if (a == "--interface-runs") {
+            o.interface_runs.emplace_back(value());
+        } else if (a == "--only") {
+            o.interface_only = value();
         } else if (a == "--check-levels") {
             o.check_levels = true;
         } else if (a == "--help" || a == "-h") {
@@ -239,6 +276,36 @@ Options parse(int argc, char** argv) {
         } else {
             usage("unknown option " + a);
         }
+    }
+
+    // --control (control.h): driven over stdin and stdout, without movies. tools/game_mcp.py also
+    // sets OPENRAC_DIRECT, which skips the title's notices (rac1/host/boot.c).
+    if (control::requested()) {
+        if (openrac_game_start_level >= 0) {
+            openrac_game_direct_start = 1;
+        }
+        o.skip_movies = true;
+    }
+
+    // --moby-states FILE (moby_states.h): straight into the --level, no movies, no card of the
+    // player's (an empty one in the temporary folder, which the game finds blank and asks nothing
+    // of), none of the player's native mods (a mod list that is not there), and no mods folder but
+    // the packed levels --mods names (OpenRAC Editor's openrac/tools/moby_states.py after_pack).
+    if (!moby_states_out.empty()) {
+        if (openrac_game_start_level < 0) {
+            usage("--moby-states needs --level");
+        }
+        moby_states::request(moby_states_out, moby_states_ticks);
+        openrac_game_direct_start = 1;
+        o.skip_movies = true;
+        o.no_mods = o.no_mods || o.mods.empty();
+        std::error_code e;
+        const fs::path temp = fs::temp_directory_path(e) / "openrac-moby-states-card";
+        if (o.cards.empty()) {
+            o.cards = temp;
+            fs::create_directories(o.cards, e);
+        }
+        o.plugins = temp / "no-plugins.json";
     }
 
     if (o.data.empty()) {
@@ -276,6 +343,13 @@ Options parse(int argc, char** argv) {
     // The mods' own files, a folder per mod's id, beside the cards (openrac_api.data_dir).
     if (o.mod_data.empty()) {
         o.mod_data = data_home() / "mod-data";
+    }
+
+    // The installed games' folders (interface 1.33): the launcher's layout beside --data, or
+    // OPENRAC_GAMES_ROOT (tests and development).
+    if (o.games_root.empty()) {
+        const std::optional<std::string_view> root = env::value(env::Var::GamesRoot);
+        o.games_root = root ? fs::path(std::string(*root)) : games_root_of(o.data);
     }
 
     if (o.plugins.empty()) {
@@ -323,10 +397,8 @@ Options parse(int argc, char** argv) {
     if (o.expect_destinations && o.destinations.empty()) {
         usage("--destinations requires prepared destination packs with mods enabled");
     }
-    if (o.ship_map
-        && (!o.custom_map || game_version() != "pal"
-            || std::string_view(openrac_game.game) != "rac1")) {
-        usage("--ship-map requires a RAC1 PAL map pack in --mods");
+    if (o.ship_map && (!o.custom_map || std::string_view(openrac_game.game) != "rac1")) {
+        usage("--ship-map requires a Ratchet & Clank map pack in --mods");
     }
     if (o.ship_map) {
         json::Value stack;

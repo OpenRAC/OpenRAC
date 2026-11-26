@@ -3,4 +3,4 @@
 /**
  * Why an update does not go in by itself.
  */
-export type Hold = { "kind": "major" } | { "kind": "newHooks", hooks: Array<string>, } | { "kind": "heldBack", by: string, byName: string, wants: string, } | { "kind": "needs", id: string, wants: string | null, } | { "kind": "needsLauncher", api: string, } | { "kind": "blocked", detail: string, };
+export type Hold = { "kind": "major" } | { "kind": "newHooks", hooks: Array<string>, } | { "kind": "heldBack", by: string, byName: string, wants: string, } | { "kind": "needs", id: string, wants: string | null, } | { "kind": "needsLauncher", api: string, } | { "kind": "needsLauncherHooks", hooks: Array<string>, } | { "kind": "blocked", detail: string, };

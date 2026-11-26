@@ -133,9 +133,14 @@ image (from `chdman createdvd` or `createcd`) is unpacked to `.iso` instead
 (`launcher/core/src/chd.rs`). A CHD is known by its first bytes too, as a
 picker may drop the name's extension, and one the picker streams rather than
 opens is copied first and unpacked from the copy. A failure is shown with its
-reason, as is the extractor's when it refuses a disc.
+reason, as is the extractor's when it refuses a disc. Android lets no app
+make hard links, so the set-up keeps a symbolic link to that copy
+(`iso_data/<game>/disc.iso`, `--link-image`), not a second copy. Deleting the
+image in the Files app's Disc images undoes the set-up: the game asks for its
+disc again. A set-up made before this held a second copy; the launcher
+replaces it with the link when it starts (`install::tidy`).
 
-**The setup** is the desktop's: `tools/extractor.py`, `editor/extract.py port`
+**The setup** is the desktop's: `tools/extractor.py`, `extractor/extract.py port`
 for the levels, then the game's `--check-levels`, with their output in the
 launcher. These steps name Android in `launcher/actions.json`; building the
 game does not, as the APK carries it. Going Commando adds one: the part of its
@@ -148,7 +153,7 @@ library folder, so the APK carries them as libraries:
 |---|---|
 | `libpython3.13.so`, `libopenrac-python.so` | CPython for Android from [Chaquopy](https://github.com/chaquo/chaquopy) (MIT, pinned from Maven Central), and a small `python3` around it (`port/android/python_main.c`) |
 | `libopenrac-zig.so` | [Zig](https://ziglang.org)'s static AArch64 Linux release (MIT, pinned by SHA-256): Clang and lld (`zig clang`, `zig ld.lld`), which build Going Commando's part from the disc on the device (`tools/asm_part.py`) |
-| `libopenrac-<id>-cli.so` | the game without a window, for `--check-levels` |
+| `libopenrac-<id>-cli.so` | the game without a window, for `--check-levels`: a few lines (`port/android/game_cli.c`) that call the main of `libopenrac-<id>.so`, so each game's code is in the APK once |
 | `libopenrac-enhanced-baker.so` | Enhanced graphics' probe baker, with Embree built by the NDK (the release `tools/build_port.py` pins) |
 
 The copy of OpenRAC (`tools/bundle_standalone.py --android`) is
@@ -160,9 +165,12 @@ so if it takes more than a second.
 **Kept light for a phone:**
 
 - the image is copied by the kernel (`copy_file_range` or `sendfile`);
-- the extractor writes only `SYSTEM.CNF` and the boot executable
-  (`--boot-only`), though it still checks every file;
-- Android's Python has no process pools (no `sem_open`), so `editor/extract.py`
+- the extractor writes the disc's files once (the game reads them through
+  their sector map, `sectors.tsv`, never the image): about as much space as
+  the disc again, on top of the linked image the level tools read;
+- files that levels have alike (a moby class, a texture) are written once and
+  linked (`extractor/extract.py`, `share_identical_files`);
+- Android's Python has no process pools (no `sem_open`), so `extractor/extract.py`
   runs up to four levels in separate processes (`SubprocessPool`);
 - `openrac-enhanced-baker` schedules the largest lighting levels first and shares a bounded
   tracing pool across them. Water decoding runs in the same native
@@ -293,7 +301,9 @@ path has three parts:
    It is the default except on Mali GPUs, where OpenGL ES is until Vulkan
    is played on one: Mali's shader compiler crashes on any clip distance
    write, which the vertex stages leave out there (`shader_compiler.cpp`,
-   `vertex_clip_distance`). "Renderer" in Settings picks either (the
+   `vertex_clip_distance`). Samsung's Xclipse GPUs (Exynos 2200 and later,
+   found by `Build.SOC_MANUFACTURER`) also start on OpenGL ES: their Vulkan
+   driver crashes and hangs in other apps. "Renderer" in Settings picks either (the
    launcher sets `OPENRAC_GL_API=vulkan` for Vulkan); if Vulkan 1.3 cannot
    start, the game falls back to OpenGL ES.
 

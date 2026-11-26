@@ -1,0 +1,444 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (c) 2026 the OpenRAC contributors
+ *
+ * Up Your Arsenal's options: the port's Video page in the title's Options, the game's own 16:9
+ * kept off, and the options a console forgets at power off remembered between runs, as Going
+ * Commando's port has them (rac2/host/options.c).
+ *
+ * The title's Options page (the boot program's screen at D_001DA168: build func_003B55D8, update
+ * func_003B5890) is a list widget (D_00280CF0, list 0: +4 the first row shown, +8 the cursor's row
+ * among those shown, +0xC the rows, +0x10 how many are shown, +0x14 the columns, +0xB0 the cells,
+ * 0x44 bytes each: the text, then +0x40 its state, 4 one the cursor skips) of two columns, a name
+ * and a value, with the items at D_0037F830 (16 bytes each: the name's text id, enabled, the
+ * action, the preview's animation; ended by a zero name): 16:9 (0x508, the byte +0xAD of the
+ * options at D_00143950, NTSC-U's option_widescreen), Subtitles (0x148, the byte +6), the sound's
+ * Stereo or Mono (0x146, the word +8) and the language (0x14F, the byte +0xB7, 1 to 5). Each
+ * frame func_003B63D0 writes every row's name and value into its cells (the values at
+ * D_0037F790, 0x20 bytes each), func_003B6090 follows the cursor (D_001D89B8) with the preview
+ * (widget 0x1C0003, an animation a row) and func_003B5F78 acts on the menus' buttons: Cross the
+ * row's action, Triangle back to the main menu.
+ *
+ * The window's picture has the player's shape (the Video page's Picture), so the game's 16:9,
+ * which narrows the view for a television that stretches it back, is kept off, and its row gives
+ * its place to the port's Video page, as Going Commando's 16:9 page does: Cross on it shows the
+ * port's rows (game_host.h, openrac_game_option_*) in the same list, its four shown rows moving
+ * with the cursor as the game's own lists scroll; Cross or Right steps the row under the cursor to
+ * its next value, Left to the one before, Triangle goes back to the game's rows.
+ *
+ * Each row's picture is the preview widget's animation for it (the items' fourth word: 16:9's 5,
+ * Subtitles' 2, the sound's 4, the language's 9), a Widget3D sprite drawn as the 2D layer's records
+ * (ui2d.c, func_003AA780). The Video row keeps the 16:9 row's picture, the one the game shows for
+ * its screen setting, and the Video page shows it as long as it is open.
+ *
+ * The mods' main-menu items (openrac_api.ui_main_item) are the Video page's last rows, after the
+ * port's own: Cross on one shows that mod's page in the same list (game_host.h,
+ * openrac_mod_pages_host, as Going Commando's mod_pages.c has them in its menus): its title, its
+ * rows with the cursor's, its footer, or its question, written into the list's cells each frame
+ * from openrac_mod_pages_view_of. The port has the pad while it shows (mod_ui.cpp): the cursor, a
+ * choice, Cross and Triangle are the port's, and going back is to the Video page.
+ */
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "game_protos.h"
+#include "openrac/game_host.h"
+#include "openrac/guest.h"
+#include "rac3_version.h"
+
+#define OPTIONS RAC3_ADDR(0x00143950u)
+#define OPTION_SUBTITLES (OPTIONS + 0x06u) /* a byte */
+#define OPTION_SOUND (OPTIONS + 0x08u)     /* a word: 0 mono, else stereo */
+#define OPTION_WIDESCREEN (OPTIONS + 0xADu)
+/* A byte: 1 English, 2 French, 3 German, 4 Spanish, 5 Italian. */
+#define OPTION_LANGUAGE (OPTIONS + 0xB7u)
+
+#define LIST RAC3_ADDR(0x00280CF0u) /* the Options page's list (func_003B9F88(0)) */
+#define LIST_TOP 0x04u
+#define LIST_CURSOR 0x08u
+#define LIST_ROWS 0x0Cu
+#define LIST_COLUMNS 0x14u
+#define LIST_SCROLL 0x1Cu
+#define LIST_CELLS 0xB0u
+#define CELL_BYTES 0x44u
+#define CELL_TEXT 0x40u
+#define LIST_CAPACITY 0x9000u /* the cells' room (func_003B6128 gives the list 0x9000 bytes) */
+
+#define CURSOR_ROW RAC3_ADDR(0x001D89B8u)  /* the Options row under the cursor (func_003B6090) */
+#define PREVIEW_ROW RAC3_ADDR(0x001D89BCu) /* the row whose preview shows, -1 none yet */
+#define PREVIEW 0x001C0003                 /* the preview's widget */
+#define ROW_VIDEO 0                        /* the 16:9 row, the port's Video page in its place */
+#define ITEMS RAC3_ADDR(0x0037F830u)       /* the Options items, 16 bytes each */
+#define ITEM_PREVIEW 0x0Cu                 /* an item's preview animation */
+
+#define MENU_TRIANGLE 0x10u /* the menus' buttons (the pad record's word at +0x1C4) */
+#define MENU_CROSS 0x40u
+#define MENU_RIGHT 0x2000u
+#define MENU_LEFT 0x8000u
+#define SOUND_CHOOSE 4 /* func_003A5748's sounds, as the menus play them */
+
+#define LIST_SHOWN 0x10u /* how many rows the list shows at once */
+
+static int video_open;
+static int video_count;       /* the Video page's rows */
+static int game_rows;         /* the list's rows while the Video page shows its own */
+static int option_count;      /* the port's option rows of the Video page, the mods' items after */
+static int mod_item = -1;     /* the mod's main-menu item whose page shows, -1 none */
+static unsigned rows_written; /* frames on_frame counted since the Options rows were last written */
+
+static gaddr cell(int column, int row) {
+    const gaddr cells = GREF(gaddr, LIST + LIST_CELLS);
+    const int columns = GREF(int32_t, LIST + LIST_COLUMNS);
+    return cells + (gaddr)((columns * row + column) * (int)CELL_BYTES);
+}
+
+static int list_row(void) {
+    return GREF(int32_t, LIST + LIST_TOP) + GREF(int32_t, LIST + LIST_CURSOR);
+}
+
+/* The list's rows, from the first, with their cells emptied and none skipped. */
+static void list_reset(int rows) {
+    const int columns = GREF(int32_t, LIST + LIST_COLUMNS);
+    memset(G(cell(0, 0)), 0, (size_t)(rows * columns) * CELL_BYTES);
+    GREF(int32_t, LIST + LIST_ROWS) = rows;
+    GREF(int32_t, LIST + LIST_TOP) = 0;
+    GREF(int32_t, LIST + LIST_CURSOR) = 0;
+    GREF(int32_t, LIST + LIST_SCROLL) = 0;
+}
+
+/* The port's texts come in Ratchet & Clank's and Going Commando's code (options_menu.cpp
+ * game_text: one byte from 0x80 for an accented letter, a vowel's four accents in turn from 0x80
+ * for A, 0x88 E, 0x90 I, 0x98 O and 0xA0 U, capitals then small letters, then Ñ 0xA8, ñ, Ç 0xAA,
+ * ç, ß 0xAC). This game's font has its own: 0x80 and then the letter's number, the capitals only
+ * as its menus print them (read from its own French, German and Spanish options texts: Á 0x0C, Ä
+ * 0x0E, Ç 0x0F, É 0x11, Í 0x14, Ñ 0x17, Ü 0x1E). A letter of which this game's number is not
+ * known is printed without its accent. 0 for none. */
+static int accented(unsigned code, char* plain) {
+    static const char vowels[] = "AEIOU";
+    if (code >= 0x80 && code < 0xA8) {
+        const unsigned vowel = (code - 0x80) / 8;
+        const unsigned accent = (code - 0x80) % 4; /* acute, grave, circumflex, diaeresis */
+        *plain = vowels[vowel];
+        static const unsigned char numbers[5][4] =
+            {{0x0C, 0, 0, 0x0E}, {0x11, 0, 0, 0}, {0x14, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0x1E}};
+        return numbers[vowel][accent];
+    }
+    switch (code) {
+        case 0xA8:
+        case 0xA9:
+            *plain = 'N';
+            return 0x17;
+        case 0xAA:
+        case 0xAB:
+            *plain = 'C';
+            return 0x0F;
+        case 0xAC:
+            *plain = 'S';
+            return 0;
+        default:
+            *plain = '?';
+            return 0;
+    }
+}
+
+/* The game's menus are in capitals: so are the port's texts in them, with their accented letters
+ * in this game's font's code (above). The text is rewritten in place, within `room` bytes. */
+static void capitals(gaddr text, int room) {
+    char in[CELL_TEXT];
+    snprintf(in, sizeof in, "%s", (const char*)G(text));
+    char* out = (char*)G(text);
+    int at = 0;
+    for (const char* c = in; *c != 0 && at < room - 1; ++c) {
+        const unsigned code = (unsigned char)*c;
+        if (code < 0x80) {
+            out[at++] = code >= 'a' && code <= 'z' ? (char)(code - 'a' + 'A') : (char)code;
+            continue;
+        }
+        char plain = '?';
+        const int number = accented(code, &plain);
+        if (number != 0 && at < room - 2) {
+            out[at++] = (char)0x80;
+            out[at++] = (char)number;
+        } else {
+            out[at++] = plain;
+        }
+    }
+    out[at] = 0;
+}
+
+static int list_room(void) {
+    const int columns = GREF(int32_t, LIST + LIST_COLUMNS);
+    return columns > 0 ? (int)(LIST_CAPACITY / CELL_BYTES) / columns : 0;
+}
+
+static int video_rows(void) {
+    option_count = openrac_game_option_rows();
+    const int rows = option_count + openrac_mod_pages_items(0);
+    const int room = list_room();
+    if (option_count > room) {
+        option_count = room;
+    }
+    return rows < room ? rows : room;
+}
+
+static void video_show(int open) {
+    if (open) {
+        const int rows = video_rows();
+        if (rows <= 0) {
+            return;
+        }
+        if (!video_open) {
+            game_rows = GREF(int32_t, LIST + LIST_ROWS);
+        }
+        video_count = rows;
+        list_reset(rows);
+        /* The 16:9 row's picture, shown at once (the game waits a few frames after the cursor
+         * moves) and kept while the page is open. */
+        func_003E8200(PREVIEW, GREF(int32_t, ITEMS + 16u * ROW_VIDEO + ITEM_PREVIEW));
+        func_003E7DD0(PREVIEW, 1);
+    } else {
+        list_reset(game_rows);
+        GREF(int32_t, PREVIEW_ROW) = -1; /* the preview again, the row's */
+    }
+    video_open = open;
+}
+
+/* ---- The mods' pages in the list ---- */
+
+static void put_text(int column, int row, const char* text) {
+    char* out = (char*)G(cell(column, row));
+    strncpy(out, text, CELL_TEXT - 1u);
+    out[CELL_TEXT - 1u] = 0;
+}
+
+/* The mod's page in the list's cells: its title, its rows, its footer (or its question), the list's
+ * window kept on the page's cursor. */
+static void mod_page_text(void) {
+    static openrac_mod_pages_view v;
+    if (!openrac_mod_pages_view_of(&v)) {
+        return;
+    }
+    const int room = list_room();
+    int row = 0;
+    int cursor = 0;
+    const int columns = GREF(int32_t, LIST + LIST_COLUMNS);
+    memset(G(cell(0, 0)), 0, (size_t)(room * columns) * CELL_BYTES);
+    put_text(0, row++, v.title);
+    if (v.asking) {
+        put_text(0, row, v.question);
+        put_text(1, row++, "X / ^");
+        cursor = 1;
+    } else {
+        for (int i = 0; i < v.rows && row < room; ++i, ++row) {
+            put_text(0, row, v.row[i].label);
+            put_text(1, row, v.row[i].value);
+            if (i == v.cursor) {
+                cursor = row;
+            }
+        }
+        for (int i = 0; i < v.footer_lines && row < room; ++i) {
+            put_text(0, row++, v.footer[i]);
+        }
+    }
+    for (int r = 0; r < row; ++r) {
+        capitals(cell(0, r), (int)CELL_TEXT);
+        capitals(cell(1, r), (int)CELL_TEXT);
+    }
+    GREF(int32_t, LIST + LIST_ROWS) = row;
+    const int shown = GREF(int32_t, LIST + LIST_SHOWN) > 0 ? GREF(int32_t, LIST + LIST_SHOWN) : 4;
+    const int top = cursor < shown ? 0 : cursor - shown + 1;
+    GREF(int32_t, LIST + LIST_TOP) = top;
+    GREF(int32_t, LIST + LIST_CURSOR) = cursor - top;
+}
+
+/* The page is the port's from the next tick on (mod_ui.cpp reads shown() then): until then the
+ * list keeps the Video page's rows. */
+static void mod_page_open(int item) {
+    mod_item = item;
+}
+
+static int mod_shown(void) {
+    return mod_item;
+}
+
+static int mod_main_menu(void) {
+    return 0; /* the items open from the Options page only */
+}
+
+static void mod_open_main(int index) {
+    (void)index;
+}
+
+/* Back to the Video page's rows. */
+static void mod_go_back(void) {
+    if (mod_item < 0) {
+        return;
+    }
+    mod_item = -1;
+    video_show(1);
+}
+
+static void mod_sound(int cue) {
+    (void)cue;
+    func_003A5748(SOUND_CHOOSE, 0, 0);
+}
+
+static const openrac_mod_pages_host mod_pages = {
+    .shown = mod_shown,
+    .main_menu = mod_main_menu,
+    .open_main = mod_open_main,
+    .go_back = mod_go_back,
+    .sound = mod_sound,
+};
+
+/* The Options rows' texts, each frame: the port's while its page shows, else the game's with the
+ * 16:9 row named Video, its value none. */
+void func_003B63D0(void) {
+    rows_written = 0;
+    /* The page built again (the screen left another way than Triangle): the game's rows. */
+    /* (A mod's page sets the rows itself; the frame hook lets it go when the page is gone.) */
+    if (video_open && mod_item < 0 && GREF(int32_t, LIST + LIST_ROWS) != video_count) {
+        video_open = 0;
+    }
+    if (!video_open) {
+        func_003B63D0__game();
+        openrac_game_option_word("Video", (char*)G(cell(0, ROW_VIDEO)), (int)CELL_TEXT);
+        capitals(cell(0, ROW_VIDEO), (int)CELL_TEXT);
+        GREF(char, cell(1, ROW_VIDEO)) = 0;
+        return;
+    }
+    if (mod_item >= 0) {
+        mod_page_text();
+        return;
+    }
+    const int rows = GREF(int32_t, LIST + LIST_ROWS);
+    for (int row = 0; row < rows; ++row) {
+        if (row >= option_count) {
+            openrac_mod_pages_label(0, row - option_count, (char*)G(cell(0, row)), (int)CELL_TEXT);
+            GREF(char, cell(1, row)) = 0;
+        } else {
+            openrac_game_option_row_text(
+                row, (char*)G(cell(0, row)), (char*)G(cell(1, row)), (int)CELL_TEXT
+            );
+        }
+        capitals(cell(0, row), (int)CELL_TEXT);
+        capitals(cell(1, row), (int)CELL_TEXT);
+    }
+}
+
+/* The preview follows the cursor among the game's rows, the Video row's the 16:9 row's own; the
+ * Video page keeps it (its rows are the port's, which the game's items do not describe). */
+void func_003B6090(void) {
+    if (video_open) {
+        return;
+    }
+    func_003B6090__game();
+}
+
+/* The menus' buttons on the Options page: Cross on the Video row opens the port's page; on it,
+ * Cross, Right and Left step the row under the cursor and Triangle goes back. */
+void func_003B5F78(int screen, int buttons) {
+    if (!video_open) {
+        if ((buttons & MENU_CROSS) != 0 && GREF(int32_t, CURSOR_ROW) == ROW_VIDEO) {
+            func_003A5748(SOUND_CHOOSE, 0, 0);
+            video_show(1);
+            return;
+        }
+        func_003B5F78__game(screen, buttons);
+        return;
+    }
+    if (mod_item >= 0) {
+        return; /* the port has the pad (mod_ui.cpp) */
+    }
+    if ((buttons & MENU_TRIANGLE) != 0) {
+        func_003A5748(SOUND_CHOOSE, 0, 0);
+        video_show(0);
+        return;
+    }
+    if ((buttons & MENU_CROSS) != 0 && list_row() >= option_count) {
+        func_003A5748(SOUND_CHOOSE, 0, 0);
+        mod_page_open(list_row() - option_count);
+        return;
+    }
+    const int by = (buttons & (MENU_CROSS | MENU_RIGHT)) != 0 ? 1
+                   : (buttons & MENU_LEFT) != 0               ? -1
+                                                              : 0;
+    if (by != 0 && list_row() < option_count) {
+        openrac_game_option_step(list_row(), by);
+        func_003A5748(SOUND_CHOOSE, 0, 0);
+    }
+}
+
+/* The 16:9 row's action: the port's page has its place (above); the byte stays off. */
+void func_003B6588(void) {
+    GREF(uint8_t, OPTION_WIDESCREEN) = 0;
+}
+
+/* The console's language code for the game's index and back (func_003983C8's table: the game's
+ * 3 is German, the console's 4; its 4 Spanish, the console's 3), 0 for none. */
+static int console_language(int game) {
+    static const int codes[6] = {0, 1, 2, 4, 3, 5};
+    return game >= 0 && game < 6 ? codes[game] : 0;
+}
+
+static void on_frame(unsigned frame);
+static void (*g_previous_on_frame)(unsigned frame);
+
+/* The language as a word, for the port's own texts in the game's menus (the front end's language,
+ * options_menu.cpp: 1 English, 2 French, 3 German, 4 Spanish, 5 Italian, the game's own indexes):
+ * the game keeps it in a byte between others, so the port keeps a copy of it, each frame. */
+static gaddr language_word;
+
+gaddr rac3_language_word(void);
+
+gaddr rac3_language_word(void) {
+    if (language_word == 0) {
+        language_word = openrac_guest_static(4);
+        GREF(int32_t, language_word) = 1;
+    }
+    return language_word;
+}
+
+/* The front end's start-up: it sets the language from the console's (openrac_game_language, the
+ * one the port remembered); the options it leaves at their defaults get the remembered ones. */
+int func_003983C8(void) {
+    const int r = func_003983C8__game();
+    const int subtitles = openrac_game_option("game_subtitles", -1);
+    if (subtitles == 0 || subtitles == 1) {
+        GREF(uint8_t, OPTION_SUBTITLES) = (uint8_t)subtitles;
+    }
+    const int sound = openrac_game_option("game_playback", -1);
+    if (sound >= 0) {
+        GREF(int32_t, OPTION_SOUND) = sound;
+    }
+    /* The hook another part set (menu_log.c's) runs first, then this one. */
+    if (openrac_game_on_frame != on_frame) {
+        g_previous_on_frame = openrac_game_on_frame;
+    }
+    openrac_game_on_frame = on_frame;
+    openrac_game_mod_pages = &mod_pages;
+    return r;
+}
+
+/* Each frame: the 16:9 off, and the options as the player left them, for the next run. */
+static void on_frame(unsigned frame) {
+    if (g_previous_on_frame != NULL) {
+        g_previous_on_frame(frame);
+    }
+    GREF(uint8_t, OPTION_WIDESCREEN) = 0;
+    /* The Options page gone while a mod's page showed (the screen left another way): the port lets
+     * the pad go. */
+    if (++rows_written > 2 && mod_item >= 0) {
+        mod_item = -1;
+        video_open = 0;
+    }
+    const int index = GREF(uint8_t, OPTION_LANGUAGE);
+    GREF(int32_t, rac3_language_word()) = index >= 1 && index <= 5 ? index : 1;
+    const int language = console_language(index);
+    if (language > 0) {
+        openrac_game_set_option("game_language", language);
+        openrac_game_language = language;
+    }
+    openrac_game_set_option("game_subtitles", GREF(uint8_t, OPTION_SUBTITLES) != 0);
+    openrac_game_set_option("game_playback", GREF(int32_t, OPTION_SOUND));
+}

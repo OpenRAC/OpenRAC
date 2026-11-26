@@ -100,11 +100,14 @@ bool closest_section(RTCPointQueryFunctionArguments* args) {
 }
 }  // namespace
 
-RoomWallDistance room_wall_distance(const Scene& scene, Float3 position) {
-    RTCPointQuery point{position[0], position[1], position[2], 0, 32};
+RoomWallDistance room_wall_distance(const Scene& scene, Float3 position, float radius) {
+    Query query{scene, position, {radius}};
+    if (radius == 0) {
+        return query.result;
+    }
+    RTCPointQuery point{position[0], position[1], position[2], 0, radius};
     RTCPointQueryContext context;
     rtcInitPointQueryContext(&context);
-    Query query{scene, position, {}};
     rtcPointQuery(scene.handle, &point, &context, closest_section, &query);
     return query.result;
 }

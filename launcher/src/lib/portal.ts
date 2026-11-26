@@ -4,6 +4,7 @@
 // The game menu does the same with the browser's popover top layer (Menu.svelte).
 export function portal(node: HTMLElement): { destroy: () => void } {
   document.body.appendChild(node);
+
   return {
     destroy() {
       node.remove();
@@ -18,9 +19,12 @@ export function portal(node: HTMLElement): { destroy: () => void } {
  */
 export function modal(node: HTMLElement): { destroy: () => void } {
   const back = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
   document.body.appendChild(node);
   const release = inertPage();
+
   node.querySelector<HTMLElement>('[role="dialog"]')?.focus();
+
   return {
     destroy() {
       node.remove();
@@ -38,8 +42,10 @@ let overlays = 0;
 /** Makes the page behind an overlay inert; returns what undoes it. */
 export function inertPage(): () => void {
   const page = document.getElementById("app");
+
   overlays++;
   page?.setAttribute("inert", "");
+
   return () => {
     overlays--;
     if (overlays <= 0) page?.removeAttribute("inert");

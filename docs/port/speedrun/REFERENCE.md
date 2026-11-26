@@ -10,7 +10,7 @@ Parsed by `Options parse(int argc, char** argv)`
 
 | Flag | Meaning | Default |
 |---|---|---|
-| `--data <dir>` | The extractor's data folder (the disc image and the game's executable). Falls back to `$OPENRAC_DATA`. | required |
+| `--data <dir>` | The extractor's data folder (the disc's files, their sector map and the game's executable). Falls back to `$OPENRAC_DATA`. | required |
 | `--cards <dir>` | The memory-card folder. Port 0 is `<dir>`, port 1 is `<dir>.slot2`. A card is a plain folder of files. | `<data home>/openrac/memcard/<serial>` |
 | `--no-card` | No memory card in either port. | off |
 | `--window` | Open the window and run the game with graphics and input. Without it the game runs headless (no pad, no collision, no disc movies). | off |
@@ -122,7 +122,7 @@ Read with `std::getenv` throughout `port/`. The authoritative list is
 | `OPENRAC_UI_SKIP` | `NAME,...` | The listed 2D routines send the game's own packets instead of native quads. |
 | `OPENRAC_UI_RESIDUAL` | set | Log the kinds of 2D primitive still drawn from the game's packets. |
 | `OPENRAC_SHOW_MISSING` | set | Draw textured primitives whose texture is not uploaded with a magenta placeholder. |
-| `OPENRAC_GL_API` | `es` \| `desktop` \| `vulkan` \| `metal` | The kind of OpenGL context. |
+| `OPENRAC_GL_API` | `es` \| `desktop` \| `vulkan` | The kind of graphics context. The legacy `metal` value selects Vulkan. |
 | `OPENRAC_GL_HIDE_EXTENSIONS` | `NAME,...` | Pretend the driver lacks these GL extensions. |
 | `OPENRAC_VULKAN_VALIDATION` | `1` | Khronos validation layer messages. |
 | `OPENRAC_VULKAN_PIPELINE_CACHE` | path, or `0`/`off` | Where Vulkan pipelines are cached. |

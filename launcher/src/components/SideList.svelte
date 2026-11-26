@@ -10,10 +10,12 @@
   // Each entry is a picture (a game's, framed in its colours) or an icon, a name, and a line on
   // where it stands. In a narrow window only the pictures show, the names in their tooltips. On
   // Android it is a row of pictures above the page (SideFrame), each named across its foot.
-  import { onAndroid } from "$lib/api";
-  import { shortTitle, titleLines, type SideEntry } from "$lib/labels";
-  import { hideMissing } from "$lib/media";
   import { untrack } from "svelte";
+
+  import { onAndroid } from "$lib/api";
+  import { shortTitle, type SideEntry, titleLines } from "$lib/labels";
+  import { hideMissing } from "$lib/media";
+
   import Disc from "./Disc.svelte";
   import Icon from "./Icon.svelte";
 
@@ -22,7 +24,12 @@
     selected,
     onpick,
     label,
-  }: { entries: SideEntry[]; selected: string | null; onpick: (key: string) => void; label: string } = $props();
+  }: {
+    entries: SideEntry[];
+    selected: string | null;
+    onpick: (key: string) => void;
+    label: string;
+  } = $props();
 
   const intro = !lists.introduced;
   lists.introduced = true;
@@ -34,6 +41,7 @@
     let frame = requestAnimationFrame(() => {
       frame = requestAnimationFrame(() => (still = false));
     });
+
     return () => {
       cancelAnimationFrame(frame);
     };
@@ -45,7 +53,11 @@
   let marker = $state({ top: 0, height: 0, shown: false, moving: false });
   let placed = false;
   function place(key: string | null) {
-    const on = key === null ? null : list?.querySelector<HTMLElement>(`.entry[data-key="${CSS.escape(key)}"]`);
+    const on =
+      key === null
+        ? null
+        : list?.querySelector<HTMLElement>(`.entry[data-key="${CSS.escape(key)}"]`);
+
     marker = on
       ? { top: on.offsetTop, height: on.offsetHeight, shown: true, moving: placed }
       : { top: 0, height: 0, shown: false, moving: false };
@@ -60,7 +72,9 @@
     const resized = new ResizeObserver(() => {
       place(untrack(() => selected));
     });
+
     resized.observe(list);
+
     return () => {
       resized.disconnect();
     };
@@ -106,10 +120,12 @@
         </span>
       {:else}
         <span class="thumb" class:icon={!e.art}>
-          {#if e.art}<img src={e.art} alt="" decoding="async" onerror={hideMissing} />{:else if e.icon}<Icon
-              name={e.icon}
-              size={20}
-            />{/if}
+          {#if e.art}<img
+              src={e.art}
+              alt=""
+              decoding="async"
+              onerror={hideMissing}
+            />{:else if e.icon}<Icon name={e.icon} size={20} />{/if}
           {#if e.mark}<span class="mark" aria-hidden="true"></span>{/if}
         </span>
       {/if}
@@ -120,15 +136,16 @@
           <!-- The game's own name goes to a line of its own when the whole does not fit on one. -->
           {@const lines = titleLines(e.name)}
           <span class="name"
-            ><!-- The space stays in the name a screen reader says; the gap is padding. --><span class="part"
-              >{lines.game ? `${lines.series} ` : lines.series}</span
+            ><!-- The space stays in the name a screen reader says; the gap is padding. --><span
+              class="part">{lines.game ? `${lines.series} ` : lines.series}</span
             >{#if lines.game}<span class="part">{lines.game}</span>{/if}</span
           >
         {/if}
         {#if e.mark}<span class="sr-only">, crashed recently</span>{/if}
         {#if e.state}
           <span class={`state ${e.state.tone}`}>
-            {#if e.state.busy}<span class="spinner"></span>{:else}<span class="dot"></span>{/if}{e.state.text}
+            {#if e.state.busy}<span class="spinner"></span>{:else}<span class="dot"></span>{/if}{e
+              .state.text}
           </span>
         {/if}
       </span>

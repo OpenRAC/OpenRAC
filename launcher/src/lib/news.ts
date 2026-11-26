@@ -24,6 +24,7 @@ export interface NewsInput {
 /** The news, in the order shown: the launcher's update, mods, then crashes. */
 export function news({ update, mods, games }: NewsInput): NewsItem[] {
   const list: NewsItem[] = [];
+
   if (update) {
     list.push({
       key: "update",
@@ -34,8 +35,10 @@ export function news({ update, mods, games }: NewsInput): NewsItem[] {
       text: "Update the launcher",
     });
   }
+
   for (const offer of mods) {
     const n = offer.updates.length;
+
     if (n === 0) continue;
     list.push({
       key: `mods-${offer.game}`,
@@ -46,6 +49,7 @@ export function news({ update, mods, games }: NewsInput): NewsItem[] {
       text: offer.title,
     });
   }
+
   for (const g of games) {
     if (!g.version || g.crashes <= 0) continue;
     list.push({
@@ -57,5 +61,6 @@ export function news({ update, mods, games }: NewsInput): NewsItem[] {
       text: "A report is on its page",
     });
   }
+
   return list;
 }

@@ -6,7 +6,7 @@
 // depth cannot part them the farther one wins the tie and shows. GL's form keeps 2^-24 of the
 // range after (z + w) / 2, so from about 150 units on (near 0.05) it cannot; precise depth (a
 // float buffer, glClipControl GL_ZERO_TO_ONE, zero_to_one()) parts them at every distance drawn.
-// Skipped where the context has no glClipControl (macOS's OpenGL 4.1).
+// The wall comparison needs glClipControl. Native OpenGL can check the formats without it.
 
 #include <cstdint>
 #include <cstdio>
@@ -19,6 +19,7 @@
 #include "renderer/gl/precise_depth.h"
 #include "renderer/gl/shader.h"
 #include "renderer/math.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 using namespace openrac;
@@ -97,10 +98,10 @@ double lost(
     // The nearer wall first (green), then the farther (red): a tie goes to the farther.
     upload_wall(buffer, distance - kGap);
     glUniform4f(shader.uniform("colour"), 0, 1, 0, 1);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLE_STRIP, 0, 4);
     upload_wall(buffer, distance);
     glUniform4f(shader.uniform("colour"), 1, 0, 0, 1);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLE_STRIP, 0, 4);
     if (precise) {
         glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
     }
@@ -118,6 +119,37 @@ double lost(
     return static_cast<double>(red) / (kSize * kSize);
 }
 
+bool create_depth_target(renderer::FrameBuffer& frame, GLint expected_depth_bits) {
+    std::string error;
+    if (!frame.create(kSize, kSize, error, 1, true)) {
+        std::fprintf(stderr, "%s\n", error.c_str());
+        return false;
+    }
+    if (is_vulkan()) {
+        return true;
+    }
+
+    using GetAttachment = void(OPENRAC_GLAPI*)(GLenum, GLenum, GLenum, GLint*);
+    const auto get_attachment = reinterpret_cast<GetAttachment>(
+        platform::Window::gl_loader()("glGetFramebufferAttachmentParameteriv")
+    );
+    if (get_attachment == nullptr) {
+        std::fprintf(stderr, "Cannot query framebuffer attachment sizes\n");
+        return false;
+    }
+
+    constexpr GLenum kDepthSize = 0x8216;    // GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE
+    constexpr GLenum kStencilSize = 0x8217;  // GL_FRAMEBUFFER_ATTACHMENT_STENCIL_SIZE
+    glBindFramebuffer(GL_FRAMEBUFFER, frame.id());
+    GLint depth_bits = 0, stencil_bits = 0;
+    get_attachment(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, kDepthSize, &depth_bits);
+    get_attachment(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, kStencilSize, &stencil_bits);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    CHECK(depth_bits == expected_depth_bits);
+    CHECK(stencil_bits == 8);
+    return true;
+}
+
 }  // namespace
 
 int main() {
@@ -127,9 +159,24 @@ int main() {
         std::printf("SKIP: no OpenGL 4.1 core context: %s\n", why.c_str());
         return test::kSkip;
     }
-    if (glClipControl == nullptr) {
-        std::printf("SKIP: no glClipControl (OpenGL 4.5 or ARB_clip_control)\n");
-        return test::kSkip;
+    renderer::FrameBuffer plain;
+    const auto clip_control = glClipControl;
+    glClipControl = nullptr;
+    CHECK(!renderer::precise_depth());
+    const bool normal_created = create_depth_target(plain, 24);
+    glClipControl = clip_control;
+    if (!normal_created) {
+        return 1;
+    }
+
+    if (!renderer::precise_depth()) {
+        std::printf("Skipping wall comparison: no glClipControl\n");
+        return test::result();
+    }
+
+    renderer::FrameBuffer precise;
+    if (!create_depth_target(precise, 32)) {
+        return 1;
     }
 
     renderer::Shader shader;
@@ -145,15 +192,6 @@ int main() {
     upload_wall(vbo, 1.0f);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-
-    // The window's frame buffers in GL's form, and in precise depth's float one.
-    renderer::FrameBuffer plain, precise;
-    renderer::request_precise_depth(false);
-    CHECK(plain.create(kSize, kSize, error));
-    renderer::request_precise_depth(true);
-    CHECK(renderer::precise_depth());
-    CHECK(precise.create(kSize, kSize, error));
-    renderer::request_precise_depth(false);
 
     // The scene's projection (scene_frame.cpp): near 0.05, far 2000; 90 degrees, so a wall of
     // 2 x distance either way fills the view.

@@ -1,0 +1,501 @@
+{
+ "about": "What rac3-ntsc's carried tables rest on besides the same code, written by port/tools/hostgen/release_carry_rac3.py; do not edit.",
+ "differs": {
+  "func_0038A518__frontbin": {
+   "is": "func_00385E40__frontbin",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_0038A8F8": {
+   "is": "func_0038A8A0",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_003983C8": {
+   "is": "func_003982E0",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_003983C8__game": {
+   "is": "func_003982E0__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_003A2BC0__frontbin": {
+   "is": "func_PAL_003A2BC0__frontbin",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_003A2CD8__frontbin": {
+   "is": "func_PAL_003A2CD8__frontbin",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_003A31C8": {
+   "is": "func_003A3088",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_003A7EF8": {
+   "is": "func_003A7DB0",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_003A7EF8__game": {
+   "is": "func_003A7DB0__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_003AA3C8__frontbin": {
+   "is": "func_003A4E70__frontbin",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_003AA3C8__frontbin__game": {
+   "is": "func_003A4E70__frontbin__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_003AA780": {
+   "is": "func_003AA630",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_003AA780__game": {
+   "is": "func_003AA630__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_003B63D0": {
+   "is": "func_003B6220",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_003B63D0__game": {
+   "is": "func_003B6220__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_L01_002F88E0": {
+   "is": "func_L01_002F8918",
+   "status": "differs",
+   "port": "hook"
+  },
+  "func_L01_002F8F20": {
+   "is": "func_L01_002F8F60",
+   "status": "differs",
+   "port": "hook"
+  },
+  "func_L01_003E4580": {
+   "is": "func_L01_003E2790",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_L01_003E92F8": {
+   "is": "func_L01_003E7478",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_L01_003E92F8__game": {
+   "is": "func_L01_003E7478__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_L01_004050C0": {
+   "is": "func_L01_00402D50",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_L01_0041FE80": {
+   "is": "func_L01_0041D750",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_L01_0041FE80__game": {
+   "is": "func_L01_0041D750__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_L01_004443E8": {
+   "is": "func_L01_004412D0",
+   "status": "differs",
+   "port": "hook"
+  },
+  "func_L01_0044D360": {
+   "is": "func_L01_0044A0E8",
+   "status": "differs",
+   "port": "hook"
+  },
+  "func_L01_00460868": {
+   "is": "func_PAL_L01_00460868",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_L01_004B04D8": {
+   "is": "func_L01_004ACA98",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_L01_004B04D8__game": {
+   "is": "func_L01_004ACA98__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_L01_004CBC60": {
+   "is": "func_L01_004C7FF0",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_L01_004CBC60__game": {
+   "is": "func_L01_004C7FF0__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_L01_004DFEA0": {
+   "is": "func_L01_004DC1C0",
+   "status": "differs",
+   "port": "hook"
+  },
+  "func_L01_004EDE10": {
+   "is": "func_L01_004EA040",
+   "status": "differs",
+   "port": "hook"
+  },
+  "func_L02_00310838": {
+   "is": "func_L02_00310500",
+   "status": "differs",
+   "port": "host"
+  }
+ },
+ "left_out": {
+  "func_003A2BC0__frontbin": "PAL-only overlay pad startup: NTSC-U's boot caller 0x003984CC initializes the core records through 0x003A2E80; frontbin enters at 0x0037D200 and calls the existing-pad iterator 0x0039E8E0 at +0x400 and +0x8D4 without pad/library initialization. Its records start at 0x001D5680, above the retained pad records and core pointers; no NTSC startup is invented or substituted.",
+  "func_L01_00460868": "PAL-only overlay pad startup: NTSC-U's level 1 entry 0x003EE988 uses iterator 0x0045E370 and updater 0x0045DF40 on the boot-initialized core pad records. All 34 NTSC-U SP programs start their records at 0x001D5680, overlap no pad/core-pointer state, and have no calls to pad/library init or port open and no GP-relative stores to the port-one core pointers. Preserve that lifecycle rather than bind a nonexistent overlay initializer.",
+  "func_003AA3C8__frontbin": "DrawWidgetSpriteFrontbin: since rac3-decomp f9ea1754 NTSC-U's release view names PAL's frontbin func_003AA3C8 func_003A4E70 without its program's suffix, so frontbin's C calls a stub and the row would bind the boot program's address (inside func_003A4688); left out until the release view names it as frontbin's again",
+  "mp:func_L39_0067A7E0": "no NTSC-U pair (release/mp_pairs.json)"
+ },
+ "addresses_not_found": [
+  "L01:004D8220",
+  "L01:004DB780",
+  "mp:001959F8",
+  "mp:00241128"
+ ],
+ "hand_addresses": {
+  "0x001439F4": {
+   "is": "0x001439F4",
+   "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_004D0E90 (NTSC-U func_L01_004CD1D0) +0x68, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
+  },
+  "0x00143A70": {
+   "is": "0x00143A70",
+   "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_0049FBC8 (NTSC-U func_L01_0049C368) +0x1DC, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
+  },
+  "0x001A50E0": {
+   "is": "0x001A50E0",
+   "why": "hero_ledge_block, hero + 0x500 (rac3-decomp include/structs/hero.h); the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes the block at NTSC-U 0x001A50E0"
+  },
+  "0x001A57BC": {
+   "is": "0x001A57BC",
+   "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001A5780 and 0x001A57F8, both moved by +0x0 (NTSC-U 0x001A5780, 0x001A57F8)"
+  },
+  "0x001A5E08": {
+   "is": "0x001A5E08",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0034DBE8 (NTSC-U func_L01_0034D168) +0x8, 3 of 3 places agree"
+  },
+  "0x001D4C40": {
+   "is": "0x001D4C40",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004CA270 (NTSC-U func_L01_004C6638) +0x138, 7 of 7 places agree"
+  },
+  "0x001427F0": {
+   "is": "0x001427F0",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0030F0B0 (NTSC-U func_L01_0030EDC0) +0xC0, 18 of 18 places agree"
+  },
+  "0x00142668": {
+   "is": "0x00142668",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00301798 (NTSC-U func_L01_003015F0) +0x94, 3 of 3 places agree"
+  },
+  "0x00142660": {
+   "is": "0x00142660",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x120, 34 of 34 places agree"
+  },
+  "0x001C5290": {
+   "is": "0x001C5290",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00325F60 (NTSC-U func_L01_00325A60) +0xA8, 2 of 2 places agree"
+  },
+  "0x001D4CA0": {
+   "is": "0x001D4CA0",
+   "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001D4C80 and 0x001D4CA8, both moved by +0x0 (NTSC-U 0x001D4C80, 0x001D4CA8)"
+  },
+  "0x001A71D2": {
+   "is": "0x001A71D2",
+   "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001A71C5 and 0x001A71D4, both moved by +0x0 (NTSC-U 0x001A71C5, 0x001A71D4)"
+  },
+  "0x001BBC40": {
+   "is": "0x001BBC40",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x78, 24 of 24 places agree"
+  },
+  "0x001D4CF4": {
+   "is": "0x001D4CF4",
+   "why": "the active pad's not-ready flag the pad update writes ($gp - 0x7BBC: NTSC-U's func_003A3A00 stores to it as PAL's func_003A3B40 does, asm/us/boot_elf/13_text/f_003A3A00.s at 0x003A3A64, and both programs' $gp is 0x001DC8B0, config/gp.tsv)"
+  },
+  "0x001A71A0": {
+   "is": "0x001A71A0",
+   "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_003090E0 (NTSC-U func_L01_00308E58) +0x80, 31 of 31 places agree"
+  },
+  "0x001A71A4": {
+   "is": "0x001A71A4",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_003261E8 (NTSC-U func_L01_00325CE8) +0x100, 8 of 8 places agree"
+  },
+  "0x001A4C70": {
+   "is": "0x001A4C70",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004E51A0 (NTSC-U func_L01_004E13D8) +0x20, 3 of 3 places agree"
+  },
+  "0x001A4D30": {
+   "is": "0x001A4D30",
+   "why": "hero_carried, hero + 0x150: the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes hero_carried at NTSC-U 0x001A4D30"
+  },
+  "0x001D55D0": {
+   "is": "0x001D55D0",
+   "why": "the two font headers (FontUpload func_0038E2B0 reads them, FontSelect func_0038E530 copies the selected one's into 0x001D55C0): NTSC-U's boot program registers a font's header at the same address (f_0038E140: lui 0x1D, addiu 0x55D0, the font's index times 4, sw), and Veldin's FontSelect reads it there too (f_0040D548)"
+  }
+ },
+ "hostgen_left_out": {
+  "asm.signatures": [
+   "func_PAL_L39_00571600",
+   "func_PAL_L39_00572460",
+   "func_PAL_L21_00387578",
+   "func_PAL_L40_0046AE78",
+   "func_PAL_L04_00433D68",
+   "func_PAL_L06_00407AA0",
+   "func_PAL_L46_004E0880",
+   "func_PAL_L42_004E6538",
+   "func_PAL_L39_0059E6B8",
+   "func_PAL_L03_003FFC60",
+   "func_PAL_L10_003F6520",
+   "func_PAL_L40_0046AE98",
+   "func_PAL_L39_00518968",
+   "func_PAL_L03_004002E0",
+   "func_PAL_L04_00423598",
+   "func_PAL_L10_003FD868",
+   "func_PAL_L04_00423BB8",
+   "func_PAL_L06_003F72D0",
+   "func_PAL_L03_00400300",
+   "func_PAL_L10_004066B0",
+   "func_PAL_L39_005189C8",
+   "func_PAL_L40_0046AED8",
+   "func_PAL_L40_00466F50",
+   "func_PAL_L10_003FD918",
+   "func_PAL_L03_004076F8",
+   "func_PAL_L04_0042AFD0",
+   "func_PAL_L06_003FED08",
+   "func_PAL_L39_0059A478",
+   "func_PAL_L40_004835E8",
+   "func_PAL_L06_003F78F0",
+   "func_PAL_L04_00423BD8",
+   "func_PAL_L03_00407648",
+   "func_PAL_L10_004066D0",
+   "func_PAL_L39_005189F8",
+   "func_PAL_L06_003F7910",
+   "func_PAL_L04_0042AF20",
+   "func_PAL_L03_004104D8",
+   "func_PAL_L10_004066F0",
+   "func_PAL_L40_0048BE98",
+   "func_PAL_L39_00518A18",
+   "func_PAL_L46_004A6FC0",
+   "func_PAL_L39_005A6020",
+   "func_L39_006AE8F8_006AE3D8",
+   "func_PAL_L39_006CCD08",
+   "func_PAL_L39_005189A0",
+   "func_PAL_00391210",
+   "func_1488A8",
+   "func_00193590",
+   "func_L01_003B6B68_003B7290",
+   "func_L39_005187A0"
+  ],
+  "from_assembly": [
+   "func_PAL_L39_00596EE0",
+   "func_PAL_L39_0059DCD8",
+   "func_PAL_L39_005A6020",
+   "func_PAL_L39_006CCD08",
+   "func_PAL_00391210",
+   "func_L01_0047C728_0047C4F8",
+   "func_PAL_L39_0067A7E0",
+   "func_L01_003B6B68_003B7290",
+   "func_00193590",
+   "func_1488A8",
+   "func_PAL_L30_003B3A30",
+   "func_PAL_L39_006461B0"
+  ]
+ },
+ "own_functions": [
+  "func_00395FE0__frontbin",
+  "func_003B0C70__frontbin",
+  "func_003B0D18__frontbin",
+  "func_003B6430",
+  "func_003B64D8"
+ ],
+ "gone_roots": [
+  "func_0037D1A8__frontbin",
+  "func_0037D200__frontbin",
+  "func_0037DD30__frontbin",
+  "func_0037E060__frontbin",
+  "func_0037E368__frontbin",
+  "func_0037F588__frontbin",
+  "func_0037F7A8__frontbin",
+  "func_00381228",
+  "func_003813E0__frontbin",
+  "func_003824B8",
+  "func_003829F8",
+  "func_00383BB0__frontbin",
+  "func_00383C18",
+  "func_00383E38",
+  "func_00384620",
+  "func_00385A70",
+  "func_00385E40__frontbin",
+  "func_00388610",
+  "func_0038A8A0",
+  "func_0038F0C0__frontbin",
+  "func_0038F0F8__frontbin",
+  "func_0038F3A0__frontbin",
+  "func_0038F3F8__frontbin",
+  "func_0038FD40",
+  "func_003906E8__frontbin",
+  "func_00390730__frontbin",
+  "func_00391B30__frontbin",
+  "func_00391B70__frontbin",
+  "func_00391D08__frontbin",
+  "func_00391FD8__frontbin",
+  "func_003932B0__frontbin",
+  "func_00393C18",
+  "func_00393EF8",
+  "func_00395240",
+  "func_00396688",
+  "func_003966C8",
+  "func_00396860",
+  "func_00396B30",
+  "func_00397E08",
+  "func_00399708__frontbin",
+  "func_0039CEA8__frontbin",
+  "func_003A04A0__frontbin",
+  "func_003A0EB0__frontbin",
+  "func_003A1438__frontbin",
+  "func_003A1AD0__frontbin",
+  "func_003A21F0",
+  "func_003A2460__frontbin",
+  "func_003A26D0__frontbin",
+  "func_003A2C18__frontbin",
+  "func_003A3088",
+  "func_003A4A78__frontbin",
+  "func_003A4E70__frontbin",
+  "func_003A5B80",
+  "func_003A6590",
+  "func_003A6B18",
+  "func_003A71B0",
+  "func_003A73A0__frontbin",
+  "func_003A7B40",
+  "func_003A7DB0",
+  "func_003A82F8",
+  "func_003AA238",
+  "func_003AA630",
+  "func_003ACB60",
+  "func_003AD8A8__frontbin",
+  "func_003AE438__frontbin",
+  "func_003AFC68__frontbin",
+  "func_003B07B8__frontbin",
+  "func_003B0A60__frontbin",
+  "func_003B1EB0__frontbin",
+  "func_003B2AF8__frontbin",
+  "func_003B3068",
+  "func_003B6220",
+  "func_003B6528__frontbin",
+  "func_003B7378__frontbin",
+  "func_003B7670",
+  "func_003B78C8__frontbin",
+  "func_003B82B8",
+  "func_003B82C0__frontbin",
+  "func_003B8440__frontbin",
+  "func_003B8700__frontbin",
+  "func_003B8EC0__frontbin",
+  "func_003B8EF8__frontbin",
+  "func_003B92B8__frontbin",
+  "func_003B9A08__frontbin",
+  "func_003B9DA8__frontbin",
+  "func_003BA108__frontbin",
+  "func_003BA490__frontbin",
+  "func_003BA850__frontbin",
+  "func_003BAE98__frontbin",
+  "func_003BB398__frontbin",
+  "func_003BB558__frontbin",
+  "func_003BB5C0__frontbin",
+  "func_003BBC48__frontbin",
+  "func_003BBCE8",
+  "func_003BC0F0__frontbin",
+  "func_003BC568__frontbin",
+  "func_003BCB38",
+  "func_003BD088",
+  "func_003BD0D8__frontbin",
+  "func_003BDA80",
+  "func_003BDC00",
+  "func_003BDEC0",
+  "func_003BE4F0__frontbin",
+  "func_003BE680",
+  "func_003BE6B8",
+  "func_003BEA78",
+  "func_003BF1C8",
+  "func_003BF4F8__frontbin",
+  "func_003BF568",
+  "func_003BF8C8",
+  "func_003BFC50",
+  "func_003C0010",
+  "func_003C0658",
+  "func_003C0B58",
+  "func_003C0D18",
+  "func_003C0D70__frontbin",
+  "func_003C0D80",
+  "func_003C1130__frontbin",
+  "func_003C1408",
+  "func_003C1440__frontbin",
+  "func_003C18B0",
+  "func_003C1D28",
+  "func_003C2898",
+  "func_003C3CB0",
+  "func_003C4CB8",
+  "func_003C5948",
+  "func_003C62D0",
+  "func_003C6530",
+  "func_003C68F0",
+  "func_003C6C00",
+  "func_003DBEC8__frontbin",
+  "func_003DCD08__frontbin",
+  "func_003DE260__frontbin",
+  "func_003DE3A8__frontbin",
+  "func_003DE560__frontbin",
+  "func_003DE8F0__frontbin",
+  "func_003DEEF0__frontbin",
+  "func_003DF038__frontbin",
+  "func_003DF820__frontbin",
+  "func_003E0068__frontbin",
+  "func_003E1688",
+  "func_003E1D68__frontbin",
+  "func_003E24C8",
+  "func_003E3A20",
+  "func_003E3B68",
+  "func_003E3D20",
+  "func_003E40B0",
+  "func_003E46B0",
+  "func_003E47F8",
+  "func_003E4FE0",
+  "func_003E5828",
+  "func_003E7528",
+  "func_003EAAD0__frontbin",
+  "func_003EB578__frontbin",
+  "func_003EB588__frontbin",
+  "func_003EB598__frontbin",
+  "func_003F0290",
+  "func_003F0D38",
+  "func_003F0D48",
+  "func_003F0D58"
+ ],
+ "mp_not_paired": [
+  "mp_func_L39_0067A7E0"
+ ],
+ "unwrapped": {}
+}

@@ -23,6 +23,7 @@
 #include "renderer/vulkan/vkgl.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -140,7 +141,7 @@ void main(){
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, history.texture());
             glBindVertexArray(vao);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             const auto pixels = target.read_rgba();
             CHECK(pixels.size() >= 4);
             return pixels.size() < 4
@@ -235,10 +236,14 @@ void main(){result=vec4(0,1,0,1);})",
             glEnable(GL_SCISSOR_TEST);
             glScissor(40, 30, 1, 1);
             glUniform1f(m_glimmer.uniform("depth"), .25f);
-            glDrawArrays(GL_TRIANGLES, 0, 3);  // behind the wall: must remain hidden
+            openrac::test::graph_draw(
+                glDrawArrays, GL_TRIANGLES, 0, 3
+            );  // behind the wall: must remain hidden
             glScissor(43, 30, 1, 1);
             glUniform1f(m_glimmer.uniform("depth"), .75f);
-            glDrawArrays(GL_TRIANGLES, 0, 3);  // in front: must remain visible
+            openrac::test::graph_draw(
+                glDrawArrays, GL_TRIANGLES, 0, 3
+            );  // in front: must remain visible
             glDisable(GL_DEPTH_TEST);
             glEnable(GL_SCISSOR_TEST);
             glScissor(48, 36, 1, 1);

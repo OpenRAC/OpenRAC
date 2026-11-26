@@ -176,7 +176,7 @@ public:
      *        or -1 when the table does not say. Only openrac-fcheck reads it.
      * @return False when no service has that name.
      */
-    bool hook(u32 address, const std::string& service, int inputs = -1);
+    bool hook(u32 address, const std::string& service, int inputs = -1, bool later = false);
 
     /**
      * For a SYSCALL code: whether it is the mark of a hooked function and, when it is, how many
@@ -191,6 +191,13 @@ public:
     /**
      * Reads a table of `address service [inputs=N]` lines; '#' starts a comment. `inputs=N` says
      * how many argument registers the replaced function takes (for openrac-fcheck).
+     *
+     * A line `payload ENTRY` is for a disc whose boot program is a loader that unpacks the game's
+     * program over memory and starts it (Up Your Arsenal's): the lines after it are of that
+     * program. They are numbered with the others, but their SYSCALLs are written at the first
+     * kernel call after which the word at ENTRY (the unpacked program's entry, hexadecimal) is no
+     * longer what it was when the table was read: the loader has written the program, and its
+     * start-up code makes a kernel call before any library function runs.
      *
      * @param path Host path of the table.
      * @param[out] error Receives the reason when the call fails; may be null.
@@ -523,6 +530,15 @@ private:
 
     /** The first instruction of each hooked function before it was replaced, by address. */
     std::unordered_map<u32, u32> hooked_original_;
+
+    /** The hooks of a `payload` (address, SYSCALL word) waiting for the program to be unpacked. */
+    std::vector<std::pair<u32, u32>> hooks_pending_;
+
+    /** The payload's entry and the word that was there when the table was read. */
+    u32 payload_entry_ = 0, payload_word_ = 0;
+
+    /** Writes the pending hooks once the payload has been unpacked over its entry. */
+    void place_pending_hooks();
 
     /**
      * Cycles in one field; the cycle of the next vertical blank start; the cycle its end is due,

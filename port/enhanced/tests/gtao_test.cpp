@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <numbers>
 #include <string_view>
 
@@ -15,6 +16,7 @@
 #include "enhanced/tests/gpu_probe_fixture.h"
 #include "enhanced/tests/probe_fixture.h"
 #include "enhanced/viewer/scene_lighting.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
 #include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
@@ -24,6 +26,7 @@
 #include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/gpu_draw_reference.h"
+#include "tests/graph_fixture.h"
 #include "tests/render_test_timing.h"
 #include "tests/renderer_gl_context.h"
 
@@ -136,7 +139,7 @@ void check_scene_quality(
             CHECK(direct.read_rgba() == ao);
             direct.release();
         }
-        // Legacy colour now shares a depth/normal prepass before its colour and AO composite draws.
+        // Legacy colour shares a depth/normal prepass before its colour and AO composite draws.
         CHECK(renderer.last_stats().draw_calls == 3);
         int darkened = 0;
         for (std::size_t i = 0; i < plain.size(); i += 4) {
@@ -520,12 +523,17 @@ void main() { result = vec4(0, 1, 0, 1); }
         glClearColor(1, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-        scene.draw_layer(scene::Layer::Mobys, input, state);
+        renderer::raster_pass(
+            "scripted glow depth",
+            state.target,
+            {{}, {}, renderer::ColourAttachments::ColourDepth},
+            [&] { scene.draw_layer(scene::Layer::Mobys, input, state); }
+        );
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
         glDepthFunc(GL_GEQUAL);
         sentinel.use();
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto pixels = target.read_rgba();
         unsigned occluded = 0;
         for (std::size_t i = 0; i < pixels.size(); i += 4) {
@@ -533,6 +541,14 @@ void main() { result = vec4(0, 1, 0, 1); }
         }
         CHECK(glow ? occluded == 0 : occluded > 0);
     }
+
+    // Menu objects render into their own target without an enclosing world pass.
+    glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+    state.depth_prepass = false;
+    const auto before_menu = state.stats.draw_calls;
+    scene.draw_mobys({instance}, input, state);
+    CHECK(state.stats.draw_calls > before_menu);
+
     glBindVertexArray(0);
     glDeleteVertexArrays(1, &vao);
     sentinel.release();
@@ -770,7 +786,7 @@ void test_timestamp_recording(test::GlContext& context, std::string& error) {
 }  // namespace
 
 // Keeps compilation assertions fresh, then checks the complete rendering matrix.
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
     const bool fresh_programs = argc == 2 && std::string_view(argv[1]) == "--fresh-programs";
     // The reference switch changes only test object retention, never rendering settings.
     if (argc != 1 && !fresh_programs) {
@@ -830,4 +846,7 @@ int main(int argc, char** argv) {
     }
 #endif
     return openrac::test::result();
+} catch (const std::exception& error) {
+    std::fprintf(stderr, "GTAO rendering: %s\n", error.what());
+    return 1;
 }

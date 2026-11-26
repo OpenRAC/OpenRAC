@@ -16,6 +16,8 @@ export async function startGameRequests(
 ): Promise<() => void> {
   const stop = await source.onOpenGame(open);
   const key = await source.startupGame().catch(() => null);
+
   if (key) open(key);
+
   return stop;
 }

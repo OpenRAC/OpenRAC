@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { levelName, levelsOf, regionLabel, shortTitle, titleLines, withShownTitles } from "./labels";
+
+import {
+  levelName,
+  levelsOf,
+  regionLabel,
+  shortTitle,
+  titleLines,
+  withShownTitles,
+} from "./labels";
 
 describe("labels", () => {
   it("shortens a game's name for a narrow list", () => {
@@ -24,6 +32,10 @@ describe("labels", () => {
   it("names regions", () => {
     expect(regionLabel("ntsc")).toBe("NTSC-U");
     expect(regionLabel("pal")).toBe("PAL");
+    expect(regionLabel("pal1")).toBe("PAL v1.00");
+    expect(regionLabel("ntsc2")).toBe("NTSC-U v2.00");
+    expect(regionLabel("jp")).toBe("NTSC-J");
+    expect(regionLabel("ntsc-j")).toBe("NTSC-J");
   });
 });
 
@@ -40,11 +52,18 @@ describe("titleLines", () => {
 
 describe("withShownTitles", () => {
   it("shows Secret Agent Clank without the series", () => {
-    const game = (title: string) => ({ id: "x", title, year: null, install: null, versions: [{ title }] });
+    const game = (title: string) => ({
+      id: "x",
+      title,
+      year: null,
+      install: null,
+      versions: [{ title }],
+    });
     const library = {
       games: [game("Ratchet & Clank: Secret Agent Clank"), game("Ratchet & Clank: Going Commando")],
     } as never;
     const [sac, rac2] = withShownTitles(library).games;
+
     expect(sac?.title).toBe("Secret Agent Clank");
     expect(sac?.versions[0]?.title).toBe("Secret Agent Clank");
     expect(rac2?.title).toBe("Ratchet & Clank: Going Commando");

@@ -56,6 +56,21 @@ public:
     // copying it at another size: id() itself, or the multisampled target resolved now.
     unsigned resolved() const;
 
+    // The samples were resolved into resolve_target() and let go, not stored (on Vulkan,
+    // vkgl::resolve_dropping_samples): resolved() gives that colour until the samples are drawn
+    // again (samples_written) or given it back (restore_samples).
+    void samples_dropped() { m_samples_let_go = true; }
+
+    // The samples were let go (samples_dropped) and nothing has drawn since.
+    bool samples_let_go() const { return m_samples_let_go; }
+
+    // Puts the resolved colour back in every sample, for a frame that draws over the last one
+    // (as GL_EXT_multisampled_render_to_texture does on a phone's GL).
+    void restore_samples();
+
+    // A frame draws into the samples anew (it clears them or covers them whole).
+    void samples_written() { m_samples_let_go = false; }
+
     // The resolved colour (after resolved(), when the target is multisampled).
     unsigned colour_texture() const { return m_colour; }
 
@@ -90,6 +105,23 @@ public:
     void blit_to(unsigned target, int dst_width, int dst_height) const;
 
 private:
+    // Selects whether target creation may use the implicit resolve extension.
+    enum class ResolveMode {
+        AllowImplicit,
+        ExplicitOnly
+    };
+
+    // Creates the target, retrying with an explicit resolve if implicit setup is rejected.
+    bool create_target(
+        int width,
+        int height,
+        std::string& error,
+        int samples,
+        bool texture_depth,
+        bool float_colour,
+        ResolveMode resolve_mode
+    );
+
     void allocate_colour(bool float_colour);
     unsigned m_framebuffer = 0;
     unsigned m_colour = 0;
@@ -100,6 +132,7 @@ private:
     int m_samples = 1;
     bool m_implicit = false;      // resolves_itself()
     bool m_float = false;         // float_colour()
+    bool m_samples_let_go = false;  // samples_let_go()
     int m_width = 0;
     int m_height = 0;
 };

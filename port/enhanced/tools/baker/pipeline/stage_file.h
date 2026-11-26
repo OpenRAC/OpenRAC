@@ -5,6 +5,8 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
+#include <iosfwd>
 #include <string_view>
 
 #include "common/result.h"
@@ -15,6 +17,11 @@ namespace openrac::lighting {
 // Leaves the previous file intact on failure; the caller owns synchronization between bakers.
 [[nodiscard]] Result<void> write_stage_file(
     const std::filesystem::path& output, std::string_view text
+);
+
+// Generates content in a buffered stream with the same atomic publication on success.
+[[nodiscard]] Result<void> write_stage_stream(
+    const std::filesystem::path& output, const std::function<void(std::ostream&)>& write
 );
 
 // Renames one closed file or directory, retrying only brief Windows sharing/access locks.

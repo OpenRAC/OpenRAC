@@ -316,7 +316,7 @@ public:
 
     // Borrows immutable declarations while a scoped executor composes fixed-order subgraphs.
     [[nodiscard]] std::span<const Resource> resources() const {
-        return std::span(m_resources).first(m_resource_count);
+        return std::span(m_resources).first(m_resource_lookup.size());
     }
 
     [[nodiscard]] std::span<const Pass> passes() const { return m_passes; }
@@ -333,9 +333,18 @@ public:
     [[nodiscard]] Result<void> compile_into(Plan& plan, DeclarationRetention retention) const;
 
 private:
+    template <typename Handle, typename Description>
+    Result<Handle> import_resource(std::string_view name, const Description& description);
+
+    struct ResourceIndex {
+        ResourceKey key;
+        unsigned index;
+    };
+
     std::vector<Resource> m_resources;  // Canonical image and buffer declarations.
-    std::size_t m_resource_count = 0;
-    std::vector<Pass> m_passes;         // Ordered work and export declarations.
+    // Keep alias lookup separate from the declaration and handle order.
+    std::vector<ResourceIndex> m_resource_lookup;
+    std::vector<Pass> m_passes;  // Ordered work and export declarations.
     std::vector<Pass> m_spare_passes;
     std::uint64_t m_owner = 0;  // Assigned on the first import and reset when the graph is cleared.
 };
@@ -343,12 +352,19 @@ private:
 // Per recording thread. Retaining a plan keeps it valid across nested recordings and eviction.
 class PlanCache {
 public:
+    enum class Imports {
+        Exact,
+        Rebind
+    };
     explicit PlanCache(std::size_t capacity = 32);
     PlanCache(const PlanCache&) = delete;
     PlanCache& operator=(const PlanCache&) = delete;
     [[nodiscard]] Result<std::shared_ptr<const Plan>> compile(const Graph& graph);
-    // The caller must finish recording before this cache is used again.
-    [[nodiscard]] Result<const Plan*> compile_borrowed(const Graph& graph);
+    // The caller must finish recording before this cache is used again. An exclusively
+    // borrowed plan may be rebound to equivalent imports at the same canonical indices.
+    [[nodiscard]] Result<const Plan*> compile_borrowed(
+        const Graph& graph, Imports imports = Imports::Exact
+    );
 
 private:
     struct Entry {
@@ -357,7 +373,7 @@ private:
         bool shared = false;
     };
 
-    [[nodiscard]] Result<Entry*> find_or_compile(const Graph& graph);
+    [[nodiscard]] Result<Entry*> find_or_compile(const Graph& graph, Imports imports);
 
     std::vector<Entry> m_entries;
     std::shared_ptr<Plan> m_scratch;

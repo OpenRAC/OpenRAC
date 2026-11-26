@@ -1,26 +1,27 @@
 import { describe, expect, it } from "vitest";
+
 import {
   ADD,
+  added,
   ASSETS,
   COMPATIBLE_LABEL,
+  crashModsLine,
   EDITOR,
+  installedFrom,
+  KIND_LABEL,
+  type Label,
+  MOD_PAGE,
   PACKS,
   PAGE,
   PANEL,
-  WITH_MODS,
-  MOD_PAGE,
+  rangeText,
   SAVE,
   SETTING,
-  KIND_LABEL,
-  STATE_LABEL,
-  added,
-  crashModsLine,
-  installedFrom,
-  rangeText,
   sharesWith,
-  updatesFound,
+  STATE_LABEL,
   updatedAll,
-  type Label,
+  updatesFound,
+  WITH_MODS,
 } from "./modsText";
 
 describe("the label maps", () => {
@@ -31,6 +32,7 @@ describe("the label maps", () => {
       ...Object.values(KIND_LABEL),
       ...Object.values(COMPATIBLE_LABEL),
     ];
+
     for (const label of labels) {
       expect(label.text.length).toBeGreaterThan(0);
       expect(label.text.length).toBeLessThanOrEqual(30);
@@ -50,7 +52,18 @@ describe("the label maps", () => {
 
 describe("the page's words", () => {
   it("stay short: a line each, the longer why in a tooltip", () => {
-    for (const group of [ADD, ASSETS, EDITOR, PACKS, PAGE, PANEL, WITH_MODS, MOD_PAGE, SAVE, SETTING]) {
+    for (const group of [
+      ADD,
+      ASSETS,
+      EDITOR,
+      PACKS,
+      PAGE,
+      PANEL,
+      WITH_MODS,
+      MOD_PAGE,
+      SAVE,
+      SETTING,
+    ]) {
       for (const [key, text] of Object.entries(group)) {
         if (typeof text !== "string" || key.endsWith("Url") || key.endsWith("Title")) continue;
         expect(text.length, `${key}: ${text}`).toBeLessThanOrEqual(120);
@@ -63,7 +76,9 @@ describe("the sentences", () => {
   it("count updates and name what was not checked", () => {
     expect(updatesFound(0, [])).toBe("Every mod from a link is up to date.");
     expect(updatedAll(2, 0)).toBe("Updated 2 mods; their settings are kept.");
-    expect(updatedAll(1, 1)).toBe("Updated 1 mod; their settings are kept. 1 could not be updated: open each for why.");
+    expect(updatedAll(1, 1)).toBe(
+      "Updated 1 mod; their settings are kept. 1 could not be updated: open each for why.",
+    );
     expect(PANEL.updateAll(3)).toBe("Update all (3)");
     expect(updatesFound(1, [])).toBe("1 update found.");
     expect(updatesFound(2, ["a: down"])).toBe("2 updates found. Not checked: a: down");
@@ -71,6 +86,7 @@ describe("the sentences", () => {
 
   it("count what the mod list's look found too", () => {
     const none = { updated: 0, waiting: 0, held: 0 };
+
     expect(updatesFound(0, [], none)).toBe("Every mod is up to date.");
     expect(updatesFound(0, [], { ...none, waiting: 1 })).toBe("1 update is available below.");
     expect(updatesFound(1, [], { updated: 2, waiting: 0, held: 1 })).toBe(
@@ -82,7 +98,9 @@ describe("the sentences", () => {
     expect(installedFrom.on("Lock-strafe", "OpenRAC/openrac-mods")).toBe(
       "Installed Lock-strafe from OpenRAC/openrac-mods. It is on from the game's next start.",
     );
-    expect(added.replaced("Lock-strafe", "1.1.0")).toBe("Updated Lock-strafe to 1.1.0; its settings are kept.");
+    expect(added.replaced("Lock-strafe", "1.1.0")).toBe(
+      "Updated Lock-strafe to 1.1.0; its settings are kept.",
+    );
     expect(added.packFailed("pack.zip", "")).toBe("pack.zip: it could not be added");
   });
 

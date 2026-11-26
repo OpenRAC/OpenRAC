@@ -33,4 +33,9 @@ challengeMode: number,
 /**
  * The Advanced view's progress flags, in the order of `fields.flags`.
  */
-flags: Array<Rac2FlagInfo>, };
+flags: Array<Rac2FlagInfo>, 
+/**
+ * Whether the boots can be changed: false while the save has boots on that the game put on
+ * for the moment (the Grindboots or Gravity Boots).
+ */
+bootsEditable: boolean, };

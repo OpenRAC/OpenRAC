@@ -2,6 +2,7 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Native enhanced-baker CLI smoke checks; run with the executable path, without game data."""
 import json
+import base64
 import os
 import hashlib
 from pathlib import Path
@@ -94,6 +95,99 @@ class BakerCli(unittest.TestCase):
     def run_baker(self, *arguments):
         return subprocess.run([str(BAKER), *map(str, arguments)], capture_output=True, text=True)
 
+    def test_debug_preview_from_saved_bake(self):
+        with tempfile.TemporaryDirectory(prefix='debug preview ') as temporary:
+            level, _, output = exported_room(Path(temporary))
+            report = {'capture_positions': [[0, 0, 3]], 'owners': [2],
+                      'spaces': [{}, {}, {'cells': 12, 'neighbours': [1], 'underwater': False}],
+                      'watershed': [[0, 0, 0, 3, 2.5, True]],
+                      'capture_bounds': [[-1, -1, 0, 1, 1, 4, 1, 0]],
+                      'receiver_coverage': [[0, 0, 1, 0, [0]], [0, 0, 2, 1, [0], True],
+                                            [1, 0, 1, 0, [0], True]]}
+            (output/'environment-placement-report.json').write_text(json.dumps(report))
+            medial = {'segments': [[-1, 0, 1.25, 1, 0, 1.25, 2, 3]],
+                      'markers': [[-1, 0, 1.25, 2, 1, 1], [1, 0, 1.25, 2, 1]],
+                      'entrances': [[0, 0, 1.25, 2, 3]]}
+            (output/'medial-axis.json').write_text(json.dumps(medial))
+            result = self.run_baker('--debug-preview-from', output, '--level-dir', level)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            html = (output/'bake-preview.html').read_text(encoding='utf-8')
+            data = json.loads(html.split('data-bake>', 1)[1].split('</script>', 1)[0])
+            self.assertEqual(data['captures'], report['capture_positions'])
+            self.assertEqual(data['owners'], report['owners'])
+            self.assertEqual(data['boxes'], report['capture_bounds'])
+            self.assertEqual(data['spaces'], report['spaces'])
+            self.assertEqual(data['watershed'], report['watershed'])
+            self.assertEqual(data['water'], [False, True])
+            self.assertEqual(data['gi'], [])
+            self.assertEqual(data['medial'], medial)
+            self.assertEqual(data['points'], [[0, 0, 1, 0], [1, 0, 1, 0]])
+            mesh = base64.b64decode(data['mesh'], validate=True)
+            self.assertEqual(len(mesh), 12 * 3 * 3 * 4)
+            self.assertEqual(struct.unpack_from('<3f', mesh), (-8, -8, 0))
+
+    def test_medial_debug_topology_ignores_watershed_labels(self):
+        with tempfile.TemporaryDirectory(prefix='medial islands ') as temporary:
+            level, _, output = exported_room(Path(temporary))
+            # The playable collision floor must survive even when transport/render geometry
+            # has no deck at that height (for example, an omitted bridge render instance).
+            visual = bytearray((level/'collision.glb').read_bytes())
+            binary_offset = 28 + struct.unpack_from('<I', visual, 12)[0]
+            for offset in range(binary_offset + 8, len(visual), 12):
+                struct.pack_into('<f', visual, offset, struct.unpack_from('<f', visual, offset)[0] - 10)
+            (level/'visual.glb').write_bytes(visual)
+            manifest = json.loads((level/'manifest.json').read_text())
+            manifest['terrain'] = 'visual.glb'
+            (level/'manifest.json').write_text(json.dumps(manifest))
+            cells = [[x, y, 0, 0, 0] for x in range(-7, 8, 2) for y in range(-7, 8, 2)]
+            edges = [[i, j] for i, a in enumerate(cells) for j, b in enumerate(cells)
+                     if j > i and abs(a[0]-b[0])+abs(a[1]-b[1]) == 2]
+            (output/'interior-inference.json').write_text(json.dumps({
+                'format': 1, 'cells': cells, 'walkable_edges': edges}))
+            (output/'seed-plan.json').write_text(json.dumps({
+                'floor_anchors': [{'position': [-7, -7, 0], 'ground_z': 0}], 'regions': []}))
+            topology = []
+            for separate in (False, True):
+                samples = [[*p[:3], i if separate else 0, 1, False]
+                           for i, p in enumerate(cells)]
+                (output/'placement-islands.json').write_text(json.dumps({
+                    'samples': samples, 'islands': [{} for _ in range(len(cells) if separate else 1)]}))
+                result = self.run_baker('--debug-preview-from', output, '--level-dir', level)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                medial = json.loads((output/'medial-axis.json').read_text())
+                self.assertEqual(medial['segments'], [])  # One open room needs a hub, not boundary spokes.
+                self.assertEqual(len(medial['centres']), 1)
+                self.assertAlmostEqual(medial['centres'][0][2], 1.25)
+                self.assertEqual(medial['traversal_links'], [])
+                topology.append((medial['centres'], [segment[:6] for segment in medial['segments']]))
+            self.assertEqual(*topology)
+
+    def test_playable_areas_retain_supported_floor_patches(self):
+        with tempfile.TemporaryDirectory(prefix='playable areas ') as temporary:
+            level, _, output = exported_room(Path(temporary))
+            cells = [[x, y, z, group, 0] for group, z in ((0, 0), (1, 4))
+                     for x in (-1, 1) for y in (-1, 1)]
+            edges = [[i, j] for i, a in enumerate(cells) for j, b in enumerate(cells)
+                     if j > i and a[3] == b[3] and abs(a[0]-b[0])+abs(a[1]-b[1]) == 2]
+            (output/'interior-inference.json').write_text(json.dumps({
+                'format': 1, 'cells': cells, 'walkable_edges': edges}))
+            (output/'seed-plan.json').write_text(json.dumps({'floor_anchors': [], 'regions': []}))
+            # Inference owns slope and body checks; these synthetic saved samples isolate
+            # authoring evidence. The box may authorize one floor, never the stacked storey.
+            area = {'minimum': [-2, -2, -.1], 'maximum': [2, 2, .1]}
+            (level/'probe-bake.json').write_text(json.dumps({'version': 1, 'playable_areas': [area]}))
+            samples = [[*p[:3], 0, 1, False] for p in cells[:4]]
+            (output/'placement-islands.json').write_text(json.dumps({
+                'samples': samples, 'islands': [{}]}))
+            result = self.run_baker('--debug-preview-from', output, '--level-dir', level)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertGreater(json.loads((output/'medial-axis.json').read_text())['field_samples'], 0)
+            for areas in ([], [{'minimum': [2, 2, 1], 'maximum': [-2, -2, 0]}],
+                          [{'minimum': [0, 0], 'maximum': [1, 1, 1]}]):
+                (level/'probe-bake.json').write_text(json.dumps({'version': 1, 'playable_areas': areas}))
+                result = self.run_baker('--debug-preview-from', output, '--level-dir', level)
+                self.assertNotEqual(result.returncode, 0)
+
     def test_native_water_fields_and_mesh_match_python_reference(self):
         """Slopes, still pools, absorbing outlets and hydraulic floors retain exact float32 output."""
         sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'water'))
@@ -140,7 +234,7 @@ class BakerCli(unittest.TestCase):
 
     def test_native_emission_preparation_matches_reference_updates_and_overrides(self):
         """Catalog refreshes, removals and local edits retain the Python profile's meaning."""
-        sys.path.insert(0,str(Path(__file__).resolve().parents[4]/'editor'))
+        sys.path.insert(0,str(Path(__file__).resolve().parents[4]/'extractor'))
         from enhanced.emission import apply_materials
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary); catalog=root/'catalog.json'; defaults=root/'defaults.json'
@@ -291,6 +385,7 @@ class BakerCli(unittest.TestCase):
                 command = [str(BAKER), '--level-dir', str(level), '--batch-output', str(output),
                            '--spacing', '16', '--rays', '16', '--bounces', '0', '--threads', str(threads),
                            '--resume']
+                (output/'placement-islands.json').write_text('{"volumes":{"region-999.orpg":0}}')
                 with NativeBatch(command, output/'batch.log') as native:
                     identity = next(line.split()[1] for line in native.inspection.splitlines()
                                     if line.startswith('scene_hash '))
@@ -304,6 +399,20 @@ class BakerCli(unittest.TestCase):
                 verified = [line.split()[1] for line in (output/'batch.log').read_text().splitlines()
                             if line.startswith('Verified ')]
                 self.assertEqual(verified, names)
+                self.assertFalse((output/'placement-islands.json').exists())
+                preview = self.run_baker('--debug-preview-from', output, '--level-dir', level)
+                self.assertEqual(preview.returncode, 0, preview.stderr)
+                html = (output/'bake-preview.html').read_text(encoding='utf-8')
+                gi = json.loads(html.split('data-bake>', 1)[1].split('</script>', 1)[0])['gi']
+                self.assertEqual([v['name'] for v in gi], names)
+                for volume in gi:
+                    x, y, z = volume['dimensions']
+                    self.assertEqual(len(volume['probes']), x*y*z)
+                    self.assertEqual(volume['axis'], [1, 0])
+                    self.assertTrue(all(p[3] in (0, 1, 2) for p in volume['probes']))
+                self.assertEqual(gi[1]['origin'], [-4, -4, 0])
+                self.assertEqual(gi[1]['spacing'], [4, 4, 4])
+                self.assertEqual(gi[1]['dimensions'], [3, 3, 2])
                 before = {name:(output/name).read_bytes() for name in names}
                 assets.append(before)
                 for name in names:
@@ -342,7 +451,7 @@ class BakerCli(unittest.TestCase):
                                 if settings.enabled and has_gameplay else dict(regions=[],note=(
                                     'No gameplay to seed dense regions from (a scene, not a level of the disc).' if settings.enabled
                                     else 'Dense regions disabled by the per-level profile.'))
-                            plan.update(region_settings=asdict(settings),bake_profile=profile,scene_hash=identity,emission=emission)
+                            plan.update(region_settings=asdict(settings),placement_algorithm=5,bake_profile=profile,scene_hash=identity,emission=emission)
                             bake_level.write_json(directory/'seed-plan.json',plan)
                             regions = [dict(bounds=r['bounds'],spacing=r['spacing'],lattice_bounds=r['lattice_bounds'],
                                 max_distance=1.5*math.sqrt(sum(v*v for v in r['spacing']))) for r in plan['regions']]
@@ -500,7 +609,7 @@ class BakerCli(unittest.TestCase):
         result = self.run_baker('--print-interior-profile')
         self.assertEqual(result.returncode, 0, result.stderr)
         profile = json.loads(result.stdout)
-        self.assertEqual(profile['revision'], 1)
+        self.assertEqual(profile['revision'], 3)
         self.assertEqual(profile['spacing'], 2)
         help_text = self.run_baker('--help')
         self.assertEqual(help_text.returncode, 0, help_text.stderr)
@@ -574,7 +683,8 @@ class BakerCli(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='persistent interiors ') as temporary:
             level, gameplay, output = exported_room(Path(temporary))
             command = [str(BAKER), '--level-dir', str(level), '--batch-output', str(output),
-                       '--prepare-interiors', str(gameplay), '--spacing', '16', '--rays', '16', '--bounces', '1']
+                       '--prepare-interiors', str(gameplay), '--spacing', '16', '--rays', '16',
+                       '--bounces', '1', '--debug-preview']
             with subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT, text=True) as process:
                 before = []
@@ -592,6 +702,7 @@ class BakerCli(unittest.TestCase):
                 self.assertEqual(process.wait(), 0, ''.join(before)+remaining)
                 self.assertIn('Probe batch complete', remaining)
             self.assertTrue((output/'sparse.orpg').is_file())
+            self.assertTrue((output/'bake-preview.html').is_file())
 
     def test_batch_rejects_same_size_source_edit_with_unchanged_mtime(self):
         """Shared identities must not replace the content check immediately before tracing."""

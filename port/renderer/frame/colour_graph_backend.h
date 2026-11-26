@@ -15,6 +15,7 @@ struct RenderTarget;
 enum class ColourAttachments;
 enum class SnapshotAttachments;
 struct ColourInputs;
+struct RasterInputs;
 
 namespace backend {
 // Records preserved colour and optional world depth; captures survive an enclosing shared scope.
@@ -27,6 +28,11 @@ namespace backend {
 );
 // Orders the bound graphics shader's shared read-only descriptors before subsequent draws.
 [[nodiscard]] Result<void> prepare_colour_reads(std::string_view name);
+[[nodiscard]] Result<void> prepare_raster_reads(std::string_view name, RasterInputs inputs);
+// Declares the active depth attachment and, when requested, the normal target.
+[[nodiscard]] Result<void> record_surface_prepass(
+    unsigned framebuffer, bool normals, bool multisample, const std::function<void()>& record
+);
 // Records complete colour/depth snapshot copies or resolves; callbacks receive false for colour,
 // true for depth.
 [[nodiscard]] Result<void> record_colour_snapshot(

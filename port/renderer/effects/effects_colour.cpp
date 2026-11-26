@@ -50,14 +50,26 @@ void EffectRenderer::record_colour(
             m_material->prepare_scene(input, state.target, state.pre_particle_colour_texture);
         }
 
-        // Unknown material callbacks retain their original immediate recording contract.
+        // The game's frame copy, made natively: the target as drawn so far, before the strips
+        // that sample it (EffectStrip::frame_copy).
+        m_frame_copy_texture = 0;
+
+        if (draws_frame_copy(input)) {
+            snapshot_frame_copy(state.target);
+        }
+
+        // Local passes retain the order of callbacks that prepare their own material state.
         if (!shared) {
-            draw_prepared(input, state, *prepared);
+            draw_prepared(input, state, *prepared, false);
             return;
         }
 
         const auto textures = m_material ? m_material->scene_textures() : std::array<unsigned, 2>{};
         std::vector<unsigned> reads;
+
+        if (m_frame_copy_texture != 0) {
+            reads.push_back(m_frame_copy_texture);
+        }
 
         // Absent snapshots are represented by zero rather than an imported dummy texture.
         for (unsigned texture : textures) {
@@ -70,7 +82,7 @@ void EffectRenderer::record_colour(
         const auto drawn = colour_pass(
             name() + " colour",
             state.target,
-            [this, &input, &state, prepared] { draw_prepared(input, state, *prepared); },
+            [this, &input, &state, prepared] { draw_prepared(input, state, *prepared, true); },
             ColourAttachments::ColourDepth,
             {{}, reads, ColourRecording::Ordered}
         );

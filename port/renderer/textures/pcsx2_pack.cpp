@@ -3,11 +3,14 @@
 
 #include "renderer/textures/pcsx2_pack.h"
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cctype>
 #include <charconv>
 #include <format>
+#include <memory>
+#include <mutex>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
@@ -152,6 +155,67 @@ std::optional<Rgba8Image> load(const fs::path& path) {
     return read_png ? read_png(path) : std::nullopt;
 }
 
+// Define a cache so we are not decoding the same replacement picture multiple times. The cache is limited to a few hundred MB
+#if defined(__ANDROID__)
+constexpr std::size_t kMaxCachedPictureBytes = std::size_t{256} << 20;
+#else
+constexpr std::size_t kMaxCachedPictureBytes = std::size_t{512} << 20;
+#endif
+
+struct CachedPicture {
+    std::shared_ptr<const Rgba8Image> image;
+    std::size_t bytes = 0;
+    std::uint64_t used = 0;
+};
+
+std::mutex cache_lock;
+std::unordered_map<std::string, CachedPicture> cached_pictures;
+std::size_t cached_bytes = 0;
+std::uint64_t cached_uses = 0;
+
+// Read from the cache or load and cache the picture.
+std::shared_ptr<const Rgba8Image> read_cached(const fs::path& path, AlphaScale alpha) {
+    const std::string key = path_text(path) + (alpha == AlphaScale::Full ? "\x1f" : "\x1e");
+    {
+        const std::lock_guard guard(cache_lock);
+        if (const auto found = cached_pictures.find(key); found != cached_pictures.end()) {
+            found->second.used = ++cached_uses;
+            return found->second.image;
+        }
+    }
+    auto picture = load(path);
+    if (!picture || picture->pixels.empty()) {
+        return nullptr;
+    }
+    if (alpha == AlphaScale::Full) {
+        // PCSX2's PSMT8 textures have a 4-bit alpha channel. The pack's replacement pictures are RGBA8, so we double the alpha channel to fill the 8 bits.
+        for (std::size_t a = 3; a < picture->pixels.size(); a += 4) {
+            picture->pixels[a] =
+                static_cast<std::uint8_t>(std::min(255, picture->pixels[a] * 2));
+        }
+    }
+    auto shared = std::make_shared<const Rgba8Image>(std::move(*picture));
+    const std::size_t bytes = shared->pixels.size();
+    if (bytes > kMaxCachedPictureBytes) {
+        return shared;
+    }
+    const std::lock_guard guard(cache_lock);
+    while (!cached_pictures.empty() && cached_bytes + bytes > kMaxCachedPictureBytes) {
+        const auto oldest = std::min_element(
+            cached_pictures.begin(), cached_pictures.end(),
+            [](const auto& a, const auto& b) { return a.second.used < b.second.used; }
+        );
+        cached_bytes -= oldest->second.bytes;
+        cached_pictures.erase(oldest);
+    }
+    const auto [found, added] =
+        cached_pictures.try_emplace(key, CachedPicture{shared, bytes, ++cached_uses});
+    if (added) {
+        cached_bytes += bytes;
+    }
+    return found->second.image;
+}
+
 const std::vector<Crop>* crops_for(const gs::Tex0& tex0, std::span<const std::uint32_t> palette) {
     if (tex0.psm != gs::kPsmt8 || palette.size() != 256) {
         return nullptr;
@@ -165,6 +229,12 @@ const std::vector<Crop>* crops_for(const gs::Tex0& tex0, std::span<const std::ui
 
 void configure(const fs::path& replacements, LoadPng load_png) {
     read_png = load_png;
+    {
+        // Clear the cache before clearing the files and crops, so that any cached pictures are not kept around after the pack is cleared.
+        const std::lock_guard guard(cache_lock);
+        cached_pictures.clear();
+        cached_bytes = 0;
+    }
     files.clear();
     crops.clear();
     crop_formats.clear();
@@ -230,19 +300,13 @@ bool replace(
     if (found == files.end()) {
         return false;
     }
-    auto replacement = load(found->second);
+    // Get the replacement picture from the cache or load it from disk and cache it.
+    const auto replacement = read_cached(found->second, alpha);
     // Missing or invalid files leave the original texture intact.
-    if (!replacement || replacement->pixels.empty()) {
+    if (!replacement) {
         return false;
     }
-    if (alpha == AlphaScale::Full) {
-        // PCSX2 replacements retain GS alpha (0x80 is opaque).
-        for (std::size_t a = 3; a < replacement->pixels.size(); a += 4) {
-            replacement->pixels[a] =
-                static_cast<std::uint8_t>(std::min(255, replacement->pixels[a] * 2));
-        }
-    }
-    image = std::move(*replacement);
+    image = *replacement;
     return true;
 }
 
@@ -293,8 +357,8 @@ bool replace_crops(
         if (XXH3_64bits_digest(&hash) != crop.hash) {
             continue;
         }
-        const auto picture = load(crop.file);
-        if (!picture || picture->pixels.empty()) {
+        const auto picture = read_cached(crop.file, AlphaScale::Gs);
+        if (!picture) {
             continue;
         }
         if (atlas.pixels.empty()) {
@@ -349,7 +413,8 @@ bool replace_indexed8(
     Rgba8Image& image,
     std::span<const std::uint8_t> indices,
     std::span<const std::uint32_t> palette,
-    AlphaScale alpha
+    AlphaScale alpha,
+    bool high
 ) {
     const auto width = static_cast<unsigned>(image.width);
     const auto height = static_cast<unsigned>(image.height);
@@ -358,7 +423,7 @@ bool replace_indexed8(
         return false;
     }
     gs::Tex0 tex0{};
-    tex0.psm = gs::kPsmt8;
+    tex0.psm = high ? gs::kPsmt8h : gs::kPsmt8;
     tex0.tw = static_cast<std::uint32_t>(std::countr_zero(width));
     tex0.th = static_cast<std::uint32_t>(std::countr_zero(height));
     return replace(image, tex0, indices, palette, alpha);

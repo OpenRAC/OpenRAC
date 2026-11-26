@@ -39,6 +39,10 @@ void memory_map() {
     CHECK(!m.mapped(GUEST_RAM_SIZE, 4));
     CHECK(m.mapped(GUEST_SCRATCHPAD, GUEST_SCRATCHPAD_SIZE));
     CHECK(!m.mapped(GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE, 1));
+    CHECK(m.mapped(GUEST_PORT_LOW, GUEST_PORT_LOW_SIZE));
+    CHECK(!m.mapped(GUEST_PORT_LOW + GUEST_PORT_LOW_SIZE, 1));
+    CHECK(m.mapped(GUEST_PORT_WORLDS, GUEST_PORT_WORLDS_SIZE));
+    CHECK(!m.mapped(GUEST_PORT_WORLDS + GUEST_PORT_WORLDS_SIZE, 1));
     CHECK(m.mapped(0x1000A000, 0x100));  // a DMA channel's registers
     CHECK(m.mapped(0x12000000, 0x100));  // GS privileged registers
 
@@ -328,6 +332,79 @@ void relocation_with_folded_copies() {
     openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
 }
 
+int stand_in_update(int a) {
+    return a;
+}
+
+// A function the port registers at a code address past game memory (rac1's imported moby
+// classes' updates): a call through it finds it and reads no code there.
+void port_function_past_ram() {
+    static const openrac_fn_entry fns[] = {
+        {0x0FF00000u, reinterpret_cast<openrac_host_fn>(stand_in_update), "stand_in"},
+    };
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, fns, 1);
+    const auto fn = reinterpret_cast<openrac_host_fn>(stand_in_update);
+    CHECK(openrac_guest_function(0x0FF00000u) == fn);
+}
+
+int block_head(int a) {
+    return a;
+}
+
+int block_tail(int a) {
+    return a;
+}
+
+int block_next(int a) {
+    return a;
+}
+
+// An executable global no code names and no pair is near (rac1: the pause screens, reached through a
+// pointer): between two pairs that moved alike, it moved with them; between two that moved apart,
+// it is kept as before, since nothing says where it went.
+void relocation_between_pairs() {
+    const auto words = [](gaddr at, std::initializer_list<std::uint32_t> w) {
+        std::memcpy(G(at), w.begin(), w.size() * 4);
+    };
+    // Executable: three functions forming 0x150000, 0x151000 and 0x152000.
+    std::vector<std::uint8_t> exe(0x300, 0);
+    const std::uint32_t head[] = {0x3C040015u, 0x24840000u, 0x03E00008u, 0};
+    const std::uint32_t tail[] = {0x3C040015u, 0x24841000u, 0x03E00008u, 0};
+    const std::uint32_t next[] = {0x3C040015u, 0x24842000u, 0x03E00008u, 0};
+    std::memcpy(exe.data(), head, sizeof head);
+    std::memcpy(exe.data() + 0x100, tail, sizeof tail);
+    std::memcpy(exe.data() + 0x200, next, sizeof next);
+    // The level: the first two blocks 0x10000 higher, the third 0x10100 higher.
+    words(0x001B0000u, {0x3C040016u, 0x24840000u, 0x03E00008u, 0});
+    words(0x001B0100u, {0x3C040016u, 0x24841000u, 0x03E00008u, 0});
+    words(0x001B0200u, {0x3C040016u, 0x24842100u, 0x03E00008u, 0});
+    const auto fn = [](auto f) {
+        return reinterpret_cast<openrac_host_fn>(f);
+    };
+    static const openrac_fn_entry exe_fns[] = {
+        {0x0010C000u, fn(block_head), "head"},
+        {0x0010C100u, fn(block_tail), "tail"},
+        {0x0010C200u, fn(block_next), "next"},
+    };
+    static const openrac_fn_entry level_fns[] = {
+        {0x001B0000u, fn(block_head), "head"},
+        {0x001B0100u, fn(block_tail), "tail"},
+        {0x001B0200u, fn(block_next), "next"},
+    };
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, exe_fns, 3);
+    openrac_guest_register(10, level_fns, 3);
+    openrac_guest_set_relocation(
+        0x00140000u, 0x00170000u, 0, exe.data(), 0x0010C000u, static_cast<std::uint32_t>(exe.size())
+    );
+    openrac_guest_set_overlay(10);
+    CHECK(OPENRAC_DATA(0x00150000u) == 0x00160000u);
+    CHECK(OPENRAC_DATA(0x00150800u) == 0x00160800u);  // between two pairs of +0x10000
+    CHECK(OPENRAC_DATA(0x00151800u) == 0x00151800u);  // between +0x10000 and +0x10100: kept
+    CHECK(OPENRAC_DATA(0x00152000u) == 0x00162100u);
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+    openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
+}
+
 int card_prompt(int a) {
     return a;
 }
@@ -612,6 +689,57 @@ static void ee_float_mode() {
     std::fesetenv(&saved);
 }
 
+int gp_scratch(int a) {
+    return a;
+}
+
+int gp_table(int a) {
+    return a;
+}
+
+// Once a function writes $gp (rac2's func_00274D90 uses it as a work register), an access through
+// it is no global: it must not pair gp - 0x10 with itself before the table's real pair.
+void relocation_gp_as_work_register() {
+    const auto words = [](gaddr at, std::initializer_list<std::uint32_t> w) {
+        std::memcpy(G(at), w.begin(), w.size() * 4);
+    };
+    std::vector<std::uint8_t> exe(0x200, 0);
+    // lw $a0, 0x10($gp); addu $gp, $v1, $t6; sq $zero, -0x10($gp); jr $ra
+    const std::uint32_t scratch[] = {0x8F840010u, 0x006EE021u, 0x7F80FFF0u, 0x03E00008u, 0};
+    // lui $a1, 0x15; addiu $a1, $a1, 0x7FF0 (gp - 0x10); jr $ra
+    const std::uint32_t table[] = {0x3C050015u, 0x24A57FF0u, 0x03E00008u, 0};
+    std::memcpy(exe.data(), scratch, sizeof scratch);
+    std::memcpy(exe.data() + 0x100, table, sizeof table);
+    words(0x001C0000u, {0x8F840020u, 0x006EE021u, 0x7F80FFF0u, 0x03E00008u, 0});
+    words(0x001C0100u, {0x3C050015u, 0x24A57F80u, 0x03E00008u, 0});
+    const auto fn = [](auto f) {
+        return reinterpret_cast<openrac_host_fn>(f);
+    };
+    static const openrac_fn_entry exe_fns[] = {
+        {0x0010D000u, fn(gp_scratch), "scratch"},
+        {0x0010D100u, fn(gp_table), "table"},
+    };
+    static const openrac_fn_entry level_fns[] = {
+        {0x001C0000u, fn(gp_scratch), "scratch"},
+        {0x001C0100u, fn(gp_table), "table"},
+    };
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, exe_fns, 2);
+    openrac_guest_register(11, level_fns, 2);
+    openrac_guest_set_relocation(
+        0x00140000u,
+        0x00170000u,
+        0x00158000u,
+        exe.data(),
+        0x0010D000u,
+        static_cast<std::uint32_t>(exe.size())
+    );
+    openrac_guest_set_overlay(11);
+    CHECK(OPENRAC_DATA(0x00158010u) == 0x00158020u);  // read through $gp before the write
+    CHECK(OPENRAC_DATA(0x00157FF0u) == 0x00157F80u);  // the table's own pair, not gp - 0x10's
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+    openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
+}
+
 int main() {
     Memory::create();
     ee_float_mode();
@@ -625,6 +753,9 @@ int main() {
     code_in_copy_jal();
     folded_address();
     relocation_with_folded_copies();
+    port_function_past_ram();
+    relocation_between_pairs();
+    relocation_gp_as_work_register();
     level_data_in_the_executable();
     elf();
     reach_report_updates();
