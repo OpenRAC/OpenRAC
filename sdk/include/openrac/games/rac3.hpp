@@ -195,6 +195,14 @@ struct Hud_DrawMarkers {
     using fn = void (*)(int32_t);
 };
 
+// Runs a ball damage query at an attacker's joint (ball_damage_pushed_at_joint), passing flags into the query before collision filtering. Returns the query's result. The PAL catalogue lists this function in levels 1, 2, 4-10, 12, 13, 16, 18-24 and 26-29; it does not list it in 3, 11, 14, 17 or 30-36.
+struct Moby_MeleeAtJoint {
+    static constexpr const char* id = "rac3.combat.melee_at_joint";
+    static constexpr const char* name = "Moby_MeleeAtJoint";
+    static constexpr const char* signature = "i32(u32,i32,f32,i32,f32,f32,i32,i32,i32)";
+    using fn = int32_t (*)(uint32_t, int32_t, float, int32_t, float, float, int32_t, int32_t, int32_t);
+};
+
 namespace hooks {
     namespace bolt {
         using collect = rac3::Bolt_Collect;
@@ -202,6 +210,7 @@ namespace hooks {
         using spawn_pickups = rac3::Bolt_SpawnPickups;
     }  // namespace bolt
     namespace combat {
+        using melee_at_joint = rac3::Moby_MeleeAtJoint;
         using post_hit = rac3::Moby_PostHit;
     }  // namespace combat
     namespace hud {

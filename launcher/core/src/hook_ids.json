@@ -790,6 +790,7 @@
    "Item_Upgrade": "rac3.item.upgrade",
    "Level_GiveItems": "rac3.level.give_items",
    "Level_Load": "rac3.level.load",
+   "Moby_MeleeAtJoint": "rac3.combat.melee_at_joint",
    "Moby_PostHit": "rac3.combat.post_hit",
    "Moby_RecordDeath": "rac3.moby.record_death",
    "Vendor_BuildList": "rac3.vendor.build_list",

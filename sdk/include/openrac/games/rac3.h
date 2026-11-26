@@ -244,6 +244,14 @@ typedef void (*openrac_rac3_Hero_SwitchItem)(int32_t slot);
 #define OPENRAC_RAC3_SIG_Hud_DrawMarkers "void(i32)"
 typedef void (*openrac_rac3_Hud_DrawMarkers)(int32_t player);
 
+/* Moby_MeleeAtJoint: Runs a ball damage query at an attacker's joint
+ * (ball_damage_pushed_at_joint), passing flags into the query before collision filtering.
+ * Returns the query's result. The PAL catalogue lists this function in levels 1, 2, 4-10, 12,
+ * 13, 16, 18-24 and 26-29; it does not list it in 3, 11, 14, 17 or 30-36. */
+#define OPENRAC_RAC3_HOOK_Moby_MeleeAtJoint "Moby_MeleeAtJoint"
+#define OPENRAC_RAC3_SIG_Moby_MeleeAtJoint "i32(u32,i32,f32,i32,f32,f32,i32,i32,i32)"
+typedef int32_t (*openrac_rac3_Moby_MeleeAtJoint)(uint32_t attacker, int32_t joint, float radius, int32_t flags, float distance, float scale, int32_t first, int32_t second, int32_t mode);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus

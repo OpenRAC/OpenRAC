@@ -333,6 +333,27 @@
         "ntsc": "func_L01_003F4FE0"
       },
       "about": "Draws a player's screen markers (reticle_markers_draw, the levels' copy of the front end's), the ones queued this frame with reticle_marker_add (func_L01_003F6F20 on PAL), from the frame's draw after the level's update; with one view (0x001D6698 is 0) it then empties the queue. The 34 story levels."
+    },
+    {
+      "id": "rac3.combat.melee_at_joint",
+      "name": "Moby_MeleeAtJoint",
+      "signature": "i32(u32,i32,f32,i32,f32,f32,i32,i32,i32)",
+      "params": [
+        "attacker",
+        "joint",
+        "radius",
+        "flags",
+        "distance",
+        "scale",
+        "first",
+        "second",
+        "mode"
+      ],
+      "symbols": {
+        "pal": "func_L01_004468C8",
+        "ntsc": "func_L01_00443790"
+      },
+      "about": "Runs a ball damage query at an attacker's joint (ball_damage_pushed_at_joint), passing flags into the query before collision filtering. Returns the query's result. The PAL catalogue lists this function in levels 1, 2, 4-10, 12, 13, 16, 18-24 and 26-29; it does not list it in 3, 11, 14, 17 or 30-36."
     }
   ]
 }

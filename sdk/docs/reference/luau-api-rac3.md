@@ -245,3 +245,11 @@ rac3.hud.markers.draw (Hud_DrawMarkers) void(i32): Draws a player's screen marke
 ```lua
 type Hud_DrawMarkersFn = (player: number) -> ()
 ```
+
+### `Moby_MeleeAtJointFn`
+
+rac3.combat.melee_at_joint (Moby_MeleeAtJoint) i32(u32,i32,f32,i32,f32,f32,i32,i32,i32): Runs a ball damage query at an attacker's joint (ball_damage_pushed_at_joint), passing flags into the query before collision filtering. Returns the query's result. The PAL catalogue lists this function in levels 1, 2, 4-10, 12, 13, 16, 18-24 and 26-29; it does not list it in 3, 11, 14, 17 or 30-36.
+
+```lua
+type Moby_MeleeAtJointFn = (attacker: number, joint: number, radius: number, flags: number, distance: number, scale: number, first: number, second: number, mode: number) -> number
+```

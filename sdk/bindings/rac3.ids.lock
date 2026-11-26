@@ -4,6 +4,7 @@
 rac3.bolt.collect	pal:L01:002F88E0	Bolt_Collect,func_L01_002F88E0,func_L01_002F8918
 rac3.bolt.spawn_pickup	pal:L01:002F8F20	Bolt_SpawnPickup,func_L01_002F8F20,func_L01_002F8F60
 rac3.bolt.spawn_pickups	pal:L01:0044D360	Bolt_SpawnPickups,func_L01_0044A0E8,func_L01_0044D360
+rac3.combat.melee_at_joint	pal:L01:004468C8	Moby_MeleeAtJoint,func_L01_00443790,func_L01_004468C8
 rac3.combat.post_hit	pal:L01:00446978	Moby_PostHit,func_L01_00443840,func_L01_00446978
 rac3.hud.markers.draw	pal:L01:003F7188	Hud_DrawMarkers,func_L01_003F4FE0,func_L01_003F7188
 rac3.item.give	pal:L01:00419188	Item_Give,func_L01_00416B38,func_L01_00419188

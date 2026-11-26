@@ -463,6 +463,7 @@ code	func_L01_004BA830	0x004BA830	vendor_price	the price of the vendor's row und
 code	func_L01_004BAA20	0x004BAA20	vendor_weapon_list	the vendor's weapons rows from vendor_stock (asm, signature int (int) from its callers' declarations); hook rac3.vendor.build_list
 code	func_L01_004443E8	0x004443E8	moby_killed	an enemy's death: experience, bolts (bolts_drop) (asm at the pin); rac2 Moby_RecordDeath's job; hook rac3.moby.record_death
 code	func_L01_00446978	0x00446978	damage_queue	a damage record queued in the hit ring 0x001EED00 (asm); rac2 Moby_PostHit's job; hook rac3.combat.post_hit
+code	func_L01_004468C8	0x004468C8	ball_damage_pushed_at_joint	a ball damage query at an attacker's joint; hook rac3.combat.melee_at_joint
 code	func_L01_0044D360	0x0044D360	bolts_drop	a burst of bolt coins from a moby (asm); rac2 Bolt_SpawnPickups's job; hook rac3.bolt.spawn_pickups
 code	func_L01_002F8F20	0x002F8F20	bolt_coin_spawn	one bolt coin (asm); hook rac3.bolt.spawn_pickup
 code	func_L01_002F88E0	0x002F88E0	bolt_pickup_collect	a coin collected: its value to player_bolts 0x00142660 (asm); hook rac3.bolt.collect
