@@ -56,7 +56,8 @@ enum {
     IN_GS,
     IN_MODE,
     IN_PLAYERS,
-    IN_PROG
+    IN_PROG,
+    IN_REC
 };
 
 /* Each widened table: `base` (an address, or an offset into what `where` names), `stride` bytes an
@@ -89,6 +90,16 @@ enum {
     X(SLOT_C, IN_PROG, 3, 0x80)                           /* 0x80 bytes a slot: the moby ids a hero owns (D_00290178) */ \
     X(SLOT_D, IN_PROG, 4, 0x1C)                           /* 0x1C bytes a slot: the hero's state machine (D_003AA6E0) */ \
     X(SLOT_E, IN_PROG, 5, 4)                              /* a pointer a slot: the hero marker mobys (D_00249450) */ \
+    X(EFFECT_POOL, IN_PROG, 6, 0x40)                      /* the effect descriptors: 24 in the game (D_00265140 in map 40), 2 a hero */ \
+    X(MREC_40, IN_REC, 0x040u, 4)                           /* the game mode's per-player record: an array at +0x40 of the struct its +0x20C points to */ \
+    X(MREC_60, IN_REC, 0x060u, 4)                           /* the game mode's per-player record: an array at +0x60 of the struct its +0x20C points to */ \
+    X(MREC_88, IN_REC, 0x088u, 4)                           /* the game mode's per-player record: an array at +0x88 of the struct its +0x20C points to */ \
+    X(MREC_A8, IN_REC, 0x0A8u, 4)                           /* the game mode's per-player record: an array at +0xA8 of the struct its +0x20C points to */ \
+    X(MREC_C8, IN_REC, 0x0C8u, 4)                           /* the game mode's per-player record: an array at +0xC8 of the struct its +0x20C points to */ \
+    X(MREC_E8, IN_REC, 0x0E8u, 4)                           /* the game mode's per-player record: an array at +0xE8 of the struct its +0x20C points to */ \
+    X(MREC_108, IN_REC, 0x108u, 4)                          /* the game mode's per-player record: an array at +0x108 of the struct its +0x20C points to */ \
+    X(MREC_128, IN_REC, 0x128u, 4)                          /* the game mode's per-player record: an array at +0x128 of the struct its +0x20C points to */ \
+    X(MREC_148, IN_REC, 0x148u, 4)                          /* the game mode's per-player record: an array at +0x148 of the struct its +0x20C points to */ \
     X(PLY_MODE, AT, RAC3_MADDR(0x001A58B4u), 1)           /* a byte a slot at the profile struct + 0xA4 */ \
     X(MODE_SCORE, IN_MODE, 0x018u, 4)                     /* game mode: kills and deaths, s16 each */ \
     X(MODE_COLUMN_A, IN_MODE, 0x038u, 1)                  /* the modes' columns (siege, CTF) */ \
@@ -137,7 +148,7 @@ static const struct {
 #define PROGRAM_FIRST 39
 #define PROGRAM_LAST 53
 
-#define PROG_TABLES 6 /* the IN_PROG tables, in WIDE_TABLES order */
+#define PROG_TABLES 7 /* the IN_PROG tables, in WIDE_TABLES order */
 
 static const struct {
     uint32_t players, mode, prog[PROG_TABLES];
@@ -149,7 +160,8 @@ static const struct {
       RAC3_LADDR(39, 0x0024D528u),
       RAC3_LADDR(39, 0x00293F38u),
       RAC3_LADDR(39, 0x004840A0u),
-      RAC3_LADDR(39, 0x0024CF40u)}},
+      RAC3_LADDR(39, 0x0024CF40u),
+      RAC3_LADDR(39, 0x00268F00u)}},
     {RAC3_LADDR(40, 0x00249330u),
      RAC3_LADDR(40, 0x00357260u),
      {RAC3_LADDR(40, 0x00315040u),
@@ -157,7 +169,8 @@ static const struct {
       RAC3_LADDR(40, 0x00249790u),
       RAC3_LADDR(40, 0x00290178u),
       RAC3_LADDR(40, 0x003AA6E0u),
-      RAC3_LADDR(40, 0x00249450u)}},
+      RAC3_LADDR(40, 0x00249450u),
+      RAC3_LADDR(40, 0x00265140u)}},
     {RAC3_LADDR(41, 0x00249530u),
      RAC3_LADDR(41, 0x003573A0u),
      {RAC3_LADDR(41, 0x00315180u),
@@ -165,7 +178,8 @@ static const struct {
       RAC3_LADDR(41, 0x00249900u),
       RAC3_LADDR(41, 0x002902B8u),
       RAC3_LADDR(41, 0x003A9D20u),
-      RAC3_LADDR(41, 0x00249650u)}},
+      RAC3_LADDR(41, 0x00249650u),
+      RAC3_LADDR(41, 0x00265280u)}},
     {RAC3_LADDR(42, 0x00249420u),
      RAC3_LADDR(42, 0x0034F2A0u),
      {RAC3_LADDR(42, 0x0030D080u),
@@ -173,7 +187,8 @@ static const struct {
       RAC3_LADDR(42, 0x002497F0u),
       RAC3_LADDR(42, 0x002901B8u),
       RAC3_LADDR(42, 0x003A1C20u),
-      RAC3_LADDR(42, 0x00249540u)}},
+      RAC3_LADDR(42, 0x00249540u),
+      RAC3_LADDR(42, 0x00265180u)}},
     {RAC3_LADDR(43, 0x002492A0u),
      RAC3_LADDR(43, 0x0034F120u),
      {RAC3_LADDR(43, 0x0030CF00u),
@@ -181,7 +196,8 @@ static const struct {
       RAC3_LADDR(43, 0x00249670u),
       RAC3_LADDR(43, 0x00290038u),
       RAC3_LADDR(43, 0x003A19E0u),
-      RAC3_LADDR(43, 0x002493C0u)}},
+      RAC3_LADDR(43, 0x002493C0u),
+      RAC3_LADDR(43, 0x00265000u)}},
     {RAC3_LADDR(44, 0x00249320u),
      RAC3_LADDR(44, 0x0034F160u),
      {RAC3_LADDR(44, 0x0030CF40u),
@@ -189,7 +205,8 @@ static const struct {
       RAC3_LADDR(44, 0x002496C0u),
       RAC3_LADDR(44, 0x00290078u),
       RAC3_LADDR(44, 0x003A1760u),
-      RAC3_LADDR(44, 0x00249440u)}},
+      RAC3_LADDR(44, 0x00249440u),
+      RAC3_LADDR(44, 0x00265040u)}},
     {RAC3_LADDR(45, 0x002492A0u),
      RAC3_LADDR(45, 0x0034F120u),
      {RAC3_LADDR(45, 0x0030CF00u),
@@ -197,7 +214,8 @@ static const struct {
       RAC3_LADDR(45, 0x00249658u),
       RAC3_LADDR(45, 0x00290038u),
       RAC3_LADDR(45, 0x003A19A0u),
-      RAC3_LADDR(45, 0x002493C0u)}},
+      RAC3_LADDR(45, 0x002493C0u),
+      RAC3_LADDR(45, 0x00265000u)}},
     {RAC3_LADDR(46, 0x00248EA0u),
      RAC3_LADDR(46, 0x0035FCE0u),
      {RAC3_LADDR(46, 0x0031DAC0u),
@@ -205,7 +223,8 @@ static const struct {
       RAC3_LADDR(46, 0x00249240u),
       RAC3_LADDR(46, 0x002A0BF8u),
       RAC3_LADDR(46, 0x003B1F20u),
-      RAC3_LADDR(46, 0x00248FC0u)}},
+      RAC3_LADDR(46, 0x00248FC0u),
+      RAC3_LADDR(46, 0x00275BC0u)}},
     {RAC3_LADDR(47, 0x00248FA0u),
      RAC3_LADDR(47, 0x0035FE20u),
      {RAC3_LADDR(47, 0x0031DC00u),
@@ -213,7 +232,8 @@ static const struct {
       RAC3_LADDR(47, 0x00249370u),
       RAC3_LADDR(47, 0x002A0D38u),
       RAC3_LADDR(47, 0x003B2320u),
-      RAC3_LADDR(47, 0x002490C0u)}},
+      RAC3_LADDR(47, 0x002490C0u),
+      RAC3_LADDR(47, 0x00275D00u)}},
     {RAC3_LADDR(48, 0x00248FA0u),
      RAC3_LADDR(48, 0x0035FE60u),
      {RAC3_LADDR(48, 0x0031DC40u),
@@ -221,7 +241,8 @@ static const struct {
       RAC3_LADDR(48, 0x002493A0u),
       RAC3_LADDR(48, 0x002A0D78u),
       RAC3_LADDR(48, 0x003B2AA0u),
-      RAC3_LADDR(48, 0x002490C0u)}},
+      RAC3_LADDR(48, 0x002490C0u),
+      RAC3_LADDR(48, 0x00275D40u)}},
     {RAC3_LADDR(49, 0x00248FA0u),
      RAC3_LADDR(49, 0x0035FDE0u),
      {RAC3_LADDR(49, 0x0031DBC0u),
@@ -229,7 +250,8 @@ static const struct {
       RAC3_LADDR(49, 0x00249340u),
       RAC3_LADDR(49, 0x002A0CF8u),
       RAC3_LADDR(49, 0x003B2020u),
-      RAC3_LADDR(49, 0x002490C0u)}},
+      RAC3_LADDR(49, 0x002490C0u),
+      RAC3_LADDR(49, 0x00275CC0u)}},
     {RAC3_LADDR(50, 0x00249330u),
      RAC3_LADDR(50, 0x00368260u),
      {RAC3_LADDR(50, 0x00326040u),
@@ -237,7 +259,8 @@ static const struct {
       RAC3_LADDR(50, 0x00249790u),
       RAC3_LADDR(50, 0x002A1178u),
       RAC3_LADDR(50, 0x003BB6E0u),
-      RAC3_LADDR(50, 0x00249450u)}},
+      RAC3_LADDR(50, 0x00249450u),
+      RAC3_LADDR(50, 0x00276140u)}},
     {RAC3_LADDR(51, 0x00249530u),
      RAC3_LADDR(51, 0x003683A0u),
      {RAC3_LADDR(51, 0x00326180u),
@@ -245,7 +268,8 @@ static const struct {
       RAC3_LADDR(51, 0x00249900u),
       RAC3_LADDR(51, 0x002A12B8u),
       RAC3_LADDR(51, 0x003BAD20u),
-      RAC3_LADDR(51, 0x00249650u)}},
+      RAC3_LADDR(51, 0x00249650u),
+      RAC3_LADDR(51, 0x00276280u)}},
     {RAC3_LADDR(52, 0x00249420u),
      RAC3_LADDR(52, 0x003602A0u),
      {RAC3_LADDR(52, 0x0031E080u),
@@ -253,7 +277,8 @@ static const struct {
       RAC3_LADDR(52, 0x002497F0u),
       RAC3_LADDR(52, 0x002A11B8u),
       RAC3_LADDR(52, 0x003B2C20u),
-      RAC3_LADDR(52, 0x00249540u)}},
+      RAC3_LADDR(52, 0x00249540u),
+      RAC3_LADDR(52, 0x00276180u)}},
     {RAC3_LADDR(53, 0x002492A0u),
      RAC3_LADDR(53, 0x00360120u),
      {RAC3_LADDR(53, 0x0031DF00u),
@@ -261,7 +286,8 @@ static const struct {
       RAC3_LADDR(53, 0x00249670u),
       RAC3_LADDR(53, 0x002A1038u),
       RAC3_LADDR(53, 0x003B29E0u),
-      RAC3_LADDR(53, 0x002493C0u)}},
+      RAC3_LADDR(53, 0x002493C0u),
+      RAC3_LADDR(53, 0x00276000u)}},
 };
 
 static int wide_slots = WIDE_GAME;
@@ -336,6 +362,12 @@ int rac3_mp_wide_span(int game) {
     return game / WIDE_GAME * wide_slots;
 }
 
+/* The entries the game keeps in a table itself: 8, but the effect descriptors' pool of 24 (the room
+ * adds its own beyond them). */
+static uint32_t wide_native(int table) {
+    return table == WIDE_EFFECT_POOL ? 24u : (uint32_t)WIDE_GAME;
+}
+
 static gaddr wide_extension(int table) {
     if (wide_ext[table] == 0) {
         wide_ext[table] = openrac_guest_static(WIDE_EXTRA * wide_table[table].stride);
@@ -350,7 +382,7 @@ static gaddr wide_extension(int table) {
 static void wide_program_changed(int overlay) {
     for (int t = 0; t < WIDE_TABLE_COUNT; t++) {
         const int program = wide_table[t].where == IN_PLAYERS || wide_table[t].where == IN_MODE
-                            || wide_table[t].where == IN_PROG;
+                            || wide_table[t].where == IN_PROG || wide_table[t].where == IN_REC;
         const int results = t >= WIDE_RESULT_NAME && overlay > PROGRAM_FIRST;
         if ((program || results) && wide_ext[t] != 0) {
             memset(G(wide_ext[t]), 0, WIDE_EXTRA * wide_table[t].stride);
@@ -366,6 +398,18 @@ static uint32_t wide_base(int table) {
     switch (wide_table[table].where) {
         case IN_GS:
             return GREF(uint32_t, GS_POINTER) != 0 ? GREF(uint32_t, GS_POINTER) + base : 0;
+        case IN_REC: {
+            const int overlay = openrac_game_loaded_overlay();
+            if (overlay < PROGRAM_FIRST || overlay > PROGRAM_LAST) {
+                return 0;
+            }
+            if (overlay != wide_overlay) {
+                wide_program_changed(overlay);
+            }
+            const uint32_t mode = wide_program[overlay - PROGRAM_FIRST].mode;
+            const uint32_t record = mode != 0 ? GREF(uint32_t, mode + 0x20Cu) : 0;
+            return record != 0 ? record + base : 0;
+        }
         case IN_MODE:
         case IN_PROG:
         case IN_PLAYERS: {
@@ -401,8 +445,9 @@ uint32_t rac3_mp_wide_address(uint32_t address, int table) {
     if (base == 0) {
         return address;
     }
+    const uint32_t native = wide_native(table);
     const uint32_t rel = address - base;
-    if (rel < WIDE_GAME * stride || rel >= WIDE_MAX * stride) {
+    if (rel < native * stride || rel >= (native + WIDE_EXTRA) * stride) {
         return address;
     }
     if (wide_table[table].where == IN_GS) {
@@ -418,7 +463,47 @@ uint32_t rac3_mp_wide_address(uint32_t address, int table) {
         }
         return wide_object + wide_object_offset(table) + rel - WIDE_GAME * stride;
     }
-    return wide_extension(table) + rel - WIDE_GAME * stride;
+    return wide_extension(table) + rel - native * stride;
+}
+
+/* The offset an address of a [row][slot] table of the game's has from the table's first entry:
+ * the profile's three sensitivity tables (D_001A58D0, D_001A5930, D_001A5990: three rows of eight
+ * words, 0x60 bytes each, one after the other). SLOT4 is the slot * 4 and ROW32 the row * 0x20,
+ * which the game adds before it adds the table. A slot of 8 to 23 cannot be told from a slot of
+ * a later row by the address alone, so the sum is formed here: slots 8 and up go to a region of
+ * the port's, a row of 0x120 bytes (three tables 0x60 apart, 0x40 bytes of slots each), as an
+ * offset from the first table. The others are the game's sum. */
+#define SENS_BASE 0x001A58D0u
+#define SENS_ROW 0x120u
+#define SENS_BYTES (3 * SENS_ROW)
+
+uint32_t rac3_mp_wide_rowoff(uint32_t slot4, uint32_t row32) {
+    static gaddr ext;
+    if (slot4 < WIDE_GAME * 4u || slot4 >= WIDE_MAX * 4u || row32 > 2 * 0x20u) {
+        return slot4 + row32;
+    }
+    if (ext == 0) {
+        ext = openrac_guest_static(SENS_BYTES);
+        memset(G(ext), 0, SENS_BYTES);
+    }
+    return (uint32_t)(ext + row32 / 0x20u * SENS_ROW + (slot4 - WIDE_GAME * 4u)
+                      - RAC3_MADDR(SENS_BASE));
+}
+
+/* A byte array of eight on a function's stack, indexed by slot (the damage a hero's attackers did,
+ * map 40's 004255A0 and 00431768): PTR is the game's element address, SLOT the index. A slot of 8
+ * or more would write over the frame's other locals; its element goes to a scratch of the port's,
+ * which nothing reads back (the game sums the first eight). */
+uint32_t rac3_mp_wide_scratch(uint32_t ptr, uint32_t slot) {
+    static gaddr scratch;
+    if (slot < WIDE_GAME || slot >= WIDE_MAX) {
+        return ptr;
+    }
+    if (scratch == 0) {
+        scratch = openrac_guest_static(WIDE_MAX);
+        memset(G(scratch), 0, WIDE_MAX);
+    }
+    return scratch + slot;
 }
 
 /* A new session: the port's net-block entries 8-23 cleared as the game clears its own. */
