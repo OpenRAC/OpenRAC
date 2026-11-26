@@ -2133,9 +2133,13 @@ class Translator:
             return [f"fcc_ = (int)(({self.R(ins.rt)} >> 23) & 1u);"]
         raise AsmUnsupported(f"{op} at {ins.addr:08X}")
 
+    # The vector unit's state the VU0 instructions work on: the program's one (OPENRAC_VU0), or a
+    # function's own local (vu0asm.py, for matched C's inline assembly).
+    vu = "OPENRAC_VU0"
+
     def vu0(self, ins: asm.Insn) -> list[str]:
         op = ins.op
-        V = "OPENRAC_VU0->"
+        V = f"{self.vu}->"
         vf = self.vf
         fs, ft, fd, bc = ins.fs, ins.ft, ins.fd, ins.bc
         comps = _comps(ins.dest)

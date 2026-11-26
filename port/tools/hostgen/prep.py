@@ -45,6 +45,8 @@ import textwrap
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
+import vu0asm
+
 # A C token that can contain the word long without being the keyword.
 _SKIP = re.compile(
     r'"(?:\\.|[^"\\])*"'       # string literal (one line)
@@ -135,6 +137,87 @@ def blank_file_scope_asm(text: str) -> str:
                 continue
         i += 1
     return "".join(chars)
+
+
+_ASM_START = re.compile(r"\b(?:__asm__|__asm|asm)\b(?:\s*(?:__volatile__|volatile))*\s*\(")
+_J_CONSTRAINT = re.compile(r'"([=+]?)(&?)j"')
+_VF_CLOBBER = re.compile(r'"\$?vf\d+"')
+
+
+def _vu0_statements(text: str):
+    """Yield the start match, statement end and template end for literal VU0 statements."""
+    last = 0
+    for m in _ASM_START.finditer(text):
+        if m.start() < last:
+            continue
+        end = _statement_end(text, m.start())
+        if end is None:
+            continue
+        stmt = text[m.start():end]
+        j, parts = m.end() - m.start(), []
+        while True:  # past the instructions
+            s = re.compile(r'\s*"((?:[^"\\]|\\.)*)"').match(stmt, j)
+            if s is None:
+                break
+            parts.append(s.group(1))
+            j = s.end()
+        if not vu0asm.is_vu0("".join(parts).replace("\\n", "\n").replace("\\t", "\t")):
+            continue  # another unit's registers (abs.s on "j"): left for Clang to refuse, as before
+        last = end
+        yield m, end, j
+
+
+def vu0_register_operands(text: str) -> str:
+    """Operands of inline assembly in GCC's "j" class (a VU0 vector register, which Clang does
+    not know) are written with "m" instead, the same length (`"=&j"` as `"=m" `): Clang then
+    reads the statement, with the operand as the C variable it is, and lower.py writes its VU0
+    instructions as C on that variable (vu0asm.py). Only the operand lists of statements with
+    VU0 instructions change."""
+    if "j\"" not in text:
+        return text
+    out, last = [], 0
+    for m, end, j in _vu0_statements(text):
+        stmt = text[m.start():end]
+        fixed = stmt[:j] + _J_CONSTRAINT.sub(lambda c: f'"{c.group(1)}m"' + (" " if c.group(2) else ""), stmt[j:])
+        out.append(text[last:m.start()])
+        out.append(fixed)
+        last = end
+    out.append(text[last:])
+    return "".join(out)
+
+
+def vu0_register_clobbers(text: str) -> str:
+    """Let Clang read vector clobbers as memory barriers; the VU0 instructions still lower to C."""
+    if _VF_CLOBBER.search(text) is None:
+        return text
+    out, last = [], 0
+    for match, end, template_end in _vu0_statements(text):
+        statement = text[match.start():end]
+        at, depth, colons = template_end, 0, 0
+        while at < len(statement):
+            character = statement[at]
+            token = _SKIP.match(statement, at)
+            if token is not None:
+                at = token.end()
+                continue
+            if character == "(":
+                depth += 1
+            elif character == ")":
+                if depth == 0:
+                    break
+                depth -= 1
+            elif character == ":" and depth == 0:
+                colons += 1
+                if colons == 3:
+                    # Operand expressions can contain colons of their own; only this list is clobbers.
+                    tail = _SKIP.sub(lambda token: '"memory"' if _VF_CLOBBER.fullmatch(token[0])
+                                     else token[0], statement[at + 1:])
+                    out += [text[last:match.start()], statement[:at + 1], tail]
+                    last = end
+                    break
+            at += 1
+    out.append(text[last:])
+    return "".join(out)
 
 
 def _skip_literal(text: str, i: int) -> int:
@@ -524,7 +607,8 @@ def unalias(text: str, aliases: dict[str, str]) -> str:
 
 
 def prepare(text: str) -> str:
-    return rename_va_builtins(own_va_list(name_lvalue_casts(name_wide_casts(name_cast_records(expand_cast_macros(widen_long(split_multiline_strings(blank_file_scope_asm(text)))))))))
+    text = vu0_register_operands(rename_va_builtins(own_va_list(name_lvalue_casts(name_wide_casts(name_cast_records(expand_cast_macros(widen_long(split_multiline_strings(blank_file_scope_asm(text))))))))))
+    return vu0_register_clobbers(text)
 
 
 # The path may be several adjacent strings over as many lines (the NTSC decomp's long paths).
