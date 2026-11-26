@@ -25,7 +25,7 @@
 #include "openrac/material.h"
 #include "rac1.h"
 
-#if !RAC1_OMIT(effect_list_strips)
+#if !RAC1_OMIT(func_L12_002E8530)
 
 #define EFFECT_TABLE OPENRAC_DATA(RAC1_ADDR(0x0018D540u))
 #define EFFECT_BASE OPENRAC_DATA(RAC1_ADDR(0x0015F560u))
@@ -166,4 +166,4 @@ void func_L14_00308EB0(void) {
     }
 }
 
-#endif /* !RAC1_OMIT(effect_list_strips) */
+#endif /* !RAC1_OMIT(func_L12_002E8530) */

@@ -34,7 +34,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* Native letterbox bars (letterbox.c): the caller state is proved on PAL v2.00 level 6 only. */
 #define RAC1_OMIT_func_001F5148 1
 /* Hoven's and Oltanis' effect lists on the native strip record (strips.c): carried to PAL v2.00 first. */
-#define RAC1_OMIT_effect_list_strips 1
+#define RAC1_OMIT_func_L12_002E8530 1
+#define RAC1_OMIT_func_L14_00308EB0 1
 /* The game's particle routines (particles.c, openrac_api.particle_spawn_ex) are checked at PAL's addresses only. */
 #define RAC1_OMIT_particle_spawn_ex 1
 /* Level 0's 0x2EC6B8: the NTSC decomp's catalogue places its func_001E9448 there, which returns 0. */

@@ -114,7 +114,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x001B0830u 0x001B04B0u
 #define RAC1_ADDR_L00_0x001ABBC0u 0x001AB840u /* level_moby_groups */
 /* Hoven's and Oltanis' effect lists on the native strip record (strips.c): carried to PAL v2.00 first; its addresses are not carried to this disc, so it keeps the game's own draw. */
-#define RAC1_OMIT_effect_list_strips 1
+#define RAC1_OMIT_func_L12_002E8530 1
+#define RAC1_OMIT_func_L14_00308EB0 1
 
 /* ---- generated below ---- */
 
