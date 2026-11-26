@@ -16,8 +16,10 @@
 #include "openrac/game_host.h"
 #include "rac2.h"
 
+/* The shared lists read these, so they come after rac2.h (RAC2_ADDR) and before the header. */
 #define WIDE_CAMERA OPENRAC_DATA(RAC2_ADDR(0x001B5200u))
 #define WIDE_VIEW OPENRAC_DATA(RAC2_ADDR(0x001B9040u))
+
 #include "../../common/lib/wide_view_lists.h"
 
 static const unsigned char* g_fix_liquids;
