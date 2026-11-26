@@ -234,6 +234,8 @@
 #define RAC3_MADDR_0x001A30DCu 0x001A325Cu
 /* the same instruction of the same code: func 0x0027EDA8 (NTSC-U 0x0027EDE8) +0x94, 1 of 1 places agree */
 #define RAC3_MADDR_0x001A3800u 0x001A3980u
+/* not paired (rac3_mp_pairs.py) */
+#define RAC3_MADDR_0x001A58B4u 0u
 /* the same instruction of the same code: func 0x001966E8 (NTSC-U 0x001967D8) +0x4, 2 of 2 places agree */
 #define RAC3_MADDR_0x001A5CD0u 0x001A5E50u
 /* not paired (rac3_mp_pairs.py) */
@@ -432,6 +434,8 @@
 #define RAC3_LADDR_2_0x001E5E40u 0x001E5EC0u
 /* the same instruction of the same code: func_L02_0030FC68 (NTSC-U func_L02_0030F930) +0x1C, 3 of 3 places agree */
 #define RAC3_LADDR_2_0x0026EB80u 0x0026EC00u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_39_0x002410F8u 0u
 /* between the same code's 0x00245BB0 and 0x00245BCC, both moved by +0x180 (NTSC-U 0x00245D30, 0x00245D4C) */
 #define RAC3_LADDR_39_0x00245BB4u 0x00245D34u
 /* the glow builder's lbu of the blur byte: PAL level 39 func_L39_0060D7F0 reads 0x00245BD8, NTSC-U's builder (and every map's copy, e.g. func_L51_004F0918) reads 0x00245D58 at the same two places; the glow block moved by +0x180 */
@@ -464,6 +468,8 @@
 #define RAC3_LADDR_39_0x0024CAD0u 0x0024CBD0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 30 of 30 places agree */
 #define RAC3_LADDR_39_0x0024CE20u 0x0024CF20u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_39_0x0024D528u 0u
 /* the same instruction of the same code: func_L39_0067A4E0 (NTSC-U func_L39_00677AE8) +0x18, 1 of 1 places agree */
 #define RAC3_LADDR_39_0x0024DE20u 0x0024DF20u
 /* the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 10 of 10 places agree */
@@ -474,67 +480,213 @@
 #define RAC3_LADDR_39_0x0025F580u 0x0025F680u
 /* the same instruction of the same code: func_L01_00444F38 (NTSC-U func_L01_00441E00) +0xEC, 2 of 2 places agree */
 #define RAC3_LADDR_39_0x00271500u 0x00271600u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_39_0x00293F38u 0u
 /* between the same code's 0x00294FC0 and 0x002965C0, both moved by +0x100 (NTSC-U 0x002950C0, 0x002966C0) */
 #define RAC3_LADDR_39_0x002961C0u 0x002962C0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_39_0x00310900u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 23 of 23 places agree */
 #define RAC3_LADDR_39_0x00352940u 0x00352A40u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_39_0x004840A0u 0u
 /* the level program's entry (its ELF header: PAL 0x00575CC8, NTSC-U 0x00574F88) */
 #define RAC3_LADDR_39_0x00575CC8u 0x00574F88u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_40_0x002410F8u 0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
 #define RAC3_LADDR_40_0x00249330u 0x002494B0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_40_0x00249790u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_40_0x00290178u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_40_0x00315040u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
 #define RAC3_LADDR_40_0x00357260u 0x003573E0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_40_0x003AA6E0u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_41_0x002410F8u 0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
 #define RAC3_LADDR_41_0x00249530u 0x002496B0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_41_0x00249900u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_41_0x002902B8u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_41_0x00315180u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
 #define RAC3_LADDR_41_0x003573A0u 0x00357520u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_41_0x003A9D20u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_42_0x002410F8u 0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
 #define RAC3_LADDR_42_0x00249420u 0x002495A0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_42_0x002497F0u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_42_0x002901B8u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_42_0x0030D080u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
 #define RAC3_LADDR_42_0x0034F2A0u 0x0034F420u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_42_0x003A1C20u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_43_0x002410F8u 0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
 #define RAC3_LADDR_43_0x002492A0u 0x00249420u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_43_0x00249670u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_43_0x00290038u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_43_0x0030CF00u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
 #define RAC3_LADDR_43_0x0034F120u 0x0034F2A0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_43_0x003A19E0u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_44_0x002410F8u 0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
 #define RAC3_LADDR_44_0x00249320u 0x002494A0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_44_0x002496C0u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_44_0x00290078u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_44_0x0030CF40u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
 #define RAC3_LADDR_44_0x0034F160u 0x0034F2E0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_44_0x003A1760u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_45_0x002410F8u 0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
 #define RAC3_LADDR_45_0x002492A0u 0x00249420u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_45_0x00249658u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_45_0x00290038u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_45_0x0030CF00u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
 #define RAC3_LADDR_45_0x0034F120u 0x0034F2A0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_45_0x003A19A0u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_46_0x002410F8u 0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree */
 #define RAC3_LADDR_46_0x00248EA0u 0x00249020u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_46_0x00249240u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_46_0x002A0BF8u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_46_0x0031DAC0u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree */
 #define RAC3_LADDR_46_0x0035FCE0u 0x0035FE60u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_46_0x003B1F20u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_47_0x002410F8u 0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree */
 #define RAC3_LADDR_47_0x00248FA0u 0x00249120u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_47_0x00249370u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_47_0x002A0D38u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_47_0x0031DC00u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree */
 #define RAC3_LADDR_47_0x0035FE20u 0x0035FFA0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_47_0x003B2320u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_48_0x002410F8u 0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree */
 #define RAC3_LADDR_48_0x00248FA0u 0x00249120u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_48_0x002493A0u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_48_0x002A0D78u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_48_0x0031DC40u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree */
 #define RAC3_LADDR_48_0x0035FE60u 0x0035FFE0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_48_0x003B2AA0u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_49_0x002410F8u 0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree */
 #define RAC3_LADDR_49_0x00248FA0u 0x00249120u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_49_0x00249340u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_49_0x002A0CF8u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_49_0x0031DBC0u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree */
 #define RAC3_LADDR_49_0x0035FDE0u 0x0035FF60u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_49_0x003B2020u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_50_0x002410F8u 0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
 #define RAC3_LADDR_50_0x00249330u 0x002494B0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_50_0x00249790u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_50_0x002A1178u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_50_0x00326040u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
 #define RAC3_LADDR_50_0x00368260u 0x003683E0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_50_0x003BB6E0u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_51_0x002410F8u 0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
 #define RAC3_LADDR_51_0x00249530u 0x002496B0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_51_0x00249900u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_51_0x002A12B8u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_51_0x00326180u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
 #define RAC3_LADDR_51_0x003683A0u 0x00368520u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_51_0x003BAD20u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_52_0x002410F8u 0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
 #define RAC3_LADDR_52_0x00249420u 0x002495A0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_52_0x002497F0u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_52_0x002A11B8u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_52_0x0031E080u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
 #define RAC3_LADDR_52_0x003602A0u 0x00360420u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_52_0x003B2C20u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_53_0x002410F8u 0u
 /* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
 #define RAC3_LADDR_53_0x002492A0u 0x00249420u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_53_0x00249670u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_53_0x002A1038u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_53_0x0031DF00u 0u
 /* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
 #define RAC3_LADDR_53_0x00360120u 0x003602A0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_53_0x003B29E0u 0u
 
 #endif /* OPENRAC_RAC3_ADDRESSES_H */
