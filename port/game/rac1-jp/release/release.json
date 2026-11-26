@@ -12,6 +12,7 @@
   "top": "0x00250000",
   "save_folder": "BISCPS-15037RATCHET",
   "omit": {
+    "effect_list_strips": "Hoven's and Oltanis' effect lists on the native strip record (strips.c): carried to PAL v2.00 first; its addresses are not carried to this disc, so it keeps the game's own draw.",
     "func_00201AF0": "draw_bootImage: NTSC-J's catalogue (config/versions/jp/functions.tsv) has no counterpart of it, so the shared C's wrapper of it is left out.",
     "func_001F75D0": "FontPrintWindow in the small font: NTSC-J has no counterpart of it (its catalogue's func_J_001F8688 is a second copy of the large font's), so the shared C's replacement is left out.",
     "func_001E9E70": "The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here).",
