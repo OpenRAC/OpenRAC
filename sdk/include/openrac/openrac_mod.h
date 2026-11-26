@@ -126,10 +126,13 @@ extern "C" {
  * strongly saturated texels, a visor or lamps
  * (OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT), and 1.39 paint that draws the effects
  * a moby makes in its colour, and paint in weapon_look
- * (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS), and 1.40 synchronous gameplay decision
- * queries (on_play_query).
+ * (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS), 1.40 synchronous gameplay decision
+ * queries (on_play_query), and 1.41 copies of the enemies an arena draws its
+ * waves from (Going Commando: Maktar's), which go in with their originals and
+ * hold the wave until they are beaten (the table is unchanged: a 1.40 port
+ * calls them scripted, so a mod asks for 1.41 before it copies them).
  */
-#define OPENRAC_MOD_API_MINOR 40
+#define OPENRAC_MOD_API_MINOR 41
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1856,8 +1859,9 @@ typedef struct openrac_moby_visual {
 /* Not one the level placed (the game made it), or one that gives no reward when it dies. */
 #define OPENRAC_COPY_NOT_PLACED 2
 /* The level's own data needs it alone: one of a set piece's group (a wave, an arena, a door that
- * opens when its group is defeated; Going Commando's squads of one class are not), named by the
- * level's scripts or by another moby, or naming another itself. */
+ * opens when its group is defeated; Going Commando's squads of one class are not, nor since 1.41
+ * the enemies Maktar's arena draws its waves from), named by the level's scripts or by another
+ * moby, or naming another itself. */
 #define OPENRAC_COPY_SCRIPTED 3
 /* In the port's table of classes never copied: bosses, turrets, spawners, and the creatures a
  * level's own trade needs (Going Commando: Tabora's and Grelbin's crystal fields). */
@@ -2938,8 +2942,13 @@ typedef struct openrac_api {
      * port's copies of a squad's enemies never woke), and it dies once. A moby whose pvars hold
      * spawned mobys of its own (its parts: a trooper's torso and arms) gets copies of them, which
      * its copy drives; one whose pvars hold a spawned moby other mobys share is not copied.
+     * Since 1.41 an enemy an arena draws its waves from (Going Commando: Maktar's, classes
+     * 2850, 2506, 3131 and 3134) is copied while it waits for its wave, as
+     * the level loads: the copy joins the arena's list and goes in with its original whenever the
+     * pod that carries the original in has room. It fights in that wave, which ends only once it
+     * is beaten too, and then waits again with the others; it is no extra in the wave's counts.
      * Returns the copy's slot, or OPENRAC_HOOK_UNKNOWN (not allowed, no clear spot, no room, a
-     * shared moby named). */
+     * shared moby named, an arena's enemy out of its wait). */
     int (*moby_copy)(openrac_mod* mod, int slot, int index);
 
     /* The pool of spawned mobys (since 1.27; Going Commando's, a game without the call answers
