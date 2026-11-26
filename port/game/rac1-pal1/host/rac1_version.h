@@ -91,6 +91,11 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* Native screen tint and the AA pass left out (screen_fade.c): checked on PAL v2.00 only. */
 #define RAC1_OMIT_func_001F55C0 1
 #define RAC1_OMIT_func_001FB848 1
+/* Native stripes of the screen colour effect and the frame copy (screen_fade.c, screen_copy.c): checked on PAL v2.00 only. */
+#define RAC1_OMIT_func_001F5368 1
+#define RAC1_OMIT_func_001F4E08 1
+#define RAC1_OMIT_func_L00_002A21A8 1
+#define RAC1_OMIT_func_L00_002A2258 1
 
 /* Imported moby classes (rac1/host/foreign_class.c): register_moby_class and
  * resident_class_id_by_slot in this release (release_names.json, the release's check). */

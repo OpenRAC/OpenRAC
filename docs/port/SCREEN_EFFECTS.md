@@ -132,3 +132,50 @@ Checked on PAL v2.00, level 1, hidden: the level-start fade-in frames have the s
 with the packet and with the fill (0, 48, 97, 141), and the pause dimming brightens and darkens the
 same (101 to 57). Runs of the whole game are not frame-deterministic, so the rest of each run is
 compared by looking at it, not by pixel difference.
+
+### 5.1 FadeToBlack, the screen stripes and the frame copy
+
+`screen_fade.c` also wraps three more routines, and `screen_copy.c` the frame copy (PAL v2.00; the
+other releases omit them, `RAC1_OMIT_*`; `OPENRAC_UI_SKIP` naming a function, `OPENRAC_UI_REPLAY` and
+no window keep the game's own):
+
+- **FadeToBlack** (`func_001F4E08`). Each of its `frames` steps draws the large buffer black
+  (`emit_rgba_draw_packet(0, 0, 0, 0x80)`, never displayed) and a black sprite of alpha
+  `0x80 - (n << 7) / (n + 1)` onto the small buffer the display reads, `n` counting down from
+  `frames - 1`. The steps multiply: after the step with `n` left the picture is `n / frames` of the one
+  that was showing, black at `n = 0`. With a window the same loop of syncs, clock steps and sent lists
+  runs (`func_00234AC8`, `func_00122598`, `D_0015F538`, `func_002349B8`, `func_00234948`) with one
+  recorded black fill of the whole target in each list, alpha `(frames - n) / frames`, over the picture
+  the window shows, and none of the buffer packets. Before this the black of the first packet was
+  recorded as an opaque fill (section 5), so a fade jumped to black at once: the arrival cutscene's
+  skip on Novalis went from the picture to black in one frame; now it darkens over the eight frames
+  (`r2-progress/rac1-fadetoblack-*`).
+- **draw_screen_effect** (`func_001F5368`): the stripe table behind the pointer at `0x0015F450`. Its own
+  C runs; the rectangles are recorded as depth fills at `0xFFFFF0` of the 24-bit buffer and the packets
+  taken back. The depth test is the frame's own, GEQUAL (the level's TEST packet), unless a tint ran
+  right before it (the tint wrapper remembers its list position and the frame), whose resident packet
+  `0x0013CD90` leaves it at ALWAYS; the letterbox's bars (`0xFFFFF3`, written) reject a GEQUAL stripe on
+  their rows, as the console does. Source over (`0x44`) and the colour as it is (`0x64`) are native;
+  a table with another ALPHA word keeps its packets. **Not exercised:** no C writes the table, and a
+  table forced through `OPENRAC_WRITE` did not reach the routine in a hidden run, so this path has no
+  runtime check.
+- **The frame copy** (`transfer_draw_buffer_chunks` `func_L00_002A21A8`, `append_draw_buffer_upload_packets`
+  `func_L00_002A2258`; `capture_draw_buffer` `func_L00_001F9D40` calls the first). The pause menu and the
+  vendor read the frame back when they open and write it back under the menu every frame, and read none
+  of it. With a window the read is `openrac_frame_snapshot_world` and the write a whole-target opaque
+  `openrac_frame_picture` at the cursor the packets would have used (`D_L00_00161280`, which equals the
+  list cursor in the runs); no image store or load is sent. Checked in hidden runs on Novalis: the pause
+  menu (Start) and the Gadgetron vendor (Triangle) look as before (the vendor frames differ by a mean of
+  0.0 to 0.6 of 255, `r2-progress/rac1-pause-*`, `rac1-vendor-*`).
+
+Still residual on rac1: the render-to-texture routine `func_001FB608` (`setup_render_target`) and the
+centred background `func_001FB908` that the vendor's monitors use. Their panels are drawn into an
+off-screen block by game packets and shown by `DrawTexturedQuad` of the capture texture. A native version
+is a recorded panel (`openrac_frame_target_begin` where `configure_capture_target` runs, `..._end` where
+`begin_draw_frame` puts the draw environment back, the quad a picture of the panel at the same
+rectangle), but the panel's text and mobys are recorded through the 2D-quad and moby-marker streams, not
+as frame commands, so whether they land inside the panel is not settled by the recorder's contract: that
+needs window-side work first. Going Commando's Ship Shack and pause panels (`menu_draw_pause_panels`,
+`gfx_setup_screen_copy_draw_state` `func_00280510` ... `gfx_run_screen_effect_setup`, then a
+`DrawTexturedQuad` of `g_quad_texture`) and the cockpit screen's 256 x 256 target
+(`gfx_setup_offscreen_target` `func_0027B9C0`) are the same shape on `func_00285030`.
