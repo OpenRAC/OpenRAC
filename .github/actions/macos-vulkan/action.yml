@@ -1,0 +1,7 @@
+name: macOS Vulkan dependencies
+description: Install Ninja and the MoltenVK driver on macOS
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: brew install -q ninja molten-vk

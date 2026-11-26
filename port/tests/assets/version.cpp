@@ -11,7 +11,7 @@
 using namespace openrac::assets;
 
 int main() {
-    CHECK(versions().size() == 10);
+    CHECK(versions().size() == 11);
     const GameVersion* pal = find_version("rac1-pal");
     CHECK(pal != nullptr);
     if (pal) {
@@ -53,6 +53,14 @@ int main() {
     }
     const GameVersion* rac4 = find_version("rac4/ntsc");
     CHECK(rac4 != nullptr && rac4->game == Game::Rac4 && rac4->frame_rate == 60);
+    // Deadlocked's PAL disc, Ratchet: Gladiator: known by its boot, at 50 Hz.
+    const GameVersion* gladiator = find_version("rac4-pal");
+    CHECK(gladiator != nullptr);
+    if (gladiator) {
+        CHECK(gladiator->game == Game::Rac4 && gladiator->serial == "SCES_532.85");
+        CHECK(gladiator->region == Region::Pal && gladiator->frame_rate == 50);
+        CHECK(find_version_by_boot(gladiator->serial, gladiator->boot_sha1) == gladiator);
+    }
     CHECK(find_version_by_boot("SCES_509.16", "00") == nullptr);
     Game game{};
     CHECK(game_of_serial("SCES_524.56", game) && game == Game::Rac3);

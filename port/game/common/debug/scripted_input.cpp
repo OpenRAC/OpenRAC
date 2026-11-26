@@ -65,12 +65,23 @@ void push_pointer(const ScriptedInput& input, SDL_WindowID window) {
         return;
     }
 
+    // The motion from the last scripted spot, so that a captured mouse turns too.
+    static std::optional<ImVec2> last;
+    const float xrel = last ? input.x - last->x : 0.0f;
+    const float yrel = last ? input.y - last->y : 0.0f;
+    last = ImVec2{input.x, input.y};
     s.script_pointer = ImVec2{input.x, input.y};
+    // SDL's own cursor goes there too: a pushed event leaves SDL_GetMouseState where it was.
+    if (SDL_Window* w = SDL_GetWindowFromID(window)) {
+        SDL_WarpMouseInWindow(w, input.x, input.y);
+    }
     event.type = SDL_EVENT_MOUSE_MOTION;
     event.motion.windowID = window;
     event.motion.which = kScriptMouse;
     event.motion.x = input.x;
     event.motion.y = input.y;
+    event.motion.xrel = xrel;
+    event.motion.yrel = yrel;
     SDL_PushEvent(&event);
 
     if (input.action == ScriptedAction::Move) {

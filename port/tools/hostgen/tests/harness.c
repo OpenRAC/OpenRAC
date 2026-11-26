@@ -222,6 +222,10 @@ void openrac_ee_lost(const char* function, uint32_t target) {
     printf("lost %s %08X\n", function, target);
 }
 
+void openrac_ee_dma_register(const char* function, uint32_t at, uint32_t address) {
+    printf("dma register %s %08X %08X\n", function, at, address);
+}
+
 /* What the tests' C calls to print (host functions; names other than func_
  * get the game_ prefix in the port, port/tools/hostgen/program.py). */
 void game_test_print(int v) {
@@ -249,6 +253,7 @@ int main(void) {
     mprotect(openrac_guest_base, GUEST_RAM_SIZE, PROT_READ | PROT_WRITE);
     mprotect(openrac_guest_base + GUEST_PORT, GUEST_PORT_SIZE, PROT_READ | PROT_WRITE);
     mprotect(openrac_guest_base + GUEST_VU_MEM, GUEST_VU_MEM_SIZE, PROT_READ | PROT_WRITE);
+    mprotect(openrac_guest_base + GUEST_SCRATCHPAD, GUEST_SCRATCHPAD_SIZE, PROT_READ | PROT_WRITE);
     openrac_game_register_functions();
     return game_test_main();
 }

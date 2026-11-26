@@ -113,11 +113,14 @@ json::Value seed_plan(const ProbeBatchOptions& options, const json::Value& reque
     inputs["options"] = request["region_settings"];
     const auto query = bake_json::object_value(inputs);
     // Local allocation policy must not control reflection anchor density or availability.
-    const auto purpose = coverage ? RegionPlanPurpose::Coverage : RegionPlanPurpose::FloorAnchors;
+    const bool watershed =
+        coverage && std::filesystem::exists(options.output_directory / "interior-inference.json");
+    const auto purpose =
+        coverage && !watershed ? RegionPlanPurpose::Coverage : RegionPlanPurpose::FloorAnchors;
     auto plan = planned_seeds(options, query, purpose);
 
     // Disabling moby GI seeds must not remove the independent reflection floor anchors.
-    if (coverage && reflections && plan["moby_seeds"].items().empty()) {
+    if (coverage && !watershed && reflections && plan["moby_seeds"].items().empty()) {
         const auto anchors = planned_seeds(options, query, RegionPlanPurpose::FloorAnchors);
         auto fields = plan.members();
         fields["floor_anchors"] = anchors["moby_seeds"];
@@ -242,8 +245,8 @@ std::string transport_regions(const json::Value& plan) {
         if (!region["lattice_bounds"].is_null()) {
             fields["lattice_bounds"] = region["lattice_bounds"];
         }
-        if (!region["fit_to_floor"].is_null()) {
-            fields["fit_to_floor"] = region["fit_to_floor"];
+        if (region["authored"].boolean()) {
+            fields["authored"] = region["authored"];
         }
 
         // JSON elements are separated without a trailing comma.
@@ -312,10 +315,6 @@ json::Value complete_report(const ProbeBatchOptions& options, const json::Value&
         for (const auto& region : settings["authored"].items()) {
             const auto& bounds = region["bounds"];
             const auto axes = spacing(region["spacing"]);
-            const auto& fit_to_floor = region["fit_to_floor"];
-            if (!fit_to_floor.is_null() && fit_to_floor.type() != json::Value::Type::Bool) {
-                throw std::runtime_error("authored probe fit_to_floor must be a boolean");
-            }
             if (bounds.items().size() != 6) {
                 throw std::runtime_error("authored probe bounds require six coordinates");
             }
@@ -333,7 +332,13 @@ json::Value complete_report(const ProbeBatchOptions& options, const json::Value&
             if (probes > settings["max_probes"].number()) {
                 throw std::runtime_error("authored probe volume exceeds the per-region budget");
             }
-            regions.push_back(region);
+            regions.push_back(
+                bake_json::object_value(
+                    {{"bounds", bounds},
+                     {"spacing", region["spacing"]},
+                     {"authored", parsed("true")}}
+                )
+            );
         }
     }
     std::string region_json = "[";
@@ -351,6 +356,7 @@ json::Value complete_report(const ProbeBatchOptions& options, const json::Value&
     }
 
     fields["region_settings"] = settings;
+    fields["placement_algorithm"] = parsed("5");
     fields["bake_profile"] = request["profile"];
     fields["scene_hash"] = request["scene_hash"];
     fields["emission"] = request["emission"];
@@ -379,6 +385,15 @@ Result<std::string> prepare_final_plan(
             {"scene_hash", request["scene_hash"]},
             {"regions", parsed(transport_regions(report))},
             {"adaptive_density", density},
+            {"island_policy",
+             bake_json::object_value(
+                 {{"enabled", settings["enabled"]},
+                  {"spacing", request["profile"]["dense_spacing"]},
+                  {"maximum_probes", settings["max_probes"]},
+                  {"maximum_regions", settings["max_regions"]},
+                  {"coarse_padding", settings["coarse_padding"]},
+                  {"coarse_bounds", settings["coarse_bounds"]}}
+             )},
             {"registration",
              bake_json::object_value(
                  {{"bake_profile", request["profile"]}, {"emission", request["emission"]}}

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   backgroundStatus,
   isGame,
@@ -15,7 +16,11 @@ import {
 } from "./progress";
 
 const out = (...lines: string[]) => lines.map((line) => ({ stream: "stdout" as const, line }));
-const job = (actionId: string, state: "queued" | "running" = "running", startedAt: number | null = 0) => ({
+const job = (
+  actionId: string,
+  state: "queued" | "running" = "running",
+  startedAt: number | null = 0,
+) => ({
   actionId,
   state,
   startedAt,
@@ -39,28 +44,43 @@ describe("phaseLabel", () => {
   });
 
   it("says a queued job is waiting, whatever it is", () => {
-    expect(phaseLabel(job("port-build", "queued", null))).toBe("Waiting for another task to finish");
+    expect(phaseLabel(job("port-build", "queued", null))).toBe(
+      "Waiting for another task to finish",
+    );
   });
 });
 
 describe("readProgress", () => {
   it("reads the lighting bake's levels done (bake_all.py)", () => {
-    const p = readProgress("probe-bake", out("[3/19] level_04: baked", "region-002.bake", "sparse.verify"));
+    const p = readProgress(
+      "probe-bake",
+      out("[3/19] level_04: baked", "region-002.bake", "sparse.verify"),
+    );
+
     expect(p.percent).toBeCloseTo(15.79, 1);
   });
 
   it("reads the whole bake's share and the time left (bake_all.py, show_progress)", () => {
     const p = readProgress(
       "probe-bake",
-      out("[3/19] level_04: baked", "Lighting 42.5% (about 12 minutes left)", "Baking region-003.orpg"),
+      out(
+        "[3/19] level_04: baked",
+        "Lighting 42.5% (about 12 minutes left)",
+        "Baking region-003.orpg",
+      ),
     );
+
     expect(p.percent).toBeCloseTo(42.5, 1);
     expect(p.left).toBe("about 12 minutes left");
     expect(readProgress("probe-bake", out("Lighting 0.0%")).left).toBeNull();
   });
 
   it("reads ninja's [n/m] counter", () => {
-    const p = readProgress("port-build", out("[1/4] a", "[1351/2273] Building C object CMakeFiles/x.o"));
+    const p = readProgress(
+      "port-build",
+      out("[1/4] a", "[1351/2273] Building C object CMakeFiles/x.o"),
+    );
+
     expect(p.percent).toBeCloseTo(59.43, 1);
   });
 
@@ -76,11 +96,14 @@ describe("readProgress", () => {
   });
 
   it("ignores lines that only look like counters", () => {
-    expect(readProgress("x", out("[error] 0/0", "see page [2/3] of the manual")).percent).toBeNull();
+    expect(
+      readProgress("x", out("[error] 0/0", "see page [2/3] of the manual")).percent,
+    ).toBeNull();
   });
 
   it("counts the levels the reader has finished, without a total", () => {
     const lines = out("level 03: 9 meshes", "level 00: 1 meshes");
+
     expect(readProgress("port-levels", lines)).toEqual({ percent: null, note: "2 levels read" });
     expect(readProgress("port-levels", out("level 03: x")).note).toBe("1 level read");
     expect(readProgress("port-build", lines).note).toBeNull();
@@ -95,6 +118,7 @@ describe("readProgress", () => {
 describe("tailLines", () => {
   it("keeps the last lines, oldest first", () => {
     const lines = out(...Array.from({ length: 20 }, (_, i) => `l${i}`));
+
     expect(tailLines(lines)).toEqual(["l12", "l13", "l14", "l15", "l16", "l17", "l18", "l19"]);
     expect(tailLines(out("a"))).toEqual(["a"]);
   });
@@ -132,7 +156,7 @@ describe("backgroundStatus", () => {
   });
 });
 
-describe("the editor tools' progress lines (editor/progress_line.py)", () => {
+describe("the editor tools' progress lines (extractor/progress_line.py)", () => {
   it("reads a step, its count and its level", () => {
     expect(parseProgress(`${PROGRESS_LINE}read 3/18 4`)).toEqual({
       step: "read",
@@ -141,8 +165,16 @@ describe("the editor tools' progress lines (editor/progress_line.py)", () => {
       total: 18,
       level: 4,
     });
-    expect(parseProgress(`${PROGRESS_LINE}pack 0/2`)).toMatchObject({ done: 0, total: 2, level: null });
-    expect(parseProgress(`${PROGRESS_LINE}project`)).toMatchObject({ step: "project", done: null, total: null });
+    expect(parseProgress(`${PROGRESS_LINE}pack 0/2`)).toMatchObject({
+      done: 0,
+      total: 2,
+      level: null,
+    });
+    expect(parseProgress(`${PROGRESS_LINE}project`)).toMatchObject({
+      step: "project",
+      done: null,
+      total: null,
+    });
   });
 
   it("leaves other lines, unknown steps and impossible counts alone", () => {
@@ -159,6 +191,7 @@ describe("the editor tools' progress lines (editor/progress_line.py)", () => {
       `${PROGRESS_LINE}carry 1/4 3`,
       "noise",
     );
+
     expect(toolProgress(lines)).toMatchObject({ step: "carry", done: 1, total: 4, level: 3 });
     expect(progressPercent(toolProgress(lines))).toBe(25);
     expect(readProgress("editor-extract", lines).percent).toBe(25);
@@ -172,10 +205,13 @@ describe("the editor tools' progress lines (editor/progress_line.py)", () => {
 
   it("guesses the time left only after two levels and a few seconds", () => {
     const first = { step: "read", done: 1, at: 0 };
+
     expect(timeLeft(first, { step: "read", done: 2, at: 10_000 }, 18)).toBeNull();
     expect(timeLeft(first, { step: "read", done: 3, at: 2_000 }, 18)).toBeNull();
     expect(timeLeft(first, { step: "read", done: 3, at: 20_000 }, 18)).toBe("about 3 minutes left");
-    expect(timeLeft(first, { step: "read", done: 17, at: 20_000 }, 18)).toBe("less than a minute left");
+    expect(timeLeft(first, { step: "read", done: 17, at: 20_000 }, 18)).toBe(
+      "less than a minute left",
+    );
     expect(timeLeft(first, { step: "carry", done: 3, at: 20_000 }, 18)).toBeNull();
   });
 });

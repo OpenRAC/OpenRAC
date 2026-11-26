@@ -222,7 +222,9 @@ void EnvironmentProbeMerger::consider_orientations(
 
         for (auto frame :
              {m_probes[search.pair.a].frame, m_probes[search.pair.b].frame, ProbeFrame{}}) {
-            if (frame.axis == m_floors[origin].frame.axis) {
+            if (frame.axis == m_floors[origin].frame.axis
+                && frame.pitch == m_floors[origin].frame.pitch
+                && frame.roll == m_floors[origin].frame.roll) {
                 continue;
             }
 

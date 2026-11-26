@@ -1,0 +1,19 @@
+# Going Commando: moby classes that keep the game's own draw distance at every Draw distance.
+# A longer Draw distance shows mobys the game would hide. Some classes need that hiding: the game
+# parks them out of sight, or their data puts them far away. List such a class here.
+# Fields, split by tabs: class number, levels, name, reason. game/common/draw_distance_list.h reads
+# it. The reason says what goes wrong when the class is drawn farther.
+# class	levels	name	reason
+2163	levels with an Electrolyzer puzzle	Electrolyzer board rotator (0x873)	The game parks each board out of sight (Barlow's at z 31 under the floor). Only the pieces' short draw distances (64, 128) keep them hidden there.
+2198	levels with an Electrolyzer puzzle	Electrolyzer board controller (0x896, func_L02_003C26F0)	As 2163: a parked board piece.
+2596	levels with an Electrolyzer puzzle	Electrolyzer board gate (0xA24)	As 2163: a parked board piece.
+2645	levels with an Electrolyzer puzzle	Electrolyzer board platform (0xA55)	As 2163: a parked board piece.
+2809	levels with an Electrolyzer puzzle	Electrolyzer board piece	As 2163: a parked board piece.
+2810	levels with an Electrolyzer puzzle	Electrolyzer board piece	As 2163: a parked board piece.
+2811	levels with an Electrolyzer puzzle	Electrolyzer board piece	As 2163: a parked board piece.
+2812	levels with an Electrolyzer puzzle	Electrolyzer board piece	As 2163: a parked board piece.
+2813	levels with an Electrolyzer puzzle	Electrolyzer board piece	As 2163: a parked board piece.
+2819	levels with an Electrolyzer puzzle	Electrolyzer board piece	As 2163: a parked board piece.
+2894	levels with an Electrolyzer puzzle	Electrolyzer board piece	As 2163: a parked board piece.
+3927	Grelbin	Arctic Leviathan (0xF57, update func_L19_004160A0)	Waits under the ice and bursts out when the hero comes near. Drawn farther, the sleeping ones show from far away before they come out.
+4304	Grelbin	Y.E.T.I. (0x10D0, update func_L19_0041B078)	The game shows and runs them only near the hero. Drawn farther, the sleeping ones show from far away, standing still where they wait.

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from disc import Disc, LEVEL_COUNT, SECTOR
+from openrac_common import disc_files
 from extract import export_port_level, export_port_title, export_port_flight, levels_stamp_name
 from occlusion import write_stamp
 from port import levels_format
@@ -30,6 +31,9 @@ def prepare(data_folder, progress, engine):
             if entry["name"] == "SYSTEM.CNF":
                 (iso.parent / "SYSTEM.CNF").write_bytes(disc.read(entry["lba"] * SECTOR, entry["bytes"]))
         survey = disc.survey()
+    # The disc's files and their sector map: the game reads these, never the image.
+    progress("Écriture des fichiers du disque…")
+    disc_files.write_disc(iso, iso.parent, engine["game"], engine["bootFile"], log=lambda _: None)
     levels = data / engine["levels"]
     levels.mkdir(parents=True)
     for number in range(LEVEL_COUNT):

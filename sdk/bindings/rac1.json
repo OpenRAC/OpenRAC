@@ -344,6 +344,39 @@
       "about": "Loads a level's gameplay file into the level heap (LoadLevelGameplay), once per level start: the settings, the placed mobys and their pvars, the spare moby pool, the paths and the rest; returns the heap cursor. After it, every placed moby exists and none has run."
     },
     {
+      "id": "rac1.level.update_play",
+      "name": "Level_UpdatePlay",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_L00_00299250",
+        "ntsc": "FUN_L00_00297f78"
+      },
+      "about": "The level's tick in play (handle_pause_input, game mode 0): the pause, freeze and help triggers, then the mobys, the hero, the particles, the camera, the sound, the HUD's elements and the frame counters. A replacement that returns without calling the original holds the world for that tick, as the game's own change of mode does (a mod's menu over a frozen world: the freeze mode, rac1.freeze.update)."
+    },
+    {
+      "id": "rac1.freeze.update",
+      "name": "Freeze_Update",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_001FD3E8",
+        "ntsc": "FUN_001fce28"
+      },
+      "about": "The freeze mode's tick (update_mode_freeze, game mode 4, entered by mode_freeze_init(kind, ...)): the help, prompt and dialog screens over a frozen world, by mode_freeze_info's kind (0 to 8 are the game's). It runs the sound and, once the mode has been left, puts the sounds and the music back on. A mod's own kind runs here, before or after the original."
+    },
+    {
+      "id": "rac1.freeze.draw",
+      "name": "Freeze_Draw",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_L00_001F9248",
+        "ntsc": "FUN_L00_001f8ec8"
+      },
+      "about": "The freeze mode's picture (draw_dialog_background_and_text): the frozen world drawn again with the HUD (the draw mask 0x100FF), then the freeze dialog's dim and box (draw_freeze_message_box). A mod's own freeze kind draws its own here."
+    },
+    {
       "id": "rac1.player.approach_speed",
       "name": "Hero_ApproachSpeed",
       "signature": "void(f32,f32)",
@@ -806,7 +839,274 @@
         "pal": "func_00239A00",
         "ntsc": "FUN_002386e8"
       },
-      "about": "Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling."
+      "about": "Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling.",
+      "aliases": [
+        "Vendor_DrawIcons",
+        "rac1.vendor.draw_icons"
+      ]
+    },
+    {
+      "id": "rac1.vendor.draw_details",
+      "name": "Vendor_DrawDetails",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_00239CF8",
+        "ntsc": "FUN_002389e0"
+      },
+      "about": "Draws the vendor selected-item name and price panel."
+    },
+    {
+      "id": "rac1.ui.icon_frame",
+      "name": "UI_IconFrame",
+      "signature": "i32(i32,i32)",
+      "params": [
+        "icon",
+        "frame"
+      ],
+      "symbols": {
+        "pal": "func_00200198",
+        "ntsc": "FUN_001ff960"
+      },
+      "about": "Resolves an icon and animation frame to its HUD sprite frame."
+    },
+    {
+      "id": "rac1.npc.try_dialog",
+      "name": "NPC_TryDialog",
+      "signature": "i32(u32,u32)",
+      "params": [
+        "moby",
+        "request"
+      ],
+      "symbols": {
+        "pal": "func_L00_00267290",
+        "ntsc": "FUN_L00_00266448"
+      },
+      "about": "Tests an NPC interaction request; identifies the owner of a purchase dialogue."
+    },
+    {
+      "id": "rac1.ui.sprite.draw",
+      "name": "UI_DrawSprite",
+      "signature": "void(i32,i32,i32,i32,i32,i32)",
+      "params": [
+        "frame",
+        "x",
+        "y",
+        "width",
+        "height",
+        "alpha"
+      ],
+      "symbols": {
+        "pal": "func_00200468",
+        "ntsc": "FUN_001ffc30"
+      },
+      "about": "Draws a HUD sprite as one packed GIF packet."
+    },
+    {
+      "id": "rac1.pickup.start_scene",
+      "name": "Pickup_StartScene",
+      "signature": "void(i32)",
+      "params": [
+        "scene"
+      ],
+      "symbols": {
+        "pal": "func_L00_00299B68",
+        "ntsc": "FUN_L00_00298840"
+      },
+      "about": "Reward acquisition presentation."
+    },
+    {
+      "id": "rac1.gold_case.start_demo",
+      "name": "GoldCase_StartDemo",
+      "signature": "void(u32,i32)",
+      "params": [
+        "moby",
+        "item"
+      ],
+      "symbols": {
+        "pal": "func_L01_002AFD00",
+        "ntsc": "FUN_L01_002aea70"
+      },
+      "about": "Reward acquisition presentation."
+    },
+    {
+      "id": "rac1.player.enter_move_state",
+      "name": "Hero_EnterMoveState",
+      "signature": "i32(i32,i32)",
+      "params": [
+        "state",
+        "force"
+      ],
+      "symbols": {
+        "pal": "func_L00_00222B80",
+        "ntsc": "FUN_L00_002223f8"
+      },
+      "copies": {
+        "pal": [
+          "func_L01_0023D688",
+          "func_L02_0022BE40",
+          "func_L03_00216D38",
+          "func_L05_0024D680",
+          "func_L06_00235E08",
+          "func_L08_00231228",
+          "func_L11_0024E240",
+          "func_L12_002407C0",
+          "func_L14_002306C8",
+          "func_L15_00217348",
+          "func_L16_0021EA88",
+          "func_L17_0021ED38",
+          "func_L18_002284E0"
+        ],
+        "ntsc": [
+          "FUN_L01_0023cf98",
+          "FUN_L02_0022b728",
+          "FUN_L03_00216648",
+          "FUN_L05_0024cee8",
+          "FUN_L06_002356a0",
+          "FUN_L08_00230b38",
+          "FUN_L11_0024db50",
+          "FUN_L12_002400d0",
+          "FUN_L14_0022ff58",
+          "FUN_L15_00216c38",
+          "FUN_L16_0021e398",
+          "FUN_L17_0021e530",
+          "FUN_L18_00227dd0"
+        ]
+      },
+      "about": "Puts the hero into a move state (+0x2084): HeroEnterMoveState in levels 0, 4, 7, 9, 10 and 13, and each other level's own copy of it (hero_set_state), one hook point. It keeps the states before it, clears the item locks (+0x20AC, and +0x20A7 when he is not in a vehicle), sets up the new state's control mode and motion, and starts its animation when force is non-zero. It refuses the change and returns 0 while the hero is dying or in a cutscene, unless force is 2, and for most states while he falls or is hurt with no health left; else it returns 1, or 0 where it passes him on to another state. Every change of his state goes through it: his update, his items, and the mobys and triggers that move him. A replacement can send him to another state by calling the original with that state (0x3F is the slow magnet walk on magnetic ground). Under a multiplayer stand-in the port's guard (hero_grab.c) takes the call first, and a mod does not see it."
+    },
+    {
+      "id": "rac1.player.resolve_gravity_mode",
+      "name": "Hero_ResolveGravityMode",
+      "signature": "i32()",
+      "params": [],
+      "symbols": {
+        "pal": "func_L00_00233CC0",
+        "ntsc": "FUN_L00_00233440"
+      },
+      "about": "The hero's gravity mode for the tick, which Hero_UpdateMotionInput stores at +0x20B3 as it starts: 0 pulls him along the world's down, 1 along the ground's normal (magnetic ground), 2 along the vector at +0x290. It returns +0x308, which the ground's update sets to 1 on magnetic ground with the Magneboots, but 1 in states 0x3F (the magnet walk), 0x70 and 0x71, and in state 0 on magnetic ground with the Magneboots while he has been in the air for under 4 ticks. Once a tick, in every level."
+    },
+    {
+      "id": "rac1.player.update_equipped_items",
+      "name": "Hero_UpdateEquippedItems",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_L00_00210FE0",
+        "ntsc": "FUN_L00_00210928"
+      },
+      "about": "What the hero holds, once a tick from Hero_Update in every level: it locks item selection and use (+0x20A7, +0x20AC) while he is on magnetic ground with the Magneboots (+0x308 is 1), in control modes 0x15 and 0x16, or in water or dying, then spawns, updates, animates and lights the item mobys and runs the items (hero_update_items). Hero_EnterMoveState clears both locks on a change of state."
+    },
+    {
+      "id": "rac1.player.steer_planar_velocity",
+      "name": "Hero_SteerPlanarVelocity",
+      "signature": "void(f32)",
+      "params": [
+        "step"
+      ],
+      "symbols": {
+        "pal": "func_L00_00214520",
+        "ntsc": "FUN_L00_00213e68"
+      },
+      "copies": {
+        "pal": [
+          "func_L01_00234970"
+        ],
+        "ntsc": [
+          "FUN_L01_00234358"
+        ]
+      },
+      "about": "Steers the hero's planar velocity (+0xE0) toward his target speed (+0x190) along his move yaw (+0x180), by at most step a tick, up to three times that as it turns him (1.7 times in state 0x81); in gravity modes 1 and 2 it eases the velocity's length along the ground toward his target speed by step instead. steer_hero_planar_velocity in levels 0, 4, 7, 9, 10, 12, 13, 14 and 17, and its copy air_accel in the others, one hook point. The move states call it after setting the target speed and the step, the Thruster-Pack's hover (state 0x81) among them, so a replacement can steer the hero at a speed and acceleration of its own."
+    },
+    {
+      "id": "rac1.player.update_movement",
+      "name": "Hero_UpdateMovement",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_L00_002180F8",
+        "ntsc": "FUN_L00_00217970"
+      },
+      "copies": {
+        "pal": [
+          "func_L01_002377A8",
+          "func_L02_00226338",
+          "func_L03_0020F650",
+          "func_L05_00245208",
+          "func_L06_0022E788",
+          "func_L08_00228BD0",
+          "func_L11_00247260",
+          "func_L12_00238FF0",
+          "func_L14_00229440",
+          "func_L15_0020F460",
+          "func_L16_00214C88",
+          "func_L17_00214F68",
+          "func_L18_0021F1D8"
+        ],
+        "ntsc": [
+          "FUN_L01_002370b8",
+          "FUN_L02_00225c20",
+          "FUN_L03_0020ef60",
+          "FUN_L05_00244a70",
+          "FUN_L06_0022e020",
+          "FUN_L08_002284e0",
+          "FUN_L11_00246b70",
+          "FUN_L12_00238900",
+          "FUN_L14_00228cd0",
+          "FUN_L15_0020ed50",
+          "FUN_L16_00214598",
+          "FUN_L17_00214760",
+          "FUN_L18_0021eac8"
+        ]
+      },
+      "about": "The hero's movement for the state he is in (+0x2084), once a tick from Hero_UpdateMotionInput after it reads the stick: a case per state that sets his target speed and turn, steers or sets his velocity (+0xE0) and applies gravity, the Thruster-Pack's hover (state 0x81) among them. hero_update_movement in levels 0, 4, 7, 9, 10 and 13, and each other level's own build of it, one hook point. A replacement can move the hero itself in the states it wants and call the original for the others; his state's transitions come after it, later in Hero_Update."
+    },
+    {
+      "id": "rac1.fx.world_quad.draw",
+      "name": "FX_DrawWorldQuad",
+      "signature": "void(u32,u32,i32)",
+      "params": [
+        "quad",
+        "matrix",
+        "mode"
+      ],
+      "symbols": {
+        "pal": "func_L00_001FD1D8",
+        "ntsc": "func_L00_001FD228"
+      },
+      "about": "Queues one effect quad for the effect renderer (draw_world_quad): the 0x90-byte record at quad holds four corners (+0x00, x y z w each), four RGBA words (+0x40, alpha 0x80 opaque), four ST pairs (+0x50), then the GS words CLAMP, TEX0 (the texture), TEX1 and ALPHA (+0x70, +0x78, +0x80, +0x88); the corners go through the matrix at matrix when it is not 0. Most effects' draw callbacks call it, many times a frame: glows, flames, beams, shots. A replacement can rewrite the record (its colours, say) before it calls the original; the record is the caller's, which may draw it again. The port's own C, not the game's: the executable's quad routine, which a few draws call directly, is not this hook point."
+    },
+    {
+      "id": "rac1.fx.thruster_flame.draw",
+      "name": "FX_ThrusterFlame_Draw",
+      "signature": "void(u32)",
+      "params": [
+        "flame"
+      ],
+      "symbols": {
+        "pal": "func_L00_002B4918",
+        "ntsc": "FUN_L00_002b3628"
+      },
+      "about": "Draws one of the Thruster-Pack's two flames (flame, a class 0xA7 moby; draw_joint_aligned_beam_effect), the draw callback its update queues each frame it burns: two quads of effect texture 0xC in the colour 0x80808080 and a glow of texture 0xB in 0x7F2020FF, through rac1.fx.world_quad.draw, then a ribbon of 196 points coloured from the table joint_beam_ribbon_colors. A replacement that sets a flag around the original can tell the flame's quads from the others in rac1.fx.world_quad.draw. The flame's sparks come from its update (rac1.moby.moby167.update) through rac1.fx.burst.spawn."
+    },
+    {
+      "id": "rac1.fx.burst.spawn",
+      "name": "FX_SpawnBurst",
+      "signature": "u32(u32,u32,i32,i32,i32,i32,f32)",
+      "params": [
+        "pos",
+        "dir",
+        "colour",
+        "fade",
+        "ticks",
+        "children",
+        "size"
+      ],
+      "symbols": {
+        "pal": "func_L00_0026DA50",
+        "ntsc": "FUN_L00_0026cbb0"
+      },
+      "about": "Spawns a spark (a type 0x15 particle; spawn_burst) at the vector at pos, moving by the vector at dir, for ticks ticks (none when 0): its RGBA colour fades from colour to fade as it shrinks from size, and while children is non-zero it throws off a spark of its current colour every other frame. Returns the particle, or 0. The sparks of many effects, explosions and debris among them; the Thruster-Pack's flames spawn theirs in 0x4F007FFF fading to 0x1FFFFFFF from their update (rac1.moby.moby167.update), so a replacement can recolour only those by swapping colour and fade while that update runs."
     }
   ],
   "bases": {

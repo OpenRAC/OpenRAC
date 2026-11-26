@@ -1,0 +1,240 @@
+{
+  "format": 1,
+  "about": "Ratchet & Clank: Up Your Arsenal's binding for mods (docs/port/MODS.md, sections 4 and 11): its hook points. sdk/tools/gen_binding.py writes port/game/rac3/script_binding.c, sdk/include/openrac/games/rac3.hpp and sdk/types/rac3.d.luau from it, with every hook point's permanent id and aliases (rac3.ids.lock); --check holds the hook points to the hook rows of port/game/rac3-<disc>/libraries.tsv. Symbols are each disc's: PAL first, where the ids are anchored (its level functions by the level catalogue's names, one function in every level), NTSC-U as port/tools/hostgen/release_carry_rac3.py carries PAL's rows. An id reuses Going Commando's <area>.<name> for the same job (openrac-mods docs/MULTI_GAME.md).",
+  "game": "rac3",
+  "discs": [
+    "pal",
+    "ntsc"
+  ],
+  "hooks": [
+    {
+      "id": "rac3.player.take_damage",
+      "name": "Hero_TakeDamage",
+      "signature": "void(i32)",
+      "params": [
+        "amount"
+      ],
+      "symbols": {
+        "pal": "func_L01_004DFEA0",
+        "ntsc": "func_L01_004DC1C0"
+      },
+      "about": "Takes a hit's points from the hero's health (the s32 at 0x001A7430, hero +0x2850), scaled by the armour's factor and the help measure's, at least 1 and never below 0 (hero_damage); the hero's hit reaction calls it for each hit. Going Commando's rac2.player.take_damage."
+    },
+    {
+      "id": "rac3.item.give",
+      "name": "Item_Give",
+      "signature": "void(i32)",
+      "params": [
+        "id"
+      ],
+      "symbols": {
+        "pal": "func_L01_00419188",
+        "ntsc": "func_L01_00416B38"
+      },
+      "about": "Gives the player item id (item_give): its owned and new bytes (0x00142CA0, 0x00142D40, a byte per item), its row's starting ammo to a gun that has none, the vendor's list (Vendor_StockAdd) and the quick select. Givers, purchases and each level's start (Level_GiveItems) go through it."
+    },
+    {
+      "id": "rac3.item.upgrade",
+      "name": "Item_Upgrade",
+      "signature": "i32(i32)",
+      "params": [
+        "id"
+      ],
+      "symbols": {
+        "pal": "func_L01_00419D48",
+        "ntsc": "func_L01_004176F8"
+      },
+      "about": "The vendor's Mega upgrade of item id (weapon_buy_mega): its level set to 5, its ammo filled, its experience cleared. The vendor calls it after the price is paid; a replacement can carry out its own upgrade."
+    },
+    {
+      "id": "rac3.weapon.level_up",
+      "name": "Weapon_LevelUp",
+      "signature": "void(i32)",
+      "params": [
+        "id"
+      ],
+      "symbols": {
+        "pal": "func_L01_00418C90",
+        "ntsc": "func_L01_00416640"
+      },
+      "about": "Steps weapon id to its next level (weapon_level_up): its row (the item's byte at 0x001425C0) moves along the row's +0x46, its experience is raised to the old row's step and its ammo filled. A replacement that does not call the original blocks the step."
+    },
+    {
+      "id": "rac3.weapon.take_ammo",
+      "name": "Weapon_TakeAmmo",
+      "signature": "i32(i32,i32)",
+      "params": [
+        "item",
+        "amount"
+      ],
+      "symbols": {
+        "pal": "func_L01_005118D0",
+        "ntsc": "func_L01_0050D8F8"
+      },
+      "about": "Takes rounds of a gun's ammo (ammo_use; item -1: the one in hand): 1 when there were enough, 0 otherwise; always 1 for a gun without a maximum. Every gun calls it as it fires. Rac1's TakeAmmo."
+    },
+    {
+      "id": "rac3.weapon.add_ammo",
+      "name": "Weapon_AddAmmo",
+      "signature": "i32(i32,i32)",
+      "params": [
+        "item",
+        "amount"
+      ],
+      "symbols": {
+        "pal": "func_L01_00511958",
+        "ntsc": "func_L01_0050D980"
+      },
+      "about": "Adds rounds to a gun's ammo (ammo_add, the words at 0x001427F0), capped at its row's maximum (+0x8A); returns what did not fit. Ammo pickups and the vendor call it."
+    },
+    {
+      "id": "rac3.vendor.price",
+      "name": "Vendor_Price",
+      "signature": "i32()",
+      "params": [],
+      "symbols": {
+        "pal": "func_L01_004BA830",
+        "ntsc": "func_L01_004B6C98"
+      },
+      "about": "The price in bolts of the vendor's row under the cursor (vendor_price): the gun's (+0x7C of its row), its level-5 row's for a Mega row, 9/10 of it with the discount. The vendor's screen and the purchase both ask it."
+    },
+    {
+      "id": "rac3.vendor.build_list",
+      "name": "Vendor_BuildList",
+      "signature": "i32(i32)",
+      "params": [
+        "mode"
+      ],
+      "symbols": {
+        "pal": "func_L01_004BAA20",
+        "ntsc": "func_L01_004B6E88"
+      },
+      "about": "Fills the vendor's weapons rows from its stock (vendor_weapon_list): a rounds row for each owned gun that is not full, a special row, a row for each gun for sale (Mega rows in challenge mode), and keeps the cursor on its item. The vendor calls it as it opens and after a purchase."
+    },
+    {
+      "id": "rac3.vendor.stock_add",
+      "name": "Vendor_StockAdd",
+      "signature": "i32(i32)",
+      "params": [
+        "id"
+      ],
+      "symbols": {
+        "pal": "func_L01_00419248",
+        "ntsc": "func_L01_00416BF8"
+      },
+      "about": "Lists item id for the vendor (vendor_stock_add; vendor_stock at 0x001D54D8, a u16 per entry: the item, bit 15 owned, bit 14 not yet for sale). Item_Give calls it."
+    },
+    {
+      "id": "rac3.moby.record_death",
+      "name": "Moby_RecordDeath",
+      "signature": "void(u32,i32,i32)",
+      "params": [
+        "moby",
+        "hit",
+        "killer"
+      ],
+      "symbols": {
+        "pal": "func_L01_004443E8",
+        "ntsc": "func_L01_004412D0"
+      },
+      "about": "An enemy's death (moby_killed): its class's experience to the gun that killed it (by its damage record), the hero's experience and its bolt drop (Bolt_SpawnPickups). Enemies call it as they die. Going Commando's rac2.moby.record_death."
+    },
+    {
+      "id": "rac3.combat.post_hit",
+      "name": "Moby_PostHit",
+      "signature": "void(u32,u32)",
+      "params": [
+        "victim",
+        "record"
+      ],
+      "symbols": {
+        "pal": "func_L01_00446978",
+        "ntsc": "func_L01_00443840"
+      },
+      "about": "Queues a damage record (a game address) for moby victim in the hit ring (damage_queue; 0x001EED00, 64 entries): a moby keeps one pending (+0xA8), which a hit at least as strong replaces and a weaker one only adds its flags to. The guns and the shock mod call it. Going Commando's rac2.combat.post_hit."
+    },
+    {
+      "id": "rac3.bolt.spawn_pickups",
+      "name": "Bolt_SpawnPickups",
+      "signature": "void(u32,i32,i32,i32,i32,i32,f32)",
+      "params": [
+        "moby",
+        "low",
+        "high",
+        "flags",
+        "surface",
+        "maximum",
+        "height"
+      ],
+      "symbols": {
+        "pal": "func_L01_0044D360",
+        "ntsc": "func_L01_0044A0E8"
+      },
+      "about": "Spawns a burst of bolt coins from moby (bolts_drop): an amount from low to high split into the biggest coins that fit, each made by Bolt_SpawnPickup; flag 8 at most maximum coins (the rest banked, 0x0014269C). Enemies' drops (Moby_Killed) and the levels' scripted bursts come here. A replacement can change low and high, or make the coins itself."
+    },
+    {
+      "id": "rac3.bolt.spawn_pickup",
+      "name": "Bolt_SpawnPickup",
+      "signature": "i32(i32,i32,i32,i32,i32,i32)",
+      "params": [
+        "source",
+        "position",
+        "velocity",
+        "flags",
+        "value",
+        "counted"
+      ],
+      "symbols": {
+        "pal": "func_L01_002F8F20",
+        "ntsc": "func_L01_002F8F60"
+      },
+      "about": "Makes one bolt coin worth value at position with velocity (game addresses of four floats each) from source (bolt_coin_spawn): its moby, or 0; 64 units or more from the camera the value is banked instead."
+    },
+    {
+      "id": "rac3.bolt.collect",
+      "name": "Bolt_Collect",
+      "signature": "i32(i32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "pal": "func_L01_002F88E0",
+        "ntsc": "func_L01_002F8918"
+      },
+      "about": "A bolt coin collected (bolt_pickup_collect): its value added to the player's bolts (0x00142660), the bolt HUD shown for 180 frames and its sparkle. The coin's update calls it as it reaches the hero. A replacement can add more with openrac_api.bolts."
+    },
+    {
+      "id": "rac3.level.load",
+      "name": "Level_Load",
+      "signature": "i32()",
+      "params": [],
+      "symbols": {
+        "pal": "func_L01_004D7658",
+        "ntsc": "func_L01_004D3998"
+      },
+      "about": "The way to the next level (level_load, each level's copy): picks the transition for the level asked for, sets level_current (0x001D545C) and starts reading its files. Going Commando's rac2.level.load."
+    },
+    {
+      "id": "rac3.level.give_items",
+      "name": "Level_GiveItems",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_L01_004227D8",
+        "ntsc": "func_L01_004200A8"
+      },
+      "about": "A level's start (give_level_items): the standing items (the suit, the camera options, the thruster-pack) through Item_Give, then the level's own. Every level calls it as it starts."
+    },
+    {
+      "id": "rac3.player.death_done",
+      "name": "Hero_DeathDone",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "pal": "func_L01_004EDE10",
+        "ntsc": "func_L01_004EA040"
+      },
+      "about": "The hero's death over (hero_death_done: state 57 ended, or a fall out of the level): the death counted in the stats and the respawn asked for (0x001A71D2), which the level carries out at the end of the frame."
+    }
+  ]
+}

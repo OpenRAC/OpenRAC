@@ -11,8 +11,10 @@
 // The sound player the games' sound library (989snd) drives: what the
 // library's IOP side did, on the PC. A bank is loaded once; playing one of
 // its sounds starts a script of grains that runs at 240 Hz and keys tones
-// onto the mixer's voices (spu.h) at the pitch, volume and pan the script
-// and the caller ask for. The game's commands (port/game/common/lib/snd.c)
+// onto the native mixer's voices (mixer.h) at the speed, gain and pan the
+// script and the caller ask for. How many voices there are and which tone
+// gives way to which are the library's policy (its 48 voices, by priority),
+// kept here; nothing of the console's sound processor is. The game's commands (port/game/common/lib/snd.c)
 // map one for one onto the calls below.
 //
 // Not played yet, as in RAC1's banks they never occur: cross-bank references
@@ -30,9 +32,16 @@
 #include <vector>
 
 #include "assets/sound/sound_bank.h"
-#include "audio/spu.h"
+#include "audio/mixer.h"
 
 namespace openrac::audio {
+
+// The library's voice budget: at most this many tones sound at once, a new one taking the voice of
+// the lowest priority (allocate_voice).
+inline constexpr std::size_t kVoiceCount = 48;
+
+// A bank's ADPCM sample chunk, or a replacement sample encoded the same way.
+using SampleData = std::shared_ptr<const std::vector<std::uint8_t>>;
 
 // Handles are never 0: 0 is what play() and the lookups return for "none".
 using BankHandle = std::uint32_t;
@@ -95,7 +104,6 @@ public:
     BankHandle load_bank_at(
         BankHandle handle, std::span<const std::uint8_t> file, const BankReplacements& replaced = {}
     );
-    void reset_for_snapshot();
     void set_next_handles(BankHandle bank, SoundHandle sound);
     void swap_snapshot_state(SoundPlayer& other) noexcept;
 
@@ -118,20 +126,19 @@ public:
     void set_volume_pan(SoundHandle sound, std::int32_t volume, std::int32_t pan);
     void set_pitch_mod(SoundHandle sound, std::int32_t pitch_mod);
     void set_pitch_bend(SoundHandle sound, std::int32_t pitch_bend);
-    void set_register(SoundHandle sound, std::size_t which, std::int8_t value);
 
     void set_master_volume(std::size_t group, std::int32_t volume);
     // Groups by bit (bit g = group g).
     void pause_groups(std::uint32_t mask);
     void continue_groups(std::uint32_t mask);
 
-    // Renders interleaved stereo at 48 kHz, running the scripts every 200
-    // frames.
-    void render(std::span<std::int16_t> interleaved);
+    // Renders interleaved stereo at 48 kHz (float, 1 = full scale, unlimited), running the
+    // scripts every 200 frames.
+    void render(std::span<float> interleaved);
     // One script tick, without rendering (tests, and callers that mix).
     void tick();
 
-    VoiceMixer& mixer() { return m_mixer; }
+    Mixer& mixer() { return m_mixer; }
 
     // With `on`, the sounds that end by themselves (their script done and their voices released)
     // are kept for take_ended(); stop() and the others that end a sound at the caller's word keep
@@ -163,8 +170,8 @@ private:
     std::int8_t& reg(Script& s, std::int32_t which);
     void unsupported(const char* what);
 
-    // The 48 voices and the reverb that every sound's tones are keyed onto.
-    VoiceMixer m_mixer;
+    // The voices and the reverb that every sound's tones are keyed onto.
+    Mixer m_mixer;
     std::map<BankHandle, std::unique_ptr<Bank>> m_banks;
     std::map<SoundHandle, std::unique_ptr<Script>> m_scripts;
     // Per voice: which sound owns it and the tone's settings, to recompute volume and pitch.

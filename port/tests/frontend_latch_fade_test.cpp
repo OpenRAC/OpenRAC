@@ -177,9 +177,93 @@ void test_off_shows_the_target() {
     }
 }
 
+// The mouse turning the camera itself (frame_known): a quick flick, at 60 frames a second (one a
+// tick) and at 144, read by the ticks as the frames go. The picture is the kept tick's camera
+// turned on by the motion not read yet, and it must show every bit of the motion at once: no
+// easing. `game_step`: the game also turns the camera by itself at one tick, which fades.
+std::vector<float> mouse_run(double frame, float game_step, std::vector<float>* targets) {
+    LatchFade fade;
+    std::vector<float> shown;
+    long last_tick = -1;
+    float kept = 0.0f;       // the kept tick's camera heading
+    float pending = 0.0f;    // the motion's turn the ticks have not read
+    float last_kept = 0.0f;  // the kept heading the last frame showed
+    for (int i = 0; i * frame < 0.5; ++i) {
+        const double t = i * frame + 1e-9;
+        // A flick: still, then fast for 60 ms, then still.
+        pending += t > 0.1 && t < 0.16 ? 0.02f : 0.0f;
+        const long tick = static_cast<long>(std::floor(t / kTick));
+        float tick_yaw = 0.0f;
+        if (tick != last_tick && last_tick >= 0) {
+            tick_yaw = pending;
+            kept += pending + (tick == 15 ? game_step : 0.0f);
+            pending = 0.0f;
+        }
+        last_tick = tick;
+        const float target = kept + pending;
+        targets->push_back(target);
+        shown.push_back(fade.frame_known(target, last_kept + tick_yaw + pending, i > 0, frame));
+        last_kept = kept;
+    }
+    return shown;
+}
+
+void test_the_mouse_is_not_eased() {
+    for (const double frame : {kTick, 1.0 / 144.0}) {
+        std::vector<float> targets;
+        const std::vector<float> shown = mouse_run(frame, 0.0f, &targets);
+        for (std::size_t i = 0; i < shown.size(); ++i) {
+            CHECK(std::abs(shown[i] - targets[i]) < 1e-5f);
+        }
+    }
+}
+
+void test_the_game_turning_under_the_mouse_fades() {
+    std::vector<float> targets;
+    const std::vector<float> shown = mouse_run(kTick, 0.05f, &targets);
+    const std::size_t at = 15;
+    CHECK(std::abs(shown[at] - (targets[at] - 0.05f)) < 1e-5f);   // the game's step held back
+    CHECK(std::abs(shown[at + 10] - targets[at + 10]) < 0.005f);  // then faded in
+}
+
+// The mouse taking over from another camera turn (the stick's latch, a pause): its expected place
+// is not known, so the step to the mouse's picture fades as any other.
+void test_the_mouse_taking_over_fades() {
+    LatchFade fade;
+    fade.frame(0.0f, true, true, 0.0f, 0.0, true);
+    CHECK(std::abs(fade.frame_known(0.3f, 0.3f, false, kTick)) < 1e-5f);
+    CHECK(std::abs(fade.carry() + 0.3f) < 1e-5f);
+}
+
+// A gamepad player's mouse lies still: it never has the picture, so the stick keeps its latch when
+// it comes back to rest. A mouse that moves has it, and lets go a moment after it stops.
+void test_a_still_mouse_leaves_the_picture() {
+    using openrac::frontend::MouseHold;
+    MouseHold hold;
+    for (int i = 0; i < 120; ++i) {
+        CHECK(!hold.frame(true, false, kTick));
+    }
+    CHECK(hold.frame(true, true, kTick));
+    for (double t = kTick; t < MouseHold::kRestSeconds - 0.01; t += kTick) {
+        CHECK(hold.frame(true, false, kTick));
+    }
+    for (int i = 0; i < 3; ++i) {
+        hold.frame(true, false, kTick);
+    }
+    CHECK(!hold.frame(true, false, kTick));
+    // The mouse may not turn the camera (a swing, another camera): let go at once.
+    CHECK(hold.frame(true, true, kTick));
+    CHECK(!hold.frame(false, true, kTick));
+    CHECK(!hold.frame(true, false, kTick));
+}
+
 }  // namespace
 
 int main() {
+    test_a_still_mouse_leaves_the_picture();
+    test_the_mouse_taking_over_fades();
+    test_the_mouse_is_not_eased();
+    test_the_game_turning_under_the_mouse_fades();
     test_one_frame_a_tick_follows_the_camera();
     test_more_frames_than_ticks_follow_the_camera();
     test_ticks_without_a_frame_follow_the_camera();

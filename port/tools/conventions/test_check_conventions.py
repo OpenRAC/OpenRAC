@@ -85,6 +85,21 @@ class EveryFileTest(unittest.TestCase):
         self.assertEqual(rules(found), ["licence", "tab", "dash"])
         self.assertEqual([finding.line for finding in found], [1, 2, 3])
 
+    def test_jthread_in_code_is_reported_but_not_in_a_comment(self):
+        text = LICENCE + "// std::jthread\nstd::jthread t;\nvoid f(std::stop_token s);\n"
+        found = cc.check_every_file("port/a.cpp", text)
+        self.assertEqual(rules(found), ["jthread", "jthread"])
+        self.assertEqual([finding.line for finding in found], [4, 5])
+
+    def test_an_issue_or_pull_request_number_is_reported(self):
+        text = LICENCE + (
+            "// Fixed in issue #39.\n/* After the menu rework (#386). */\n"
+            "// See PR #12 and upstream #148.\n// Slot #3 and 0x10 #define stay.\n"
+        )
+        found = cc.check_every_file("port/a.c", text)
+        self.assertEqual(rules(found), ["history", "history", "history"])
+        self.assertEqual([finding.line for finding in found], [3, 4, 5])
+
 
 class NewCppTest(unittest.TestCase):
     def check(self, body, path="port/common/thing.cpp", stems=frozenset({"guest"})):

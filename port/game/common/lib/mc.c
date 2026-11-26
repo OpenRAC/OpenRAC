@@ -14,6 +14,15 @@
  * library's public interface as the game uses them
  * (docs/port/RAC1_PAL_SURVEY.md, section 7).
  *
+ * Why the port answers the library and not the games' own save code above it: in each game that
+ * code is one state machine that drives libmc a step a frame (Ratchet & Clank's
+ * memcard_update_state func_00209E68, Going Commando's func_00298F00, Up Your Arsenal's
+ * func_0039C7F0 with frontbin's and the levels' copies), its states interleaved with the card
+ * screens' messages, prompts and checksums. It is the game's own logic, written against libmc's
+ * start-then-sync calls; the rest of their card calls are its start-up (sceMcInit) and, in Ratchet &
+ * Clank, the boot check (func_00209BB8: a card's info and its save folder's entries, synced at
+ * once). Answered here, the save bytes and the folders are the game's own, so players' cards load.
+ *
  * While a party plays, a filter stands between the game and its saves (the end of "The save mark"
  * below says how): whatever the game believes it writes, a player's own saves stay as they were.
  *
@@ -45,6 +54,7 @@
 
 #include "openrac/game_host.h"
 #include "openrac/game_lib.h"
+#include "openrac/host_env.h"
 
 /* The command numbers sceMcSync reports. */
 enum {
@@ -94,7 +104,37 @@ static int no_name(gaddr name) {
     return name == 0 || *(const char*)G(name) == 0;
 }
 
+/* OPENRAC_TRACE_MC: each command on stderr with its file or folder, its mode or size and its
+ * result, to follow a game's card code in a hidden run. */
+static int tracing(void) {
+    static int on = -1;
+    if (on < 0) {
+        on = openrac_env_string("OPENRAC_TRACE_MC") != NULL;
+    }
+    return on;
+}
+
+static const char* traced_name;
+static int traced_arg;
+
+static void trace(const char* name, int arg) {
+    traced_name = name;
+    traced_arg = arg;
+}
+
 static int finish(int cmd, int result) {
+    if (tracing()) {
+        fprintf(
+            stderr,
+            "[debug] MC %02x %s %d -> %d\n",
+            cmd,
+            traced_name != NULL ? traced_name : "",
+            traced_arg,
+            result
+        );
+        traced_name = NULL;
+        traced_arg = 0;
+    }
     if (state_command != 0) {
         GREF(int, state_command) = cmd;
         GREF(int, state_result) = result;
@@ -324,7 +364,8 @@ static int card_path(int port, const char* name, char* out, size_t size) {
 
 static int card_present(int port) {
     char path[1024];
-    if (openrac_game_no_card) {
+    /* On a mod's planet the card is out: the save stays the original's, the planet never in it. */
+    if (openrac_game_no_card || openrac_game_active_destination >= 0) {
         return 0;
     }
     struct stat st;
@@ -723,6 +764,7 @@ int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
     if (no_name(name)) {
         return MC_NO_NAME;
     }
+    trace((const char*)G(name), mode);
     if (!card_present(port)
         || !card_path_of(port, (const char*)G(name), path, sizeof path, &foreign)) {
         return finish(MC_OPEN, MC_NO_CARD);
@@ -789,6 +831,7 @@ int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
 
 /* sceMcClose(fd) */
 int openrac_lib_sceMcClose(int fd) {
+    trace(fd >= 0 && fd < MAX_FILES ? file_paths[fd] : "", fd);
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL) {
         return finish(MC_CLOSE, MC_FAILED);
     }
@@ -856,6 +899,7 @@ int openrac_lib_sceMcSeek(int fd, int offset, int whence) {
 
 /* sceMcRead(fd, buffer, size) */
 int openrac_lib_sceMcRead(int fd, gaddr buffer, int size) {
+    trace(fd >= 0 && fd < MAX_FILES ? file_paths[fd] : "", size);
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL) {
         return finish(MC_READ, MC_FAILED);
     }
@@ -866,6 +910,7 @@ int openrac_lib_sceMcRead(int fd, gaddr buffer, int size) {
 
 /* sceMcWrite(fd, buffer, size) */
 int openrac_lib_sceMcWrite(int fd, gaddr buffer, int size) {
+    trace(fd >= 0 && fd < MAX_FILES ? file_paths[fd] : "", size);
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL) {
         return finish(MC_WRITE, MC_FAILED);
     }
@@ -891,6 +936,7 @@ int openrac_lib_sceMcMkdir(int port, int slot, gaddr name) {
     if (no_name(name)) {
         return MC_NO_NAME;
     }
+    trace((const char*)G(name), port);
     if (!card_present(port)
         || !card_path_of(port, (const char*)G(name), path, sizeof path, &foreign)) {
         return finish(MC_MKDIR, MC_NO_CARD);
@@ -913,6 +959,7 @@ int openrac_lib_sceMcDelete(int port, int slot, gaddr name) {
     if (no_name(name)) {
         return MC_NO_NAME;
     }
+    trace((const char*)G(name), port);
     if (!card_present(port)
         || !card_path_of(port, (const char*)G(name), path, sizeof path, &foreign)) {
         return finish(MC_DELETE, MC_NO_CARD);
@@ -1002,11 +1049,16 @@ static void add_entry(const char* dir, const char* name) {
  * the port's save marks (`.mods`) and the mods' data beside the saves (`.moddata`, written through
  * a hidden temporary file), and what file browsers and other tools leave behind, all hidden
  * files (Finder's .DS_Store, the launcher's .backup_ folders) and Explorer's Thumbs.db and
- * desktop.ini. A real card holds none of them, and the games count the entries of their save
- * folder: Going Commando takes its folder for no save at all unless it lists exactly its own nine
- * (func_00298F00, state 8), and then offers to create a new one, which writes every slot empty. */
+ * desktop.ini, and PCSX2's folder cards' own files (_pcsx2_index in every folder,
+ * _pcsx2_superblock at the top). A real card holds none of them, and the games count the entries
+ * of their save folder: Going Commando takes its folder for no save at all unless it lists exactly
+ * its own nine (func_00298F00, state 8), and then offers to create a new one, which writes every
+ * slot empty. */
 static int host_only(const char* name) {
     const size_t length = strlen(name);
+    if (strncmp(name, "_pcsx2_", 7) == 0) {
+        return 1;
+    }
     if (length > 5 && strcmp(name + length - 5, ".mods") == 0) {
         return 1;
     }
@@ -1144,6 +1196,7 @@ int openrac_lib_sceMcGetDir(
     if (no_name(name)) {
         return MC_NO_NAME;
     }
+    trace((const char*)G(name), (int)mode);
     if (!card_present(port)) {
         return finish(MC_GET_DIR, MC_NO_CARD);
     }
@@ -1164,6 +1217,7 @@ int openrac_lib_sceMcGetDir(
  * path, when asked for, is written as an absolute one. */
 int openrac_lib_sceMcChdir(int port, int slot, gaddr path, gaddr old_path) {
     (void)slot;
+    trace(path != 0 ? (const char*)G(path) : "", port);
     if (!card_present(port)) {
         return finish(MC_CHDIR, MC_NO_CARD);
     }

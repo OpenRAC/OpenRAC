@@ -35,3 +35,33 @@ extern "C" uint32_t openrac_lib_wad_decompress(const uint8_t* src, uint8_t* dst,
         return 0;
     }
 }
+
+// The games' own routine on the stream at src (wad_decompress_as_game): `readable` bytes may be
+// read from src on, `before` bytes lie before dst and `capacity` after it. Sets *made to the
+// routine's result and returns 1; returns 0 when the routine traps or the output does not fit.
+extern "C" int openrac_lib_wad_decompress_as_game(
+    const uint8_t* src,
+    uint32_t readable,
+    uint8_t* dst,
+    uint32_t before,
+    uint32_t capacity,
+    uint32_t* made
+) {
+    using namespace openrac::assets;
+    try {
+        const disc::GameWadOutput out =
+            disc::wad_decompress_as_game(ByteView(src, readable), ByteView(dst - before, before));
+        if (out.bytes.size() > capacity) {
+            openrac::log::warn(
+                "a WAD output needs {} bytes but its buffer holds {}", out.bytes.size(), capacity
+            );
+            return 0;
+        }
+        std::memcpy(dst, out.bytes.data(), out.bytes.size());
+        *made = static_cast<uint32_t>(out.size);
+        return 1;
+    } catch (const AssetError& error) {
+        openrac::log::warn("a WAD stream the game decompresses is malformed: {}", error.what());
+        return 0;
+    }
+}

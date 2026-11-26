@@ -8,6 +8,8 @@
 #include <exception>
 #include <map>
 #include <mutex>
+#include <queue>
+#include <set>
 #include <thread>
 #include <tuple>
 #include <vector>
@@ -154,6 +156,21 @@ void refine_ridges(RoomDistanceField& field, const Scene& scene, const BakeSetti
                     continue;
                 }
 
+                // Ridge projection is geometric refinement, not a topology edit. Validate
+                // against the current neighbours, including ones already refined, so the
+                // later compaction pass cannot sever a corridor by dropping moved edges.
+                const bool connected = std::all_of(
+                    node.neighbours.begin(), node.neighbours.end(), [&](unsigned neighbour) {
+                        const auto p = field.nodes[neighbour].position;
+                        return field.connects(*floor, p, node.room)
+                               && field.path_clear(scene, *floor, p, node.room, settings)
+                               && field.path_clear(scene, p, *floor, node.room, settings);
+                    }
+                );
+                if (!connected) {
+                    continue;
+                }
+
                 best = score;
                 selected = *floor;
                 node.wall = wall;
@@ -208,12 +225,8 @@ void compact(RoomDistanceField& field, const Scene& scene, const BakeSettings& s
         row.erase(std::unique(row.begin(), row.end()), row.end());
         std::erase_if(row, [&](auto b) {
             return !field.connects(nodes[a].position, nodes[b].position, nodes[a].room)
-                   || !(
-                       field.swimming_rooms[nodes[a].room]
-                           ? room_body_path_clear(
-                                 scene, nodes[a].position, nodes[b].position, settings, true
-                             )
-                           : room_path_clear(scene, nodes[a].position, nodes[b].position, settings)
+                   || !field.path_clear(
+                       scene, nodes[a].position, nodes[b].position, nodes[a].room, settings
                    );
         });
     });
@@ -269,6 +282,83 @@ bool floor_step_clear(
 
     return true;
 }
+
+// Walking contact follows the local floor at the player's radius. A flat foot plane starts
+// side clearance rays inside rounded pipe floors, even when the centre has full headroom.
+bool floor_body_path_clear(const Scene& scene, Float3 a, Float3 b, const BakeSettings& settings) {
+    const auto delta = add(b, mul(a, -1));
+    const float horizontal = std::hypot(delta[0], delta[1]);
+    const Float3 side = horizontal > .001f
+                            ? Float3{-delta[1] / horizontal, delta[0] / horizontal, 0}
+                            : Float3{1, 0, 0};
+    const float radius = settings.traversal.player_radius;
+    constexpr float slope = .65f, margin = .06f;  // Same support slope/contact margin as inference.
+    const float rise = radius * std::sqrt(1 - slope * slope) / slope;
+    const auto endpoint_clear = [&](Float3 endpoint, Float3 lateral) {
+        auto foot = add(endpoint, lateral);
+        const float length = std::sqrt(dot(lateral, lateral));
+        if (length > .001f) {
+            auto start = foot;
+            start[2] += rise + margin;
+            const auto support =
+                scene.trace(start, {0, 0, -1}, settings.ray_bias, 2 * rise + 2 * margin);
+            if (support.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
+                foot[2] = std::max(foot[2], start[2] - support.ray.tfar);
+            }
+        }
+        foot[2] += margin;
+        const float clearance = endpoint[2] + settings.traversal.player_height - foot[2];
+        if (clearance <= 0 || scene.occluded(foot, {0, 0, 1}, settings.ray_bias, clearance)) {
+            return false;
+        }
+        auto body = endpoint;
+        body[2] += settings.traversal.player_height * .5f;
+        if (length > .001f
+            && scene.occluded(body, mul(lateral, 1 / length), settings.ray_bias, length)) {
+            return false;
+        }
+        return true;
+    };
+    // Endpoint clearance must not depend on the direction of the next edge. In particular,
+    // a wall parallel to a short escape edge must still block a root inside player radius.
+    for (auto endpoint : {a, b}) {
+        for (Float3 lateral :
+             {Float3{radius, 0, 0}, {-radius, 0, 0}, {0, radius, 0}, {0, -radius, 0}}) {
+            if (!endpoint_clear(endpoint, lateral)) {
+                return false;
+            }
+        }
+    }
+    for (float offset : {-radius, 0.f, radius}) {
+        const auto from = add(a, mul(side, offset)), to = add(b, mul(side, offset));
+        for (auto endpoint : {a, b}) {
+            if (!endpoint_clear(endpoint, mul(side, offset))) {
+                return false;
+            }
+        }
+        if (!floor_step_clear(scene, from, to, settings, settings.traversal.player_height)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool waterline_path_clear(const Scene& scene, Float3 a, Float3 b, const BakeSettings& settings) {
+    const auto delta = add(b, mul(a, -1));
+    const float horizontal = std::hypot(delta[0], delta[1]);
+    const Float3 side = horizontal > .001f
+                            ? Float3{-delta[1] / horizontal, delta[0] / horizontal, 0}
+                            : Float3{1, 0, 0};
+    for (float offset :
+         {-settings.traversal.player_radius, 0.f, settings.traversal.player_radius}) {
+        if (!floor_step_clear(
+                scene, add(a, mul(side, offset)), add(b, mul(side, offset)), settings, .15f
+            )) {
+            return false;
+        }
+    }
+    return true;
+}
 }  // namespace
 
 bool RoomDistanceField::contains(Float3 position, unsigned room) const {
@@ -296,10 +386,22 @@ bool RoomDistanceField::connects(Float3 a, Float3 b, unsigned room) const {
     const auto delta = add(b, mul(a, -1));
     const auto steps =
         std::max(1u, unsigned(std::ceil(std::sqrt(dot(delta, delta)) / (.5f * step))));
+    // Coalescing the real and generated basin-bed lattices can leave one cell of missing
+    // column evidence. A submerged body sweep may span that short sampling gap, while
+    // endpoints must still lie in known water. Wider unsupported gaps remain disconnected.
+    const bool submerged = water_footprint && room < submerged_rooms.size() && submerged_rooms[room]
+                           && contains(a, room) && contains(b, room);
+    float missing = 0;
+    const float interval = std::sqrt(dot(delta, delta)) / float(steps);
 
     for (unsigned i = 0; i <= steps; ++i) {
         if (!contains(add(a, mul(delta, float(i) / float(steps))), room)) {
-            return false;
+            missing += interval;
+            if (!submerged || missing > 1.5f * step) {
+                return false;
+            }
+        } else {
+            missing = 0;
         }
     }
 
@@ -354,8 +456,90 @@ bool room_body_path_clear(
 ) {
     // Swimming uses half-height clearance at the water surface.
     const float height = settings.traversal.player_height * (swimming ? .5f : 1.f);
-    return floor_step_clear(scene, a, b, settings, height)
-           && floor_step_clear(scene, b, a, settings, height);
+    const auto d = add(b, mul(a, -1));
+    const float horizontal = std::hypot(d[0], d[1]);
+    const Float3 side =
+        horizontal > .001f ? Float3{-d[1] / horizontal, d[0] / horizontal, 0} : Float3{1, 0, 0};
+    for (float offset :
+         {-settings.traversal.player_radius, 0.f, settings.traversal.player_radius}) {
+        const auto from = add(a, mul(side, offset)), to = add(b, mul(side, offset));
+        // Endpoint headroom also catches horizontal ceilings between the sweep's ray heights.
+        for (auto p : {from, to}) {
+            p[2] += .05f;
+            if (scene.occluded(p, {0, 0, 1}, settings.ray_bias, height - .05f)) {
+                return false;
+            }
+        }
+        if (!floor_step_clear(scene, from, to, settings, height)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool room_supported_path_clear(
+    const Scene& scene, Float3 a, Float3 b, const BakeSettings& settings
+) {
+    if (room_path_clear(scene, a, b, settings) && floor_body_path_clear(scene, a, b, settings)) {
+        return true;
+    }
+    // Match inference's bounded step sweep above the higher support. A diagonal body
+    // sweep incorrectly strikes the riser when stepping onto or off a short ledge.
+    if (std::hypot(a[0] - b[0], a[1] - b[1]) > .75f || std::abs(a[2] - b[2]) > 2
+        || std::abs(a[2] - b[2]) < .05f) {
+        return false;
+    }
+    for (auto p : {a, b}) {
+        const auto floor = supporting_floor(scene, p, settings);
+        if (!floor || std::abs((*floor)[2] - p[2]) > .1f) {
+            return false;
+        }
+    }
+    auto high_a = a, high_b = b;
+    constexpr float slope = .65f;
+    const float contact = std::max(
+        .2f, .06f + settings.traversal.player_radius * std::sqrt(1 - slope * slope) / slope
+    );
+    high_a[2] = high_b[2] = std::max(a[2], b[2]) + contact;
+    if (!room_body_path_clear(scene, high_a, high_b, settings)) {
+        return false;
+    }
+    for (unsigned i = 0; i <= 6; ++i) {
+        auto p = add(a, mul(add(b, mul(a, -1)), float(i) / 6));
+        p[2] = std::max(a[2], b[2]);
+        p[2] += .05f;
+        const auto support = scene.trace(p, {0, 0, -1}, settings.ray_bias, 2.1f);
+        if (support.hit.geomID == RTC_INVALID_GEOMETRY_ID) {
+            return false;
+        }
+        auto start = p;
+        start[2] = std::min(a[2], b[2]) + settings.traversal.player_height;
+        const float rise = std::abs(a[2] - b[2]);
+        if (scene.occluded(start, {0, 0, 1}, settings.ray_bias, rise)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool RoomDistanceField::path_clear(
+    const Scene& scene, Float3 a, Float3 b, unsigned room, const BakeSettings& settings
+) const {
+    if (!swimming_rooms[room]) {
+        return water_footprint ? room_supported_path_clear(scene, a, b, settings)
+                               : room_path_clear(scene, a, b, settings);
+    }
+    if (water_footprint && !submerged_rooms[room]) {
+        // Require both waterline clearance and room for a swimmer. Bridges only remain
+        // connected when their clearance permits passage.
+        auto immersed_a = a, immersed_b = b;
+        immersed_a[2] -= settings.traversal.player_height * .25f;
+        immersed_b[2] -= settings.traversal.player_height * .25f;
+        return connects(a, b, room) && room_body_path_clear(scene, a, b, settings, true)
+               && room_body_path_clear(scene, immersed_a, immersed_b, settings, true)
+               && waterline_path_clear(scene, a, b, settings);
+    }
+    return room_body_path_clear(scene, a, b, settings, true);
 }
 
 std::vector<Float3> room_floor_path(
@@ -397,6 +581,7 @@ RoomDistanceField room_distance_field(
     const BakeSettings& settings
 ) {
     RoomDistanceField result;
+    result.water_footprint = layout.medial_water_footprint;
     result.swimming_rooms.resize(layout.rooms.size());
     result.submerged_rooms.resize(layout.rooms.size());
     result.water_heights.resize(layout.rooms.size());
@@ -436,7 +621,20 @@ RoomDistanceField room_distance_field(
             for (int y = int(std::ceil((base[1] - radius) / result.step));
                  y <= int(std::floor((base[1] + radius) / result.step));
                  ++y) {
-                cell_candidates[Cell{room, x, y}].push_back(candidates.size());
+                const auto key = Cell{room, x, y};
+                if (result.water_footprint && floors[source].swimming_surface
+                    && !floors[source].underwater) {
+                    result.domain[key].push_back(base[2]);
+                }
+                if (result.water_footprint && floors[source].underwater
+                    && floors[source].water_height) {
+                    const float top =
+                        std::min(base[2] + 64.f, *floors[source].water_height - 1.25f);
+                    for (float z = base[2]; z <= top; z += result.step) {
+                        result.domain[key].push_back(z);
+                    }
+                }
+                cell_candidates[key].push_back(candidates.size());
                 candidates.push_back({source, x, y, {}});
             }
         }
@@ -464,28 +662,26 @@ RoomDistanceField room_distance_field(
             }
 
             Float3 p{float(candidate.x) * result.step, float(candidate.y) * result.step, base[2]};
+            const bool footprint = result.water_footprint && floors[source].swimming_surface
+                                   && !floors[source].underwater;
             const auto floor = floors[source].swimming_surface
                                    ? std::optional<Float3>{p}
-                                   : supporting_floor(scene, p, settings);
+                                   : supporting_floor(scene, p, settings, 2.f);
 
             if (!floor
-                || !(
-                    floors[source].swimming_surface
-                        ? room_body_path_clear(scene, base, *floor, settings, true)
-                        : room_path_clear(scene, base, *floor, settings)
-                )) {
+                || (footprint ? !room_body_path_clear(scene, base, *floor, settings, true)
+                              : !result.path_clear(scene, base, *floor, room, settings))) {
                 continue;
             }
 
-            if (source < layout.height_bounds.size()
-                && ((*floor)[2] < layout.height_bounds[source][0] - .01f
-                    || (*floor)[2] + 1.25f > layout.height_bounds[source][1] + .01f)) {
+            if (!footprint && source < layout.height_bounds.size()
+                && (*floor)[2] + 1.25f > layout.height_bounds[source][1] + .01f) {
                 continue;
             }
 
             auto eye = *floor;
             eye[2] += 1.25f;
-            const auto wall = room_wall_distance(scene, eye);
+            const auto wall = footprint ? RoomWallDistance{} : room_wall_distance(scene, eye);
 
             if (wall.distance < .15f) {
                 continue;
@@ -525,8 +721,11 @@ RoomDistanceField room_distance_field(
     for (const auto& [key, indices] : cells) {
         const auto [room, x, y] = key;
 
-        for (int dx = -1; dx <= 1; ++dx) {
-            for (int dy = -1; dy <= 1; ++dy) {
+        // Basin sources can leave a short hole between the real and generated bed lattices.
+        // Swim across it only inside known water columns and with a clear body sweep.
+        const int reach = result.water_footprint && result.submerged_rooms[room] ? 4 : 1;
+        for (int dx = -reach; dx <= reach; ++dx) {
+            for (int dy = -reach; dy <= reach; ++dy) {
                 if (!dx && !dy) {
                     continue;
                 }
@@ -540,12 +739,19 @@ RoomDistanceField room_distance_field(
                 for (auto a : indices) {
                     for (auto b : other->second) {
                         if (b <= a
-                            || std::abs(result.nodes[a].position[2] - result.nodes[b].position[2])
-                                   > 2) {
+                            || (!(result.water_footprint && result.submerged_rooms[room])
+                                && std::abs(
+                                       result.nodes[a].position[2] - result.nodes[b].position[2]
+                                   ) > 2)) {
                             continue;
                         }
 
-                        links.push_back({a, b, room, false});
+                        if (reach <= 1
+                            || result.connects(
+                                result.nodes[a].position, result.nodes[b].position, room
+                            )) {
+                            links.push_back({a, b, room, false});
+                        }
                     }
                 }
             }
@@ -556,9 +762,7 @@ RoomDistanceField room_distance_field(
         auto& link = links[i];
         const auto& a = result.nodes[link.a].position;
         const auto& b = result.nodes[link.b].position;
-        link.clear = result.swimming_rooms[link.room]
-                         ? room_body_path_clear(scene, a, b, settings, true)
-                         : room_path_clear(scene, a, b, settings);
+        link.clear = result.path_clear(scene, a, b, link.room, settings);
     });
 
     for (const auto& link : links) {
@@ -574,6 +778,152 @@ RoomDistanceField room_distance_field(
         }
     }
 
+    if (layout.medial_roots) {
+        std::vector<bool> reached(result.nodes.size());
+        std::vector<unsigned> pending;
+        const auto visit = [&](unsigned a) {
+            if (!reached[a]) {
+                reached[a] = true;
+                pending.push_back(a);
+            }
+        };
+        for (auto source : *layout.medial_roots) {
+            const auto p = floors[source].position;
+            const unsigned room = layout.owners[source];
+            const int x = int(std::round(p[0] / result.step));
+            const int y = int(std::round(p[1] / result.step));
+            for (int dx = -1; dx <= 1; ++dx) {
+                for (int dy = -1; dy <= 1; ++dy) {
+                    const auto found = cells.find({room, x + dx, y + dy});
+                    if (found == cells.end()) {
+                        continue;
+                    }
+                    for (auto a : found->second) {
+                        const auto q = result.nodes[a].position;
+                        if (std::abs(q[2] - p[2]) <= .75f
+                            && result.path_clear(scene, p, q, room, settings)) {
+                            visit(a);
+                        }
+                    }
+                }
+            }
+        }
+        for (unsigned i = 0; i < pending.size(); ++i) {
+            const unsigned a = pending[i];
+            const auto& node = result.nodes[a];
+            for (auto b : node.neighbours) {
+                visit(b);
+            }
+            // A water mask is not an entry point. Cross media only at a nearby, clear
+            // shoreline (or waterline), then flood the collision-checked field edges.
+            const int x = int(std::round(node.position[0] / result.step));
+            const int y = int(std::round(node.position[1] / result.step));
+            for (unsigned room = 0; room < layout.rooms.size(); ++room) {
+                if (room == node.room) {
+                    continue;
+                }
+                for (int dx = -1; dx <= 1; ++dx) {
+                    for (int dy = -1; dy <= 1; ++dy) {
+                        const auto found = cells.find({room, x + dx, y + dy});
+                        if (found == cells.end()) {
+                            continue;
+                        }
+                        for (auto b : found->second) {
+                            const auto q = result.nodes[b].position;
+                            if (reached[b]) {
+                                continue;
+                            }
+                            const bool swimming =
+                                result.swimming_rooms[room] && result.swimming_rooms[node.room];
+                            if (std::abs(q[2] - node.position[2]) > .75f) {
+                                if (!swimming
+                                    || result.submerged_rooms[room]
+                                           == result.submerged_rooms[node.room]) {
+                                    continue;
+                                }
+                                const unsigned bed_room =
+                                    result.submerged_rooms[room] ? room : node.room;
+                                const auto bed = result.submerged_rooms[room] ? q : node.position;
+                                auto top = result.submerged_rooms[room] ? node.position : q;
+                                top[2] -= 1.25f;
+                                // Swimming up from a reachable basin bed is valid only inside
+                                // its known water column, with the full ascent collision checked.
+                                if (top[2] < bed[2] || !result.contains(top, bed_room)
+                                    || !result.connects(bed, top, bed_room)) {
+                                    continue;
+                                }
+                            }
+                            if (room_body_path_clear(scene, node.position, q, settings, swimming)
+                                && waterline_path_clear(scene, node.position, q, settings)) {
+                                visit(b);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        std::vector<unsigned> remap(result.nodes.size(), ~0u);
+        std::vector<RoomFieldNode> kept;
+        std::set<Cell> retained;
+        for (unsigned a = 0; a < result.nodes.size(); ++a) {
+            if (reached[a]) {
+                remap[a] = unsigned(kept.size());
+                kept.push_back(std::move(result.nodes[a]));
+                const auto& node = kept.back();
+                retained.emplace(
+                    node.room,
+                    int(std::round(node.position[0] / result.step)),
+                    int(std::round(node.position[1] / result.step))
+                );
+            }
+        }
+        for (auto& node : kept) {
+            for (auto& b : node.neighbours) {
+                b = remap[b];
+            }
+            std::erase(node.neighbours, ~0u);
+        }
+        result.nodes = std::move(kept);
+        std::erase_if(result.domain, [&](const auto& entry) {
+            return !retained.contains(entry.first);
+        });
+    }
+
+    // For the debug water centreline, clearance is distance to the authored coastline,
+    // rather than a cross-section of banks/overhangs at a walking body's height.
+    if (result.water_footprint) {
+        using Entry = std::pair<float, unsigned>;
+        std::priority_queue<Entry, std::vector<Entry>, std::greater<Entry>> pending;
+        std::vector<float> distance(result.nodes.size(), INFINITY);
+        for (unsigned a = 0; a < result.nodes.size(); ++a) {
+            const auto& node = result.nodes[a];
+            if (result.swimming_rooms[node.room] && !result.submerged_rooms[node.room]
+                && node.neighbours.size() < 8) {
+                distance[a] = result.step * .5f;
+                pending.emplace(distance[a], a);
+            }
+        }
+        while (!pending.empty()) {
+            const auto [value, a] = pending.top();
+            pending.pop();
+            if (value != distance[a]) {
+                continue;
+            }
+            for (auto b : result.nodes[a].neighbours) {
+                const auto d = add(result.nodes[a].position, mul(result.nodes[b].position, -1));
+                const float next = value + std::sqrt(dot(d, d));
+                if (next < distance[b]) {
+                    distance[b] = next;
+                    pending.emplace(next, b);
+                }
+            }
+        }
+        for (unsigned a = 0; a < result.nodes.size(); ++a) {
+            if (std::isfinite(distance[a])) {
+                result.nodes[a].wall.distance = distance[a];
+            }
+        }
+    }
     cells.clear();
     refine_ridges(result, scene, settings);
     compact(result, scene, settings);

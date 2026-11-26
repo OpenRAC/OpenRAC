@@ -16,8 +16,8 @@ Each side's whole file is compiled as the build compiles it, its symbols prefixe
 cand_), and linked into one test program with the runtime's float and EE code. The program gives
 both the same game memory (all 32 MiB of RAM filled with random words, and the scratchpad), the
 same stack and the same random arguments, calls one then the other, and compares, bit for bit:
-the result, every byte of RAM and of the scratchpad, the hardware register writes
-(openrac_ee_sw_dma) in order, and the calls each makes to other functions (by name and order; a
+the result, every byte of RAM and of the scratchpad, any reach of a scratchpad DMA register outside
+the copies (openrac_ee_dma_register), and the calls each makes to other functions (by name and order; a
 callee returns 0, or for a call through a function pointer, records the address). Arguments are
 drawn by parameter type: an integer is a pointer into RAM, a small number or any word; a float any
 of a spread of values with zeros, denormals, huge values and the EE's NaN and infinity patterns
@@ -113,6 +113,8 @@ typedef uint32_t gaddr;
 uint8_t* openrac_guest_base;
 uint32_t openrac_guest_ram_size = 0x02000000u;
 gaddr openrac_guest_sp, openrac_relocate_low, openrac_relocate_high, openrac_guest_last_entry;
+unsigned long long openrac_guest_hi_args[4];
+int openrac_guest_hi_pending;
 void* openrac_guest_last_fn;
 
 #define LOG_MAX 4096
@@ -123,9 +125,9 @@ void handdiff_note(const char* what, uint64_t v) {
         snprintf(log_[side][nlog[side]++], 48, "%s %llx", what, (unsigned long long)v);
     }
 }
-void openrac_ee_sw_dma(uint32_t a, uint64_t v) {
-    handdiff_note("dma", ((uint64_t)a << 32) | (uint32_t)v);
-    memcpy(openrac_guest_base + a, &v, 4);
+void openrac_ee_dma_register(const char* function, uint32_t at, uint32_t address) {
+    (void)function;
+    handdiff_note("dmareg", ((uint64_t)address << 32) | at);
 }
 static gaddr fn_called;
 static uint64_t through_pointer(void) {

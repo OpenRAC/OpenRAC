@@ -20,21 +20,8 @@ private:
 
 // Builds one ordinary backend-owned program, reused across framebuffer and sample-count changes.
 GLuint make_multisample_blit_program() {
-    constexpr const char* kVertex = R"(#version 410 core
-uniform vec4 copy_region;
-out vec2 uv;
-void main() {
-    vec2 corner = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
-    gl_Position = vec4(corner * 2.0 - 1.0, 0.0, 1.0);
-    uv = copy_region.xy + corner * copy_region.zw;
-}
-)";
-    constexpr const char* kFragment = R"(#version 410 core
-uniform sampler2D copy_source;
-in vec2 uv;
-layout(location = 0) out vec4 result;
-void main() { result = texture(copy_source, uv); }
-)";
+    using shader_sources::renderer_vulkan_draw_multisample_blit::kFragment;
+    using shader_sources::renderer_vulkan_draw_multisample_blit::kVertex;
     const GLuint program = create_program();
     const std::array<GLuint, 2> shaders{
         create_shader(GL_VERTEX_SHADER), create_shader(GL_FRAGMENT_SHADER)
@@ -100,6 +87,47 @@ void blit_into_multisample(
         float(last.x - first.x) / float(source.width),
         float(last.y - first.y) / float(source.height)
     );
-    draw_arrays(GL_TRIANGLES, 0, 3);
-    destination.discarded = 0;
+    namespace graph = renderer::graph;
+    GraphExecution execution;
+    const auto input = execution.read_image(
+        "multisample blit source", g->multisample_blit_texture, graph::Stage::FragmentShader
+    );
+    const bool preserve = image_contents_defined(destination, {graph::Aspect::Colour});
+    const bool partial = g->state.viewport[0] != 0 || g->state.viewport[1] != 0
+                         || g->state.viewport[2] != destination.width
+                         || g->state.viewport[3] != destination.height;
+    // Initialize untouched pixels when the graph cannot preserve the incoming image.
+    const bool initialize = partial && !preserve;
+    const auto output = execution.import_attachment(
+        "multisample blit destination",
+        framebuffer,
+        graph::Aspect::Colour,
+        preserve ? InitialContents::Preserve : InitialContents::Discard
+    );
+    if (!input || !output) {
+        throw std::runtime_error(!input ? input.error().message : output.error().message);
+    }
+    auto pass = execution.make_pass("blit colour into multisample attachment");
+    pass.images =
+        {*input,
+         {*output,
+          {},
+          {graph::Stage::ColourOutput,
+           preserve ? graph::Access::ReadWrite : graph::Access::Write,
+           graph::Layout::ColourAttachment},
+          preserve     ? graph::Load::Preserve
+          : initialize ? graph::Load::Clear
+                       : graph::Load::Discard,
+          graph::Store::Preserve,
+          partial}};
+    execution.add_pass(std::move(pass));
+    const auto copied = execution.run([initialize](unsigned) {
+        if (initialize) {
+            clear(GL_COLOR_BUFFER_BIT);
+        }
+        draw_arrays(GL_TRIANGLES, 0, 3);
+    });
+    if (!copied) {
+        throw std::runtime_error(copied.error().message);
+    }
 }

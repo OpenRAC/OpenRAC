@@ -9,8 +9,10 @@
 #include <chrono>
 #include <cmath>
 #include <fstream>
+#include <iomanip>
 #include <iterator>
 #include <map>
+#include <sstream>
 #include <utility>
 
 #include "common/json.h"
@@ -18,11 +20,62 @@
 #include "enhanced/lighting/probe_texture_encode.h"
 #include "enhanced/tools/baker/output/report.h"
 #include "enhanced/tools/baker/pipeline/bake_json.h"
+#include "enhanced/tools/baker/pipeline/stage_file.h"
 #include "enhanced/tools/baker/planning/floor_matching.h"
 #include "enhanced/tools/baker/sources/activation.h"
+#include "enhanced/tools/baker/sources/interior_inputs.h"
+#include "enhanced/tools/baker/sources/level_scene.h"
 
 namespace openrac::lighting {
 namespace {
+void surface_report(
+    std::ostream& out, const EnvironmentPlacementReport::SurfaceCoverage& coverage
+) {
+    out << "{\"version\":3,\"read_only\":true,\"relevant_area\":" << coverage.relevant_area
+        << ",\"initial_covered_area\":" << coverage.initial_covered_area
+        << ",\"initial_overlap_area\":" << coverage.initial_overlap_area
+        << ",\"initial_mean_overlaps\":"
+        << coverage.initial_weighted_overlaps / std::max(coverage.relevant_area, 1e-6)
+        << ",\"mean_overlaps\":"
+        << coverage.weighted_overlaps / std::max(coverage.relevant_area, 1e-6)
+        << ",\"initial_mean_captures\":"
+        << coverage.initial_distinct_overlaps / std::max(coverage.relevant_area, 1e-6)
+        << ",\"mean_captures\":"
+        << coverage.distinct_overlaps / std::max(coverage.relevant_area, 1e-6)
+        << ",\"covered_area\":" << coverage.covered_area << ",\"weak_area\":" << coverage.weak_area
+        << ",\"uncovered_area\":" << coverage.uncovered_area
+        << ",\"overlap_area\":" << coverage.overlap_area
+        << ",\"added_regions\":" << coverage.added_regions
+        << ",\"budget_limited\":" << (coverage.budget_limited ? "true" : "false")
+        << ",\"sample_count\":" << coverage.samples.size() << ",\"samples\":[";
+    std::vector<unsigned> shown;
+    constexpr unsigned limit = 50000;
+    for (unsigned i = 0; i < coverage.samples.size() && shown.size() < limit; ++i) {
+        if (coverage.samples[i].coverage < .999f) {
+            shown.push_back(i);
+        }
+    }
+    const auto remaining = limit - shown.size();
+    const size_t stride = std::max<size_t>(
+        1,
+        (coverage.samples.size() + std::max<size_t>(1, remaining) - 1)
+            / std::max<size_t>(1, remaining)
+    );
+    for (size_t i = 0; i < coverage.samples.size() && shown.size() < limit; i += stride) {
+        if (coverage.samples[i].coverage >= .999f) {
+            shown.push_back(unsigned(i));
+        }
+    }
+    for (unsigned i = 0; i < shown.size(); ++i) {
+        const auto& c = coverage.samples[shown[i]];
+        out << (i ? ",[" : "[") << c.position[0] << ',' << c.position[1] << ',' << c.position[2]
+            << ',' << c.normal[0] << ',' << c.normal[1] << ',' << c.normal[2] << ',' << c.area
+            << ',' << c.coverage << ',' << c.owner << ',' << c.overlaps << ',' << c.capture_overlaps
+            << ']';
+    }
+    out << "]}";
+}
+
 // Bounded file reads are shared by the profile and already-verified GI payloads.
 std::vector<std::uint8_t> read(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
@@ -50,11 +103,21 @@ std::vector<ProbeVolume> read_environment_field(const std::filesystem::path& out
     std::vector<std::filesystem::path> paths;
 
     // Retain the former filename order and coarse-first field layout.
-    for (const auto& entry : std::filesystem::directory_iterator(output)) {
-        // Only final local-grid assets participate in reflection lighting.
-        if (entry.path().filename().string().starts_with("region-")
-            && entry.path().extension() == ".orpg") {
-            paths.push_back(entry.path());
+    const auto islands_path = output / "placement-islands.json";
+    if (std::filesystem::exists(islands_path)) {
+        const auto islands = bake_json::document(islands_path);
+        for (const auto& [name, owner] : islands["volumes"].members()) {
+            if (name != "sparse.orpg") {
+                paths.push_back(output / name);
+            }
+        }
+    } else {
+        for (const auto& entry : std::filesystem::directory_iterator(output)) {
+            // Only final local-grid assets participate in reflection lighting.
+            if (entry.path().filename().string().starts_with("region-")
+                && entry.path().extension() == ".orpg") {
+                paths.push_back(entry.path());
+            }
         }
     }
 
@@ -195,6 +258,36 @@ std::vector<EnvironmentFloorSample> read_environment_floors(
     if (!matched) {
         throw std::runtime_error(matched.error().message);
     }
+    for (auto& floor : result) {
+        if (floor.anchor) {
+            floor.evidence = 1;
+            floor.gameplay_anchor = true;
+        }
+    }
+
+    if (!level.empty()) {
+        const auto profile = load_level_bake_profile(level);
+        // These boxes authorize existing supported samples only; they never create coverage
+        // in empty space or relax slope, body clearance, or physical floor adjacency.
+        for (auto& floor : result) {
+            for (const auto& area : profile.playable_areas) {
+                bool inside = true;
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    inside = inside && floor.position[axis] >= area.minimum[axis]
+                             && floor.position[axis] <= area.maximum[axis];
+                }
+                if (inside) {
+                    floor.anchor = true;
+                    floor.evidence = 2;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Water entries can establish reachability for otherwise disconnected basin floors.
+    // Keep those candidates until the combined land/swimming graph has been checked.
+    append_exported_water(output, result, level, traversal);
 
     // Share only gameplay-reachable space with GI fitting and medial diagnostics. The full
     // inferred collision graph includes disconnected roofs and cavities that are not gameplay.
@@ -242,7 +335,6 @@ std::vector<EnvironmentFloorSample> read_environment_floors(
         reachable.push_back(std::move(floor));
     }
 
-    append_exported_water(output, reachable, level, traversal);
     return reachable;
 }
 
@@ -256,8 +348,10 @@ void placement_report(
         samples ? std::to_string(1.0 - static_cast<double>(report.uncovered.size()) / samples)
                 : "null";
     std::ofstream out(output / "environment-placement-report.json");
-    out << "{\n  \"version\": 1,\n  \"input_floors\": " << report.input_floors
-        << ",\n  \"playable_floors\": " << report.playable_floors
+    out << "{\n  \"version\": 2,\n  \"projection_bounds_are_regions\": true,\n  \"input_floors\": "
+        << report.input_floors << ",\n  \"placement_source\": \""
+        << (report.layered_regions ? "layered_watershed" : "legacy_floor_watershed")
+        << "\",\n  \"playable_floors\": " << report.playable_floors
         << ",\n  \"rejected_floors\": " << report.rejected_floors
         << ",\n  \"unsupported_floors\": " << report.unsupported_floors
         << ",\n  \"receiver_only_floors\": " << report.receiver_only_floors
@@ -273,6 +367,7 @@ void placement_report(
         << ",\n  \"ownership_conflicts\": " << report.ownership_conflicts
         << ",\n  \"covered_fraction\": " << covered_fraction
         << ",\n  \"merge_covered_fraction\": " << report.covered_fraction
+        << ",\n  \"locality_conflicts\": " << report.locality_conflicts
         << ",\n  \"merge_pair_attempts\": " << report.merge_pair_attempts
         << ",\n  \"merge_position_trials\": " << report.merge_position_trials
         << ",\n  \"minimum_coverage\": " << report.minimum_coverage << ",\n  \"owners\": [";
@@ -281,6 +376,20 @@ void placement_report(
         out << (i ? "," : "") << report.owners[i];
     }
 
+    out << "],\n  \"watershed\": [";
+    for (unsigned i = 0; i < report.watershed.size(); ++i) {
+        const auto& [p, basin, clearance, water_surface] = report.watershed[i];
+        out << (i ? "," : "") << '[' << p[0] << ',' << p[1] << ',' << p[2] << ',' << basin << ','
+            << clearance << ',' << (water_surface ? "true" : "false") << ']';
+    }
+    out << "],\n  \"floor_locality_radii\": [";
+    for (unsigned i = 0; i < report.floor_locality_radii.size(); ++i) {
+        out << (i ? "," : "") << report.floor_locality_radii[i];
+    }
+    out << "],\n  \"floor_roofs\": [";
+    for (unsigned i = 0; i < report.floor_roofs.size(); ++i) {
+        out << (i ? "," : "") << (report.floor_roofs[i] ? "true" : "false");
+    }
     out << "],\n  \"occlusion_separated_pairs\": " << report.occlusion_separated_pairs
         << ",\n  \"spacing_conflicts\": [";
 
@@ -302,9 +411,28 @@ void placement_report(
         const auto& probe = report.capture_bounds[i];
         out << (i ? "," : "") << '[' << probe.minimum[0] << ',' << probe.minimum[1] << ','
             << probe.minimum[2] << ',' << probe.maximum[0] << ',' << probe.maximum[1] << ','
-            << probe.maximum[2] << ',' << probe.frame.axis[0] << ',' << probe.frame.axis[1] << ']';
+            << probe.maximum[2] << ',' << probe.frame.axis[0] << ',' << probe.frame.axis[1] << ','
+            << probe.frame.pitch[0] << ',' << probe.frame.pitch[1] << ',' << probe.frame.roll[0]
+            << ',' << probe.frame.roll[1] << ']';
     }
 
+    out << "],\n  \"influence_captures\": [";
+    for (unsigned i = 0; i < report.influence_captures.size(); ++i) {
+        out << (i ? "," : "") << report.influence_captures[i];
+    }
+    out << "],\n  \"influence_owners\": [";
+    for (unsigned i = 0; i < report.influence_owners.size(); ++i) {
+        out << (i ? "," : "") << report.influence_owners[i];
+    }
+    out << "],\n  \"projection_bounds\": [";
+    for (unsigned i = 0; i < report.capture_projections.size(); ++i) {
+        const auto& p = report.capture_projections[i];
+        out << (i ? "," : "") << '[' << p.projection_minimum[0] << ',' << p.projection_minimum[1]
+            << ',' << p.projection_minimum[2] << ',' << p.projection_maximum[0] << ','
+            << p.projection_maximum[1] << ',' << p.projection_maximum[2] << ',' << p.frame.axis[0]
+            << ',' << p.frame.axis[1] << ',' << p.frame.pitch[0] << ',' << p.frame.pitch[1] << ','
+            << p.frame.roll[0] << ',' << p.frame.roll[1] << ']';
+    }
     out << "],\n  \"submerged_captures\": [";
 
     for (unsigned i = 0; i < report.submerged_captures.size(); ++i) {
@@ -350,6 +478,19 @@ void placement_report(
         out << "]}";
     }
 
+    out << "],\n  \"placement_conflicts\": [";
+    for (unsigned i = 0; i < report.placement_conflicts.size(); ++i) {
+        const auto& c = report.placement_conflicts[i];
+        out << (i ? ",[" : "[") << c.position[0] << ',' << c.position[1] << ',' << c.position[2]
+            << ',' << c.capture << ',' << c.source_floor << ',' << c.receiver_floor << ','
+            << c.origin[0] << ',' << c.origin[1] << ',' << c.origin[2] << ',';
+        if (std::isfinite(c.distance)) {
+            out << c.distance;
+        } else {
+            out << "null";
+        }
+        out << ',' << c.limit << ',' << (c.ownership ? 1 : 0) << ']';
+    }
     out << "],\n  \"uncovered\": [";
 
     for (unsigned i = 0; i < report.uncovered.size(); ++i) {
@@ -404,10 +545,12 @@ void placement_report(
             out << (p ? "," : "") << receiver.probes[p];
         }
 
-        out << "]]";
+        out << "]," << (receiver.water_surface ? "true" : "false") << ']';
     }
 
-    out << "]\n}\n";
+    out << "],\"surface_coverage\":";
+    surface_report(out, report.surface_coverage);
+    out << "}\n";
 
     if (!out) {
         throw std::runtime_error("cannot write environment placement diagnostics");
@@ -415,6 +558,62 @@ void placement_report(
 }
 
 }  // namespace
+
+void refresh_level_environment_coverage(
+    const std::filesystem::path& level, const std::filesystem::path& output
+) {
+    const auto settings = load_level_bake_profile(level).activation.bake;
+    const auto floors = read_environment_floors(output, level, settings.traversal);
+    const auto triangles = load_coverage_collision(level);
+    if (!triangles) {
+        throw std::runtime_error(triangles.error().message);
+    }
+    BakeScene collision;
+    for (const auto& triangle : *triangles) {
+        if (triangle.support) {
+            BakeTriangle solid;
+            solid.vertices = triangle.vertices;
+            collision.triangles.push_back(solid);
+        }
+    }
+    auto asset = decode_gpu_environment(read(output / "environment.orpe"));
+    if (asset.influences.empty()) {
+        throw std::runtime_error("coverage refresh requires explicit reflection influence regions");
+    }
+    const auto previous = bake_json::document(output / "environment-placement-report.json");
+    scene::LevelData render_level;
+    std::string error;
+    if (!scene::load_level(level, render_level, error)) {
+        throw std::runtime_error(error);
+    }
+    const auto activation = load_level_bake_profile(level).activation;
+    const auto rendered =
+        export_probe_scene(render_level, activation.light_set, activation.environment);
+    const auto surface = measure_environment_surface_coverage(
+        rendered.scene, collision, floors, settings, asset.influences, asset.probes
+    );
+    std::ostringstream report;
+    report << std::setprecision(9) << '{';
+    bool comma = false;
+    for (const auto& [name, value] : previous.members()) {
+        report << (comma ? "," : "") << '"' << name << "\":";
+        comma = true;
+        if (name == "surface_coverage") {
+            surface_report(report, surface);
+        } else {
+            report << bake_json::json_text(value);
+        }
+    }
+    if (!previous["surface_coverage"].is_object()) {
+        report << ",\"surface_coverage\":";
+        surface_report(report, surface);
+    }
+    report << "}\n";
+    const auto saved = write_stage_file(output / "environment-placement-report.json", report.str());
+    if (!saved) {
+        throw std::runtime_error(saved.error().message);
+    }
+}
 
 bool bake_level_environment(
     const EnvironmentStageInput& input, const BakeExecution& execution, std::ostream& log
@@ -467,7 +666,32 @@ bool bake_level_environment(
             floors = loaded_floors;
         }
 
-        asset = bake_environment(scene, settings, volumes, floors, config, execution, &placement);
+        std::optional<BakeScene> collision;
+        if (std::filesystem::exists(level / "collision.glb")) {
+            const auto triangles = load_coverage_collision(level);
+            if (!triangles) {
+                throw std::runtime_error(triangles.error().message);
+            }
+            collision.emplace();
+            for (const auto& triangle : *triangles) {
+                if (triangle.support) {
+                    BakeTriangle solid;
+                    solid.vertices = triangle.vertices;
+                    collision->triangles.push_back(solid);
+                }
+            }
+        }
+        asset = bake_environment(
+            scene,
+            settings,
+            volumes,
+            floors,
+            config,
+            execution,
+            &placement,
+            collision ? &*collision : nullptr,
+            input.spatial
+        );
     } catch (...) {
         placement_report(output, placement);
         throw;
@@ -476,8 +700,11 @@ bool bake_level_environment(
     log << "Environment spaces: " << placement.spaces_before_merge << " -> "
         << placement.lighting_spaces << " (" << placement.merged_graph_gaps
         << " short graph gaps merged)\n";
-    log << "Environment pruning: " << placement.unpruned_probes << " -> " << asset.probes.size()
-        << " captures (" << placement.pruned_probes << " removed)\n";
+    log << "Reflection coverage regions: " << placement.unpruned_probes << " -> "
+        << asset.influences.size() << " (" << placement.pruned_probes
+        << " redundant regions removed)\n";
+    log << "Reflection photographs: " << asset.probes.size() << " serving "
+        << asset.influences.size() << " influence regions\n";
     log << "Environment capture merges: " << placement.probe_merges.size() << " replacements, "
         << placement.merge_position_trials << " positions tested; merge coverage "
         << placement.covered_fraction << "\n";
@@ -487,6 +714,10 @@ bool bake_level_environment(
         << placement.tolerated_misses.size() << " tolerated floor misses, "
         << placement.receiver_only_floors << " receiver-only floors, "
         << placement.unsupported_floors << " samples without playable render-floor support\n";
+    const auto& surface = placement.surface_coverage;
+    log << "Reflection surfaces: " << surface.covered_area << "/" << surface.relevant_area
+        << " area strongly covered, " << surface.weak_area << " weak, " << surface.uncovered_area
+        << " uncovered; " << surface.added_regions << " added regions (read-only audit)\n";
     if (asset.probes.empty()) {
         placement_report(output, placement);
         log << "No safe reflection captures; using local GI\n";
@@ -505,7 +736,8 @@ bool bake_level_environment(
     // Validate the existing encoded payload without serializing another complete copy.
     decode_gpu_environment(bytes);
 
-    placement.coverage_hash = environment_capture_hash(asset.probes, asset.gi_hash);
+    placement.coverage_hash =
+        environment_capture_hash(asset.probes, asset.gi_hash, asset.influences);
     placement_report(output, placement);
     std::ofstream report(output / "environment-report.json");
     report << "{\n  \"version\": 1,\n  \"resolution\": " << asset.resolution
@@ -521,7 +753,9 @@ bool bake_level_environment(
                << p.projection_minimum[2] << "], \"projection_maximum\": ["
                << p.projection_maximum[0] << ',' << p.projection_maximum[1] << ','
                << p.projection_maximum[2] << "], \"orientation\": [" << p.frame.axis[0] << ","
-               << p.frame.axis[1] << "]}";
+               << p.frame.axis[1] << "], \"pitch\": [" << p.frame.pitch[0] << ','
+               << p.frame.pitch[1] << "], \"roll\": [" << p.frame.roll[0] << ',' << p.frame.roll[1]
+               << "]}";
     }
 
     report << "\n  ]\n}\n";

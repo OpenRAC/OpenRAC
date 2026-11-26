@@ -1,7 +1,415 @@
-# The libraries Ratchet & Clank: Up Your Arsenal (NTSC-U) calls, by entry point, and what the port does with
-# each: the same columns and port values as port/game/rac1-pal/libraries.tsv.
-# Empty for now: the decompilation does not name its library functions yet.
-# A row binds an entry point to one of the replacements every game shares
-# (port/game/common/libraries.tsv); until then such calls are stubs.
-#
+# Written by port/tools/hostgen/release_carry_rac3.py from port/game/rac3-pal/libraries.tsv in
+# NTSC-U's names (config/us/map.tsv); do not edit. The notes are PAL's, its addresses as PAL has them.
+# Rows of a function NTSC-U does not have are left out (release/release_carry.json).
 # symbol	library	name	port	notes	signature (optional)
+func_0013ADA8	boot	rac3NativeEntry	host	crt0 at the payload's entry, after the loader's unpacking: _InitSys, FlushCache(0), main(argc, argv) without the PS2 thread and heap syscalls	int (void)
+func_00119F3C	libc	memchr	host	the shape of rac2-ntsc func_00115250
+func_0011A01C	libc	memcmp	host	the instructions of rac2-ntsc func_00115340
+func_0011A0B0	libc	memcpy	host	the shape of rac2-ntsc func_001153D4 (newlib's; rac3-decomp's names.tsv: memcpy)
+func_0011A264	libc	memset	host	the shape of rac2-ntsc func_00115484
+func_0011B610	libc	strcmp	host	the instructions of rac1-pal func_001165B8
+func_0011B754	libc	strcpy	host	the shape of rac2-ntsc func_00115690
+func_0011B868	libc	strlen	host	the instructions of rac1-pal func_00116810
+func_0011B9A0	libc	strncmp	host	the instructions of rac1-pal func_00116948
+func_0011BB58	libc	strncpy	host	the shape of rac2-ntsc func_00115AC0
+func_0011EA20	kernel	SetGsCrt	host	the instructions of rac2-ntsc func_0011A820
+func_0011EA40	kernel	Exit	host	the instructions of rac2-ntsc func_0011A840
+func_0011EA80	kernel	ResumeT3IntrDispatch	host	the instructions of rac1-pal func_00118A70
+func_0011EAC0	kernel	Interrupt2Iop	host	the instructions of rac1-pal func_00118A80
+func_0011EB00	kernel	AddIntcHandler	host	syscall wrapper 0x10
+func_0011EB10	kernel	AddIntcHandler	host	syscall wrapper 0x10, second entry
+func_0011EB20	kernel	RemoveIntcHandler	host	the instructions of rac2-ntsc func_0011A920
+func_0011EB30	kernel	AddDmacHandler	host	syscall wrapper 0x12
+func_0011EB40	kernel	AddDmacHandler2	host	syscall wrapper 0x12, second entry with the handler argument
+func_0011EB50	kernel	RemoveDmacHandler	host	the instructions of rac2-ntsc func_0011A950
+func_0011EB60	kernel	EnableIntc	host	the instructions of rac2-ntsc func_0011A960
+func_0011EB70	kernel	DisableIntc	host	the instructions of rac2-ntsc func_0011A970
+func_0011EB80	kernel	EnableDmac	host	the instructions of rac2-ntsc func_0011A980
+func_0011EB90	kernel	DisableDmac	host	the instructions of rac2-ntsc func_0011A990
+func_0011EBA0	kernel	SetAlarm	host	the instructions of rac2-ntsc func_0011A9A0
+func_0011EBC0	kernel	EnableIntc	host	the instructions of rac2-ntsc func_0011A9C0
+func_0011EBD0	kernel	DisableIntc	host	the instructions of rac2-ntsc func_0011A9D0
+func_0011EBE0	kernel	EnableDmac	host	the instructions of rac2-ntsc func_0011A9E0
+func_0011EBF0	kernel	DisableDmac	host	the instructions of rac2-ntsc func_0011A9F0
+func_0011EC00	kernel	ReleaseAlarm	host	the instructions of rac1-pal func_00118B40
+func_0011EC20	kernel	CreateThread	host	the instructions of rac2-ntsc func_0011AA20
+func_0011EC30	kernel	DeleteThread	host	the instructions of rac2-ntsc func_0011AA30
+func_0011EC40	kernel	StartThread	host	the instructions of rac2-ntsc func_0011AA40
+func_0011EC70	kernel	TerminateThread	host	the instructions of rac2-ntsc func_0011AA70
+func_0011EC80	kernel	TerminateThread	host	the instructions of rac2-ntsc func_0011AA80
+func_0011ECB0	kernel	ChangeThreadPriority	host	the instructions of rac2-ntsc func_0011AAB0
+func_0011ECC0	kernel	ChangeThreadPriority	host	the instructions of rac2-ntsc func_0011AAC0
+func_0011ECD0	kernel	RotateThreadReadyQueue	host	the instructions of rac2-ntsc func_0011AAD0
+func_0011ECE0	kernel	RotateThreadReadyQueue	host	the instructions of rac2-ntsc func_0011AAE0
+func_0011ED00	kernel	ReleaseWaitThread	host	the instructions of rac1-pal func_00118BD0
+func_0011ED10	kernel	GetThreadId	host	the instructions of rac2-ntsc func_0011AB10
+func_0011ED20	kernel	ReferThreadStatus	host	the instructions of rac2-ntsc func_0011AB20
+func_0011ED30	kernel	ReferThreadStatus	host	the instructions of rac2-ntsc func_0011AB30
+func_0011ED40	kernel	SleepThread	host	the instructions of rac2-ntsc func_0011AB40
+func_0011ED50	kernel	WakeupThread	host	the instructions of rac2-ntsc func_0011AB50
+func_0011ED60	kernel	WakeupThread	host	the instructions of rac2-ntsc func_0011AB60
+func_0011ED80	kernel	CancelWakeupThread	host	the instructions of rac1-pal func_00118C30
+func_0011ED90	kernel	SuspendThread	host	the instructions of rac2-ntsc func_0011AB90
+func_0011EDA0	kernel	SuspendThread	host	the instructions of rac2-ntsc func_0011ABA0
+func_0011EDC0	kernel	ResumeThread	host	the instructions of rac1-pal func_00118C50
+func_0011EE00	kernel	EndOfHeap	host	the instructions of rac2-ntsc func_0011AC00
+func_0011EE20	kernel	CreateSema	host	the instructions of rac2-ntsc func_0011AC20
+func_0011EE30	kernel	DeleteSema	host	the instructions of rac2-ntsc func_0011AC30
+func_0011EE40	kernel	SignalSema	host	the instructions of rac2-ntsc func_0011AC40
+func_0011EE50	kernel	SignalSema	host	the instructions of rac2-ntsc func_0011AC50
+func_0011EE60	kernel	WaitSema	host	the instructions of rac2-ntsc func_0011AC60
+func_0011EE70	kernel	PollSema	host	the instructions of rac2-ntsc func_0011AC70
+func_0011EE80	kernel	PollSema	host	the instructions of rac2-ntsc func_0011AC80
+func_0011EEC0	kernel	SetOsdConfigParam	host	the instructions of rac2-ntsc func_0011ACC0
+func_0011EED0	kernel	GetOsdConfigParam	host	the instructions of rac2-ntsc func_0011ACD0
+func_0011EF00	kernel	SetGsHParam	host	the instructions of rac1-pal func_00118D00
+func_0011EF40	kernel	SetEventFlag	host	the instructions of rac1-pal func_00118D10
+func_0011EFC0	kernel	iCopy	host	the instructions of rac1-pal func_00118D30
+func_0011F000	kernel	DisableIntcHandler	host	the instructions of rac1-pal func_00118D40
+func_0011F040	kernel	DisableDmacHandler	host	the instructions of rac1-pal func_00118D50
+func_0011F070	kernel	EnableCache	host	the instructions of rac2-ntsc func_0011AE70
+func_0011F080	kernel	DisableCache	host	the instructions of rac1-pal func_00118D70
+func_0011F0A0	kernel	FlushCache	host	the instructions of rac2-ntsc func_0011AEA0
+func_0011F0C0	kernel	GetCop0	host	the instructions of rac1-pal func_00118D90
+func_0011F0D0	kernel	FlushCache	host	the instructions of rac2-ntsc func_0011AED0
+func_0011F0F0	kernel	sceSifStopDma	host	the instructions of rac2-ntsc func_0011AEF0
+func_0011F100	kernel	SetCPUTimerHandler	host	the instructions of rac1-pal func_00118DB0
+func_0011F130	kernel	GetOsdConfigParam2	host	the instructions of rac2-ntsc func_0011AF30
+func_0011F140	kernel	GsGetIMR	host	the instructions of rac2-ntsc func_0011AF40
+func_0011F160	kernel	GsPutIMR	host	the instructions of rac2-ntsc func_0011AF60
+func_0011F170	kernel	GsPutIMR	host	the instructions of rac2-ntsc func_0011AF70
+func_0011F180	kernel	SetPgifHandler	host	the instructions of rac1-pal func_00118DF0
+func_0011F190	kernel	SetVSyncFlag	host	the instructions of rac2-ntsc func_0011AF90
+func_0011F1A0	kernel	SetSyscall	host	the instructions of rac2-ntsc func_0011AFA0
+func_0011F1C0	kernel	sceSifDmaStat	host	the instructions of rac2-ntsc func_0011AFC0
+func_0011F1D0	kernel	sceSifDmaStat	host	the instructions of rac2-ntsc func_0011AFD0
+func_0011F1E0	kernel	sceSifSetDma	host	the instructions of rac2-ntsc func_0011AFE0
+func_0011F1F0	kernel	sceSifSetDma	host	the instructions of rac2-ntsc func_0011AFF0
+func_0011F200	kernel	sceSifSetDChain	host	the instructions of rac2-ntsc func_0011B000
+func_0011F210	kernel	sceSifSetDChain	host	the instructions of rac2-ntsc func_0011B010
+func_0011F220	kernel	sceSifSetReg	host	the instructions of rac2-ntsc func_0011B020
+func_0011F230	kernel	sceSifGetReg	host	the instructions of rac2-ntsc func_0011B030
+func_0011F240	kernel	_ExecOSD	host	the instructions of rac1-pal func_00118E80
+func_0011F250	kernel	Deci2Call	host	the instructions of rac2-ntsc func_0011B050
+func_0011F280	kernel	GetMemorySize	host	the instructions of rac2-ntsc func_0011B080
+func_0011F290	kernel	_InitTLB	host	the instructions of rac2-ntsc func_0011B090
+func_0011F698	kernel	SyncDCache	host	the instructions of rac2-ntsc func_0011B3D0
+func_0011F7C8	kernel	InvalidDCache	host	the shape of rac2-ntsc func_0011B500
+func_0011F860	kernel	rac3InterruptsOff	host	hand-written: 1 when Status.IE is clear (code run with interrupts off); the port runs no game code in an interrupt (host/kernel.c)	int (void)
+func_0011F8D8	kernel	EnableIntc	host	interrupt-safe wrapper around _EnableIntc (0x0011EB60), rac2-ntsc func_0011B5F0's
+func_00121FE8	sif	sceSifInitRpc	host	the shape of rac2-ntsc func_0011CF78
+func_00122630	sif	sceSifBindRpc	host	clears the client's +0x10 and +0x24, takes a packet, then sends the bind (as rac2-ntsc func_0011D450)
+func_00122810	sif	sceSifCallRpc	host	the shape of rac2-ntsc func_0011D620
+func_00122A10	sif	sceSifCheckStatRpc	host	the instructions of rac2-ntsc func_0011D810
+func_001233F8	fileio	sceFsReset	host	the instructions of rac2-ntsc func_0011E0A0
+func_00123430	fileio	rac3SceOpen	host	the shape of rac1-pal func_0011BF80; declared variadic, so bound in host/kernel.c as rac2's (rac2/host/io.c)	int (unsigned int, int, ...)
+func_001236C0	fileio	sceClose	host	the shape of rac2-ntsc func_0011E360
+func_00123B10	sif	sceSifInitIopHeap	host	the instructions of rac2-ntsc func_0011E7A0
+func_00123B98	sif	sceSifAllocIopHeap	host	the shape of rac1-pal func_0011CBC8
+func_001240E0	sif	sceSifLoadModuleBuffer	host	the instructions of rac2-ntsc func_0011ED08
+func_00124308	sif	sceSifRebootIop	host	the shape of rac2-ntsc func_0011EED8
+func_00124478	kernel	SetSyscall	host	the instructions of rac2-ntsc func_0011F048
+func_00124550	kernel	_SetTLBEntry	host	the instructions of rac2-ntsc func_0011F120
+func_00124920	kernel	DIntr	host	the shape of rac2-ntsc func_0011F5E0
+func_00124970	kernel	EIntr	host	the instructions of rac2-ntsc func_0011F628
+func_00124A68	kernel	FindAddress	host	the instructions of rac2-ntsc func_0011F700
+func_00124420	kernel	Copy	host	syscall wrapper 0x5a
+func_00124468	kernel	GetEntryAddress	host	syscall wrapper 0x5b
+func_00124F50	kernel	SetSyscall	host	syscall wrapper 0x74
+func_00124F60	kernel	Copy	host	syscall wrapper 0x5a
+func_00124FA8	kernel	GetEntryAddress	host	syscall wrapper 0x5b
+func_00125090	kernel	rac3KernelStore	host	hand-written kernel-mode store (DI, EXL set, sw a1 to a0, eret): the timer setters 0x00125100..0x00125120 write T0's COUNT, MODE and COMP at 0xB0001000 this way (host/kernel.c)	void (unsigned int, int)
+func_001260D0	libgcc	__main	host	the shape of rac2-ntsc func_0011FC48: the host runs no global constructors for the game
+func_001260F0	libgcc	__divdi3	host	the instructions of rac2-ntsc func_0011FC68
+func_00127750	libgcc	__fixunsdfdi	host	the instructions of rac1-pal func_0011E6D8
+func_001278E0	libgcc	__moddi3	host	the instructions of rac2-ntsc func_00121450
+func_00127F48	libgcc	__muldi3	host	the instructions of rac2-ntsc func_00121AB8
+func_00127FB0	libgcc	__udivdi3	host	the instructions of rac2-ntsc func_00121B20
+func_00128580	libgcc	__umoddi3	host	the instructions of rac2-ntsc func_001220F0
+func_00129A18	libgcc	__extendsfdf2	host	the instructions of rac2-ntsc func_001234F0
+func_00128ED0	libgcc	__adddf3	host	dp-bit.c's dpadd (rac3-decomp src/boot_elf/core/libgcc/dp-bit.c, which hostgen.json skips); as a translation from its instructions it took no arguments: its two doubles are saved to its frame and passed by address, which the signature check does not see
+func_00128F28	libgcc	__subdf3	host	dp-bit.c's dpsub (rac3-decomp src/boot_elf/core/libgcc/dp-bit.c, which hostgen.json skips); as a translation from its instructions it took no arguments: its two doubles are saved to its frame and passed by address, which the signature check does not see
+func_00128F90	libgcc	__muldf3	host	dp-bit.c's dpmul (rac3-decomp src/boot_elf/core/libgcc/dp-bit.c, which hostgen.json skips); as a translation from its instructions it took no arguments: its two doubles are saved to its frame and passed by address, which the signature check does not see
+func_00129238	libgcc	__divdf3	host	dp-bit.c's dpdiv (rac3-decomp src/boot_elf/core/libgcc/dp-bit.c, which hostgen.json skips); as a translation from its instructions it took no arguments: its two doubles are saved to its frame and passed by address, which the signature check does not see
+func_001294B8	libgcc	__cmpdf2	host	dp-bit.c's dpcmp (rac3-decomp src/boot_elf/core/libgcc/dp-bit.c, which hostgen.json skips); as a translation from its instructions it took no arguments: its two doubles are saved to its frame and passed by address, which the signature check does not see
+func_00129508	libgcc	__floatsidf	host	dp-bit.c's litodp (rac3-decomp src/boot_elf/core/libgcc/dp-bit.c, which hostgen.json skips); as a translation from its instructions it took no arguments: its two doubles are saved to its frame and passed by address, which the signature check does not see
+func_001295C0	libgcc	__fixdfsi	host	dp-bit.c's dptoli (rac3-decomp src/boot_elf/core/libgcc/dp-bit.c, which hostgen.json skips); as a translation from its instructions it took no arguments: its two doubles are saved to its frame and passed by address, which the signature check does not see
+func_00129658	libgcc	__fixunsdfsi	host	dp-bit.c's dptoul (rac3-decomp src/boot_elf/core/libgcc/dp-bit.c, which hostgen.json skips); as a translation from its instructions it took no arguments: its two doubles are saved to its frame and passed by address, which the signature check does not see
+func_00129728	libgcc	__truncdfsf2	host	dp-bit.c's dptofp (rac3-decomp src/boot_elf/core/libgcc/dp-bit.c, which hostgen.json skips); as a translation from its instructions it took no arguments: its two doubles are saved to its frame and passed by address, which the signature check does not see
+func_0012A950	vu	sceGsResetPath	host	the instructions of rac2-ntsc func_00124418
+func_0012A9F0	vu	sceGsSyncPath	host	the shape of rac2-ntsc func_001244B8, beside sceGsResetPath
+func_0012B098	cdvd	sceCdSync	host	the shape of rac2-ntsc func_00124B88
+func_0012B300	cdvd	sceCdInit	host	the shape of rac2-ntsc func_00124E08
+func_0012B5E8	cdvd	sceCdDiskReady	host	the shape of rac2-ntsc func_001250E8
+func_0012BA20	cdvd	sceCdRead	host	the shape of rac2-ntsc func_001253A8
+func_0012BC00	cdvd	sceCdGetError	host	the shape of rac2-ntsc func_00125588
+func_0012BC98	cdvd	sceCdBreak	host	the shape of rac2-ntsc func_00125620
+func_0012BD50	cdvd	sceCdMmode	host	the shape of rac2-ntsc func_001252E0
+func_0012BE28	cdvd	sceCdReadClock	host	the S-command RPC 1 of libcdvd into its buffer 0x00140B00 (+4 the eight BCD bytes), its caller the save's clock (frontbin 0x0039BEF0, 0x001D4BE0): translated, the RPC answered nothing and the save slots showed a date of 95.00.00
+func_0012BEE8	graph	sceGsResetGraph	host	the instructions of rac2-ntsc func_001257D0
+func_0012C128	graph	_GetGsDxDyOffset	host	the instructions of rac1-pal func_00121DB8
+func_0012C138	graph	sceGsSetDefDispEnv	host	the shape of rac2-ntsc func_00125A20
+func_0012C4B0	graph	sceGsPutDispEnv	host	the instructions of rac2-ntsc func_00125D98
+func_0012C638	graph	sceGsSetDefDrawEnv	game	the instructions of rac1-pal func_001222C8
+func_0012C820	graph	sceGsPutDrawEnv	host	the shape of rac2-ntsc func_00126108
+func_0012C908	graph	sceGsSyncV	host	the instructions of rac2-ntsc func_001261F0
+func_0012C9A0	graph	sceGsSetDefLoadImage	host	the shape of rac2-ntsc func_00126288
+func_0012CB88	graph	sceGsSetDefStoreImage	host	the shape of rac2-ntsc func_00126470
+func_0012CCC8	graph	sceGsExecLoadImage	host	the shape of rac2-ntsc func_001265B0
+func_0012D4D8	graph	sceGsSyncVCallback	host	the instructions of rac2-ntsc func_00126DC0
+func_0012D650	dma	sceDmaGetChan	game	the instructions of rac1-pal func_001232E0
+func_0012D678	dma	sceDmaReset	host	the instructions of rac2-ntsc func_00126F60
+func_0012D938	dma	rac3DmaSend	host	the instructions of rac1-pal func_001235C8; the end tag left in CHCR and the channel's handlers run, as rac2's (host/dma.c)	void (unsigned int, unsigned int)
+func_0012DDC8	mc	sceMcMkdir	host	the instructions of rac2-ntsc func_00127630
+func_0012FF40	vu0	rac3UnitMatrix	host	the instructions of rac1-pal func_00125358; host/vu0.c	void (void *)
+func_0012FFE0	vu0	sceVu0RotMatrixZ	host	the instructions of rac1-pal func_001253F8
+func_00130088	vu0	sceVu0RotMatrixX	host	the instructions of rac1-pal func_001254A0
+func_0013A880	scf	sceScfGetLanguage	host	the shape of rac1-pal func_0012D380
+func_0013AD58	scf	sceScfGetLocalTimefromRTC	host	the shape of rac2-pal func_00131AF8 (0.87 of its opcodes, the SDK's version differs): the clock sceCdReadClock gives is local already
+func_0013BED0	989snd	snd_ResolveBankXREFS	host	the instructions of rac2-ntsc func_00132828
+func_0013BF00	989snd	snd_UnloadBank	host	the instructions of rac2-ntsc func_00132858
+func_0013BF30	989snd	snd_SetMasterVolume	host	the instructions of rac2-ntsc func_00132888
+func_0013BFE0	989snd	snd_SetPlaybackMode	host	the instructions of rac2-ntsc func_00132938
+func_0013C118	989snd	snd_StopSound	host	the instructions of rac2-ntsc func_00132A70
+func_0013C170	989snd	snd_StopAllSounds	host	the instructions of rac2-ntsc func_00132AC8
+func_0013C1A0	989snd	snd_PauseAllSoundsInGroup	host	the instructions of rac2-ntsc func_00132AF8
+func_0013C1D0	989snd	snd_ContinueAllSoundsInGroup	host	the instructions of rac2-ntsc func_00132B28
+func_0013CC10	989snd	snd_PauseVAGStream	host	the instructions of rac2-ntsc func_001333D0
+func_0013CC40	989snd	snd_ContinueVAGStream	host	the instructions of rac2-ntsc func_00133400
+func_0013CCA0	989snd	snd_GetVAGStreamTimeRemaining_CB	host	the instructions of rac2-ntsc func_00133430
+func_0013CCD0	989snd	snd_IsVAGStreamBuffered_CB	host	the instructions of rac2-ntsc func_00133460
+func_0013CD00	989snd	snd_StreamSafeCheckCDIdle	host	the instructions of rac2-ntsc func_00133490
+func_0013CD28	989snd	snd_StreamSafeCdRead	host	the instructions of rac2-ntsc func_001334B8
+func_0013CDF0	989snd	snd_StreamSafeCdSync	host	the instructions of rac2-ntsc func_00133580
+func_0013CEB0	989snd	snd_StreamSafeCdBreak	host	the instructions of rac2-ntsc func_00133640
+func_0013CEF8	989snd	snd_StreamSafeCdGetError	host	the instructions of rac2-ntsc func_00133688
+func_0013CF40	989snd	snd_StreamSafeCdCallback	host	the instructions of rac2-ntsc func_001336D0
+func_0013CFC0	989snd	snd_PreAllocReverbWorkArea	host	the instructions of rac2-ntsc func_00133750
+func_0013CFF8	989snd	snd_AutoReverb	host	the instructions of rac2-ntsc func_00133788
+func_0013D0C0	989snd	snd_ResetMovieSound	host	the instructions of rac2-ntsc func_00133890
+func_0013D180	989snd	snd_UpdateMovieADPCM	host	the instructions of rac2-ntsc func_00133930
+func_0013D1B0	989snd	snd_GetMovieNAX	host	the instructions of rac2-ntsc func_00133960
+func_00124ED8	kernel	rac3LoadExec	host	LoadExecPS2's wrapper (0x00124DB8 builds the argument block, then syscall 6): the multiplayer executable, I5BOOTN.ELF, or this one again, started as the console does (host/exec.c)	void (unsigned int, int, unsigned int)
+func_00124A80	kernel	rac3InitSyscallTable	host	InitSystemCallTableAddress (rac2-ntsc func_0011F718): scans kernel memory with FindAddress; the port has none (host/entry.c)	void (void)
+func_001242B8	sif	sceSifSyncIop	host	the shape of rac2-ntsc func_0011EEA0; polled after sceSifRebootIop by func_003983C8
+func_003A9200	dma	rac3KickVif0Chain	host	KickVif0Chain (rac2-ntsc func_002FC070): programs VIF0 itself and polls CHCR (host/dma.c)	void (unsigned int)
+func_0013B818	989snd	rac3SndReplyWait	host	the wait for the sound server's reply (host/sound.c): only the client's sends, all replaced, called it; answered at once	int (void)
+func_0013B620	989snd	snd_Pump	host	snd_Pump (names.tsv; rac2-ntsc func_00132028, the same instructions): the flush the loader's wait (func_003A2B50) and the requests call: the callbacks of the requests answered, the end of a snd_StreamSafeCdRead, then the requests taken sent (lib/snd.c)
+func_0013C348	989snd	rac3SndSendCommandSync	host	snd_SendCommandSync (rac2-ntsc func_00132C48): every caller replaced, so never reached; said once and answered 0 (host/sound.c)	int (int, int, int)
+func_0013C578	989snd	rac3SndQueueCommandToRing	host	snd_QueueCommandToRing (rac2-ntsc func_00132DF0): every caller replaced, so never reached; said once and answered 0 (host/sound.c)	int (int, int, int, int, long long)
+func_0013B918	989snd	snd_BankLoadByLoc	host	the shape of rac2-ntsc func_00132318: RPC 3 on the loader client, a bank by sector and offset, its handle returned
+func_0013BAB8	989snd	rac3SndBankLoadAsync	host	snd_BankLoadAsync (rac2-ntsc func_00132498): a bank by sector and offset, its handle told to the callback (host/sound.c)	void (int, int, int, long long)
+func_0013BC30	989snd	rac3SndBankLoadFromEE	host	snd_BankLoadFromEE_CB (the shape of rac2-ntsc func_001325E8): RPC 0x57, a bank in EE memory, its handle told to the callback; returns the RPC call's result, 0 when it was sent, as retail ends in sceSifCallRpc (the multiplayer menu's bank load, func_L39_005A61D8, reads it) (host/sound.c)	int (int, int, long long)
+func_0013BD58	989snd	snd_BankLoadFromIOP	host	snd_BankLoadFromIOP (rac2-ntsc func_001326D8): a bank in the IOP's memory, its handle (lib/snd.c)
+func_0013B3F8	989snd	rac3SndStartSoundSystem	host	snd_StartSoundSystem (IDENTIFIED.tsv): the sound servers' binds left out, its first request's wait kept (host/sound.c)	int (int)
+func_0013CA30	989snd	rac3SndInitVAGStreamingEx	host	snd_InitVAGStreamingEx (IDENTIFIED.tsv): streams ready, 1 the first time and 0 after (host/sound.c)	int (int, int, int, int)
+func_0013C0B8	989snd	snd_PlaySoundVolPanPMPB_CB	host	IDENTIFIED.tsv: a sound played, its handle told to the callback at the next pump (lib/snd.c)
+func_0013C2C0	989snd	snd_SetSoundParams_CB	host	IDENTIFIED.tsv: a sound's volume, pan and pitch set, its handle (0 once ended) told to the callback at the next pump (lib/snd.c)
+func_0013CB20	989snd	snd_PlayVAGStreamTwoParts_CB	host	IDENTIFIED.tsv: a stream of two mono files, its handle told to the callback at the next pump (lib/snd.c)
+func_0013C200	989snd	rac3SndSoundIsStillPlaying	host	snd_SoundIsStillPlaying_CB (rac2-ntsc func_00132B58's request): the handle or 0 told to the callback at the next pump (host/sound.c)	int (int, int, long long)
+func_0013CC70	989snd	rac3SndStreamTimeLeft	host	the music tick's question of a stream (func_003A2120): its milliseconds left told to the callback at the next pump (host/sound.c)	int (int, int, long long)
+func_0013CAE8	989snd	rac3SndStopAllStreams	host	snd_StopAllStreams (rac2-ntsc func_00133310) as a request of no words (host/sound.c)	int (void)
+func_0013BF68	989snd	rac3SndEffectSettings	host	a block of the IOP mixer's settings, which the native mixer has no equivalent of; taken as a request with nothing to do (host/sound.c)	int (int, void *)
+func_0013C028	989snd	rac3SndVoiceRange	host	the IOP's voice ranges, likewise (host/sound.c)	int (int, int, int)
+func_0013C068	989snd	rac3SndVoiceMode	host	the IOP's voice allocation mode, likewise (host/sound.c)	int (int)
+func_0013CF80	989snd	rac3SndSetReverbEx	host	snd_SetReverbEx(core, type, depth, delay, feedback) (rac2-ntsc func_00133710): the native reverb's effect, taken when the request is sent (host/sound.c)	int (int, int, int, int, int)
+func_0013C230	989snd	rac3SndMixerSetting	host	a three-word setting of the IOP's mixer, likewise (host/sound.c)	int (int, int, int)
+func_0013D080	989snd	rac3SndMovieOpen	host	snd_movie_command (IDENTIFIED.tsv): a synchronous request of the movie's sound, which the movie player plays itself; answered 0 (host/sound.c)	int (int, int, int, int, int, int)
+func_0013D0F8	989snd	rac3SndMovie3C	host	likewise (host/sound.c)	int (void)
+func_0013D120	989snd	rac3SndMovie3E	host	likewise (host/sound.c)	int (int, int, int, int, int)
+func_0013D158	989snd	rac3SndMovie40	host	likewise (host/sound.c)	int (void)
+func_0011F9A8	kernel	EnableDmac	host	hand-written wrapper: DI, EnableDmac (0x0011EB80), EI as Status had it
+func_0011F940	kernel	DisableDmac	host	hand-written wrapper: DI, DisableDmac (0x0011EB90), EI as Status had it
+func_0038D3C0	vu0	rac3Cosine	host	VU0 microprogram 0xDA0 on vf1.x: rac3_cos (host/trig.c)	float (float)
+func_0038D3D8	vu0	rac3Sine	host	VU0 microprogram 0xDB0 on vf1.x: rac3_sin (host/trig.c)	float (float)
+func_00388960__frontbin	vu0	rac3CosineFrontbin	host	frontbin's copy of func_0038D478 (host/trig.c)	float (float)
+func_00388978__frontbin	vu0	rac3SineFrontbin	host	frontbin's copy of func_0038D490 (host/trig.c)	float (float)
+func_L01_0040C3C8	vu0	rac3CosineLevel	host	the levels' copy of func_0038D478 (host/trig.c)	float (float)
+func_L01_0040C3E0	vu0	rac3SineLevel	host	the levels' copy of func_0038D490 (host/trig.c)	float (float)
+func_0038D630	vu0	rac3EulerRows	host	VU0 microprogram 0xC80: the Euler angles at a1 (vf1), three rotation rows to a0 (vf20 to vf22): rac3_euler_rows (host/trig.c)	void (unsigned int, unsigned int)
+func_0038D650	vu0	rac3EulerRows2	host	the same instructions as func_0038D6E8 but its last nop (host/trig.c)	void (unsigned int, unsigned int)
+func_00388BD0__frontbin	vu0	rac3EulerRowsFrontbin	host	frontbin's copy of func_0038D6E8, whose C's inline assembly the port cannot run (host/trig.c)	void (unsigned int, unsigned int)
+func_00388BF0__frontbin	vu0	rac3EulerRows2Frontbin	host	frontbin's copy of func_0038D708 (host/trig.c)	void (unsigned int, unsigned int)
+func_L01_0040C638	vu0	rac3EulerRowsLevel	host	the levels' copy of func_0038D6E8 (host/trig.c)	void (unsigned int, unsigned int)
+func_L01_0040C658	vu0	rac3EulerRows2Level	host	the levels' copy of func_0038D708 (host/trig.c)	void (unsigned int, unsigned int)
+func_0038DB38	vu0	rac3QuaternionRows	host	VU0 microprogram 0xE98: the quaternion at a0 (vf8), three rotation rows to a1 (vf14 to vf16): rac3_quaternion_rows (host/trig.c)	void (unsigned int, unsigned int)
+func_0038DB58	vu0	rac3QuaternionMatrix	host	func_0038DBF0 and a fourth row (0, 0, 0, 1) (host/trig.c)	void (unsigned int, unsigned int)
+func_003890D8__frontbin	vu0	rac3QuaternionRowsFrontbin	host	frontbin's copy of func_0038DBF0, whose C's inline assembly the port cannot run (host/trig.c)	void (unsigned int, unsigned int)
+func_003890F8__frontbin	vu0	rac3QuaternionMatrixFrontbin	host	frontbin's copy of func_0038DC10 (host/trig.c)	void (unsigned int, unsigned int)
+func_L01_0040CB80	vu0	rac3QuaternionRowsLevel	host	the levels' copy of func_0038DBF0 (host/trig.c)	void (unsigned int, unsigned int)
+func_L01_0040CBA0	vu0	rac3QuaternionMatrixLevel	host	the levels' copy of func_0038DC10 (host/trig.c)	void (unsigned int, unsigned int)
+func_0038DBB8	vu0	rac3TurnAboutAxis	host	hand-written: the vector at a1 turned by f12 radians about the axis at a2, to a0, through VU0 microprogram 0xDB0 and 0xDA0: rac3_turn_about_axis (host/trig.c)	void (unsigned int, unsigned int, unsigned int, float)
+func_00389158__frontbin	vu0	rac3TurnAboutAxisFrontbin	host	frontbin's copy of func_0038DC70 (host/trig.c)	void (unsigned int, unsigned int, unsigned int, float)
+func_L01_0040CCA0	vu0	rac3TurnAboutAxisLevel	host	the levels' copy of func_0038DC70 (host/trig.c)	void (unsigned int, unsigned int, unsigned int, float)
+func_003D1C70	vu0	rac3RingPoints	host	hand-written: a ring of points into the scratchpad, turned about an axis by VU0 microprogram 0xDB0 and 0xDA0 (host/trig.c)	void (unsigned int)
+func_003CC4B0__frontbin	vu0	rac3RingPointsFrontbin	host	frontbin's copy of func_003D1DD8 (host/trig.c)	void (unsigned int)
+func_L01_004A0EA0	vu0	rac3RingPointsLevel	host	the levels' copy of func_003D1DD8, on Veldin's globals relocated (host/trig.c)	void (unsigned int)
+func_003C7E88	vu0	rac3MobyMatrix	host	hand-written: a moby's rotation rows (VU0 microprogram 0xC80 on its Euler angles), bounding sphere and grid cells, ending in func_003C7D10's relink (host/trig.c)	void (unsigned int)
+func_003C8028	vu0	rac3MobyMatrixKept	host	func_003C7FF0's tail on the moby's own rows (host/trig.c)	void (unsigned int)
+func_003C26C8__frontbin	vu0	rac3MobyMatrixFrontbin	host	frontbin's copy of func_003C7FF0 (host/trig.c)	void (unsigned int)
+func_003C2868__frontbin	vu0	rac3MobyMatrixKeptFrontbin	host	frontbin's copy of func_003C8190 (host/trig.c)	void (unsigned int)
+func_L01_00439610	vu0	rac3MobyMatrixLevel	host	the levels' copy of func_003C7FF0, on Veldin's pose table relocated (host/trig.c)	void (unsigned int)
+func_L01_004397B0	vu0	rac3MobyMatrixKeptLevel	host	the levels' copy of func_003C8190 (host/trig.c)	void (unsigned int)
+func_0012DA60	mc	sceMcInit	host	sends mcserv's RPC function 254, as rac2-ntsc's sceMcInit does
+func_0012DCA0	mc	sceMcOpen	host	sends mcserv's RPC function 2, as rac2-ntsc's sceMcOpen does
+func_0012DE00	mc	sceMcClose	host	sends mcserv's RPC function 3, as rac2-ntsc's sceMcClose does
+func_0012DEC0	mc	sceMcSeek	host	sends mcserv's RPC function 4, as rac2-ntsc's sceMcSeek does
+func_0012E050	mc	sceMcRead	host	sends mcserv's RPC function 5, as rac2-ntsc's sceMcRead does
+func_0012E168	mc	sceMcWrite	host	sends mcserv's RPC function 6, as rac2-ntsc's sceMcWrite does
+func_0012E400	mc	sceMcGetInfo	host	sends mcserv's RPC function 1, as rac2-ntsc's sceMcGetInfo does
+func_0012E580	mc	sceMcGetDir	host	sends mcserv's RPC function 13, as rac2-ntsc's sceMcGetDir does
+func_0012E6D8	mc	sceMcFormat	host	sends mcserv's RPC function 16, as rac2-ntsc's sceMcFormat does
+func_0012E7A8	mc	sceMcDelete	host	sends mcserv's RPC function 15, as rac2-ntsc's sceMcDelete does
+func_0012E8D8	mc	sceMcUnformat	host	sends mcserv's RPC function 17, as rac2-ntsc's sceMcUnformat does
+func_0012E2E0	mc	sceMcSync	host	waits on the semaphores, no RPC of its own, called by sceMcInit: as rac2-ntsc's sceMcSync
+func_003AFAA8	movie	rac3PlayMovie	host	the movie player entry (rac2-ntsc func_0034EF58's counterpart): the native player plays the stream (host/movie.c)	int (int, int, unsigned int, int, int)
+func_0012EF10	pad	rac3PadEnd	host	scePadEnd: called with no arguments on the way to another executable (func_003980A0, frontbin's func_00397CC0): nothing is open, the motors stop (host/pad.c)	int (void)
+func_003A2E80	pad	rac3PadsStart	host	the pad start-up (pads_init): each of the eight records set up as the game's does, with no libmtap or libpad to start (host/pad.c)	void (void)
+func_003A3A00	pad	rac3PadUpdate	host	the pad update (pad_update_one), run on every record by func_003A3F70: the record's state as the game keeps it, its report the port's controller at +0x574 (openrac_pad_report), handed to the record's callback and the game's reader func_003A31C8, the motors to the window; no libpad call (host/pad.c)	void (unsigned int)
+func_0039E4B0__frontbin	pad	rac3PadUpdateFrontbin	host	frontbin's copy of the pad update, its reader func_003A2DC8 (host/pad.c)	void (unsigned int)
+func_L01_0045DF40	pad	rac3PadUpdateLevel	host	the levels' copies of the pad update (the catalogue's frontbin row func_003A3740, named after Veldin's place), their reader func_L01_00460A70 (host/pad.c)	int (int)
+func_0013AFF8	boot	load_next_program	wrap	copies the next program in (frontbin or a level) and returns its entry; the port then says which program is loaded (host/program.c)
+func_003AA2E8__frontbin	movie	rac3PlayMovieFrontbin	host	frontbin copy of the movie player entry, the same instructions as the boot program 0x003AFC48 (host/movie.c)	int (int, int, unsigned int, int, int)
+func_L01_004CEBF0	movie	rac3PlayMovieLevel	host	the levels' copy of the movie player entry (the catalogue's frontbin row func_003AF890, 49 levels; the same instructions as 0x003AFC48), which the levels' story movies start (Veldin's func_L01_004AFFF8 and func_L01_004B88B0, the multiplayer maps' func_L39_005FB960): the native player plays the stream (host/movie.c)	int (int, int, unsigned int, int, int)
+func_003A9AA0	draw	rac3LoadScreenPicture	wrap	puts a picture from EE memory (pixels, frame address in bytes, width, height) into the frame as 512x32 image transfers and returns its TEX0: the main menu background; the picture goes to the window as a texture drawn by a full-screen 2D record (host/picture.c)	unsigned long long (int, int, int, int)
+func_003A0A20	wad	rac3WadDecompress	host	the WAD decompressor (hand-written assembly, the instructions of rac2-ntsc func_0029D4D0's routine): the shared routine (host/wad.c)	int (int, int)
+func_0039B760__frontbin	wad	rac3WadDecompressFrontbin	host	frontbin copy of 0x003A0B60 (host/wad.c)	int (int, int)
+func_L01_00433EA0	wad	rac3WadDecompressLevel	host	the levels' copies of 0x003A0B60 (the catalogue's frontbin row func_003A0760, named after Veldin's place: place_kinds_as_levels; host/wad.c)	int (int, int)
+func_003D3F00	collision	rac3CollLine	wrap	coll_line (hand-written, IDENTIFIED.tsv), the boot program's copy: its gather of the cells a line crosses bounded to the scratchpad's 16 KB (host/coll_line.c)	int (int, int, int, int, int)
+func_003CE740__frontbin	collision	rac3CollLineFrontbin	wrap	frontbin's copy of coll_line (0x003D4068), bounded the same (host/coll_line.c)	int (int, int, int, int, int)
+func_L01_003F8448	collision	rac3CollLineLevel	wrap	the levels' copies of coll_line (the catalogue's frontbin row func_003D3CB0, named after Veldin's place), bounded the same (host/coll_line.c)	int (int, int, int, int, int)
+func_0038EB10	draw	FontPrint	wrap	a string, glyph by glyph (frontbin's func_0038E7E8): its quads are marked as glyphs (host/ui2d.c), drawn from the font's distance field
+func_0038B998	draw	DrawGlyph	wrap	a glyph of float corners in one colour, its cell a region clamp: drawn natively inside a print (host/ui2d.c)
+func_0038F3A0	draw	FontPrintShaded	wrap	func_0038EBC8 with a colour a corner (four RGBAQ doublewords; no caller in the boot program or frontbin, whose twin is func_0038F078): its quads are marked as glyphs (host/ui2d.c)
+func_0038BB78	draw	DrawGlyphShaded	wrap	func_0038BA50 with a colour a corner: drawn natively inside a print, each corner in its colour (host/ui2d.c)
+func_0038BD58	draw	DrawGlyphShadowed	wrap	a glyph and its drop shadow: drawn natively inside a print (host/ui2d.c)
+func_0038B7F8	draw	DrawGlyphQuad	wrap	the 2D layer's textured quad, the opcode sequence of rac2-ntsc func_0027E018: drawn natively (host/ui2d.c)
+func_0038B448	draw	DrawTurnedGlyphQuad	wrap	func_0038B8B0 turned about its centre: drawn natively (host/ui2d.c)
+func_0038C000	draw	DrawRotatedSprite	wrap	a turned textured quad about a pivot, the opcode sequence of rac2-ntsc func_0027E4A8: drawn natively (host/ui2d.c)
+func_0038C460	draw	DrawRingSegment	wrap	a ring's segment, the opcode sequence of rac2-ntsc func_0027E920: drawn natively (host/ui2d.c)
+func_0038C570	draw	DrawShadedBox	wrap	a box shaded from left to right, the opcode sequence of rac2-ntsc func_0027EA28 (the menus' separators and highlighted row): drawn natively (host/ui2d.c)
+func_0038B148	draw	DarkenPicture	wrap	(r, g, b, a) over the picture, the fixed packet D_00141850 of sixteen 32-pixel sprites with z writes masked (the main menu's dimming): one flat record (host/ui2d.c)
+func_0038B258	draw	DrawFlatBox	wrap	a box of flat colour, the opcode sequence of rac2-ntsc func_0027DE50: drawn natively (host/ui2d.c)
+func_0038AC70	draw	DrawLetterbox	wrap	the letterbox: while its word is set, two black bars grow a line a frame to 52 over the screen's top and bottom, one strip packet (frontbin row func_0038A948): two flat records (host/ui2d.c)	void (void)
+func_00397598	draw	DrawHudSpriteShaded	wrap	a HUD texture turned about its centre with a colour a corner (UV, the menus' corner ornaments): drawn natively (host/ui2d.c)
+func_00397930	draw	DrawHudQuadTurned	wrap	a HUD texture's quad turned about its centre, in one grey (frontbin's func_00397638, the same instructions): drawn natively (host/ui2d.c)
+func_003AA630	gui	DrawWidgetSprite	wrap	a Widget3D sprite (the menus' frames and art): its quads become records in their place (host/ui2d.c)
+func_0011B2E8	libc	sprintf	host	newlib's sprintf (it saves $a2-$t3 and $f12-$f19 and walks them): formatted by the port (host/print.c), as rac2-ntsc's func_00115DA8	int (unsigned int, unsigned int, ...)
+func_003982E0	options	rac3FrontEndStartup	wrap	the front end's start-up (it sets the language from the console's): then the options a console forgets get the remembered ones and the port's frame hook goes in (host/options.c)	int (void)
+func_003B6220	options	rac3OptionsRowsText	wrap	the Options page's rows' names and values into the list's cells each frame: the port's rows while its Video page shows, the 16:9 row named Video (host/options.c)	int (void)
+func_003B5EE0	options	rac3OptionsPreview	wrap	the Options page's preview following the cursor: none on the Video row and page (host/options.c)	void (void)
+func_003B5DC8	options	rac3OptionsButtons	wrap	the Options page's buttons: Cross on the Video row opens the port's page, whose rows Cross, Left and Right step and Triangle leaves (host/options.c)	void (int, int)
+func_003B6400	options	rac3OptionsWidescreen	wrap	the 16:9 row's action: kept off, the port's Video page has its place (host/options.c)	void (void)
+func_003A3A40__frontbin	dma	rac3KickVif0ChainFrontbin	host	frontbin copy of KickVif0Chain (0x003A9348; host/dma.c)	void (unsigned int)
+func_L01_004C1AF0	dma	rac3KickVif0ChainLevel	host	the levels copies of KickVif0Chain (the catalogue frontbin row func_003A8F90): Veldin start-up polled the VIF0 CHCR for ever (host/dma.c)	void (unsigned int)
+func_003CB630	render	rac3MobyProcBoot	host	MobyProc, the boot program's copy (hand-written, Going Commando's func_002A4E68), run by the loading screen between planets: the drawn flags as the console sets them, the mobys drawn natively; its VU1 packets, whose vertices the replaced draw side would fill, are not built (host/render.c)	unsigned int (int, unsigned int, int, int)
+func_003CB630_003C3C18	render	rac3MobyProcBootWhole	host	the boot program's MobyProc as 0x003C3C18 calls it for the whole table (the catalogue's place of 0x003CB798): as func_003CB798 (host/render.c)	int (int, int, int, int)
+func_003CB550	render	rac3MobyDrawSideBoot	host	MobyAnimProc's draw side, the boot program's copy (hand-written, as Going Commando's func_002A4D88: 0x003C81D8 with VU0 and the scratchpad), run by the level loading screen: replaced, the window draws the mobys natively (host/render.c)	void (int, int)
+func_003C5E70__frontbin	render	rac3MobyProcFrontbin	host	frontbin's copy of the boot program's MobyProc (0x003CB798, the same instructions but for its buffers' addresses), run by frontbin's loading screen when a game starts from it (0x003C3780, and 0x003C3860 for the whole table): as the boot program's, the drawn flags as the console sets them; translated from its assembly, it queued jobs for the draw side below (host/render.c)	unsigned int (int, unsigned int, int, int)
+func_003C5D90__frontbin	render	rac3MobyDrawSideFrontbin	host	frontbin's copy of MobyAnimProc's draw side (0x003CB6B8, the same instructions: 0x003C7E20 with VU0 and the scratchpad), run by frontbin's level loading screen (0x003C35F0): translated from its assembly, it reached the scratchpad's DMA, which the port does not copy, and New Game from frontbin stopped there; as the boot program's, the window draws the mobys natively (host/render.c)	void (int, int)
+func_003A7DB0	draw	ShipGlassDrawBoot	wrap	the ship's cockpit glass on the loading screen, the boot program's copy of Going Commando's render_environment_mapped_object (func_002ECB70: GetEffectTex 0x15, 38 world quads at joint 0 of the ship): gives its quads the ship as owner and ids, so that a frame between ticks moves them with the hull (host/render.c)	void (gaddr)
+func_L01_004ACA98	draw	ShipGlassDrawLevel	wrap	the ship's cockpit glass, the levels' copy (the catalogue's frontbin row func_003A7AF8, 34 levels), run by a level's own flight leaving a planet: its quads owned by the ship and with ids, as the boot program's (host/render.c)	void (gaddr)
+func_003A6A20	draw	ShipFlamesDrawBoot	wrap	the ship's engine flames on the loading screen (the boot program's copy of the catalogue's frontbin row func_003A6790: two rows of world quads along the engines, 0x003A66D0): its quads owned by the ship, so that frames between ticks move them with the hull (host/render.c)	void (gaddr)
+func_003D9760	draw	TrailQuadBoot	wrap	the boot program's quad of an effect record (DrawWorldQuad's caller): for the loading screen's ship trail (0x003A8850, a pool of 512 records at *0x001D6EEC), each quad given its record's place as its id, so that frames between ticks move the puffs (host/render.c)	void (gaddr, int, int, int, float, float, float)
+func_L01_004A9D48	draw	ShipFlamesDrawLevel	wrap	the ship's engine flames, the levels' copy (the catalogue's frontbin row func_003A6790, 34 levels), run by a level's own flight leaving a planet: its quads owned by the ship, as the boot program's (host/render.c)	void (gaddr)
+func_003D2FF0	render	rac3DrawWorldQuadBoot	host	DrawWorldQuad, the boot program's copy (frontbin's func_003D2DA0): the loading screen's planet drawn natively as the levels' world quads (host/render.c)	void (int, int, int, int)
+func_003BCD28	render	rac3LoadingFlight	wrap	the loading screen's flight update, run each pass of the level load's loop (0x003BD870): held for the console.s 8 s of stars before the approach to the planet and its name; Start skips the hold with Skip cutscenes on (host/loading.c)	int (int)
+func_L01_004ADBC0	render	rac3DrawTfrag	host	DrawTfrag, every single-player level's copy (Going Commando's func_002EF3B0, the same instructions): the terrain drawn natively from the extracted level, the world's marker in the list (host/render.c)	int (void)
+func_L01_004AF6D0	render	rac3DrawTies	host	DrawFrame's tie pass (func_002F0EF8): the ties drawn natively (host/render.c)	int (void)
+func_L01_004A2198	render	rac3DrawShrubs	host	DrawFrame's shrub pass (func_002E11C0): the shrubs drawn natively (host/render.c)	int (void)
+func_L01_004A48F8	render	rac3SkyDrawShell	host	SkyDrawShell (func_002E3940): the shell drawn natively with the matrix 0x004A7E10 built (host/render.c)	int (int)
+func_003CE630	render	rac3SkyDrawShellBoot	host	SkyDrawShell, the boot program's copy (frontbin's func_003CE3E0, the levels' 0x004A8158): the loading screen's stars and galaxy drawn natively from the scene's sky (level 97) with the matrix 0x003CE450 built at 0x001DA610, wide (host/render.c)	void (int)
+func_L01_0043EA78	render	rac3MobyProc	host	MobyProc (hand-written, func_002A4E68): the drawn flags as the console sets them, the mobys drawn natively (host/render.c)	int (int, int, int, int)
+func_L01_0043E6E8	render	rac3MobyTextures	host	the moby textures' DMA (func_002A4AD8): nothing to send (host/render.c)	int (int)
+func_L01_0043E998	render	rac3MobyDrawSide	host	MobyAnimProc's draw side (func_002A4D88): replaced (host/render.c)	int (int, int)
+func_L01_0043CF90	render	rac3MobyChain	host	moby_anim_eval_chain (func_002A4078): the marked joints' poses from the port's evaluator (host/render.c)	int (int, int)
+func_003CA858	render	rac3MobyChainBoot	host	the boot program's moby_anim_eval_chain (hand-written; the loading screen's ship): the marked joints' poses from the port's evaluator, as the levels' copies (host/render.c); retail fed the scratchpad by a DMA tag chain	int (int, int)
+func_003C5098__frontbin	render	rac3MobyChainFrontbin	host	frontbin's copy of moby_anim_eval_chain (0x003CA9C0), the same (host/render.c)	int (int, int)
+func_L01_004AEC50	render	rac3TfragLighting	host	the terrain's per-frame vertex lighting (func_002F0468): the extracted level carries it (host/render.c)	int (int)
+func_L01_004ADB20	render	rac3TfragGifs	host	the terrain's texture packets (func_002EF310): none to patch (host/render.c)	int (void)
+func_L01_004B3368	render	rac3TieColours	host	the ties' colours (func_002F3E78): the extracted level carries them (host/render.c)	int (void)
+func_L01_004AF610	render	rac3TieGifs	host	the ties' texture packets (func_002F0E38): none to patch (host/render.c)	int (void)
+func_L01_004A3D80	render	rac3ShrubLighting	host	the shrubs' lighting (func_002E2C38): the extracted level carries it (host/render.c)	int (void)
+func_L01_004A2090	render	rac3ShrubGifs	host	the shrubs' texture packets (func_002E10B8): none to patch (host/render.c)	int (void)
+func_L01_004379E0	render	rac3MobyGifs	host	the mobys' texture packets (func_0029FEE0): none to patch (host/render.c)	int (void)
+func_L01_0045E810	render	rac3PartProc	host	PartProc (hand-written, func_002B9420's instructions): each live particle of the pool to the window, drawn natively (host/render.c)	int (void)
+func_L39_005F1EF8	render	rac3DrawTfragMultiplayer	host	DrawTfrag, the multiplayer maps' copy (levels 39 to 53; func_002EF3B0's instructions): as Veldin's (host/render.c)	int (void)
+func_L39_005F3A08	render	rac3DrawTiesMultiplayer	host	the tie pass, the multiplayer maps' copy (func_002F0EF8): as Veldin's (host/render.c)	int (void)
+func_L39_005EB8B8	render	rac3DrawShrubsMultiplayer	host	the shrub pass, the multiplayer maps' copy (func_002E11C0): as Veldin's (host/render.c)	int (void)
+func_L39_005B06C8	render	rac3MobyProcMultiplayer	host	MobyProc, the multiplayer maps' copy (hand-written, func_002A4E68): as Veldin's (host/render.c)	int (int, int, int, int)
+func_L01_004DA990	render	rac3ScreenGlowCopy	host	the screen glow's first packet (0x001D0A50: the frame copied to FBP 0x198 and shrunk), appended by DMA reference: left out, the word it sets kept (host/render.c)	int (void)
+func_L01_004DAA10	render	rac3ScreenGlowAdd	host	the screen glow's second packet (0x001D2A50: blurred and added back over the frame): left out (host/render.c)	int (void)
+func_L01_00405A58	render	rac3DrawWorldQuad	host	DrawWorldQuad (func_00280B90's instructions): the draw callbacks' world quad drawn natively, its effect texture from GetEffectTex's records (host/render.c)	int (int, int)
+func_L02_00310500	render	rac3WaterPlaneDraw	host	the open water's draw callback (class 2871 on Florana, the same routine in twelve levels), which ran a VU1 program of its own (microprogram 10) that the port does not run: its two layers drawn as world strips through the liquids' strip routine (host/water_plane.c)	void (int)
+func_0012CE48	graph	sceGsExecStoreImage	host	the entry itself, a fill word past func_0012CE44 (the name the decompilation gives with the word before it): the levels call 0x0012CE48, which ran the SDK code (\"DMA Ch.1 does not terminate\")
+func_L01_004DB630	render	rac3ScreenEffect2	host	the second screen effect's packets (0x001D3650, 0x001D3EF0: the frame copied, blurred twice, tinted and added back), appended by DMA reference: left out as the glow is (host/render.c)	int (void)
+func_L01_003E7478	camera	rac3FollowCameraReadStick	wrap	the follow camera's stick read, every single-player level's copy (Going Commando's func_L00_00424F98, the same steps): notes the camera, for the picture's late camera latch, and scales the turn by the camera speed (host/camera_latch.c)
+func_L01_00403708	draw	DrawFlatBoxLevel	wrap	the levels' copy of the flat box (func_0038B310's instructions; catalogue row func_0038AF30 frontbin, 49 levels): drawn natively (host/ui2d.c)	void (int, int, int, int, unsigned long long)
+func_L01_00403CA8	draw	DrawGlyphQuadLevel	wrap	the levels' copy of the glyph quad (func_0038B8B0's instructions): drawn natively (host/ui2d.c)	void (int, int, int, int, int, int, int, int, long long, long long)
+func_L01_004038F8	draw	DrawTurnedGlyphQuadLevel	wrap	the levels' copy of the turned glyph quad (func_0038B500's instructions): drawn natively (host/ui2d.c)	void (int, int, int, int, int, int, int, int, float, long long, long long)
+func_L01_00404740	draw	DrawRotatedSpriteLevel	wrap	the levels' copy of the turned sprite (func_0038C0B8's instructions): drawn natively (host/ui2d.c)	void (float, float, float, float, float, int, int, long long, int, int, int, int, float, float)
+func_L01_00404BA0	draw	DrawRingSegmentLevel	wrap	the levels' copy of the ring segment (func_0038C518's instructions): drawn natively (host/ui2d.c)	void (void *, void *, void *, long long, int)
+func_L01_00404CB0	draw	DrawShadedBoxLevel	wrap	the levels' copy of the shaded box (func_0038C628's instructions): drawn natively (host/ui2d.c)	void (void *, void *)
+func_L01_004040D8	draw	DrawGlyphLevel	wrap	the levels' copy of DrawGlyph (func_0038BA50's instructions): drawn natively inside a print (host/ui2d.c)	int (int, int, int, int, long long, long long, int, float, float, float, float)
+func_L01_004042B8	draw	DrawGlyphShadedLevel	wrap	the levels' copy of DrawGlyphShaded (func_0038BC30's instructions): drawn natively inside a print (host/ui2d.c)	int (int, int, int, int, void *, long long, int, float, float, float, float)
+func_L01_00404498	draw	DrawGlyphShadowedLevel	wrap	the levels' copy of DrawGlyphShadowed (func_0038BE10's instructions): drawn natively inside a print (host/ui2d.c)	int (int, int, int, int, long long, long long, long long, int, float, float, float, float, float, float)
+func_L01_0040DBE0	draw	FontPrintLevel	wrap	the levels' copy of FontPrint (func_0038EBC8's instructions): its quads are marked as glyphs (host/ui2d.c)	void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)
+func_L01_0040E470	draw	FontPrintShadedLevel	wrap	the levels' copy of FontPrintShaded (func_0038F458's instructions): its quads are marked as glyphs (host/ui2d.c)	void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)
+func_L01_004035F8	draw	DarkenPictureLevel	wrap	the levels' copy of DarkenPicture (func_0038B200's instructions, the same packet D_00141850): one flat record (host/ui2d.c)	void (int, int, int, int)
+func_L01_0041E3B8	draw	DrawHudSpriteShadedLevel	wrap	the levels' copy of func_00397680 (a HUD texture turned about its centre, a colour a corner): drawn natively (host/ui2d.c)	void (int, void *, float, float, float, float, float)
+func_L01_0041EB48	draw	DrawHudQuadTurnedLevel	wrap	the levels' copy of func_00397A18 (frontbin's catalogue row func_00397638): drawn natively, its TEX0 the caller's whole 64 bits (host/ui2d.c); the saving prompt's turning icon	float (int, int, long long, float, float, float, float, float)
+func_L01_004C7FF0	gui	DrawWidgetSpriteLevel	wrap	the levels' copy of the Widget3D sprite (func_003AA780's instructions): its quads become records in their place (host/ui2d.c)	void (void *, float, float, int, float, void *)
+func_L01_0041D750	hud	UpdateHud	wrap	the level HUD's 13 slots (Going Commando's func_0028E458, the same instructions): with the player's "HUD: Edges" the slots anchored left or right are drawn out at the sides of a wider picture (host/hud.c)	void (void)
+func_L01_0041DB78	hud	DrawHudSprite	wrap	a HUD texture as a sprite with alpha (Going Commando's func_0028E868, the same instructions): drawn natively (host/hud.c)	void (int, int, int, int, int, int)
+func_L01_0041DFF0	hud	DrawHudBar	wrap	a HUD texture a texel a pixel, a bar cut to a length (Going Commando's func_0028ECD8, the same instructions): drawn natively (host/hud.c)	void (int, int, int, int, int, int)
+func_L01_0041E1B0	hud	DrawHudSpriteColour	wrap	a HUD texture in 16ths of a pixel in a colour (Going Commando's func_0028F078, the same instructions): drawn natively (host/hud.c)	void (int, int, int, int, int, int, unsigned int)
+func_L01_0041DD68	hud	DrawHudGradient	wrap	a HUD texture with a colour a corner, shaded (Going Commando's func_0028EA58): drawn natively (host/hud.c)	void (int, int, int, int, int, void *)
+func_L01_004C23C8	draw	rac3SaveFrame	wrap	the frame read back when a level's pause menu opens (Going Commando's func_002FC8D0, the same instructions): the window keeps the frame it drew (host/picture.c)	void (int, int, int)
+func_L01_004C2488	draw	rac3WriteFrameBack	wrap	the saved frame written back under the pause menu as image transfers (Going Commando's func_002FC990, the same instructions): a marker has the window draw the frame it kept, whole (host/picture.c)	void (int, int, int)
+func_L01_004752B8	hud	DrawGuiScreens	wrap	the GUI's screens drawn once a frame (the boot program's func_003B3158): the HUD's panels and texts, the help messages, the pause menu; with "HUD: Edges" two markers have the window draw what lies left or right of the middle out at the sides of a wider picture (host/hud.c)	int (int)
+func_L01_004C25F8	draw	rac3LoadScreenPictureLevel	wrap	the levels' copy of func_003A9BE8 (row func_003A9830 frontbin): a picture put in the frame (Holostar's video screens) goes to the window as a texture drawn by a 2D record (host/picture.c)	long long (int, int, int, int)
+func_L01_00403120	draw	DrawLetterboxLevel	wrap	the levels' copy of the letterbox (func_0038AD28's instructions; its words at Veldin's 0x001DF95C and 0x001DF960): two flat records (host/ui2d.c)	int (void)
+func_L01_004CE800	hud	UpdateHudWidgets	wrap	the HUD's widget tree (Going Commando's func_0034E4F8), which draws the quick select's ring and the bolts' count as it updates them: with "HUD: Edges" the same side markers as func_L01_00478B10's (host/hud.c)	void (void *)
+func_003866E8__frontbin	draw	DarkenPictureFrontbin	wrap	frontbin's copy of DarkenPictureLevel (func_L01_004059C8's catalogue row, the same instructions): drawn natively (host/ui2d.c)	void (int, int, int, int)
+func_003867F8__frontbin	draw	DrawFlatBoxFrontbin	wrap	frontbin's copy of DrawFlatBoxLevel (func_L01_00405AD8's catalogue row, the same instructions): drawn natively (host/ui2d.c)	void (int, int, int, int, unsigned long long)
+func_003869E8__frontbin	draw	DrawTurnedGlyphQuadFrontbin	wrap	frontbin's copy of DrawTurnedGlyphQuadLevel (func_L01_00405CC8's catalogue row, the same instructions): drawn natively (host/ui2d.c)	void (int, int, int, int, int, int, int, int, float, long long, long long)
+func_00386D98__frontbin	draw	DrawGlyphQuadFrontbin	wrap	frontbin's copy of DrawGlyphQuadLevel (func_L01_00406078's catalogue row, the same instructions): drawn natively (host/ui2d.c)	void (int, int, int, int, int, int, int, int, long long, long long)
+func_00386F38__frontbin	draw	DrawGlyphFrontbin	wrap	frontbin's copy of DrawGlyphLevel (func_L01_004064A8's catalogue row, the same instructions): drawn natively (host/ui2d.c)	int (int, int, int, int, long long, long long, int, float, float, float, float)
+func_00387118__frontbin	draw	DrawGlyphShadedFrontbin	wrap	frontbin's copy of DrawGlyphShadedLevel (func_L01_00406688's catalogue row, the same instructions): drawn natively (host/ui2d.c)	int (int, int, int, int, void *, long long, int, float, float, float, float)
+func_003872F8__frontbin	draw	DrawGlyphShadowedFrontbin	wrap	frontbin's copy of DrawGlyphShadowedLevel (func_L01_00406868's catalogue row, the same instructions): drawn natively (host/ui2d.c)	int (int, int, int, int, long long, long long, long long, int, float, float, float, float, float, float)
+func_003875A0__frontbin	draw	DrawRotatedSpriteFrontbin	wrap	frontbin's copy of DrawRotatedSpriteLevel (func_L01_00406B10's catalogue row, the same instructions): drawn natively (host/ui2d.c)	void (float, float, float, float, float, int, int, long long, int, int, int, int, float, float)
+func_00387A00__frontbin	draw	DrawRingSegmentFrontbin	wrap	frontbin's copy of DrawRingSegmentLevel (func_L01_00406F70's catalogue row, the same instructions): drawn natively (host/ui2d.c)	void (void *, void *, void *, long long, int)
+func_00387B10__frontbin	draw	DrawShadedBoxFrontbin	wrap	frontbin's copy of DrawShadedBoxLevel (func_L01_00407080's catalogue row, the same instructions): drawn natively (host/ui2d.c)	void (void *, void *)
+func_00389FB8__frontbin	draw	FontPrintFrontbin	wrap	frontbin's copy of FontPrintLevel (func_L01_00410208's catalogue row, the same instructions): drawn natively (host/ui2d.c)	void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)
+func_0038A848__frontbin	draw	FontPrintShadedFrontbin	wrap	frontbin's copy of FontPrintShadedLevel (func_L01_00410A98's catalogue row, the same instructions): drawn natively (host/ui2d.c)	void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)
+func_003A9770	draw	SetScissor	wrap	the 2D layer's scissor (x0, x1, y0, y1, kept within the screen): the native quads are cut to it too (host/ui2d.c)	void (int, int, int, int)
+func_003A3FB0__frontbin	draw	SetScissorFrontbin	wrap	frontbin's copy of SetScissor (func_003A98B8's pair): the native quads are cut to it too (host/ui2d.c)	void (int, int, int, int)
+func_L01_004C20A8	draw	SetScissorLevel	wrap	the levels' copy of SetScissor (catalogue row func_003A9500 frontbin): the native quads are cut to it too (host/ui2d.c)	int (int, int, int, int)
+func_00392A40__frontbin	draw	DrawHudSpriteShadedFrontbin	wrap	frontbin's copy of DrawHudSpriteShadedLevel (func_L01_00420AE8's catalogue row, the same instructions): drawn natively (host/ui2d.c)	void (int, void *, float, float, float, float, float)
+func_00397C78	draw	SendImage	wrap	an image to the graphics chip (data, chip address, format, log2 width, log2 height, at once or in the list): the HUD bank's group 0, from a buffer the boot program reuses; the port keeps what it was given (openrac_game_image_keep), which the native 2D layer draws (host/textures.c)	void (int, int, int, int, int, int)
+func_00393120__frontbin	draw	SendImageFrontbin	wrap	frontbin's copy of SendImage (func_00397D60's pair): the image kept as it was given (host/textures.c)	void (int, int, int, int, int, int)
+func_L01_0041EE90	draw	SendImageLevel	wrap	the levels' copy of SendImage (func_00397D60), called by their HUD bank's group upload func_L01_0041C648: the image kept as it was given (host/textures.c)	int (int, int, int, int, int, int)
+func_003A42E0__frontbin	draw	rac3LoadScreenPictureFrontbin	wrap	frontbin's copy of the picture into the frame (func_003A9BE8's instructions): the main menu's background after a level, as the boot program's (host/picture.c)	long long (int, int, int, int)
+func_L01_004024E8	render	rac3DrawCallbacksFirst	host	the first draw callback list's runner (Going Commando's func_0027CE18, the same steps; count 0x001DF988, pairs 0x001E8480/0x001E8580): opened for a wide picture, each callback's argument the owner of its quads (host/wide_view.c)	void (void)
+func_L01_004026F0	render	rac3DrawCallbacksSecond	host	the second list's runner (func_0027D020; 0x001DF98C, 0x001E8680/0x001E8780) (host/wide_view.c)	void (void)
+func_L01_004025B0	render	rac3DrawCallbacksThird	host	the third list's runner (func_0027CEE0; 0x001DF990, 0x001E8880/0x001E8980) (host/wide_view.c)	void (void)
+func_L01_00402628	render	rac3DrawCallbacksFourth	host	the fourth list's runner (func_0027CF58; 0x001DF994, 0x001E8A80/0x001E8B80) (host/wide_view.c)	void (void)
+func_L01_004027B8	render	rac3DrawCallbacksFifth	host	the fifth list's runner (func_0027D0E8; count 0x001DF9B8, four pairs 0x001DF998/0x001DF9A8) (host/wide_view.c)	void (void)
+func_L01_0040D0C0	render	rac3SphereFrustumClassify	wrap	the bounding sphere test (Going Commando's FastBSphereCheck func_00283DB8, the same instructions; frontbin's func_0038DC20): opened while a draw callback list runs (host/wide_view.c)
+func_L01_004DC1C0	player	Hero_TakeDamage	hook	hero_damage: takes a hit's points from the hero's health (0x001A7430), scaled by the armour's factor and the help measure's, at least 1, never below 0 (Going Commando's Hero_TakeDamage, the same job). A hook point for mods; the game's C with none.
+func_L01_00416B38	item	Item_Give	hook	item_give: gives the player item id: its owned and new bytes (0x00142CA0, 0x00142D40), its row's starting ammo to a gun with none, the vendor's list and the quick select (Going Commando's GiveInventoryItem). A hook point for mods; the game's C with none.
+func_L01_00416640	weapon	Weapon_LevelUp	hook	weapon_level_up: steps weapon id to its next level (its row's +0x46), its experience raised to the old row's step and its ammo filled (Going Commando's Weapon_LevelUp). A hook point for mods; the game's C with none.
+func_L01_004176F8	item	Item_Upgrade	hook	weapon_buy_mega: the vendor's upgrade of item id to its Mega level (5): the level set, full ammo, experience cleared (Going Commando's Item_Upgrade). A hook point for mods; the game's C with none.
+func_L01_004B6C98	vendor	Vendor_Price	hook	vendor_price: the price in bolts of the vendor's row under the cursor: the gun's +0x7C, or its level-5 row's for a Mega row, 9/10 of it with the discount (Going Commando's Vendor_Price). A hook point for mods; the game's C with none.
+func_L01_00416BF8	vendor	Vendor_StockAdd	hook	vendor_stock_add: lists item id for the vendor (vendor_stock 0x001D54D8, u16 per entry); item_give calls it. A hook point for mods; the game's C with none.
+func_L01_0050D8F8	weapon	Weapon_TakeAmmo	hook	ammo_use: takes rounds of a gun's ammo (item -1: the one in hand), 1 when there were enough; always 1 for a gun without a maximum (Going Commando's Weapon_TakeAmmo, rac1's TakeAmmo). A hook point for mods; the game's C with none.
+func_L01_0050D980	weapon	Weapon_AddAmmo	hook	ammo_add: adds rounds to a gun's ammo, capped at its row's maximum (+0x8A), and returns what did not fit; ammo pickups and the vendor call it. A hook point for mods; the game's C with none.
+func_L01_004200A8	level	Level_GiveItems	hook	give_level_items: a level's standing items at its start (the suit, the camera options, the thruster-pack), then the level's own; every level start calls it. A hook point for mods; the game's C with none.
+func_L01_004EA040	player	Hero_DeathDone	hook	hero_death_done: the hero's death over (state 57 ended, or a fall out of the level): the death counted and the respawn asked for (0x001A71D2). A hook point for mods; the game's C with none.
+func_L01_004412D0	moby	Moby_RecordDeath	hook	moby_killed: an enemy's death: the class's experience to the gun that killed it (its damage record), the hero's experience and its bolt drop (Bolt_SpawnPickups); Going Commando's Moby_RecordDeath. A hook point for mods; its instructions translated with none.
+func_L01_0044A0E8	bolt	Bolt_SpawnPickups	hook	bolts_drop: a burst of bolt coins from a moby: an amount from low to high split into the biggest coins that fit (flag 8: at most maximum coins, the rest banked); enemies' drops (moby_killed) and the levels' scripted bursts (Going Commando's Bolt_SpawnPickups). A hook point for mods; its instructions translated with none.
+func_L01_002F8F60	bolt	Bolt_SpawnPickup	hook	bolt_coin_spawn: one bolt coin of a value at a position with a velocity, its moby or 0 (64 units or more from the camera the value is banked instead; Going Commando's Bolt_SpawnPickup). A hook point for mods; its instructions translated with none.
+func_L01_002F8918	bolt	Bolt_Collect	hook	bolt_pickup_collect: a bolt coin collected: its value added to the player's bolts (0x00142660), the bolt HUD shown and its sparkle (Going Commando's Bolt_Collect). A hook point for mods; its instructions translated with none.
+func_L01_00443840	combat	Moby_PostHit	hook	damage_queue: queues a damage record for a moby in the hit ring (0x001EED00, 64 entries); a moby keeps one pending (+0xA8), which a hit at least as strong replaces (Going Commando's Moby_PostHit). A hook point for mods; its instructions translated with none.
+func_L01_004B6E88	vendor	Vendor_BuildList	hook	vendor_weapon_list: fills the vendor's weapons rows from its stock: rounds for each owned gun not full, the guns for sale, Mega rows in challenge mode (Going Commando's Vendor_BuildList). A hook point for mods; its instructions translated with none.
+func_L01_004D3998	level	Level_Load	hook	level_load, the levels' copy (catalogue row func_003BD030 frontbin): picks the transition for the level asked for, sets level_current (0x001D545C) and starts reading its files (Going Commando's Level_Load: the way to the next level). A hook point for mods; its instructions translated with none.

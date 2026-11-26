@@ -63,6 +63,25 @@ void test_discontinuous_anchors_are_not_interpolated() {
     CHECK(!openrac::frontend::captured_effect_parent(previous, current, 1, 0.5f));
 }
 
+// Moves a delayed strip laid out on the hero by his move alone when position-only, keeping its
+// world offset as he turns, and through his axes otherwise.
+void test_position_only_strips_keep_their_offset() {
+    // A quarter turn about z and two units along x between the strip's tick and the frame drawn.
+    openrac::renderer::Mat4 turned = openrac::renderer::identity();
+    turned[0] = 0;
+    turned[1] = 1;
+    turned[4] = -1;
+    turned[5] = 0;
+    turned[12] = 2;
+    const openrac::frontend::EffectParent parent{openrac::renderer::identity(), turned, turned};
+    float shield[3] = {1, 0, 0};
+    openrac::frontend::follow_strip_parent(shield, parent, true);
+    CHECK(std::fabs(shield[0] - 3.0f) < 0.0001f && std::fabs(shield[1]) < 0.0001f);
+    float orb[3] = {1, 0, 0};
+    openrac::frontend::follow_strip_parent(orb, parent, false);
+    CHECK(std::fabs(orb[0] - 2.0f) < 0.0001f && std::fabs(orb[1] - 1.0f) < 0.0001f);
+}
+
 // Places a newborn sprite with its displayed anchor without requiring previous particle corners.
 void test_newborn_sprites_follow_the_anchor_position() {
     openrac::frontend::EffectParent parent{
@@ -178,6 +197,7 @@ int main() {
     test_meshless_anchor_aligns_body_and_outline();
     test_missing_anchors_have_no_transform();
     test_discontinuous_anchors_are_not_interpolated();
+    test_position_only_strips_keep_their_offset();
     test_newborn_sprites_follow_the_anchor_position();
     test_attached_sprites_do_not_rotate_with_the_anchor();
     test_attached_mesh_quads_follow_rotation();

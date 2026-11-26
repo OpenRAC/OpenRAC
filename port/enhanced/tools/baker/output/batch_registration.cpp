@@ -28,7 +28,18 @@ std::string region_registry(const ProbeBatchOptions& options, const json::Value&
     std::string regions = "[";
 
     // Final plan order fixes registry order independently of worker completion.
-    for (std::size_t index = 0; index < plan["regions"].items().size(); ++index) {
+    auto count = plan["regions"].items().size();
+    if (plan["island_policy"]["enabled"].boolean()
+        && std::filesystem::exists(options.output_directory / "placement-islands.json")) {
+        const auto islands =
+            bake_json::document(options.output_directory / "placement-islands.json");
+        if (!islands["volumes"].is_object()
+            || !islands["volumes"].members().contains("sparse.orpg")) {
+            throw std::runtime_error("missing watershed allocation registry");
+        }
+        count = islands["volumes"].members().size() - 1;
+    }
+    for (std::size_t index = 0; index < count; ++index) {
         const auto name = std::format("region-{:03}.orpg", index);
         require_asset(options.output_directory / name);
 

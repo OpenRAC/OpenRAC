@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <source_location>
 #include <string_view>
 
@@ -19,6 +20,7 @@ class SurfaceBatch;
 struct PreparedDispatch;
 struct Program;
 class GraphImmediateWork;
+class GraphFixture;
 }
 // Preserves valid incoming contents, or requires each imported range to be written before its first read.
 enum class InitialContents : std::uint8_t {
@@ -67,7 +69,10 @@ public:
     );
     // Imports a read-only storage, texel or uniform-buffer view, retaining its actual allocation offset.
     [[nodiscard]] Result<renderer::graph::BufferUse> read_buffer(
-        std::string_view name, unsigned buffer, renderer::graph::Stage stages
+        std::string_view name,
+        unsigned buffer,
+        renderer::graph::Stage stages,
+        bool instanced = false
     );
     // Imports the sampled texture view, preserving its actual aspect and mip range.
     [[nodiscard]] Result<renderer::graph::ImageUse> read_image(
@@ -97,10 +102,20 @@ public:
     );
     // Compiles all accesses before recording; invokes each work pass's callback synchronously.
     // Once recording starts, this object is single-use even on failure; validation invokes no callback.
-    [[nodiscard]] Result<void> run(const std::function<void(unsigned)>& record = {});
+    // A null import policy compiles into reusable storage without caching the plan.
+    [[nodiscard]] Result<void> run(
+        const std::function<void(unsigned)>& record = {},
+        std::optional<renderer::graph::PlanCache::Imports> imports =
+            renderer::graph::PlanCache::Imports::Exact
+    );
+    // Compiles changing declarations into the recording's reusable plan storage.
+    [[nodiscard]] Result<void> run_uncached(const std::function<void(unsigned)>& record = {});
 
     // Records prepared native or raster commands; captured bindings must outlive the enclosing chain.
-    [[nodiscard]] Result<void> run_prepared(const std::function<void(unsigned)>& record);
+    [[nodiscard]] Result<void> run_prepared(
+        const std::function<void(unsigned)>& record,
+        renderer::graph::PlanCache::Imports imports = renderer::graph::PlanCache::Imports::Exact
+    );
     [[nodiscard]] Result<void> run_prepared(const std::function<void()>& record);
     // Freezes raster uniform values and framebuffer attachments before later setup can overwrite them.
     [[nodiscard]] Result<void> run_raster(const std::function<void(unsigned)>& record);
@@ -110,6 +125,7 @@ public:
 private:
     friend class detail::SurfaceBatch;
     friend class detail::GraphImmediateWork;
+    friend class detail::GraphFixture;
     [[nodiscard]] Result<void> add_dispatch_pass(
         renderer::graph::Pass pass, detail::PreparedDispatch packet
     );

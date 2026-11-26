@@ -23,6 +23,7 @@ use std::path::{Path, PathBuf};
 const BUILT_IN: &[(&str, &str)] = &[
     ("rac1", include_str!("../../../port/game/rac1/differences.json")),
     ("rac2", include_str!("../../../port/game/rac2/differences.json")),
+    ("rac3", include_str!("../../../port/game/rac3/differences.json")),
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
@@ -33,6 +34,9 @@ pub enum Kind {
     Fix,
     /// Keeps the game from crashing where the console carried on unnoticed: shown, never switched.
     Guard,
+    /// The port's fix of something the console does, always on (a soft lock, a missing feature): shown, never
+    /// switched.
+    Always,
     /// A difference that comes with being a PC program: for the record.
     Port,
 }
@@ -56,6 +60,10 @@ pub struct Difference {
     pub port: String,
     #[serde(default)]
     pub setting: Option<FixSetting>,
+    /// A fix's discs that compile the host C reading its key but never reach the read (a disc that
+    /// already behaves so), each with why: no setting there, and not shown.
+    #[serde(default)]
+    pub bypassed: std::collections::BTreeMap<String, String>,
     #[serde(default)]
     pub refs: Vec<String>,
 }
@@ -121,6 +129,17 @@ pub fn parse(text: &str) -> Result<DifferenceFile, String> {
         if d.discs.is_empty() || d.discs.iter().any(|v| !matches!(v.as_str(), "pal" | "ntsc" | "ntsc2" | "pal1" | "jp"))
         {
             return Err(at("discs are pal, ntsc, ntsc2, pal1 or jp"));
+        }
+        for (disc, why) in &d.bypassed {
+            if d.kind != Kind::Fix {
+                return Err(at("only a fix is bypassed"));
+            }
+            if !matches!(disc.as_str(), "pal" | "ntsc" | "ntsc2" | "pal1" | "jp") || d.discs.contains(disc) {
+                return Err(at("a bypassed disc is pal, ntsc, ntsc2, pal1 or jp, and not in discs"));
+            }
+            if why.trim().is_empty() {
+                return Err(at("a bypassed disc says why"));
+            }
         }
         match (d.kind, &d.setting) {
             (Kind::Fix, None) => return Err(at("a fix needs a setting")),
@@ -378,6 +397,15 @@ mod tests {
         let on = |discs: &str| parse(&entry(r#""kind": "port""#).replace(r#"["pal"]"#, discs));
         assert!(on(r#"["pal1", "jp", "ntsc2", "ntsc"]"#).is_ok());
         assert!(on(r#"["xx"]"#).is_err() && on("[]").is_err());
+        // A fix's bypassed discs: other discs, each with why.
+        let fix = |bypassed: &str| {
+            parse(&entry(&format!(
+                r#""kind": "fix", "setting": {{"key": "fix_a_b", "default": true}}, "bypassed": {bypassed}"#
+            )))
+        };
+        assert!(fix(r#"{"ntsc2": "w"}"#).is_ok());
+        assert!(fix(r#"{"pal": "w"}"#).is_err() && fix(r#"{"xx": "w"}"#).is_err() && fix(r#"{"ntsc2": ""}"#).is_err());
+        assert!(parse(&entry(r#""kind": "port", "bypassed": {"ntsc2": "w"}"#)).is_err());
     }
 
     #[test]

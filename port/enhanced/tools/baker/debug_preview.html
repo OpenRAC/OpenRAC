@@ -1,0 +1,2209 @@
+<section id="hoven-probe-view">
+  <h2>Lighting bake debug</h2>
+  <div class="viz-controls">
+    <label>View <select data-mode><option value="reflection">Reflection</option><option value="gi">GI</option><option value="spatial">Layered watershed</option></select></label>
+    <label>Pick <select data-pick-target><option value="probes">Probes / volumes</option><option value="island">Watershed islands</option><option value="spatial">Layered watershed</option><option value="fit">Fitted volumes</option><option value="failures">Placement failures</option><option value="mesh">Collision mesh</option><option value="medial">Area routes</option></select></label>
+    <label><input type="checkbox" data-watershed> Watershed islands</label>
+    <label title="Experimental layered free-space segmentation; does not drive probe placement"><input type="checkbox" data-spatial checked> Layered watershed (prototype)</label>
+    <label title="Area centres, isolated areas as flat circles, entrances and tunnel routes"><input type="checkbox" data-medial> Area routes</label>
+    <label><input type="checkbox" data-evidence checked> Playable evidence</label>
+    <label class="form-label">Geometry <select class="form-select" data-geometry><option value="features">Solid + feature edges</option><option value="solid">Solid</option><option value="wire">Wireframe</option><option value="off">Hidden</option></select></label>
+    <button type="button" class="btn" data-view>Top view</button>
+    <details class="preview-config" data-config>
+      <summary>Config</summary>
+      <div class="config-panel">
+        <strong>Opacity</strong>
+        <div data-alpha-controls></div>
+        <button type="button" data-alpha-reset>Reset opacity</button>
+        <strong>Camera</strong>
+        <button type="button" data-camera-reset>Reset camera</button>
+      </div>
+    </details>
+  </div>
+  <div class="viz-controls" data-spatial-controls hidden>
+    <label>Height bands <select data-spatial-layer><option value="middle">Middle band</option><option value="all">All bands</option><option value="slice">Height slice</option></select></label>
+    <label data-spatial-slice-control hidden>Slice Z <input type="range" data-spatial-slice><output data-spatial-height></output></label>
+    <label><input type="checkbox" data-spatial-spans> Span columns</label>
+    <label><input type="checkbox" data-spatial-portals checked> Portals</label>
+    <label><input type="checkbox" data-spatial-boundary checked> Boundary samples</label>
+    <label><input type="checkbox" data-spatial-crossings checked> Crossing lines</label>
+    <label><input type="checkbox" data-spatial-views> Visibility samples</label>
+    <label><input type="checkbox" data-spatial-view-rays> Selected view rays</label>
+    <label><input type="checkbox" data-fit-reflection> Fitted reflection (preview)</label>
+    <label><input type="checkbox" data-fit-gi> Fitted GI (preview)</label>
+  </div>
+  <div class="text-small" data-spatial-detail hidden></div>
+  <div class="text-small" data-spatial-portal-detail hidden></div>
+  <div class="text-small" data-fit-detail hidden></div>
+  <div data-fit-json hidden><button type="button" data-fit-copy>Copy fitted volume JSON</button> <span data-fit-copy-status role="status"></span><details><summary>Fitted volume JSON</summary><pre></pre></details></div>
+  <div data-spatial-json hidden>
+    <button type="button" data-spatial-copy>Copy spatial region JSON</button> <span data-spatial-copy-status role="status"></span>
+    <details><summary>Prototype spatial region JSON</summary><pre></pre></details>
+  </div>
+  <div class="viz-controls" data-reflection-controls>
+    <label class="form-check"><input type="checkbox" class="form-check-input" data-bounds checked> Influence boxes</label>
+    <label><input type="checkbox" data-projection> Parallax proxies</label>
+    <label><input type="checkbox" data-surface-coverage> Surface coverage</label>
+    <label><input type="checkbox" data-surface-covered> Include strongly covered surfaces</label>
+  </div>
+  <div data-failure-controls hidden>
+    <strong>Unbaked reflection placement</strong>
+    <div class="viz-controls">
+      <label><input type="checkbox" data-failures> Placement failures</label>
+      <button type="button" data-failure-prev>Previous failure</button>
+      <button type="button" data-failure-next>Next failure</button>
+      <button type="button" data-failure-frame>Frame failure (F)</button>
+      <button type="button" data-failure-kind="uncovered">First uncovered</button>
+      <button type="button" data-failure-kind="locality">First locality conflict</button>
+      <button type="button" data-failure-kind="ownership">First ownership conflict</button>
+    </div>
+    <div class="text-small" data-failure-detail></div>
+    <div data-failure-json hidden><button type="button" data-failure-copy>Copy failure JSON</button> <span data-failure-copy-status role="status"></span><details><summary>Failure JSON</summary><pre></pre></details></div>
+  </div>
+  <div class="viz-controls" data-gi-controls hidden>
+    <label><input type="checkbox" data-gi-probes> Individual GI probes</label>
+  </div>
+  <div class="viewport">
+    <canvas data-mesh aria-hidden="true"></canvas>
+    <canvas data-overlay tabindex="0" role="img" aria-label="Rotatable 3D collision geometry, receiver samples, reflection captures, GI probes and volume bounds"></canvas>
+    <div class="camera-speed-hud" data-camera-speed hidden role="status" aria-live="polite">
+      <strong>Camera speed <span data-camera-speed-value>1×</span></strong>
+      <small>Scroll to adjust · Shift to boost</small>
+    </div>
+  </div>
+  <div class="text-small" data-detail aria-live="polite"></div>
+  <div class="text-small" data-surface-detail hidden></div>
+  <div class="text-small sample-legend"><span>■ Floor samples</span> · <span class="water-swatch">○ Water surface samples</span></div>
+  <div class="text-small" data-watershed-detail hidden></div>
+  <div class="text-small" data-evidence-detail><span style="color:#c07600">+ Gameplay anchor</span> · <span style="color:#b43fb5">◇ Manual playable area</span> · <span style="color:#008e9b">△ Swimming entry</span></div>
+  <div class="text-small medial-swatch" data-medial-detail hidden></div>
+  <div class="text-small" data-medial-selection hidden></div>
+  <div data-medial-json hidden>
+    <button type="button" class="btn" data-medial-copy>Copy route JSON</button> <span data-medial-copy-status role="status"></span>
+    <details><summary>Route JSON</summary><pre></pre></details>
+  </div>
+  <div class="text-small" data-mesh-detail hidden></div>
+  <div class="text-small" data-island-detail hidden></div>
+  <div data-island-json hidden>
+    <button type="button" class="btn" data-island-copy>Copy island JSON</button> <span data-island-copy-status role="status"></span>
+    <details><summary>Watershed island JSON</summary><pre></pre></details>
+  </div>
+  <div data-mesh-json hidden>
+    <button type="button" class="btn" data-mesh-copy>Copy mesh JSON</button> <span data-mesh-copy-status role="status"></span>
+    <details><summary>Mesh JSON</summary><pre></pre></details>
+  </div>
+  <div class="text-small" data-gi-detail hidden></div>
+  <div class="text-small" data-gi-legend hidden><span class="gi-swatch">□ GI volume / • Valid probe</span> · <span class="relocated-swatch">• Relocated</span> · <span class="disabled-swatch">× Disabled</span></div>
+  <div data-gi-json hidden>
+    <button type="button" class="btn" data-gi-copy>Copy GI volume JSON</button> <span data-gi-copy-status role="status"></span>
+    <details><summary>GI volume JSON</summary><pre></pre></details>
+  </div>
+  <div data-region-detail hidden>
+    <button type="button" class="btn" data-copy>Copy reflection probe JSON</button> <span data-copy-status role="status"></span>
+    <details><summary>Reflection probe JSON</summary><pre></pre></details>
+  </div>
+  <div class="text-small text-muted">Left click · pick selected target | Alt + left drag · orbit | Middle drag · pan | Scroll or Alt + right drag · zoom | Right drag + WASD/QE · fly | Right mouse + scroll · movement speed | F · frame</div>
+  <script type="application/json" data-bake>__BAKE_DATA__</script>
+</section>
+<style>
+:root { color-scheme:light dark; --background:Canvas; --muted-foreground:CanvasText; --viz-series-1:light-dark(#004fa8,#7bcaff); --reflection-color:light-dark(#d000d0,#ff70ff); --water-sample:light-dark(#1668db,#69b7ff); }
+body { margin:20px auto; max-width:1300px; padding:0 16px; font:15px system-ui,sans-serif; }
+.viz-controls { display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-bottom:8px; }
+[hidden] { display:none !important; }
+.preview-config { position:relative; }
+.preview-config summary { cursor:pointer; padding:4px 8px; border:1px solid GrayText; border-radius:4px; }
+.config-panel { position:absolute; right:0; top:calc(100% + 6px); z-index:10; width:440px; max-width:calc(100vw - 32px); max-height:70vh; overflow:auto; padding:16px; box-sizing:border-box; background:Canvas; color:CanvasText; border:1px solid GrayText; border-radius:6px; box-shadow:0 6px 20px #0003; }
+.alpha-control { display:grid; grid-template-columns:minmax(130px,1fr) minmax(90px,140px) 42px; align-items:center; gap:10px; margin:12px 0; font-size:13px; }
+.alpha-control input { width:100%; min-width:0; margin:0; }
+.alpha-control output { text-align:right; font-variant-numeric:tabular-nums; }
+@media (max-width:480px) {
+  .alpha-control { grid-template-columns:1fr 42px; gap:6px; }
+  .alpha-control span { grid-column:1 / -1; }
+}
+.viewport { position:relative; height:clamp(340px, 68vh, 850px); background:var(--background); }
+.viewport canvas { position:absolute; inset:0; width:100%; height:100%; touch-action:none; }
+.camera-speed-hud { position:absolute; z-index:2; bottom:18px; left:50%; transform:translateX(-50%); pointer-events:none; padding:9px 16px; border:1px solid GrayText; border-radius:8px; background:light-dark(#fffffff0,#17212af0); color:CanvasText; box-shadow:0 3px 14px #0003; text-align:center; white-space:nowrap; }
+.camera-speed-hud strong { font-variant-numeric:tabular-nums; }
+.camera-speed-hud small { display:block; margin-top:3px; opacity:.7; }
+.text-small { margin-top:6px; }
+pre { max-width:100%; overflow:auto; }
+.water-swatch { color:var(--water-sample); }
+.gi-swatch { color:light-dark(#237a36,#80dc91); }
+.relocated-swatch { color:light-dark(#b65b00,#ffc16b); }
+.disabled-swatch { color:light-dark(#b12a40,#ff8599); }
+.medial-swatch { color:var(--medial-color); }
+:root { --medial-color:light-dark(#8c23b0,#e19aff); }
+:root { --gi-color:light-dark(#237a36,#80dc91); --gi-relocated:light-dark(#b65b00,#ffc16b); --gi-disabled:light-dark(#b12a40,#ff8599); }
+</style>
+<script>
+(() => {
+  const root = document.getElementById("hoven-probe-view");
+  const canvas = root.querySelector("[data-overlay]");
+  const meshCanvas = root.querySelector("[data-mesh]");
+  const ctx = canvas.getContext("2d");
+  const bounds = root.querySelector("[data-bounds]");
+  const view = root.querySelector("[data-view]");
+  const detail = root.querySelector("[data-detail]");
+  let pickedIsland = -1;
+  const regionDetail = root.querySelector("[data-region-detail]");
+  const copyStatus = root.querySelector("[data-copy-status]");
+  const geometry = root.querySelector("[data-geometry]");
+  const alphaDefinitions = [
+    ["surface","Surface coverage markers",80],
+    ["floor","Floor sample icons",56],
+    ["water","Water surface icons",50],
+    ["watershed","Watershed icons",95],
+    ["spatialCells","Prototype spatial cells",70],
+    ["spatialWire","Prototype span columns",35],
+    ["spatialPortals","Prototype portals",90],
+    ["reflection","Reflection capture icons",100],
+    ["failures","Placement failure markers",100],
+    ["giValid","Valid GI probe icons",70],
+    ["giRelocated","Relocated GI probe icons",70],
+    ["giDisabled","Disabled GI probe icons",70],
+    ["reflectionWire","Reflection wireframes",38],
+    ["giWire","GI volume wireframes",35],
+    ["fitWire","Fitted volume previews",60],
+    ["geometryWire","Collision edges / wireframe",100],
+    ["medialWire","Area / tunnel routes",90],
+    ["medialIcons","Area centres / entrance icons",90],
+    ["evidenceIcons","Playable evidence markers",100],
+    ["evidenceWire","Manual playable area boxes",90],
+    ["meshSelection","Picked collision triangle",100],
+    ["occluded","Overlays behind collision",20]
+  ];
+  const alpha = Object.fromEntries(alphaDefinitions.map(([key,,value])=>[key,value/100]));
+  const alphaStorageKey = "openrac-bake-preview-opacity-v1";
+  try {
+    const saved = JSON.parse(localStorage.getItem(alphaStorageKey) || "{}");
+    for (const [key] of alphaDefinitions) {
+      if (typeof saved?.[key] === "number" && Number.isFinite(saved[key])) {
+        alpha[key] = Math.max(0,Math.min(1,saved[key]));
+      }
+    }
+  } catch {}
+  const saveAlpha = () => { try { localStorage.setItem(alphaStorageKey,JSON.stringify(alpha)); } catch {} };
+  for (const [key,name] of alphaDefinitions) {
+    const label = document.createElement("label");
+    label.className = "alpha-control";
+    const title = document.createElement("span"); title.textContent = name;
+    const input = document.createElement("input");
+    input.type = "range"; input.min = "0"; input.max = "100"; input.step = "1";
+    input.value = String(Math.round(alpha[key]*100)); input.dataset.alpha = key;
+    const output = document.createElement("output"); output.value = input.value + "%";
+    label.append(title,input,output);
+    root.querySelector("[data-alpha-controls]").append(label);
+    input.addEventListener("input", () => {
+      alpha[key] = Number(input.value)/100;
+      output.value = input.value + "%";
+      saveAlpha(); draw();
+    });
+  }
+  root.querySelector("[data-alpha-reset]").addEventListener("click", () => {
+    for (const [key,,value] of alphaDefinitions) {
+      alpha[key] = value/100;
+      const input = root.querySelector(`[data-alpha="${key}"]`);
+      input.value = String(value); input.nextElementSibling.value = value + "%";
+    }
+    saveAlpha(); draw();
+  });
+  document.addEventListener("pointerdown", e => {
+    const config = root.querySelector("[data-config]");
+    if (!config.contains(e.target)) config.open = false;
+  });
+  root.querySelector("[data-config]").addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      root.querySelector("[data-config]").open = false;
+      root.querySelector("[data-config] summary").focus();
+      e.stopPropagation();
+    }
+  });
+  function placeConfig() {
+    const config = root.querySelector("[data-config]");
+    if (!config.open) return;
+    const panel = config.querySelector(".config-panel");
+    panel.style.transform = "";
+    const box = panel.getBoundingClientRect();
+    const shift = Math.max(16-box.left,Math.min(0,window.innerWidth-16-box.right));
+    panel.style.transform = `translateX(${shift}px)`;
+    panel.style.maxHeight = Math.max(100,window.innerHeight-box.top-16) + "px";
+  }
+  root.querySelector("[data-config]").addEventListener("toggle", placeConfig);
+  window.addEventListener("resize", placeConfig);
+  const {points, captures, owners, boxes, influence_captures = [], influence_owners = [], projection_bounds = [], projection_bounds_are_regions = false, mesh, spaces = [], watershed: reflectionWatershed = [], water = [], water_triangles = [], gi = [], islands = [], island_samples = [], evidence = [], playable_areas = [], medial = {segments:[],markers:[]}, spatial = null, surface_coverage = null, placement_failures = null} = JSON.parse(root.querySelector("[data-bake]").textContent);
+  const surfaceToggle = root.querySelector('[data-surface-coverage]');
+  const surfaceCovered = root.querySelector('[data-surface-covered]');
+  const surfaceDetail = root.querySelector('[data-surface-detail]');
+  surfaceToggle.disabled = !surface_coverage?.samples?.length;
+  surfaceCovered.disabled = surfaceToggle.disabled;
+  surfaceToggle.addEventListener('change',()=>requestDraw());
+  surfaceCovered.addEventListener('change',()=>requestDraw());
+
+  const spatialData=spatial??{spans:[],cells:[],basins:[],portals:[],edges:[]};
+  const connectionIndex=spatialData.connections;
+  const connectionChunks=new Map(),connectionLoads=new Set(),connectionErrors=new Set();
+  const connectionChunk=cell=>Math.floor(cell/connectionIndex.cells_per_chunk);
+  function connectionChunkSize(chunk) {
+    return Math.min(connectionIndex.cells_per_chunk,spatialData.cells.length-chunk*connectionIndex.cells_per_chunk);
+  }
+  if(connectionIndex) {
+    globalThis.openracWatershedConnections=(directory,chunk,encoded)=>{
+      if(directory!==connectionIndex.directory||!connectionLoads.has(chunk))return;
+      let decoded;
+      try { decoded=atob(encoded); } catch { return; }
+      const bytes=new Uint8Array(decoded.length);
+      for(let i=0;i<decoded.length;++i)bytes[i]=decoded.charCodeAt(i);
+      const view=new DataView(bytes.buffer),count=connectionChunkSize(chunk),header=4*(count+1);
+      if(header>bytes.length||header+4*view.getUint32(header-4,true)>bytes.length)return;
+      connectionChunks.set(chunk,view);
+      if(connectionChunks.size>8)connectionChunks.delete(connectionChunks.keys().next().value);
+    };
+  }
+  function spatialConnections(cell) {
+    if(!connectionIndex)return (spatialData.edges??[]).flatMap(([a,b])=>a===cell?[b]:b===cell?[a]:[]);
+    const {directory,cells_per_chunk:chunkSize}=connectionIndex;
+    if(typeof directory!=='string'||!/^spatial-connections-[0-9a-f]{16}$/.test(directory)||
+       !Number.isSafeInteger(chunkSize)||chunkSize<=0)return {error:true};
+    const chunk=connectionChunk(cell),view=connectionChunks.get(chunk);
+    if(view) {
+      const cellInChunk=cell%chunkSize,header=4*(connectionChunkSize(chunk)+1);
+      const start=view.getUint32(4*cellInChunk,true),end=view.getUint32(4*(cellInChunk+1),true);
+      if(end<start||end>view.getUint32(header-4,true))return {error:true};
+      const neighbours=[];
+      for(let i=start;i<end;++i)neighbours.push(view.getUint32(header+4*i,true));
+      return neighbours;
+    }
+    if(connectionErrors.has(chunk))return {error:true};
+    if(!connectionLoads.has(chunk)) {
+      connectionLoads.add(chunk);
+      const script=document.createElement('script');
+      const complete=()=>{
+        script.remove();
+        connectionLoads.delete(chunk);
+        if(!connectionChunks.has(chunk))connectionErrors.add(chunk);
+        if(pickedSpatialCell>=0&&connectionChunk(pickedSpatialCell)===chunk)updateSpatial();
+      };
+      script.onload=script.onerror=complete;
+      script.src=directory+'/'+chunk+'.js';
+      document.head.append(script);
+    }
+    return null;
+  }
+  if (spatial?.experimental===false) {
+    const label=root.querySelector('[data-spatial]').parentElement;
+    label.title='Shared production regions used by GI and reflection placement';
+    label.lastChild.textContent=' Layered watershed (production)';
+    root.querySelector('[data-fit-reflection]').parentElement.lastChild.textContent=' Fitted reflection volumes';
+    root.querySelector('[data-fit-gi]').parentElement.lastChild.textContent=' Fitted GI grids';
+  }
+
+  const volumeFits=spatialData.volume_fits??{};
+  const fitHeading=spatialData.gi_rejected?'Rejected GI fit':spatialData.experimental===false?'Production volume fit':'Unbaked fit preview';
+  const fitToggles={reflection:root.querySelector('[data-fit-reflection]'),gi:root.querySelector('[data-fit-gi]')};
+  const fitDetail=root.querySelector('[data-fit-detail]'),fitJsonPanel=root.querySelector('[data-fit-json]'),fitCopyStatus=root.querySelector('[data-fit-copy-status]');
+  let pickedFit=null,fitJson='',fitHitLines=[];
+  for(const [kind,toggle] of Object.entries(fitToggles)){toggle.disabled=!volumeFits[kind]?.volumes?.length;toggle.addEventListener('change',()=>{updateFit();requestDraw();});}
+  function updateFit(){
+    const active=spatialToggle.checked,shown=Object.keys(fitToggles).filter(kind=>fitToggles[kind].checked);
+    const box=pickedFit?volumeFits[pickedFit.kind]?.volumes[pickedFit.index]:null;
+    fitDetail.hidden=!active||!shown.length;fitJsonPanel.hidden=!active||!box||!fitToggles[pickedFit.kind].checked||pickTarget.value!=='fit';
+    fitCopyStatus.textContent='';fitJson='';
+    fitDetail.textContent=fitHeading+' · '+shown.map(kind=>{const p=volumeFits[kind];return `${kind}: ${p.volumes.length} boxes · ${p.covered.toLocaleString()} covered / ${p.uncovered} uncovered samples · ${p.over_budget} over-budget boxes`+(kind==='gi'&&p.estimated_probes?` · ${p.estimated_probes.toLocaleString()} probes`:'')+(p.volume_limit_exceeded?' · volume-count limit exceeded':'');}).join(' | ');
+    if(box){const degrees=pair=>(Math.atan2(pair[1],pair[0])*180/Math.PI).toFixed(1);
+      fitDetail.textContent+=` · Selected ${pickedFit.kind} ${pickedFit.index}, basin ${box.basin} · yaw ${degrees(box.axis)}°, pitch ${degrees(box.pitch)}°, roll ${degrees(box.roll)}°`;
+      if(box.estimated_occupied_volume!==undefined)fitDetail.textContent+=` · estimated fill ${(100*box.estimated_occupied_volume/box.volume).toFixed(0)}%`;
+      fitJson=JSON.stringify({source:'spatial-watershed.json',experimental:spatialData.experimental!==false,type:'fitted_volume',kind:pickedFit.kind,volume_index:pickedFit.index,...box,spacing:pickedFit.kind==='gi'?volumeFits.gi.spacing:undefined},null,2);fitJsonPanel.querySelector('pre').textContent=fitJson;
+    }
+  }
+  function selectFit(kind,index){pickedFit=index<0?null:{kind,index};updateFit();requestDraw();}
+  root.querySelector('[data-fit-copy]').addEventListener('click',()=>copyJson(fitJson,fitJsonPanel,fitCopyStatus));
+  const spatialToggle=root.querySelector('[data-spatial]'),spatialControls=root.querySelector('[data-spatial-controls]');
+  const spatialLayer=root.querySelector('[data-spatial-layer]');
+  let pickedSpatialBasin=-1;
+  const spatialSlice=root.querySelector('[data-spatial-slice]'),spatialDetail=root.querySelector('[data-spatial-detail]');
+  const spatialSpans=root.querySelector('[data-spatial-spans]'),spatialPortals=root.querySelector('[data-spatial-portals]');
+  const spatialJsonPanel=root.querySelector('[data-spatial-json]'),spatialCopyStatus=root.querySelector('[data-spatial-copy-status]');
+  const spatialBoundary=root.querySelector('[data-spatial-boundary]');
+  const spatialCrossings=root.querySelector('[data-spatial-crossings]'),spatialPortalDetail=root.querySelector('[data-spatial-portal-detail]');
+  const spatialViews=root.querySelector('[data-spatial-views]'),spatialViewRays=root.querySelector('[data-spatial-view-rays]');
+  const visibilitySamples=(spatialData.visibility_splits??[]).flatMap((split,index)=>split.samples.map(sample=>({...sample,split:index})));
+  let spatialJson='',pickedSpatialCell=-1,pickedSpatialPortal=-1,spatialPortalMarks=[],spatialViewMarks=[];
+  const spatialMiddle=new Map();
+  for(const [i,cell] of spatialData.cells.entries()) {
+    const span=spatialData.spans[cell[3]],mid=(span.bottom+span.top)/2,old=spatialMiddle.get(cell[3]);
+    if(old===undefined || Math.abs(cell[2]-mid)<Math.abs(spatialData.cells[old][2]-mid))spatialMiddle.set(cell[3],i);
+  }
+  // One representative crossing per column pair in middle-band mode. Drawing
+  // every vertical/diagonal graph edge would turn a doorway into a wire tangle.
+  const spatialPortalMiddle=spatialData.portals.map(portal=>{
+    const pairs=new Map();
+    for(const [a,b] of portal.crossings??[]) {
+      const start=spatialData.cells[a],end=spatialData.cells[b],key=`${start[3]},${end[3]}`;
+      const score=Math.abs(start[2]-spatialData.cells[spatialMiddle.get(start[3])][2])+Math.abs(end[2]-spatialData.cells[spatialMiddle.get(end[3])][2]);
+      if(!pairs.has(key)||score<pairs.get(key).score)pairs.set(key,{a,b,score});
+    }
+    return Array.from(pairs.values(),({a,b})=>[a,b]);
+  });
+  function spatialCellIndices(mode) {
+    return mode==='middle'?spatialMiddle.values():spatialData.cells.keys();
+  }
+  spatialToggle.disabled=!spatialData.cells.length;
+  if(spatialToggle.disabled)spatialToggle.checked=false;
+  root.querySelector('[data-mode] option[value="spatial"]').disabled=!spatialData.cells.length;
+  root.querySelector('[data-pick-target] option[value="spatial"]').disabled=!spatialData.cells.length;
+  let sliceLo=Infinity,sliceHi=-Infinity;
+  for(const cell of spatialData.cells){sliceLo=Math.min(sliceLo,cell[2]);sliceHi=Math.max(sliceHi,cell[2]);}
+  spatialSlice.min=Number.isFinite(sliceLo)?sliceLo:0;spatialSlice.max=Number.isFinite(sliceHi)?sliceHi:1;
+  spatialSlice.step=spatialData.vertical_step??1;spatialSlice.value=Number.isFinite(sliceLo)?(sliceLo+sliceHi)/2:0;
+  function updateSpatial() {
+    updateFit();
+    spatialControls.hidden=spatialDetail.hidden=!spatialToggle.checked;
+    root.querySelector('[data-spatial-slice-control]').hidden=spatialLayer.value!=='slice';
+    root.querySelector('[data-spatial-height]').textContent=Number(spatialSlice.value).toFixed(1);
+    const basin=pickedSpatialBasin,cell=pickedSpatialCell<0?null:spatialData.cells[pickedSpatialCell];
+    const portal=spatialData.portals[pickedSpatialPortal];
+    spatialPortalDetail.hidden=!spatialToggle.checked||(!portal&&basin<0);
+    spatialPortalDetail.textContent=portal?`Portal ${pickedSpatialPortal}: basin ${portal.a} ↔ ${portal.b} · ${portal.connections} sampled crossings · widest crossing lateral clearance ${portal.saddle_clearance.toFixed(2)}. Boundary samples are not an exact doorway outline; height may be limited by the analysis envelope.`
+      :basin>=0?`Basin ${basin} · ${spatialData.basins[basin].underwater?'water':'air'} · ${spatialData.basins[basin].cells} cells`+(cell?` · cell ${pickedSpatialCell} · lateral clearance ${cell[5].toFixed(2)}`:''):'';
+    spatialJsonPanel.hidden=!spatialToggle.checked||(basin<0&&!portal)||pickTarget.value!=='spatial';
+    spatialJsonPanel.querySelector('summary').textContent=portal?'Prototype portal JSON':'Prototype spatial region JSON';
+    const copyButton=root.querySelector('[data-spatial-copy]');
+    copyButton.textContent=portal?'Copy portal JSON':'Copy spatial region JSON';
+    copyButton.disabled=false;
+    spatialCopyStatus.textContent='';spatialJson='';
+    if(portal) {
+      const record={source:'spatial-watershed.json',experimental:spatialData.experimental!==false,type:'portal',portal_index:pickedSpatialPortal,...portal,
+        crossing_samples:(portal.crossings??[]).map(([a,b])=>({cell_a:a,cell_b:b,start:spatialData.cells[a].slice(0,3),end:spatialData.cells[b].slice(0,3)}))};
+      spatialJson=JSON.stringify(record,null,2);spatialJsonPanel.querySelector('pre').textContent=spatialJson;
+    } else if(basin>=0) {
+      const record={source:'spatial-watershed.json',experimental:spatialData.experimental!==false,basin_index:basin,...spatialData.basins[basin],
+        portals:spatialData.portals.filter(p=>p.a===basin||p.b===basin)};
+      record.visibility_refinement=(spatialData.visibility_splits??[]).flatMap((split,index)=>split.samples.some(sample=>sample.basin===basin)?[{split_index:index,watershed_parent:split.watershed_parent,before:split.before,after:split.after,gain:split.gain}]:[]);
+      record.visibility_assessments=(spatialData.visibility_assessments??[]).filter(assessment=>assessment.basin===basin);
+      const assessment=record.visibility_assessments.at(-1);
+      if(assessment)spatialPortalDetail.textContent+=` · shared-view mismatch ${assessment.before.toFixed(3)} · proposed improvement ${(assessment.before-assessment.proposed).toFixed(3)}`;
+      if(cell) {
+        record.cell={cell_index:pickedSpatialCell,position:cell.slice(0,3),lateral_clearance:cell[5],component:cell[6]};
+        record.span={span_index:cell[3],...spatialData.spans[cell[3]]};
+        const neighbours=spatialConnections(pickedSpatialCell);
+        if(Array.isArray(neighbours))record.cell.connected_cells=neighbours;
+        else if(neighbours?.error)spatialCopyStatus.textContent='Could not load cell connections';
+        else {
+          spatialCopyStatus.textContent='Loading cell connections…';
+          copyButton.disabled=true;
+        }
+        const view=visibilitySamples.findLast(sample=>sample.cell===pickedSpatialCell);
+        if(view){record.cell.sampled_view={...view,visible_landmarks:view.visible.map(i=>spatialData.visibility_splits[view.split].landmarks[i])};spatialPortalDetail.textContent+=` · sampled view: ${view.visible.length} visible landmarks`;}
+      }
+      spatialJson=JSON.stringify(record,null,2);spatialJsonPanel.querySelector('pre').textContent=spatialJson;
+    }
+    // Let the chunk finish before a large canvas redraw competes with its load event.
+    if(copyButton.disabled) {
+      cancelAnimationFrame(pendingDraw);
+      pendingDraw=0;
+    } else requestDraw();
+  }
+  spatialToggle.addEventListener('change',updateSpatial);
+  function selectSpatialPortal(id) {
+    pickedSpatialPortal=id;pickedSpatialCell=-1;
+    if(id>=0){pickedSpatialBasin=-1;spatialToggle.checked=spatialPortals.checked=true;pickTarget.value='spatial';}
+    updateSpatial();select();
+  }
+  for(const control of [spatialLayer,spatialSlice,spatialSpans,spatialPortals,spatialBoundary,spatialCrossings,spatialViews,spatialViewRays])control.addEventListener('input',updateSpatial);
+  root.querySelector('[data-spatial-copy]').addEventListener('click',()=>copyJson(spatialJson,spatialJsonPanel,spatialCopyStatus));
+
+  const evidenceToggle = root.querySelector("[data-evidence]");
+  const evidenceNames = ["", "gameplay_anchor", "manual_playable_area", "swimming_entry"];
+  const medialToggle = root.querySelector("[data-medial]");
+  const medialDetail = root.querySelector("[data-medial-detail]");
+  medialToggle.disabled = medial.segments.length === 0 && medial.markers.length === 0;
+  if (medialToggle.disabled) medialToggle.title = "Area route data is unavailable. Regenerate the debug preview from a completed bake.";
+  const watershed = island_samples.length ? island_samples : reflectionWatershed;
+  const modePicker = root.querySelector("[data-mode]");
+  const isGi = () => modePicker.value === "gi";
+  const isReflection = () => modePicker.value === "reflection";
+  const isSpatial = () => modePicker.value === "spatial";
+  let pickedGi = -1;
+  const giProbes = root.querySelector("[data-gi-probes]");
+  const giDetail = root.querySelector("[data-gi-detail]");
+  const giJsonPanel = root.querySelector("[data-gi-json]");
+  const giCopyStatus = root.querySelector("[data-gi-copy-status]");
+  let giJson = "";
+  giProbes.disabled = gi.length === 0;
+  const frameWorld = (p,[c,s],[a,b]=[1,0],[r,t]=[1,0]) => {
+    const y=r*p[1]-t*p[2],z=t*p[1]+r*p[2],x=a*p[0]-b*z;return [c*x-s*y,s*x+c*y,b*p[0]+a*z];
+  };
+  const frameLocal = (p,[c,s],[a,b]=[1,0],[r,t]=[1,0]) => {
+    const x=c*p[0]+s*p[1],y=-s*p[0]+c*p[1],z=-b*x+a*p[2];return [a*x+b*p[2],r*y+t*z,-t*y+r*z];
+  };
+  const giCorners = gi.map(v => Array.from({length:8}, (_,i) => {
+    const p = v.spacing.map((step,k) => i & (1<<k) ? step*(v.dimensions[k]-1) : 0);
+    return frameWorld(p,v.axis,v.pitch,v.roll).map((x,k)=>x+v.origin[k]);
+  }));
+  const volumeIslands = v => v.islands ?? (v.island == null ? [] : [v.island]);
+  const eligibleGi = () => isGi() ? gi.map((_,i) => i) : [];
+  let pickGiVolume = () => -1;
+  const watershedToggle = root.querySelector("[data-watershed]");
+  const watershedDetail = root.querySelector("[data-watershed-detail]");
+  const basinCount = new Set(watershed.map(p => p[3])).size;
+  watershedToggle.disabled = watershed.length === 0;
+  if (watershedToggle.disabled) {
+    watershedDetail.hidden = false;
+    watershedDetail.textContent = "Watershed samples are unavailable in this bake report.";
+  }
+  const vertices = new Float32Array(Uint8Array.from(atob(mesh), c => c.charCodeAt(0)).buffer);
+  const pickTarget = root.querySelector("[data-pick-target]");
+  pickTarget.querySelector('[value="fit"]').disabled=!Object.values(volumeFits).some(plan=>plan.volumes?.length);
+  const failureControls=root.querySelector('[data-failure-controls]'),failureToggle=root.querySelector('[data-failures]');
+  const failureDetail=root.querySelector('[data-failure-detail]'),failurePanel=root.querySelector('[data-failure-json]'),failureCopyStatus=root.querySelector('[data-failure-copy-status]');
+  const failureConflicts=placement_failures?.placement_conflicts??[],failureUncovered=placement_failures?.uncovered??[];
+  const failureRecords=[...failureConflicts.map((row,index)=>({kind:row[11]?'ownership':'locality',position:row.slice(0,3),index,row})),
+    ...failureUncovered.map((position,index)=>({kind:'uncovered',position,index}))];
+  let pickedFailure=-1,failureJson='',failureMarks=[];
+  pickTarget.querySelector('[value="failures"]').disabled=!failureRecords.length;
+  failureToggle.checked=placement_failures?.failed===true;
+  function failurePositions(){
+    const f=failureRecords[pickedFailure];if(!f)return [];
+    const positions=[[-2,-2,-1],[2,2,1]].map(d=>d.map((v,k)=>v+f.position[k]));
+    if(selected>=0&&captures[selected])positions.push(captures[selected]);
+    if(f.row)positions.push(f.row.slice(6,9));return positions;
+  }
+  function frameFailure(){
+    const positions=failurePositions();if(!positions.length)return;
+    pivot=[0,1,2].map(k=>(Math.min(...positions.map(p=>p[k]))+Math.max(...positions.map(p=>p[k])))/2);
+    distance=Math.max(8,2.6*Math.max(...positions.map(p=>Math.hypot(...p.map((v,k)=>v-pivot[k])))));draw();
+  }
+  function updateFailures(){
+    const active=isReflection()&&failureRecords.length>0;
+    failureControls.hidden=!active;
+    failurePanel.hidden=!active||!failureToggle.checked||pickedFailure<0||pickTarget.value!=='failures';
+    if(!active)return;
+    const f=failureRecords[pickedFailure];
+    failureDetail.textContent=`${failureUncovered.length.toLocaleString()} uncovered receivers; ${placement_failures.locality_conflicts.toLocaleString()} locality conflicts; ${placement_failures.ownership_conflicts.toLocaleString()} ownership conflicts. Red squares: uncovered. Amber circles: locality. Purple diamonds: ownership. Picking keeps other markers visible; dense point clouds are subsampled for drawing.`
+      +(f?` Selected ${pickedFailure+1}/${failureRecords.length}: ${f.kind}, receiver (${f.position.map(x=>x.toFixed(2)).join(', ')}).`:'');
+    failureJson='';failureCopyStatus.textContent='';
+    if(f){
+      const record={source:'environment-placement-report.json',type:'placement_failure',failure_index:pickedFailure,kind:f.kind,position:f.position};
+      if(f.row)Object.assign(record,{capture_index:f.row[3],capture_position:captures[f.row[3]],source_floor:f.row[4],receiver_floor:f.row[5],source_floor_position:f.row.slice(6,9),graph_distance:f.row[9],maximum_graph_distance:f.row[10],receiver_island_id:reflectionWatershed[f.row[5]]?.[3]??null});
+      else Object.assign(record,{uncovered_index:f.index,island_id:placement_failures.uncovered_owners[f.index]??null,nearest_capture_index:selected,nearest_capture_position:captures[selected]??null,nearest_capture_is_validated:false});
+      if(selected>=0)record.candidate_bounds=regionsForCapture(selected).map(i=>({region_index:i,local_minimum:boxes[i].slice(0,3),local_maximum:boxes[i].slice(3,6),axis:boxes[i].slice(6,8),pitch:boxes[i].slice(8,10),roll:boxes[i].slice(10,12)}));
+      failureJson=JSON.stringify(record,null,2);failurePanel.querySelector('pre').textContent=failureJson;
+    }
+  }
+  function selectFailure(index,frame=false){
+    pickedFailure=index>=0&&index<failureRecords.length?index:-1;
+    const f=failureRecords[pickedFailure];selected=-1;
+    if(f){
+      pickTarget.value='failures';failureToggle.checked=true;
+      if(f.row)selected=f.row[3];
+      else{let nearest=Infinity;captures.forEach((p,i)=>{const d=Math.hypot(...p.map((v,k)=>v-f.position[k]));if(d<nearest){nearest=d;selected=i;}});}
+      pickedIsland=owners[selected]??-1;
+    }
+    select();updateFailures();if(frame)frameFailure();else requestDraw();
+  }
+  failureToggle.addEventListener('change',()=>{updateFailures();requestDraw();});
+  root.querySelector('[data-failure-copy]').addEventListener('click',()=>copyJson(failureJson,failurePanel,failureCopyStatus));
+  root.querySelector('[data-failure-frame]').addEventListener('click',frameFailure);
+  for(const [key,step] of [['prev',-1],['next',1]])root.querySelector(`[data-failure-${key}]`).addEventListener('click',()=>selectFailure((pickedFailure+step+failureRecords.length)%failureRecords.length,true));
+  for(const button of root.querySelectorAll('[data-failure-kind]')){
+    button.disabled=!failureRecords.some(f=>f.kind===button.dataset.failureKind);
+    button.addEventListener('click',()=>selectFailure(failureRecords.findIndex(f=>f.kind===button.dataset.failureKind),true));
+  }
+  const islandDetail = root.querySelector("[data-island-detail]");
+  const islandJsonPanel = root.querySelector("[data-island-json]");
+  const islandCopyStatus = root.querySelector("[data-island-copy-status]");
+  let islandJson = "", pickedIslandPosition = null, pickIsland = () => null;
+  pickTarget.querySelector('[value="island"]').disabled = watershed.length === 0;
+  function updateIslandSelection() {
+    const active = pickTarget.value === "island", id = pickedIsland;
+    islandDetail.hidden = !active;
+    islandJsonPanel.hidden = !active || id < 0;
+    islandCopyStatus.textContent = "";
+    islandJson = "";
+    if (!active) return;
+    if (id < 0) {islandDetail.textContent = "Click a watershed sample or nearby floor to select an island.";return;}
+    const samples = watershed.filter(p=>p[3]===id);
+    const record = {source:"placement-islands.json",island_id:id,...islands[id]};
+    if (!islands[id]) {
+      record.cells = samples.length;
+      record.minimum = [0,1,2].map(k=>Math.min(...samples.map(p=>p[k])));
+      record.maximum = [0,1,2].map(k=>Math.max(...samples.map(p=>p[k])));
+    }
+    if (pickedIslandPosition) record.picked_position = pickedIslandPosition;
+    islandJson = JSON.stringify(record,null,2);
+    islandJsonPanel.querySelector("pre").textContent = islandJson;
+    islandDetail.textContent = `Island ${id} · ${(record.cells??samples.length).toLocaleString()} floor samples`;
+  }
+  const medialSelection = root.querySelector("[data-medial-selection]");
+  const medialJsonPanel = root.querySelector("[data-medial-json]");
+  const medialCopyStatus = root.querySelector("[data-medial-copy-status]");
+  let pickedMedial = -1, medialJson = "", medialHitLines = [];
+  const isolatedCentre = node => node?.[5]===1 && node[4]===0;
+  // Negative selection IDs identify isolated centre markers.
+  pickTarget.querySelector('[value="medial"]').disabled = medial.segments.length === 0 && !medial.markers.some(isolatedCentre);
+  function selectMedial(id) {
+    id=Number(id);
+    const segment = medial.segments[id];
+    const node=id<-1?medial.markers[-id-2]:null;
+    pickedMedial = segment || isolatedCentre(node) ? id : -1;
+    medialCopyStatus.textContent = "";
+    medialJsonPanel.hidden = pickTarget.value !== "medial" || pickedMedial === -1;
+    if (pickedMedial >= 0) {
+      const start = segment.slice(0,3), end = segment.slice(3,6);
+      const length = Math.hypot(...start.map((v,k)=>end[k]-v));
+      const neighbours = point => medial.segments.flatMap((s,i)=>i!==id && [0,3].some(offset=>point.every((v,k)=>v===s[offset+k])) ? [i] : []);
+      medialJson = JSON.stringify({source:"medial-axis.json",segment_index:id,start,end,
+        display_height_offset:segment.slice(6).every(id=>islands[id]?.water_surface) ? .15 : 1.25,
+        length,island_ids:[...new Set(segment.slice(6))],
+        connected_segments:{start:neighbours(start),end:neighbours(end)}},null,2);
+      medialSelection.textContent = `Route segment ${id} · ${length.toFixed(2)} units`;
+    } else if(pickedMedial<-1) {
+      medialJson=JSON.stringify({source:"medial-axis.json",type:"unconnected_area",marker_index:-id-2,
+        position:node.slice(0,3),display_height_offset:islands[node[3]]?.water_surface ? .15 : 1.25,
+        island_ids:[node[3]],connected_segments:[]},null,2);
+      medialSelection.textContent=`Unconnected area ${-id-2} · Island ${node[3]}`;
+    } else {
+      medialJson = "";
+      medialSelection.textContent = "Click an area route or unconnected circle to select it.";
+    }
+    medialJsonPanel.querySelector("pre").textContent = medialJson;
+    draw();
+  }
+  function pickMedial(x,y) {
+    let best = 8, depth = Infinity, picked = -1;
+    for (const {index,a,b} of medialHitLines) {
+      const dx=b[0]-a[0],dy=b[1]-a[1];
+      const t=Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/(dx*dx+dy*dy||1)));
+      const distance=Math.hypot(x-a[0]-t*dx,y-a[1]-t*dy), z=a[2]+t*(b[2]-a[2]);
+      if (distance < best-.01 || (Math.abs(distance-best)<=.01 && z<depth)) {
+        best=distance;depth=z;picked=index;
+      }
+    }
+    return picked;
+  }
+  const meshDetail = root.querySelector("[data-mesh-detail]");
+  const meshJsonPanel = root.querySelector("[data-mesh-json]");
+  const meshCopyStatus = root.querySelector("[data-mesh-copy-status]");
+  let meshPieces, trianglePieces, pickedMesh = -1, pickedTriangle = -1, meshHit = null, meshJson = "";
+  let pickCollision = () => null, meshSelectionBuffer, meshSelectionVertices = 0;
+  function buildMeshPieces() {
+    if (meshPieces) return;
+    const count = vertices.length/9, parent = Int32Array.from({length:count},(_,i)=>i);
+    const rootOf = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+    const welded = new Map(), edges = new Map();
+    for (let t=0;t<count;t++) {
+      const ids = [];
+      for (let c=0;c<3;c++) {
+        const i=t*9+c*3, key=`${vertices[i]},${vertices[i+1]},${vertices[i+2]}`;
+        if (!welded.has(key)) welded.set(key,welded.size);
+        ids.push(welded.get(key));
+      }
+      for (let e=0;e<3;e++) {
+        const a=ids[e],b=ids[(e+1)%3],key=a<b?`${a},${b}`:`${b},${a}`;
+        if (edges.has(key)) {
+          const first=rootOf(t),second=rootOf(edges.get(key));
+          if(first!==second)parent[Math.max(first,second)]=Math.min(first,second);
+        } else edges.set(key,t);
+      }
+    }
+    meshPieces=[];trianglePieces=new Int32Array(count);
+    const groups=new Map();
+    for(let t=0;t<count;t++) {
+      const group=rootOf(t);
+      if(!groups.has(group)) { groups.set(group,meshPieces.length);meshPieces.push({triangles:[],minimum:[Infinity,Infinity,Infinity],maximum:[-Infinity,-Infinity,-Infinity]}); }
+      const id=groups.get(group),piece=meshPieces[id];trianglePieces[t]=id;piece.triangles.push(t);
+      for(let c=0;c<3;c++)for(let a=0;a<3;a++) {
+        const p=vertices[t*9+c*3+a];piece.minimum[a]=Math.min(piece.minimum[a],p);piece.maximum[a]=Math.max(piece.maximum[a],p);
+      }
+    }
+  }
+  function selectMesh(id,triangle=-1,hit=null) {
+    buildMeshPieces();pickedMesh=id;pickedTriangle=triangle;meshHit=hit;
+    meshCopyStatus.textContent="";
+    if(meshSelectionBuffer) {gl.deleteBuffer(meshSelectionBuffer);meshSelectionBuffer=undefined;}
+    meshSelectionVertices=0;
+    meshJsonPanel.hidden = pickTarget.value !== "mesh" || id<0;
+    if(id>=0) {
+      const piece=meshPieces[id], data=new Float32Array(piece.triangles.length*18);
+      for(let j=0;j<piece.triangles.length;j++) {
+        const t=piece.triangles[j]*9;
+        for(let e=0;e<3;e++) {
+          data.set(vertices.subarray(t+e*3,t+e*3+3),j*18+e*6);
+          const next=(e+1)%3;data.set(vertices.subarray(t+next*3,t+next*3+3),j*18+e*6+3);
+        }
+      }
+      if(gl) {meshSelectionBuffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,meshSelectionBuffer);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);meshSelectionVertices=data.length/3;}
+      meshDetail.textContent=`Collision piece ${id} · ${piece.triangles.length.toLocaleString()} triangles`+(triangle>=0?` · picked triangle ${triangle}`:"");
+      const triangleVertices=triangle<0?null:[0,1,2].map(c=>Array.from(vertices.slice(triangle*9+c*3,triangle*9+c*3+3)));
+      meshJson=JSON.stringify({source:"collision.glb",piece_id:id,triangle_count:piece.triangles.length,minimum:piece.minimum,maximum:piece.maximum,triangle_index:triangle<0?null:triangle,hit_position:hit,triangle_vertices:triangleVertices},null,2);
+      meshJsonPanel.querySelector("pre").textContent=meshJson;
+    } else {meshJson="";meshJsonPanel.querySelector("pre").textContent="";meshDetail.textContent="Click collision geometry to select a connected piece.";}
+    draw();
+  }
+  const gl = meshCanvas.getContext("webgl");
+  let program, solid, wire, shading, solidWater, wireWater, featureWater, depthTarget, depthTexture, depthBuffer, depthAttachment;
+  let featureWire,featureVertices=0,buildFeatureEdges=()=>{};
+  let depthWidth=0,depthHeight=0,depthPixels;
+  let collisionDepthKey="";
+  let probeProgram,probeBuffer;
+  let overlayRenderer,pickSpatialCell=()=>null,collectPortalHits=()=>{};
+  const probeRanges=[];
+  const overlayStride=6;
+  function writeOverlayVertex(target, index, point, tag, low=point[2], high=low) {
+    const i=index*overlayStride;
+    target[i]=point[0];target[i+1]=point[1];target[i+2]=point[2];
+    target[i+3]=tag;target[i+4]=low;target[i+5]=high;
+  }
+  function createOverlayRenderer(upload) {
+    const overlayProgram=gl.createProgram();
+    const attach=(type,source)=>{
+      const shader=gl.createShader(type);
+      gl.shaderSource(shader,source);gl.compileShader(shader);
+      if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(shader));
+      gl.attachShader(overlayProgram,shader);gl.deleteShader(shader);
+    };
+    attach(gl.VERTEX_SHADER,`
+      attribute vec4 point;
+      attribute vec2 heightRange;
+      uniform vec3 origin,right,up,depth,projection;
+      uniform vec2 sliceRange,selected,sizes,opacities;
+      uniform vec3 primary,highlight,water;
+      uniform float pixelRatio,style,waterOpacity;
+      varying vec4 tint;
+      varying float viewDepth,ringInner;
+      vec3 basinColor(float id){
+        float hue=fract(id*(137.508/360.0));
+        vec3 rgb=clamp(abs(mod(hue*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0,0.0,1.0);
+        return vec3(.1056)+rgb*.7488;
+      }
+      void main(){
+        vec3 p=point.xyz-origin;
+        float z=dot(p,depth), tag=point.w;
+        viewDepth=z;ringInner=0.0;
+        bool chosen=tag==selected.x||tag==selected.y;
+        if(style==1.0) chosen=tag>=2.0;
+        float size=chosen?sizes.y:sizes.x;
+        vec3 color=style==0.0||style==3.0?basinColor(style==3.0?floor(tag*.5):tag):(chosen?highlight:primary);
+        tint=vec4(color,chosen?opacities.y:opacities.x);
+        if((style==1.0||style==3.0) && mod(tag,2.0)==1.0){
+          float width=chosen?2.0:1.3;
+          size+=2.0+width;
+          ringInner=.5-width/size;
+          tint=vec4(water,waterOpacity);
+        }
+        gl_PointSize=size*pixelRatio;
+        gl_Position=heightRange.y<sliceRange.x||heightRange.x>sliceRange.y
+          ?vec4(2.0,2.0,2.0,1.0):vec4(dot(p,right),dot(p,up),z*projection.x+projection.y,mix(1.0,z,projection.z));
+      }`);
+    attach(gl.FRAGMENT_SHADER,`
+      precision highp float;
+      uniform sampler2D collisionDepth;
+      uniform vec2 viewport;
+      uniform float farPlane,depthBias,hiddenAlpha;
+      uniform bool topView,hasDepth;
+      varying vec4 tint;
+      varying float viewDepth,ringInner;
+      void main(){
+        if(ringInner>0.0){
+          float r=length(gl_PointCoord-.5);
+          if(r<ringInner||r>.5)discard;
+        }
+        float opacity=tint.a;
+        if(hasDepth){
+          vec4 sampleDepth=texture2D(collisionDepth,gl_FragCoord.xy/viewport);
+          float packedDepth=dot(sampleDepth.rgb,vec3(1.0,1.0/255.0,1.0/65025.0));
+          float surface=topView?(packedDepth-.5)*2.0*farPlane:packedDepth*farPlane;
+          if(sampleDepth.a>.5 && viewDepth>surface+depthBias)opacity*=hiddenAlpha;
+        }
+        gl_FragColor=vec4(tint.rgb,opacity);
+      }`);
+    gl.linkProgram(overlayProgram);
+    if(!gl.getProgramParameter(overlayProgram,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(overlayProgram));
+    const point=gl.getAttribLocation(overlayProgram,'point'),height=gl.getAttribLocation(overlayProgram,'heightRange');
+    const uniforms=Object.fromEntries(['origin','right','up','depth','projection','sliceRange','selected','sizes','opacities',
+      'primary','highlight','water','pixelRatio','style','waterOpacity','collisionDepth','viewport','farPlane','depthBias',
+      'hiddenAlpha','topView','hasDepth'].map(name=>[name,gl.getUniformLocation(overlayProgram,name)]));
+    return {
+      upload(data) {return {buffer:upload(data),count:data.length/overlayStride};},
+      replace(stream,data) {
+        gl.bindBuffer(gl.ARRAY_BUFFER,stream.buffer);
+        gl.bufferData(gl.ARRAY_BUFFER,data,gl.DYNAMIC_DRAW);
+      },
+      begin({origin,right,up,depth,projection,ratio,far,top,hasDepth}) {
+        gl.useProgram(overlayProgram);gl.disable(gl.DEPTH_TEST);gl.enable(gl.BLEND);
+        gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
+        gl.enableVertexAttribArray(point);gl.enableVertexAttribArray(height);
+        gl.uniform3fv(uniforms.origin,origin);gl.uniform3fv(uniforms.right,right);
+        gl.uniform3fv(uniforms.up,up);gl.uniform3fv(uniforms.depth,depth);gl.uniform3fv(uniforms.projection,projection);
+        gl.uniform1f(uniforms.pixelRatio,ratio);gl.uniform2f(uniforms.viewport,meshCanvas.width,meshCanvas.height);
+        gl.uniform1f(uniforms.farPlane,far);gl.uniform1f(uniforms.depthBias,overlayDepthBias);
+        gl.uniform1f(uniforms.hiddenAlpha,alpha.occluded);gl.uniform1i(uniforms.topView,top);gl.uniform1i(uniforms.hasDepth,hasDepth);
+        gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,depthTexture);gl.uniform1i(uniforms.collisionDepth,0);
+      },
+      draw(stream, {style=0, lines=false, selected=[-1,-1], sliceRange=[-1e10,1e10], sizes=[1,1], opacities,
+        primary=[0,0,0],highlight=primary,water=[0,0,0],waterOpacity=0}) {
+        if(!stream.count||(!opacities[0]&&!opacities[1]&&!waterOpacity))return;
+        gl.uniform2fv(uniforms.sliceRange,sliceRange);gl.uniform2fv(uniforms.selected,selected);
+        gl.uniform2fv(uniforms.sizes,sizes);gl.uniform2fv(uniforms.opacities,opacities);
+        gl.uniform3fv(uniforms.primary,primary);gl.uniform3fv(uniforms.highlight,highlight);gl.uniform3fv(uniforms.water,water);
+        gl.uniform1f(uniforms.style,style);gl.uniform1f(uniforms.waterOpacity,waterOpacity);
+        gl.bindBuffer(gl.ARRAY_BUFFER,stream.buffer);
+        gl.vertexAttribPointer(point,4,gl.FLOAT,false,overlayStride*4,0);
+        gl.vertexAttribPointer(height,2,gl.FLOAT,false,overlayStride*4,16);
+        gl.drawArrays(lines?gl.LINES:gl.POINTS,0,stream.count);
+      },
+      end() {gl.disableVertexAttribArray(point);gl.disableVertexAttribArray(height);}
+    };
+  }
+  if (gl && vertices.length) {
+    const derivatives=gl.getExtension("OES_standard_derivatives");
+    program = gl.createProgram();
+    const shader = (type, source) => {
+      const result = gl.createShader(type);
+      gl.shaderSource(result, source);
+      gl.compileShader(result);
+      if (!gl.getShaderParameter(result, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(result));
+      gl.attachShader(program, result);
+    };
+    shader(gl.VERTEX_SHADER, `
+      attribute vec3 position;
+      attribute float shade;
+      attribute float wet;
+      uniform vec3 origin, right, up, depth;
+      uniform vec3 projection;
+      varying float waterSurface;
+      varying float light;
+      varying float viewDepth;
+      varying vec3 worldPosition;
+      void main() {
+        vec3 p = position - origin;
+        light = shade;
+        waterSurface = wet;
+        worldPosition = position;
+        float z = dot(p,depth);
+        viewDepth = z;
+        gl_Position = vec4(dot(p,right), dot(p,up), z * projection.x + projection.y,
+                           mix(1.0, z, projection.z));
+      }`);
+    shader(gl.FRAGMENT_SHADER, `${derivatives?"#extension GL_OES_standard_derivatives : enable":""}
+      precision highp float;
+      uniform vec4 tint;
+      uniform vec3 waterTint;
+      uniform bool depthOnly;
+      uniform vec2 depthRange;
+      uniform bool directionalLighting;
+      uniform vec3 keyDirection,fillDirection;
+      varying float waterSurface;
+      varying float light;
+      varying float viewDepth;
+      varying vec3 worldPosition;
+      void main() {
+        if (depthOnly) {
+          float value = clamp(viewDepth * depthRange.x + depthRange.y,0.0,0.9999999);
+          vec3 encoded = fract(value * vec3(1.0,255.0,65025.0));
+          encoded -= encoded.yzz * vec3(1.0/255.0,1.0/255.0,0.0);
+          gl_FragColor = vec4(encoded,1.0);
+        } else {
+          float illumination=light;
+          #ifdef GL_OES_standard_derivatives
+          if(directionalLighting) {
+            // Screen derivatives orient the two-sided collision normal towards the viewer,
+            // independently of authored triangle winding.
+            vec3 normal=normalize(cross(dFdx(worldPosition),dFdy(worldPosition)));
+            float key=max(0.0,dot(normal,keyDirection));
+            float fill=max(0.0,dot(normal,fillDirection));
+            illumination=min(1.15,.16+.94*key+.32*fill);
+          }
+          #endif
+          gl_FragColor = vec4(mix(tint.rgb,waterTint,waterSurface * .2) * illumination, tint.a);
+        }
+      }`);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+    const upload = data => {
+      const buffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+      return buffer;
+    };
+    try {overlayRenderer=createOverlayRenderer(upload);}
+    catch(error) {console.warn('Retained debug overlays unavailable',error);}
+    solid = upload(vertices);
+    const waterFlags=new Float32Array(vertices.length/3);
+    for(const triangle of water_triangles) waterFlags.fill(1,triangle*3,triangle*3+3);
+    solidWater=upload(waterFlags);
+    const waterEdges=new Float32Array(vertices.length/1.5);
+    for(const triangle of water_triangles) waterEdges.fill(1,triangle*6,triangle*6+6);
+    wireWater=upload(waterEdges);
+    const edges = new Float32Array(vertices.length * 2);
+    const lighting = new Float32Array(vertices.length / 3);
+    const normals = new Float32Array(vertices.length / 3);
+    for (let i=0; i<vertices.length; i+=9) {
+      edges.set(vertices.subarray(i,i+6), i*2);
+      edges.set(vertices.subarray(i+3,i+9), i*2+6);
+      edges.set(vertices.subarray(i+6,i+9), i*2+12);
+      edges.set(vertices.subarray(i,i+3), i*2+15);
+      const a = vertices.slice(i+3,i+6).map((v,k) => v-vertices[i+k]);
+      const b = vertices.slice(i+6,i+9).map((v,k) => v-vertices[i+k]);
+      const x = a[1]*b[2]-a[2]*b[1], y = a[2]*b[0]-a[0]*b[2], z = a[0]*b[1]-a[1]*b[0];
+      const length=Math.hypot(x,y,z)||1;
+      normals.set([x/length,y/length,z/length],i/3);
+      const light = Math.abs(0.35*x - 0.45*y + 0.8*z) / (length*Math.hypot(.35,.45,.8));
+      lighting.fill(0.32 + 0.68 * light, i/3, i/3+3);
+    }
+    wire = upload(edges);
+    shading = upload(lighting);
+    buildFeatureEdges=()=>{
+      if(featureWire) return;
+      const welded=new Map(),edgeMap=new Map(),threshold=Math.cos(Math.PI/6);
+      for(let triangle=0;triangle<vertices.length;triangle+=9) {
+        const ids=[];
+        for(let corner=0;corner<3;corner++) {
+          const i=triangle+corner*3,key=`${vertices[i]},${vertices[i+1]},${vertices[i+2]}`;
+          if(!welded.has(key)) welded.set(key,welded.size);
+          ids.push(welded.get(key));
+        }
+        const normal=triangle/3;
+        for(let e=0;e<3;e++) {
+          const next=(e+1)%3,a=ids[e],b=ids[next];
+          if(a===b) continue;
+          const key=a<b?`${a},${b}`:`${b},${a}`,edge=edgeMap.get(key);
+          if(edge) {
+            edge[3]++;
+            const other=edge[2];
+            if(Math.abs(normals[normal]*normals[other]+normals[normal+1]*normals[other+1]
+                +normals[normal+2]*normals[other+2])<threshold-1e-5) edge[4]=true;
+          } else edgeMap.set(key,[triangle+e*3,triangle+next*3,normal,1,false]);
+        }
+      }
+      let count=0;
+      for(const edge of edgeMap.values()) if(edge[3]===1 || edge[4]) count++;
+      const data=new Float32Array(count*6),wetEdges=new Float32Array(count*2);
+      let offset=0;
+      for(const edge of edgeMap.values()) if(edge[3]===1 || edge[4]) {
+        data.set(vertices.subarray(edge[0],edge[0]+3),offset);
+        data.set(vertices.subarray(edge[1],edge[1]+3),offset+3);
+        wetEdges.fill(waterFlags[edge[0]/3],offset/3,offset/3+2);offset+=6;
+      }
+      featureWire=upload(data);featureWater=upload(wetEdges);featureVertices=data.length/3;
+    };
+    depthTarget=gl.createFramebuffer();depthTexture=gl.createTexture();depthBuffer=gl.createRenderbuffer();
+    gl.bindTexture(gl.TEXTURE_2D,depthTexture);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(4));
+    if(gl.getExtension("WEBGL_depth_texture")) depthAttachment=gl.createTexture();
+    if(gi.some(volume=>volume.probes.length)) {
+      probeProgram=gl.createProgram();
+      const compile=(type,source)=>{
+        const shader=gl.createShader(type);gl.shaderSource(shader,source);gl.compileShader(shader);
+        if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+        gl.attachShader(probeProgram,shader);
+      };
+      compile(gl.VERTEX_SHADER,`
+        attribute vec3 position; attribute float state;
+        uniform vec3 origin,right,up,depth; uniform vec3 projection;
+        uniform vec4 validColor,relocatedColor,disabledColor;
+        uniform float pixelRatio,selectionFade;
+        varying vec4 tint; varying float kind,viewDepth;
+        void main(){
+          vec3 p=position-origin;float z=dot(p,depth);viewDepth=z;kind=state;
+          tint=state<.5?disabledColor:state>1.5?relocatedColor:validColor;
+          tint.a*=selectionFade;
+          gl_PointSize=(state<.5?5.0:state>1.5?5.0:3.0)*pixelRatio;
+          gl_Position=vec4(dot(p,right),dot(p,up),z*projection.x+projection.y,mix(1.0,z,projection.z));
+        }`);
+      compile(gl.FRAGMENT_SHADER,`
+        precision highp float;
+        uniform sampler2D collisionDepth;uniform vec2 viewport;
+        uniform float farPlane,depthBias,hiddenAlpha;uniform bool topView,hasDepth;
+        varying vec4 tint;varying float kind,viewDepth;
+        void main(){
+          vec2 p=gl_PointCoord-.5;float coverage;
+          if(kind<.5) coverage=1.0-smoothstep(.08,.25,min(abs(p.x-p.y),abs(p.x+p.y)));
+          else coverage=1.0-smoothstep(.3,.5,length(p));
+          float opacity=tint.a*coverage;
+          if(hasDepth){
+            vec4 sampleDepth=texture2D(collisionDepth,gl_FragCoord.xy/viewport);
+            float packedDepth=dot(sampleDepth.rgb,vec3(1.0,1.0/255.0,1.0/65025.0));
+            float surface=topView?(packedDepth-.5)*2.0*farPlane:packedDepth*farPlane;
+            if(sampleDepth.a>.5 && viewDepth>surface+depthBias) opacity*=hiddenAlpha;
+          }
+          gl_FragColor=vec4(tint.rgb,opacity);
+        }`);
+      gl.linkProgram(probeProgram);
+      if(!gl.getProgramParameter(probeProgram,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(probeProgram));
+      const data=new Float32Array(gi.reduce((sum,volume)=>sum+volume.probes.length,0)*4);
+      let offset=0;
+      for(const volume of gi){
+        probeRanges.push({first:offset/4,count:volume.probes.length});
+        for(const probe of volume.probes){data.set(probe,offset);offset+=4;}
+      }
+      probeBuffer=upload(data);
+    }
+  } else {
+    geometry.value = "off";
+    geometry.disabled = true;
+    geometry.querySelector('[value="off"]').textContent = vertices.length ? "WebGL unavailable" : "Collision mesh unavailable";
+  }
+  let selected = -1;
+  let regionJson = "";
+  const lo = [Infinity,Infinity,Infinity], hi = [-Infinity,-Infinity,-Infinity];
+  const include = (x,y,z) => [x,y,z].forEach((v,k) => {
+    lo[k] = Math.min(lo[k],v); hi[k] = Math.max(hi[k],v);
+  });
+  if (points.length || captures.length || watershed.length) {
+    for (const p of [...points,...captures,...watershed]) include(...p.slice(0,3));
+  } else {
+    for (let i=0; i<vertices.length; i+=3) include(vertices[i],vertices[i+1],vertices[i+2]);
+  }
+  if (!Number.isFinite(lo[0])) {
+    for (const corners of giCorners) for (const p of corners) include(...p);
+  }
+  const center = lo.map((v,k) => Number.isFinite(v) ? (v+hi[k])/2 : 0);
+  const radius = Number.isFinite(lo[0]) ? Math.max(1, Math.hypot(...hi.map((v,k)=>v-center[k]))) : 1;
+  // Keep coplanar surface markers out of the occlusion transition without moving their data.
+  const overlayDepthBias = Math.max(.15,radius*.0003);
+  const makeCorners = ([x,y,z,X,Y,Z,c,s,a=1,b=0,r=1,t=0]) => Array.from({length:8}, (_,i) => frameWorld([i&1?X:x,i&2?Y:y,i&4?Z:z],[c,s],[a,b],[r,t]));
+  const regionCapture = i => influence_captures[i] ?? i;
+  const regionOwner = i => influence_owners[i] ?? owners[regionCapture(i)];
+  const captureRegions=new Map();
+  for(let i=0;i<boxes.length;i++) {
+    const capture=regionCapture(i);
+    if(!captureRegions.has(capture))captureRegions.set(capture,[]);
+    captureRegions.get(capture).push(i);
+  }
+  const regionsForCapture = id => captureRegions.get(id)??[];
+  const captureInIsland = (id,island) => regionsForCapture(id).some(i=>regionOwner(i)===island);
+  const cellStreams=new Map(),portalStreams=new Map();
+  let spanStream,islandStream,floorStream,floorData,floorSelection;
+  function spatialStream(mode) {
+    const band=mode==='middle'?'middle':'all';
+    if(!cellStreams.has(band)){
+      const count=band==='middle'?spatialMiddle.size:spatialData.cells.length;
+      const data=new Float32Array(count*overlayStride);
+      let index=0;
+      for(const i of spatialCellIndices(band)){
+        const p=spatialData.cells[i];
+        writeOverlayVertex(data,index++,p,p[4]);
+      }
+      cellStreams.set(band,overlayRenderer.upload(data));
+    }
+    return cellStreams.get(band);
+  }
+  function spatialSpanStream() {
+    if(!spanStream){
+      const ranges=new Map();
+      for(const cell of spatialData.cells){
+        const range=ranges.get(cell[3]);
+        if(range){range[0]=Math.min(range[0],cell[2]);range[1]=Math.max(range[1],cell[2]);}
+        else ranges.set(cell[3],[cell[2],cell[2]]);
+      }
+      const data=new Float32Array(ranges.size*2*overlayStride);
+      let index=0;
+      for(const [id,[low,high]] of ranges){
+        const span=spatialData.spans[id],basin=spatialData.cells[spatialMiddle.get(id)][4];
+        const [x,y]=span.floor;
+        writeOverlayVertex(data,index++,[x,y,span.bottom],basin,low,high);
+        writeOverlayVertex(data,index++,[x,y,span.top],basin,low,high);
+      }
+      spanStream=overlayRenderer.upload(data);
+    }
+    return spanStream;
+  }
+  function spatialPortalStreams(mode) {
+    const band=mode==='middle'?'middle':'all';
+    if(!portalStreams.has(band)){
+      const crossings=band==='middle'?spatialPortalMiddle:spatialData.portals.map(portal=>portal.crossings??[]);
+      const count=crossings.reduce((n,list)=>n+list.length,0);
+      const points=new Float32Array(count*overlayStride),lines=new Float32Array(count*2*overlayStride);
+      let i=0;
+      for(const [id,list] of crossings.entries())for(const [a,b] of list){
+        const start=spatialData.cells[a],end=spatialData.cells[b];
+        const mid=[(start[0]+end[0])/2,(start[1]+end[1])/2,(start[2]+end[2])/2];
+        const length=Math.hypot(end[0]-start[0],end[1]-start[1],end[2]-start[2]);
+        const scale=length>0?Math.min(.35,length*.5)/length:0;
+        writeOverlayVertex(points,i,mid,id);
+        writeOverlayVertex(lines,2*i,mid.map((v,k)=>v+(start[k]-end[k])*scale),id,mid[2]);
+        writeOverlayVertex(lines,2*i+1,mid.map((v,k)=>v+(end[k]-start[k])*scale),id,mid[2]);
+        i++;
+      }
+      portalStreams.set(band,{points,lines,pointStream:overlayRenderer?.upload(points),lineStream:overlayRenderer?.upload(lines)});
+    }
+    return portalStreams.get(band);
+  }
+  function reflectionSampleStream(focused,hasSelection) {
+    const selection=hasSelection?`${selected}:${pickedIsland}`:'';
+    if(floorSelection!==selection){
+      if(!floorData)floorData=new Float32Array(points.length*overlayStride);
+      for(let i=0;i<points.length;i++){
+        const point=points[i];
+        let hit=false;
+        if(hasSelection)for(let j=3;j<point.length&&!hit;j++)hit=focused(point[j]);
+        writeOverlayVertex(floorData,i,point,(water[i]===true?1:0)+(hit?2:0));
+      }
+      if(floorStream)overlayRenderer.replace(floorStream,floorData);
+      else floorStream=overlayRenderer.upload(floorData);
+      floorSelection=selection;
+    }
+    return floorStream;
+  }
+  const projectionToggle = root.querySelector("[data-projection]");
+  projectionToggle.addEventListener("change",requestDraw);
+  const projectionForRegion = i => projection_bounds_are_regions ? projection_bounds[i] : projection_bounds[regionCapture(i)];
+  const projectionCorners = boxes.map((_,i)=>projectionForRegion(i)).map(box=>box?makeCorners(box):null);
+  const corners = boxes.map(([x,y,z,X,Y,Z,c,s,a=1,b=0,r=1,t=0]) => Array.from({length:8}, (_,i) => {
+    const u = i & 1 ? X : x, v = i & 2 ? Y : y;
+    return frameWorld([u,v,i & 4 ? Z : z],[c,s],[a,b],[r,t]);
+  }));
+  const initialDistance = radius * 2.6;
+  let pivot = center.slice(), distance = initialDistance, top = false;
+  let azimuth = -0.45, tilt = 0.73, drag, markers = [], flySpeedMultiplier = 1;
+  const cameraStorageKey = "openrac-bake-preview-camera-v1:" + location.pathname;
+  const cameraState = () => ({pivot,distance,top,azimuth,tilt,flySpeedMultiplier});
+  let cameraSaveTimer, lastCameraState;
+  try {
+    const saved = JSON.parse(localStorage.getItem(cameraStorageKey) || "null");
+    if (saved && typeof saved==="object"
+        && Array.isArray(saved.pivot) && saved.pivot.length === 3
+        && saved.pivot.every(v=>typeof v==="number" && Number.isFinite(v) && Math.abs(v)<1e9)
+        && [saved.distance,saved.azimuth,saved.tilt,saved.flySpeedMultiplier].every(v=>typeof v==="number" && Number.isFinite(v))
+        && saved.distance>0 && saved.distance<radius*1e6 && typeof saved.top==="boolean"
+        && Math.abs(saved.tilt)<=Math.PI/2 && saved.flySpeedMultiplier>=.001 && saved.flySpeedMultiplier<=20) {
+      ({pivot,distance,top,azimuth,tilt,flySpeedMultiplier} = saved);
+      view.textContent = top ? "Orbit view" : "Top view";
+    }
+  } catch {}
+  function saveCamera() {
+    clearTimeout(cameraSaveTimer);
+    try { localStorage.setItem(cameraStorageKey,JSON.stringify(cameraState())); } catch {}
+  }
+  function rememberCamera() {
+    const state = JSON.stringify(cameraState());
+    if (state === lastCameraState) return;
+    lastCameraState = state;
+    clearTimeout(cameraSaveTimer);
+    cameraSaveTimer = setTimeout(saveCamera,200);
+  }
+  window.addEventListener("pagehide",saveCamera);
+  document.addEventListener("visibilitychange",()=>{if(document.hidden) saveCamera();});
+  root.querySelector("[data-camera-reset]").addEventListener("click",()=>{
+    pivot=center.slice();distance=initialDistance;top=false;azimuth=-.45;tilt=.73;flySpeedMultiplier=1;
+    view.textContent="Top view";
+    draw();saveCamera();
+  });
+  const cameraSpeedHud=root.querySelector("[data-camera-speed]");
+  let cameraSpeedTimer;
+  function showCameraSpeed() {
+    const digits=flySpeedMultiplier<.01?3:2;
+    root.querySelector("[data-camera-speed-value]").textContent=flySpeedMultiplier.toFixed(digits).replace(/\.?0+$/,"")+"×";
+    cameraSpeedHud.hidden=false;
+    clearTimeout(cameraSpeedTimer);
+    cameraSpeedTimer=setTimeout(()=>{cameraSpeedHud.hidden=true;},1200);
+  }
+  let hovered = false, animation = 0;
+  const keys = new Set();
+  const paletteCanvas=document.createElement("canvas");paletteCanvas.width=paletteCanvas.height=1;
+  const paletteContext=paletteCanvas.getContext("2d",{willReadFrequently:true}),palette=new Map();
+  const colorScheme=matchMedia("(prefers-color-scheme: dark)"),colors=new Map();
+  function color(name) {
+    if(!colors.has(name)) {
+      const swatch=document.createElement('span');
+      swatch.style.color=`var(${name})`;
+      root.append(swatch);
+      colors.set(name,getComputedStyle(swatch).color);
+      swatch.remove();
+    }
+    return colors.get(name);
+  }
+  function rgba(value) {
+    if(!palette.has(value)) {
+      paletteContext.clearRect(0,0,1,1);paletteContext.fillStyle=value;paletteContext.fillRect(0,0,1,1);
+      palette.set(value,Array.from(paletteContext.getImageData(0,0,1,1).data,v=>v/255));
+    }
+    return palette.get(value);
+  }
+  let pendingDraw=0;
+  function requestDraw() {
+    if (!pendingDraw) pendingDraw=requestAnimationFrame(()=>{pendingDraw=0;draw();});
+  }
+  const dot = (a,b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+  const offset = (p, axis, amount) => p.map((v,k) => v + axis[k]*amount);
+  function axes() {
+    const c = Math.cos(azimuth), s = Math.sin(azimuth), t = Math.sin(tilt), u = Math.cos(tilt);
+    return {right:[c,-s,0], up:[t*s,t*c,u], depth:[u*s,u*c,-t]};
+  }
+  const focal = () => Math.min(canvas.clientWidth, canvas.clientHeight) * 1.2;
+  function draw() {
+    if(pendingDraw){cancelAnimationFrame(pendingDraw);pendingDraw=0;}
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!w || !h) return;
+    rememberCamera();
+    const ratio = window.devicePixelRatio || 1;
+    const width=Math.round(w*ratio),height=Math.round(h*ratio);
+    if(canvas.width!==width || canvas.height!==height) {canvas.width=width;canvas.height=height;}
+    ctx.setTransform(ratio,0,0,ratio,0,0);
+    ctx.clearRect(0,0,w,h);
+    const {right, up, depth} = axes();
+    const origin = top ? pivot : offset(pivot, depth, -distance);
+    const scale = top ? focal()/distance : focal();
+    const near = radius * 0.00005, far = Math.max(radius * 8, distance * 2);
+    const depthKey=JSON.stringify([w,h,origin,right,up,near,far,scale,top]);
+    let hasCollisionDepth=false;
+    if (program) {
+      if (meshCanvas.width !== canvas.width || meshCanvas.height !== canvas.height) {
+        meshCanvas.width = canvas.width; meshCanvas.height = canvas.height;
+      }
+      gl.viewport(0,0,meshCanvas.width,meshCanvas.height);
+      gl.disable(gl.BLEND);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      if (geometry.value !== "off") {
+        const lines = geometry.value === "wire";
+        const features = geometry.value === "features";
+        if(features) buildFeatureEdges();
+        const dark = colorScheme.matches;
+        gl.useProgram(program);
+        gl.uniform1i(gl.getUniformLocation(program,"depthOnly"),0);
+        gl.enable(gl.DEPTH_TEST);
+        gl.bindBuffer(gl.ARRAY_BUFFER, lines ? wire : solid);
+        const position = gl.getAttribLocation(program, "position");
+        gl.enableVertexAttribArray(position);
+        gl.vertexAttribPointer(position,3,gl.FLOAT,false,0,0);
+        const shade = gl.getAttribLocation(program, "shade");
+        if (lines) {
+          gl.disableVertexAttribArray(shade);
+          gl.vertexAttrib1f(shade, 1);
+        } else {
+          gl.bindBuffer(gl.ARRAY_BUFFER, shading);
+          gl.enableVertexAttribArray(shade);
+          gl.vertexAttribPointer(shade,1,gl.FLOAT,false,0,0);
+        }
+        const wet=gl.getAttribLocation(program,"wet");
+        gl.bindBuffer(gl.ARRAY_BUFFER,lines?wireWater:solidWater);
+        gl.enableVertexAttribArray(wet);gl.vertexAttribPointer(wet,1,gl.FLOAT,false,0,0);
+        const uniform = name => gl.getUniformLocation(program,name);
+        gl.uniform3fv(uniform("waterTint"),dark?[.20,.52,1]:[.12,.40,.90]);
+        gl.uniform1i(uniform("directionalLighting"),!lines);
+        const direction=(x,y,z)=>{
+          const vector=[0,1,2].map(k=>right[k]*x+up[k]*y+depth[k]*z);
+          const length=Math.hypot(...vector);return vector.map(v=>v/length);
+        };
+        gl.uniform3fv(uniform("keyDirection"),direction(-.5,.75,-.8));
+        gl.uniform3fv(uniform("fillDirection"),direction(.65,-.2,-.6));
+        gl.uniform3fv(uniform("origin"), origin);
+        gl.uniform3fv(uniform("right"), right.map(v => v*2*scale/w));
+        gl.uniform3fv(uniform("up"), up.map(v => v*2*scale/h));
+        gl.uniform3fv(uniform("depth"), depth);
+        gl.uniform3fv(uniform("projection"), top ? [1/far,0,0]
+          : [(far+near)/(far-near), -2*far*near/(far-near), 1]);
+        const tint = dark ? (lines ? [0.25,0.35,0.44] : [0.44,0.50,0.58])
+                          : (lines ? [0.63,0.69,0.75] : [0.79,0.84,0.88]);
+        if(lines){gl.enable(gl.BLEND);gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);}
+        gl.uniform4f(uniform("tint"), ...tint, lines?alpha.geometryWire:1);
+        if (!lines && (features || (meshSelectionBuffer && pickTarget.value === "mesh"))) {
+          gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(1,1);
+        }
+        gl.drawArrays(lines ? gl.LINES : gl.TRIANGLES, 0, vertices.length / (lines ? 1.5 : 3));
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+        if(features && featureVertices) {
+          gl.uniform1i(uniform("directionalLighting"),0);
+          gl.bindBuffer(gl.ARRAY_BUFFER,featureWire);gl.vertexAttribPointer(position,3,gl.FLOAT,false,0,0);
+          gl.bindBuffer(gl.ARRAY_BUFFER,featureWater);gl.vertexAttribPointer(wet,1,gl.FLOAT,false,0,0);
+          gl.disableVertexAttribArray(shade);gl.vertexAttrib1f(shade,1);
+          gl.enable(gl.BLEND);gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
+          const edgeColor=dark?[.68,.75,.84]:[.18,.23,.30];
+          gl.uniform4f(uniform("tint"),...edgeColor,alpha.geometryWire*(dark?.4:.55));
+          gl.depthMask(false);gl.depthFunc(gl.LEQUAL);gl.drawArrays(gl.LINES,0,featureVertices);
+          gl.depthMask(true);gl.depthFunc(gl.LESS);
+        }
+        if (meshSelectionBuffer && pickTarget.value === "mesh") {
+          gl.disableVertexAttribArray(wet);gl.vertexAttrib1f(wet,0);
+          gl.uniform1i(uniform("directionalLighting"),0);
+          gl.bindBuffer(gl.ARRAY_BUFFER,meshSelectionBuffer);
+          gl.vertexAttribPointer(position,3,gl.FLOAT,false,0,0);
+          gl.disableVertexAttribArray(shade);gl.vertexAttrib1f(shade,1);
+          gl.uniform4f(uniform("tint"),1,.55,.03,1);
+          gl.depthFunc(gl.LEQUAL);gl.drawArrays(gl.LINES,0,meshSelectionVertices);gl.depthFunc(gl.LESS);
+        }
+        hasCollisionDepth=!!depthPixels && collisionDepthKey===depthKey;
+        if(!hasCollisionDepth) {
+          // A small solid depth pass also works when collision is displayed as wireframe.
+          const dw=Math.max(1,Math.ceil(w/2)),dh=Math.max(1,Math.ceil(h/2));
+          gl.bindFramebuffer(gl.FRAMEBUFFER,depthTarget);
+          if(dw!==depthWidth || dh!==depthHeight) {
+            depthWidth=dw;depthHeight=dh;depthPixels=new Uint8Array(dw*dh*4);
+            gl.bindTexture(gl.TEXTURE_2D,depthTexture);
+            gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+            gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,dw,dh,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,depthTexture,0);
+            if(depthAttachment) {
+              gl.bindTexture(gl.TEXTURE_2D,depthAttachment);
+              gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+              gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+              gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+              gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+              gl.texImage2D(gl.TEXTURE_2D,0,gl.DEPTH_COMPONENT,dw,dh,0,gl.DEPTH_COMPONENT,gl.UNSIGNED_INT,null);
+              gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D,depthAttachment,0);
+            } else {
+              gl.bindRenderbuffer(gl.RENDERBUFFER,depthBuffer);
+              gl.renderbufferStorage(gl.RENDERBUFFER,gl.DEPTH_COMPONENT16,dw,dh);
+              gl.framebufferRenderbuffer(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.RENDERBUFFER,depthBuffer);
+            }
+          }
+          if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)===gl.FRAMEBUFFER_COMPLETE) {
+            gl.disable(gl.BLEND);
+            gl.viewport(0,0,dw,dh);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+            gl.disable(gl.DITHER);
+            gl.bindBuffer(gl.ARRAY_BUFFER,solid);gl.vertexAttribPointer(position,3,gl.FLOAT,false,0,0);
+            gl.disableVertexAttribArray(shade);gl.vertexAttrib1f(shade,1);
+            gl.disableVertexAttribArray(wet);gl.vertexAttrib1f(wet,0);
+            gl.uniform1i(uniform("depthOnly"),1);
+            gl.uniform2f(uniform("depthRange"),top?1/(2*far):1/far,top?.5:0);
+            gl.drawArrays(gl.TRIANGLES,0,vertices.length/3);
+            gl.readPixels(0,0,dw,dh,gl.RGBA,gl.UNSIGNED_BYTE,depthPixels);
+            gl.enable(gl.DITHER);hasCollisionDepth=true;collisionDepthKey=depthKey;
+          }
+          gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+          gl.viewport(0,0,meshCanvas.width,meshCanvas.height);
+        }
+      }
+    }
+    const projectPacked = (p,offset) => {
+      const x=p[offset]-origin[0],y=p[offset+1]-origin[1],d=p[offset+2]-origin[2];
+      const z=x*depth[0]+y*depth[1]+d*depth[2];
+      if (top ? Math.abs(z)>far : z<near || z>far) return null;
+      const pixels = top ? scale : scale/z;
+      return [w/2+pixels*(x*right[0]+y*right[1]+d*right[2]),
+        h/2-pixels*(x*up[0]+y*up[1]+d*up[2]),z];
+    };
+    const project = p => projectPacked(p,0);
+    const onScreen = p => p && p[0]>=-8 && p[0]<=w+8 && p[1]>=-8 && p[1]<=h+8;
+    const depthFade = p => {
+      if(!hasCollisionDepth || p[0]<0 || p[0]>=w || p[1]<0 || p[1]>=h) return 1;
+      const x=Math.min(depthWidth-1,Math.floor(p[0]*depthWidth/w));
+      const y=depthHeight-1-Math.min(depthHeight-1,Math.floor(p[1]*depthHeight/h));
+      const i=(y*depthWidth+x)*4;
+      if(!depthPixels[i+3]) return 1;
+      const value=depthPixels[i]/255+depthPixels[i+1]/65025+depthPixels[i+2]/16581375;
+      const surface=top?(value-.5)*2*far:value*far;
+      return p[2]>surface+overlayDepthBias ? alpha.occluded : 1;
+    };
+    const lineBatches=new Map();
+    const flushLines = () => {
+      ctx.save();
+      for(const batch of lineBatches.values()) {
+        ctx.strokeStyle=batch.color;ctx.lineWidth=batch.width;ctx.globalAlpha=batch.alpha;
+        ctx.stroke(batch.path);
+      }
+      ctx.restore();lineBatches.clear();
+    };
+    const strokeDepthLine = (a,b) => {
+      if(!ctx.globalAlpha) return;
+      // Clip before sampling: near-camera endpoints can project millions of pixels away.
+      let low=0,high=1;
+      for(let k=0;k<2;k++) {
+        const delta=b[k]-a[k],min=-8,max=(k?h:w)+8;
+        if(!delta) {if(a[k]<min || a[k]>max) return;}
+        else {const t0=(min-a[k])/delta,t1=(max-a[k])/delta;
+          low=Math.max(low,Math.min(t0,t1));high=Math.min(high,Math.max(t0,t1));}
+      }
+      if(low>high) return;
+      const point = t => [a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1]),
+        top?a[2]+t*(b[2]-a[2]):1/((1-t)/a[2]+t/b[2])];
+      const from=point(low),to=point(high);
+      const steps=Math.max(1,Math.ceil(Math.hypot(to[0]-from[0],to[1]-from[1])/5));
+      const emit=(start,end,fade)=>{
+        const opacity=ctx.globalAlpha*fade;
+        if(!opacity) return;
+        const key=ctx.strokeStyle+"|"+ctx.lineWidth+"|"+opacity;
+        let batch=lineBatches.get(key);
+        if(!batch){batch={color:ctx.strokeStyle,width:ctx.lineWidth,alpha:opacity,path:new Path2D()};lineBatches.set(key,batch);}
+        const p=point(low+(high-low)*start),q=point(low+(high-low)*end);
+        batch.path.moveTo(p[0],p[1]);batch.path.lineTo(q[0],q[1]);
+      };
+      let start=0,previous=-1;
+      for(let i=0;i<steps;i++) {
+        const fade=depthFade(point(low+(high-low)*(i+.5)/steps));
+        if(previous!==fade) {
+          if(previous>=0) emit(start,i/steps,previous);
+          start=i/steps;previous=fade;
+        }
+      }
+      emit(start,1,previous);
+    };
+    const rayForScreen = (x,y) => {
+      const sx = (x-w/2)/(top ? scale : focal());
+      const sy = (h/2-y)/(top ? scale : focal());
+      const start = top ? offset(offset(offset(origin,depth,-far),right,sx),up,sy) : origin;
+      const direction = top ? depth : offset(offset(depth,right,sx),up,sy);
+      const length = Math.hypot(...direction);
+      const ray = direction.map(v=>v/length);
+      return {start,ray};
+    };
+    pickCollision = (x,y) => {
+      if (geometry.value === "off") return null;
+      const {start,ray} = rayForScreen(x,y);
+      let picked=-1,closest=top ? 2*far : far;
+      for(let t=0;t<vertices.length;t+=9) {
+        const ax=vertices[t+3]-vertices[t],ay=vertices[t+4]-vertices[t+1],az=vertices[t+5]-vertices[t+2];
+        const bx=vertices[t+6]-vertices[t],by=vertices[t+7]-vertices[t+1],bz=vertices[t+8]-vertices[t+2];
+        const hx=ray[1]*bz-ray[2]*by,hy=ray[2]*bx-ray[0]*bz,hz=ray[0]*by-ray[1]*bx;
+        const det=ax*hx+ay*hy+az*hz;
+        if(Math.abs(det)<1e-10)continue;
+        const dx=start[0]-vertices[t],dy=start[1]-vertices[t+1],dz=start[2]-vertices[t+2];
+        const u=(dx*hx+dy*hy+dz*hz)/det;
+        if(u<0 || u>1)continue;
+        const qx=dy*az-dz*ay,qy=dz*ax-dx*az,qz=dx*ay-dy*ax;
+        const v=(ray[0]*qx+ray[1]*qy+ray[2]*qz)/det;
+        if(v<0 || u+v>1)continue;
+        const distance=(bx*qx+by*qy+bz*qz)/det;
+        if(distance>=(top?0:near) && distance<closest) {closest=distance;picked=t/9;}
+      }
+      return picked<0?null:{triangle:picked,position:start.map((v,k)=>v+closest*ray[k])};
+    };
+    pickGiVolume = (x,y) => {
+      const {start,ray} = rayForScreen(x,y);
+      let picked = -1, closest = Infinity;
+      for (const index of eligibleGi()) {
+        const v = gi[index];
+        const d = start.map((value,k)=>value-v.origin[k]);
+        const local = frameLocal(d,v.axis,v.pitch,v.roll);
+        const localRay = frameLocal(ray,v.axis,v.pitch,v.roll);
+        let enter = top ? 0 : near, exit = top ? 2*far : far;
+        for (let a=0;a<3;a++) {
+          const end = v.spacing[a]*(v.dimensions[a]-1);
+          if (Math.abs(localRay[a]) < 1e-9) {
+            if (local[a] < 0 || local[a] > end) { exit = -1; break; }
+          } else {
+            const low = -local[a]/localRay[a], high = (end-local[a])/localRay[a];
+            enter = Math.max(enter,Math.min(low,high));
+            exit = Math.min(exit,Math.max(low,high));
+          }
+        }
+        if (exit >= enter && enter < closest) { closest = enter; picked = index; }
+      }
+      return picked;
+    };
+    pickIsland = (x,y) => {
+      let picked = null, best = Infinity, bestDepth = Infinity;
+      for (const sample of watershed) {
+        const screen = project(sample);
+        if (!onScreen(screen)) continue;
+        const distance = Math.hypot(screen[0]-x,screen[1]-y);
+        if (distance > 11) continue;
+        const score = distance + (depthFade(screen)<1 ? 16 : 0);
+        if (score < best-1e-4 || (Math.abs(score-best)<=1e-4 && screen[2]<bestDepth)) {best=score;bestDepth=screen[2];picked={id:sample[3],position:sample.slice(0,3)};}
+      }
+      if (best < 16 || geometry.value === "off") return picked;
+      const hit = pickCollision(x,y);
+      if (!hit) return picked;
+      const t = hit.triangle*9, a=Array.from(vertices.subarray(t,t+3));
+      const b=Array.from(vertices.subarray(t+3,t+6)).map((v,k)=>v-a[k]);
+      const c=Array.from(vertices.subarray(t+6,t+9)).map((v,k)=>v-a[k]);
+      const normal=[b[1]*c[2]-b[2]*c[1],b[2]*c[0]-b[0]*c[2],b[0]*c[1]-b[1]*c[0]];
+      if (Math.abs(normal[2]) < .5*Math.hypot(...normal)) return picked;
+      best = 6;
+      for (const sample of watershed) {
+        if (Math.abs(sample[2]-hit.position[2])>1.5) continue;
+        const distance=Math.hypot(...sample.slice(0,3).map((v,k)=>v-hit.position[k]));
+        if (distance<best) {best=distance;picked={id:sample[3],position:hit.position};}
+      }
+      return picked;
+    };
+    const region = pickedIsland;
+    const focused = i => selected >= 0 ? i === selected : region >= 0 && captureInIsland(i,region);
+    const hasSelection = selected >= 0 || region >= 0;
+    const active = color("--viz-series-1"), neutral = color("--muted-foreground");
+    const reflectionColor = color("--reflection-color");
+    const waterColor = color("--water-sample");
+    const giColor = color("--gi-color"), relocatedColor = color("--gi-relocated"), disabledColor = color("--gi-disabled");
+    const showBasins=watershedToggle.checked&&watershed.length>0;
+    const showSpatial=spatialToggle.checked;
+    const spatialMode=spatialLayer.value,slice=Number(spatialSlice.value);
+    const halfSlice=(spatialData.vertical_step??1)*.5;
+    const sliceRange=spatialMode==='slice'?[slice-halfSlice,slice+halfSlice]:undefined;
+    const inSlice=z=>!sliceRange||(z>=sliceRange[0]&&z<=sliceRange[1]);
+    const chosenPortal=spatialPortals.checked?spatialData.portals[pickedSpatialPortal]:null;
+    const selectedBasins=chosenPortal?[chosenPortal.a,chosenPortal.b]:[pickedSpatialBasin,-1];
+    const hasCrossings=showSpatial&&spatialPortals.checked&&(spatialCrossings.checked||spatialBoundary.checked);
+    const portalBatch=hasCrossings?spatialPortalStreams(spatialMode):null;
+    if(overlayRenderer){
+      overlayRenderer.begin({origin,right:right.map(v=>v*2*scale/w),up:up.map(v=>v*2*scale/h),depth,ratio,far,top,
+        hasDepth:hasCollisionDepth,projection:top?[1/far,0,0]:[(far+near)/(far-near),-2*far*near/(far-near),1]});
+      if(showSpatial){
+        overlayRenderer.draw(spatialStream(spatialMode),{selected:selectedBasins,sizes:[3.8,4.8],
+          opacities:[alpha.spatialCells,alpha.spatialCells],sliceRange});
+        if(spatialSpans.checked)overlayRenderer.draw(spatialSpanStream(),{lines:true,
+          opacities:[alpha.spatialWire,alpha.spatialWire],sliceRange});
+        if(portalBatch){
+          const style={style:2,selected:[pickedSpatialPortal,-1],primary:rgba('#dd8500').slice(0,3),
+            highlight:rgba('#ffb000').slice(0,3),sliceRange};
+          if(spatialCrossings.checked)overlayRenderer.draw(portalBatch.lineStream,{...style,lines:true,
+            opacities:[alpha.spatialPortals*.35,alpha.spatialPortals*.65]});
+          if(spatialBoundary.checked)overlayRenderer.draw(portalBatch.pointStream,{...style,sizes:[2.5,4],
+            opacities:[alpha.spatialPortals,alpha.spatialPortals]});
+        }
+      }
+      if(showBasins){
+        if(!islandStream){
+          const data=new Float32Array(watershed.length*overlayStride);
+          for(let i=0;i<watershed.length;i++)writeOverlayVertex(data,i,watershed[i],2*watershed[i][3]+(watershed[i][5]===true?1:0));
+          islandStream=overlayRenderer.upload(data);
+        }
+        overlayRenderer.draw(islandStream,{style:3,sizes:[4,4],opacities:[alpha.watershed,alpha.watershed],
+          water:rgba(waterColor).slice(0,3),waterOpacity:alpha.water});
+      } else if(isReflection()&&points.length){
+        overlayRenderer.draw(reflectionSampleStream(focused,hasSelection),{style:1,sizes:[2.6,4],
+          opacities:[alpha.floor,alpha.floor],primary:rgba(neutral).slice(0,3),highlight:rgba(active).slice(0,3),
+          water:rgba(waterColor).slice(0,3),waterOpacity:alpha.water});
+      }
+      overlayRenderer.end();
+    }
+    if(probeProgram && isGi() && giProbes.checked) {
+      gl.useProgram(probeProgram);gl.disable(gl.DEPTH_TEST);gl.enable(gl.BLEND);
+      gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
+      gl.bindBuffer(gl.ARRAY_BUFFER,probeBuffer);
+      const position=gl.getAttribLocation(probeProgram,"position"),state=gl.getAttribLocation(probeProgram,"state");
+      gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,3,gl.FLOAT,false,16,0);
+      gl.enableVertexAttribArray(state);gl.vertexAttribPointer(state,1,gl.FLOAT,false,16,12);
+      const uniform=name=>gl.getUniformLocation(probeProgram,name);
+      gl.uniform3fv(uniform("origin"),origin);
+      gl.uniform3fv(uniform("right"),right.map(v=>v*2*scale/w));
+      gl.uniform3fv(uniform("up"),up.map(v=>v*2*scale/h));
+      gl.uniform3fv(uniform("depth"),depth);
+      gl.uniform3fv(uniform("projection"),top?[1/far,0,0]:[(far+near)/(far-near),-2*far*near/(far-near),1]);
+      for(const [name,value,opacity] of [["validColor",giColor,alpha.giValid],
+        ["relocatedColor",relocatedColor,alpha.giRelocated],["disabledColor",disabledColor,alpha.giDisabled]]) {
+        gl.uniform4fv(uniform(name),[...rgba(value).slice(0,3),opacity]);
+      }
+      gl.uniform1f(uniform("pixelRatio"),ratio);gl.uniform2f(uniform("viewport"),meshCanvas.width,meshCanvas.height);
+      gl.uniform1f(uniform("farPlane"),far);gl.uniform1f(uniform("depthBias"),overlayDepthBias);
+      gl.uniform1f(uniform("hiddenAlpha"),alpha.occluded);
+      gl.uniform1i(uniform("topView"),top);gl.uniform1i(uniform("hasDepth"),hasCollisionDepth);
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,depthTexture);gl.uniform1i(uniform("collisionDepth"),0);
+      for(const index of eligibleGi()) {
+        gl.uniform1f(uniform("selectionFade"),1);
+        const range=probeRanges[index];gl.drawArrays(gl.POINTS,range.first,range.count);
+      }
+      gl.disableVertexAttribArray(position);gl.disableVertexAttribArray(state);
+    }
+    spatialPortalMarks=[];spatialViewMarks=[];fitHitLines=[];
+    pickSpatialCell=()=>null;
+    collectPortalHits=()=>{};
+    if(showSpatial) {
+      const mode=spatialMode;
+      const cellInBand=(i,cell)=>inSlice(cell[2])&&(mode!=='middle'||spatialMiddle.get(cell[3])===i);
+      // The camera doesn't need screen coordinates for every cell until the user picks one.
+      pickSpatialCell=(x,y)=>{
+        let closest=10,best=null;
+        for(const i of spatialCellIndices(mode)){
+          const cell=spatialData.cells[i];
+          if(!inSlice(cell[2]))continue;
+          const p=project(cell);if(!onScreen(p)||Math.abs(p[0]-x)>=10||Math.abs(p[1]-y)>=10)continue;
+          const d=Math.hypot(p[0]-x,p[1]-y),visible=depthFade(p)===1;
+          if(d<10&&(!best||(visible&&!best.visible)||(visible===best.visible&&
+            (d<closest-1||(Math.abs(d-closest)<=1&&p[2]<best.p[2]))))){best={index:i,p,visible};closest=d;}
+        }
+        return best;
+      };
+      if(!overlayRenderer){
+        const visibleSpans=new Set();
+        for(const i of spatialCellIndices(mode)){
+          const cell=spatialData.cells[i];if(!inSlice(cell[2]))continue;
+          const p=project(cell);if(!onScreen(p))continue;
+          if(spatialSpans.checked)visibleSpans.add(cell[3]);
+          ctx.globalAlpha=alpha.spatialCells*depthFade(p);
+          ctx.fillStyle=`hsl(${cell[4]*137.508%360} 78% 48%)`;
+          const size=selectedBasins.includes(cell[4])?4.8:3.8;
+          ctx.fillRect(p[0]-size/2,p[1]-size/2,size,size);
+        }
+        ctx.lineWidth=1;
+        for(const id of visibleSpans){
+          const span=spatialData.spans[id],middle=spatialData.cells[spatialMiddle.get(id)];
+          const a=project([span.floor[0],span.floor[1],span.bottom]),b=project([span.floor[0],span.floor[1],span.top]);
+          if(!a||!b)continue;
+          ctx.strokeStyle=`hsl(${middle[4]*137.508%360} 78% 48%)`;
+          ctx.globalAlpha=alpha.spatialWire;strokeDepthLine(a,b);
+        }
+        flushLines();
+      }
+      const pickedCell=spatialData.cells[pickedSpatialCell];
+      if(pickedCell&&cellInBand(pickedSpatialCell,pickedCell)){
+        const p=project(pickedCell);
+        if(onScreen(p)){
+          ctx.globalAlpha=alpha.spatialCells*depthFade(p);ctx.strokeStyle='white';ctx.lineWidth=1.5;
+          ctx.strokeRect(p[0]-4,p[1]-4,8,8);
+        }
+      }
+      if(portalBatch){
+        const {points,lines}=portalBatch;
+        collectPortalHits=(visit,x,y)=>{
+          for(let i=0;i<points.length;i+=overlayStride){
+            if(!inSlice(points[i+2]))continue;
+            const p=projectPacked(points,i);if(!onScreen(p))continue;
+            const id=points[i+3],size=id===pickedSpatialPortal?4:2.5;
+            const radius=spatialBoundary.checked?size/2:0;
+            let start=null,q=null;
+            if(spatialCrossings.checked){
+              start=projectPacked(lines,i*2);q=projectPacked(lines,i*2+overlayStride);
+              if(!start||!q)start=q=null;
+            }
+            if(x!==undefined){
+              const a=start??p,b=q??p,pad=8+Math.max(radius,1.25);
+              if(x<Math.min(a[0],b[0],p[0])-pad||x>Math.max(a[0],b[0],p[0])+pad||
+                 y<Math.min(a[1],b[1],p[1])-pad||y>Math.max(a[1],b[1],p[1])+pad)continue;
+            }
+            if(radius||start)visit({id,p,start,q,radius,visible:depthFade(p)===1});
+          }
+        };
+        if(!overlayRenderer)collectPortalHits(({id,p,start,q,radius,visible})=>{
+          const picked=id===pickedSpatialPortal,opacity=alpha.spatialPortals;
+          ctx.strokeStyle=ctx.fillStyle=picked?'#ffb000':'#dd8500';ctx.lineWidth=picked?1.5:1;
+          if(start){ctx.globalAlpha=opacity*(picked ? .65 : .35);strokeDepthLine(start,q);}
+          if(radius){ctx.globalAlpha=opacity*(visible?1:alpha.occluded);ctx.fillRect(p[0]-radius,p[1]-radius,2*radius,2*radius);}
+        });
+        flushLines();
+      }
+      if(spatialPortals.checked) {
+        for(const [id,portal] of spatialData.portals.entries()) {
+          const picked=id===pickedSpatialPortal;
+          const opacity=alpha.spatialPortals;
+          ctx.strokeStyle=picked?'#ffb000':'#dd8500';ctx.lineWidth=picked?1.5:1;
+          if(!inSlice(portal.centre[2]))continue;
+          const p=project(portal.centre);if(!onScreen(p))continue;
+          spatialPortalMarks.push({id,p,diamond:picked?7:4,visible:depthFade(p)===1});
+          ctx.globalAlpha=opacity*depthFade(p);ctx.lineWidth=picked?3:1.6;
+          const size=picked?7:4;
+          ctx.beginPath();ctx.moveTo(p[0],p[1]-size);ctx.lineTo(p[0]+size,p[1]);ctx.lineTo(p[0],p[1]+size);ctx.lineTo(p[0]-size,p[1]);ctx.closePath();ctx.stroke();
+          if(picked){ctx.globalAlpha=alpha.spatialPortals;ctx.fillStyle='#dd8500';ctx.fillText(`${id}: ${portal.a} ↔ ${portal.b} / clearance ${portal.saddle_clearance.toFixed(2)}`,p[0]+10,p[1]-8);}
+        }
+      }
+      if(spatialViews.checked) {
+        for(const sample of visibilitySamples) {
+          const cell=spatialData.cells[sample.cell];
+          if(mode==='slice'&&Math.abs(cell[2]-slice)>(spatialData.vertical_step??1)*.5)continue;
+          const p=project(cell);if(!onScreen(p))continue;
+          spatialViewMarks.push({index:sample.cell,p,visible:depthFade(p)===1});
+          ctx.strokeStyle=`hsl(${cell[4]*137.508%360} 78% 48%)`;ctx.globalAlpha=alpha.spatialCells*depthFade(p);ctx.lineWidth=sample.cell===pickedSpatialCell?3:1.5;
+          ctx.beginPath();ctx.arc(p[0],p[1],6,0,Math.PI*2);ctx.stroke();
+        }
+      }
+      if(spatialViewRays.checked) {
+        const sample=visibilitySamples.findLast(sample=>sample.cell===pickedSpatialCell);
+        if(sample){const p=project(spatialData.cells[sample.cell]);if(p){
+          ctx.strokeStyle='#008e9b';ctx.lineWidth=1;ctx.globalAlpha=alpha.spatialWire*.5;
+          for(const i of sample.visible){const q=project(spatialData.visibility_splits[sample.split].landmarks[i]);if(q)strokeDepthLine(p,q);}
+          flushLines();
+        }}
+      }
+      ctx.setLineDash([4,3]);
+      for(const [kind,toggle] of Object.entries(fitToggles))if(toggle.checked){
+        for(const [index,box] of (volumeFits[kind]?.volumes??[]).entries()){
+          const picked=pickedFit?.kind===kind&&pickedFit.index===index;
+          if(mode==='slice'&&(Math.min(...box.world_corners.map(p=>p[2]))>slice||Math.max(...box.world_corners.map(p=>p[2]))<slice))continue;
+          const corners=box.world_corners.map(project);
+          ctx.strokeStyle=!box.feasible?'#c62828':kind==='reflection'?'#d000d0':'#237a36';
+          ctx.lineWidth=kind==='reflection'?(picked?4:2):(picked?3:1);ctx.globalAlpha=alpha.fitWire;
+          for(let j=0;j<8;j++)for(const bit of [1,2,4])if(!(j&bit)&&corners[j]&&corners[j|bit]){
+            const a=corners[j],b=corners[j|bit];strokeDepthLine(a,b);
+            fitHitLines.push({kind,index,a,b,visible:depthFade(project(box.world_corners[j].map((v,k)=>(v+box.world_corners[j|bit][k])/2)))===1});
+          }
+          const p=project(box.representative);
+          if(onScreen(p)){ctx.globalAlpha=alpha.fitWire*depthFade(p);ctx.beginPath();ctx.moveTo(p[0]-3,p[1]);ctx.lineTo(p[0]+3,p[1]);ctx.moveTo(p[0],p[1]-3);ctx.lineTo(p[0],p[1]+3);ctx.stroke();fitHitLines.push({kind,index,a:p,b:p,visible:depthFade(p)===1});}
+        }
+      }
+      flushLines();ctx.setLineDash([]);
+      spatialDetail.textContent=`${spatialData.experimental===false ? "Production layered regions:" : "Prototype:"} ${spatialData.basins.length} basins / ${spatialData.spans.length.toLocaleString()} spans / ${spatialData.cells.length.toLocaleString()} cells / ${spatialData.components} components / ${spatialData.portals.length} portals / ${(spatialData.visibility_splits??[]).length} visibility splits. Air is capped to ${spatialData.air_height} units above reachable floors; ${spatialData.experimental===false ? "Shared by GI and reflection placement." : "Independent of baked placement."}`;
+    }
+    failureMarks=[];
+    if(isReflection()&&failureToggle.checked){
+      const drawFailure=index=>{
+        const f=failureRecords[index],p=project(f.position);if(!onScreen(p))return;
+        const picked=index===pickedFailure,size=picked?7:3;
+        const fade=depthFade(p);failureMarks.push({index,p,visible:fade===1});
+        ctx.globalAlpha=alpha.failures*fade;ctx.fillStyle=ctx.strokeStyle=f.kind==='uncovered'?'#e02035':f.kind==='locality'?'#df8500':'#7e36d4';ctx.lineWidth=picked?3:1.5;
+        if(f.kind==='uncovered')ctx.fillRect(p[0]-size,p[1]-size,2*size,2*size);
+        else{ctx.beginPath();if(f.kind==='locality')ctx.arc(p[0],p[1],size,0,Math.PI*2);else{ctx.moveTo(p[0],p[1]-size);ctx.lineTo(p[0]+size,p[1]);ctx.lineTo(p[0],p[1]+size);ctx.lineTo(p[0]-size,p[1]);ctx.closePath();}ctx.stroke();}
+        if(picked){ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.strokeRect(p[0]-size-3,p[1]-size-3,size*2+6,size*2+6);}
+      };
+      for(const [start,length,budget] of [[0,failureConflicts.length,4000],[failureConflicts.length,failureUncovered.length,8000]]){
+        const stride=Math.max(1,Math.ceil(length/budget));for(let i=start;i<start+length;i+=stride)if(i!==pickedFailure)drawFailure(i);
+      }
+      if(pickedFailure>=0)drawFailure(pickedFailure);
+      const f=failureRecords[pickedFailure];
+      if(f&&selected>=0&&captures[selected]){const a=project(f.position),b=project(captures[selected]);if(a&&b){ctx.strokeStyle='#e7a200';ctx.lineWidth=2;ctx.globalAlpha=alpha.failures;ctx.setLineDash([5,4]);strokeDepthLine(a,b);flushLines();ctx.setLineDash([]);}}
+      ctx.globalAlpha=1;
+    }
+    surfaceDetail.hidden = !isReflection() || !surfaceToggle.checked;
+    if (!surfaceDetail.hidden && surface_coverage) {
+      const c = surface_coverage;
+      surfaceDetail.textContent = c.version>=3
+        ? `Surface audit: ${(100*c.covered_area/Math.max(c.relevant_area,1e-6)).toFixed(2)}% strong by visible area; ${c.uncovered_area.toFixed(1)} uncovered, ${c.weak_area.toFixed(1)} weak. ${c.mean_overlaps.toFixed(2)} mean volume overlaps. Read-only: no volumes added or changed. Red: uncovered; orange: weak; blue: 3+ overlapping regions; green: strong.`
+        : `Surface coverage: ${(100*c.initial_covered_area/Math.max(c.relevant_area,1e-6)).toFixed(2)}% to ${(100*c.covered_area/Math.max(c.relevant_area,1e-6)).toFixed(2)}% strong by visible area; ${c.uncovered_area.toFixed(1)} uncovered, ${c.weak_area.toFixed(1)} weak. ${c.added_regions} extra influence regions. Mean overlaps: ${c.initial_mean_overlaps.toFixed(2)} to ${c.mean_overlaps.toFixed(2)} volumes; ${c.mean_captures.toFixed(2)} distinct captures. Red: uncovered; orange: weak; blue: 3+ overlapping regions; green: strong.${c.budget_limited?' Extra splits constrained by the volume budget; coverage retained.':''}`;
+      const samples = c.samples.filter(p=>surfaceCovered.checked || p[7]<.999 || p[9]>2);
+      const stride = Math.max(1,Math.ceil(samples.length/16000));
+      for(let i=0;i<samples.length;i+=stride) {
+        const sample = samples[i], p = project(sample.slice(0,3).map((v,k)=>v+sample[k+3]*.06));
+        if(!onScreen(p))continue;
+        ctx.fillStyle = sample[7]<.01?'#e02035':sample[7]<.999?'#ef8a00':sample[9]>2?'#246aff':'#18a65b';
+        ctx.globalAlpha = alpha.surface*depthFade(p);
+        ctx.fillRect(p[0]-2,p[1]-2,4,4);
+      }
+      ctx.globalAlpha=1;
+    }
+    const marks = (overlayRenderer ? [] : showBasins ? watershed : isReflection() ? points : [])
+      .map((p,i) => [project(p), p, showBasins ? p[5] === true : water[i] === true])
+      .filter(([projected]) => onScreen(projected));
+    marks.sort((a,b) => b[0][2]-a[0][2]);
+    for (const [screen, p, waterSurface] of marks) {
+      const [x,y]=screen;
+      const hit = !showBasins && hasSelection && p.slice(3).some(focused);
+      ctx.fillStyle = showBasins ? `hsl(${(p[3]*137.508)%360} 78% 48%)` : hit ? active : neutral;
+      ctx.globalAlpha = showBasins ? alpha.watershed : alpha.floor;
+      const size = showBasins || hit ? 4 : 2.6;
+      if (waterSurface) {
+        ctx.globalAlpha = alpha.water*depthFade(screen);
+        ctx.strokeStyle = waterColor;
+        ctx.lineWidth = hit ? 2 : 1.3;
+        ctx.beginPath(); ctx.arc(x,y,size/2+1,0,Math.PI*2);
+        ctx.stroke();
+      } else {
+        ctx.globalAlpha *= depthFade(screen);
+        ctx.fillRect(x-size/2,y-size/2,size,size);
+      }
+    }
+    root.querySelector("[data-evidence-detail]").hidden = !evidenceToggle.checked;
+    if (evidenceToggle.checked) {
+      for (const box of playable_areas) {
+        const p=Array.from({length:8},(_,i)=>project([0,1,2].map(k=>box[k+((i&(1<<k))?3:0)])));
+        ctx.strokeStyle="#b43fb5";ctx.lineWidth=1.5;ctx.globalAlpha=alpha.evidenceWire;
+        for(let i=0;i<8;i++) for(const bit of [1,2,4]) if(!(i&bit) && p[i] && p[i|bit]) strokeDepthLine(p[i],p[i|bit]);
+      }
+      flushLines();
+      ctx.lineWidth=2;
+      for(const marker of evidence) {
+        const p=project([marker[0],marker[1],marker[2]+.15]);
+        if(!onScreen(p)) continue;
+        const [x,y]=p,kind=marker[3];
+        ctx.globalAlpha=alpha.evidenceIcons*depthFade(p);
+        ctx.strokeStyle=kind===1?"#c07600":kind===2?"#b43fb5":"#008e9b";
+        ctx.beginPath();
+        if(kind===1) {ctx.moveTo(x-5,y);ctx.lineTo(x+5,y);ctx.moveTo(x,y-5);ctx.lineTo(x,y+5);}
+        else if(kind===2) {ctx.moveTo(x,y-6);ctx.lineTo(x+6,y);ctx.lineTo(x,y+6);ctx.lineTo(x-6,y);ctx.closePath();}
+        else {ctx.moveTo(x,y-6);ctx.lineTo(x+5,y+4);ctx.lineTo(x-5,y+4);ctx.closePath();}
+        ctx.stroke();
+      }
+    }
+    if (isReflection() && bounds.checked) {
+      for (const [i, vertices] of corners.entries()) {
+        const capture=regionCapture(i);
+        const p = vertices.map(project);
+        ctx.globalAlpha = alpha.reflectionWire;
+        ctx.strokeStyle = reflectionColor; ctx.lineWidth = capture === selected ? 4 : focused(capture) ? 2.5 : 2;
+        for (let j=0;j<8;j++) for (const bit of [1,2,4]) {
+          if ((j & bit) || !p[j] || !p[j|bit]) continue;
+          strokeDepthLine(p[j],p[j|bit]);
+        }
+      }
+    }
+    flushLines();
+    if(isReflection() && projectionToggle.checked) {
+      ctx.strokeStyle="#de8a00";ctx.lineWidth=1.5;ctx.globalAlpha=alpha.reflectionWire;
+      ctx.setLineDash([5,4]);
+      for(const [i,vertices] of projectionCorners.entries()) {
+        if(!vertices)continue;
+        const p=vertices.map(project);
+        for(let j=0;j<8;j++)for(const bit of [1,2,4])
+          if(!(j&bit)&&p[j]&&p[j|bit])strokeDepthLine(p[j],p[j|bit]);
+      }
+      flushLines();ctx.setLineDash([]);
+    }
+    flushLines();
+    for (const index of eligibleGi()) {
+      const vertices = giCorners[index].map(project);
+      const picked = index === pickedGi;
+      ctx.strokeStyle = giColor; ctx.lineWidth = picked ? 4 : 1;
+      ctx.globalAlpha = picked ? Math.min(1,alpha.giWire*2.5) : alpha.giWire;
+      for (let j=0;j<8;j++) for (const bit of [1,2,4]) {
+        if ((j & bit) || !vertices[j] || !vertices[j|bit]) continue;
+        strokeDepthLine(vertices[j],vertices[j|bit]);
+      }
+      if(!probeProgram && giProbes.checked) for(const p of gi[index].probes) {
+        const screen=project(p);
+        if(!onScreen(screen)) continue;
+        const [x,y]=screen;
+        ctx.globalAlpha=(p[3]===0?alpha.giDisabled:p[3]===2?alpha.giRelocated:alpha.giValid)
+          *depthFade(screen);
+        ctx.strokeStyle=ctx.fillStyle=p[3]===0?disabledColor:p[3]===2?relocatedColor:giColor;
+        if(p[3]===0) {
+          ctx.beginPath();ctx.moveTo(x-2,y-2);ctx.lineTo(x+2,y+2);
+          ctx.moveTo(x-2,y+2);ctx.lineTo(x+2,y-2);ctx.stroke();
+        } else {ctx.beginPath();ctx.arc(x,y,p[3]===2?2.5:1.5,0,Math.PI*2);ctx.fill();}
+      }
+    }
+    flushLines();
+    medialHitLines = [];
+    medialDetail.hidden = !medialToggle.checked;
+    if (medialToggle.checked) {
+      const medialColor = color("--medial-color");
+      let segments = 0, nodes = 0;
+      ctx.strokeStyle = ctx.fillStyle = medialColor;
+      ctx.lineWidth = 2.5;
+      ctx.globalAlpha = alpha.medialWire;
+      for (const [index,segment] of medial.segments.entries()) {
+        const a = project(segment.slice(0,3)), b = project(segment.slice(3,6));
+        if (!a || !b) continue;
+        if (alpha.medialWire > 0) medialHitLines.push({index,a,b});
+        strokeDepthLine(a,b);segments++;
+      }
+      flushLines();
+      if (pickTarget.value === "medial" && pickedMedial >= 0 && alpha.medialWire > 0) {
+        const selectedLine = medialHitLines.find(line=>line.index===pickedMedial);
+        if (selectedLine) {
+          const {a,b} = selectedLine;
+          ctx.strokeStyle = "#ff8b00";ctx.lineWidth = 5;
+          ctx.globalAlpha = Math.min(1,alpha.medialWire*1.5);
+          strokeDepthLine(a,b);
+          flushLines();
+          ctx.fillStyle = "#ff8b00";ctx.globalAlpha = alpha.medialIcons;
+          for (const point of [a,b]) {ctx.globalAlpha=alpha.medialIcons*depthFade(point);ctx.beginPath();ctx.arc(point[0],point[1],4,0,Math.PI*2);ctx.fill();}
+        }
+      }
+      ctx.strokeStyle = ctx.fillStyle = medialColor;
+      ctx.globalAlpha = alpha.medialIcons;
+      let centres=0,entrances=0;
+      for (const [markerIndex,node] of medial.markers.entries()) {
+        const p = project(node);
+        if (!onScreen(p)) continue;
+        ctx.globalAlpha = alpha.medialIcons*depthFade(p);
+        ctx.beginPath();
+        if(node[5]===1) {
+          if(node[4]===0) {
+            // Keep the icon readable at any zoom while projecting it in the XY plane.
+            const radius=6*(top?1:p[2])/scale;
+            const circle=Array.from({length:24},(_,i)=>{
+              const angle=i*Math.PI/12;
+              return project([node[0]+Math.cos(angle)*radius,node[1]+Math.sin(angle)*radius,node[2]]);
+            });
+            if(circle.some(point=>!point)) continue;
+            circle.forEach((point,i)=>i?ctx.lineTo(point[0],point[1]):ctx.moveTo(point[0],point[1]));
+            if(alpha.medialWire>0) circle.forEach((point,i)=>medialHitLines.push({index:-markerIndex-2,a:point,b:circle[(i+1)%circle.length]}));
+          } else {
+            ctx.moveTo(p[0],p[1]-5);ctx.lineTo(p[0]+5,p[1]);ctx.lineTo(p[0],p[1]+5);ctx.lineTo(p[0]-5,p[1]);
+          }
+          ctx.closePath();centres++;
+          if(node[4]===0) {
+            const selected=pickTarget.value==="medial" && pickedMedial===-markerIndex-2;
+            ctx.strokeStyle=selected?"#ff8b00":medialColor;ctx.lineWidth=selected?4:2.5;
+            ctx.globalAlpha=Math.min(1,alpha.medialWire*(selected?1.5:1))*depthFade(p);
+            ctx.stroke();ctx.strokeStyle=medialColor;continue;
+          }
+        } else ctx.arc(p[0],p[1],node[4]>=3 ? 3 : 1.8,0,Math.PI*2);
+        ctx.fill(); nodes++;
+      }
+      for(const node of medial.entrances??[]) {
+        const p=project(node);if(!onScreen(p)) continue;
+        ctx.globalAlpha=alpha.medialIcons*depthFade(p);ctx.lineWidth=1.7;
+        ctx.beginPath();ctx.arc(p[0],p[1],3.5,0,Math.PI*2);ctx.stroke();entrances++;
+      }
+      medialDetail.textContent = `${segments.toLocaleString()} route segments · ${centres.toLocaleString()} area / passage centres (◆ / ○) · ${entrances.toLocaleString()} entrances (○)`;
+    }
+    if (pickTarget.value === "mesh" && pickedTriangle >= 0 && geometry.value !== "off") {
+      const face=[0,1,2].map(c=>project(Array.from(vertices.subarray(pickedTriangle*9+c*3,pickedTriangle*9+c*3+3))));
+      if(face.every(Boolean)) {
+        ctx.strokeStyle="#ff8b00";ctx.fillStyle="#ffb347";ctx.lineWidth=3;
+        ctx.globalAlpha=alpha.meshSelection;
+        for(let i=0;i<3;i++) strokeDepthLine(face[i],face[(i+1)%3]);
+        flushLines();
+        if(meshHit) {const p=project(meshHit);if(p){ctx.globalAlpha=alpha.meshSelection*depthFade(p);ctx.beginPath();ctx.arc(p[0],p[1],4,0,Math.PI*2);ctx.fill();}}
+      }
+    }
+    markers = isReflection() ? captures.map(project) : [];
+    for (const [i, projected] of markers.entries()) {
+      if (!onScreen(projected)) continue;
+      const [x,y] = projected;
+      const size = focused(i) ? 8 : 4.5;
+      ctx.globalAlpha = alpha.reflection;
+      ctx.globalAlpha *= depthFade(projected);
+      ctx.fillStyle = reflectionColor;
+      ctx.beginPath(); ctx.moveTo(x,y-size); ctx.lineTo(x+size,y); ctx.lineTo(x,y+size);
+      ctx.lineTo(x-size,y); ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  function select(redraw=true) {
+    if(pickTarget.value!=='failures')pickedFailure=-1;
+    updateFailures();
+    const i = selected;
+    const id = pickedIsland;
+    regionDetail.hidden = !isReflection() || id < 0 || ["island","spatial","failures"].includes(pickTarget.value);
+    updateIslandSelection();
+    copyStatus.textContent = "";
+    regionJson = "";
+    if (id >= 0) {
+      const indices = i >= 0 ? [i] : [...owners.keys()].filter(j => captureInIsland(j,id));
+      const probes = indices.map(j => {
+        const boundsJson = box => box ? {local_minimum:box.slice(0,3),local_maximum:box.slice(3,6),axis:box.slice(6,8),pitch:box.slice(8,10),roll:box.length>=12?box.slice(10,12):[1,0]} : null;
+        return {capture_index:j, position:captures[j],
+          influence_regions:regionsForCapture(j).map(r=>({region_index:r,island_id:regionOwner(r),...boundsJson(boxes[r]),projection:boundsJson(projectionForRegion(r))}))};
+      });
+      const source = placement_failures?.failed ? 'environment-placement-report.json' : 'environment.orpe';
+      const region = i >= 0
+        ? {source,island_id:id,...probes[0]}
+        : {source,island_id:id,probes};
+      if(placement_failures?.failed)region.type='candidate_capture';
+      regionDetail.querySelector("[data-copy]").textContent = i >= 0 ? (placement_failures?.failed ? "Copy candidate capture JSON" : "Copy reflection probe JSON") : "Copy island reflection probes JSON";
+      regionDetail.querySelector("summary").textContent = i >= 0 ? (placement_failures?.failed ? "Candidate capture JSON" : "Reflection probe JSON") : "Island reflection probes JSON";
+      regionJson = JSON.stringify(region, null, 2);
+      regionDetail.querySelector("pre").textContent = regionJson;
+    }
+    detail.textContent = i < 0 ? captures.length + " captures · " + new Set(owners).size + " spaces with captures · " + points.length.toLocaleString() + " receiver locations"
+      : "Capture " + (i + 1) + " · region " + owners[i] + " · " + points.filter(p => p.includes(i,3)).length.toLocaleString() + " linked receiver locations · XYZ " + captures[i].map(x=>x.toFixed(1)).join(", ");
+    if(redraw)draw();
+  }
+  async function copyJson(text, panel, status) {
+    try {
+      await navigator.clipboard.writeText(text);
+      status.textContent = "Copied";
+    } catch {
+      panel.querySelector("details").open = true;
+      const range = document.createRange();
+      range.selectNodeContents(panel.querySelector("pre"));
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      status.textContent = document.execCommand("copy") ? "Copied" : "JSON selected. Press Ctrl+C to copy.";
+    }
+  }
+  root.querySelector("[data-copy]").addEventListener("click", () => copyJson(regionJson,regionDetail,copyStatus));
+  root.querySelector("[data-gi-copy]").addEventListener("click", () => copyJson(giJson,giJsonPanel,giCopyStatus));
+  root.querySelector("[data-mesh-copy]").addEventListener("click", () => copyJson(meshJson,meshJsonPanel,meshCopyStatus));
+  root.querySelector("[data-medial-copy]").addEventListener("click", () => copyJson(medialJson,medialJsonPanel,medialCopyStatus));
+  root.querySelector("[data-island-copy]").addEventListener("click", () => copyJson(islandJson,islandJsonPanel,islandCopyStatus));
+  bounds.addEventListener("change", draw);
+  evidenceToggle.addEventListener("change",draw);
+  geometry.addEventListener("change", draw);
+  medialToggle.addEventListener("change", draw);
+  pickTarget.addEventListener("change",()=>{
+    if(pickTarget.value==='failures'){failureToggle.checked=true;updateFailures();}
+    const active=pickTarget.value === "mesh";
+    meshDetail.hidden=!active;meshJsonPanel.hidden=!active || pickedMesh<0;
+    if(active){buildMeshPieces();if(pickedMesh<0)meshDetail.textContent=meshPieces.length?"Click collision geometry to select a connected piece.":"Collision geometry is unavailable.";}
+    const medialActive=pickTarget.value === "medial";
+    medialSelection.hidden=!medialActive;
+    medialJsonPanel.hidden=!medialActive || pickedMedial===-1;
+    if(medialActive){medialToggle.checked=true;selectMedial(pickedMedial);}
+    if(pickTarget.value==='spatial'){spatialToggle.checked=true;updateSpatial();}
+    else spatialJsonPanel.hidden=true;
+    if(pickTarget.value==='fit'){
+      spatialToggle.checked=true;
+      if(!Object.values(fitToggles).some(toggle=>toggle.checked)){const kind=Object.keys(fitToggles).find(kind=>!fitToggles[kind].disabled);if(kind)fitToggles[kind].checked=true;}
+      updateSpatial();
+    }else fitJsonPanel.hidden=true;
+    if(pickTarget.value === "island") {
+      watershedToggle.checked=true;watershedDetail.hidden=false;
+      watershedDetail.textContent=basinCount+" shared watershed islands · "+watershed.length.toLocaleString()+" floor samples";
+    }
+    select();
+  });
+  function updateGi() {
+    giDetail.hidden = root.querySelector("[data-gi-legend]").hidden = !isGi();
+    const index = pickedGi;
+    giJsonPanel.hidden = !isGi() || index < 0;
+    giCopyStatus.textContent = "";
+    if (index >= 0) {
+      const volume = gi[index];
+      const disabled = volume.probes.filter(p=>p[3]===0).length;
+      giJson = JSON.stringify({
+        volume_index:index, name:volume.name, island_id:volume.island ?? null, island_ids:volumeIslands(volume),
+        origin:volume.origin, spacing:volume.spacing, dimensions:volume.dimensions,
+        axis:volume.axis, pitch:volume.pitch, roll:volume.roll, world_corners:giCorners[index],
+        probes:{total:volume.probes.length, valid:volume.probes.length-disabled,
+          relocated:volume.probes.filter(p=>p[3]===2).length, disabled}
+      },null,2);
+      giJsonPanel.querySelector("pre").textContent = giJson;
+    } else {
+      giJson = "";
+      giJsonPanel.querySelector("pre").textContent = "";
+    }
+    const indices = eligibleGi();
+    const volumes = indices.map(i => gi[i]);
+    const total = volumes.reduce((n,v) => n+v.probes.length,0);
+    const disabled = volumes.reduce((n,v) => n+v.probes.filter(p=>p[3]===0).length,0);
+    const relocated = volumes.reduce((n,v) => n+v.probes.filter(p=>p[3]===2).length,0);
+    const v = gi[pickedGi];
+    giDetail.textContent = gi.length === 0 ? "GI volumes are unavailable in this bake." : `${volumes.length} GI volumes · ${total.toLocaleString()} probes · ${disabled.toLocaleString()} disabled · ${relocated.toLocaleString()} relocated`
+      + (v ? ` · Selected volume ${pickedGi}: ${v.name} · islands ${volumeIslands(v).join(", ") || "global"} · grid ${v.dimensions.join(" × ")} · spacing ${v.spacing.map(x=>Number(x.toFixed(3))).join(", ")}` : "");
+    draw();
+  }
+  let previousMode = modePicker.value, pickBeforeSpatial = pickTarget.value, spatialBeforeMode = spatialToggle.checked;
+  function updateMode() {
+    if(isSpatial() && previousMode!=="spatial") {
+      pickBeforeSpatial=pickTarget.value;spatialBeforeMode=spatialToggle.checked;
+      spatialToggle.checked=true;pickTarget.value="spatial";
+      pickTarget.dispatchEvent(new Event("change"));
+    } else if(!isSpatial() && previousMode==="spatial") {
+      spatialToggle.checked=spatialBeforeMode;
+      if(pickTarget.value==="spatial") {pickTarget.value=pickBeforeSpatial;pickTarget.dispatchEvent(new Event("change"));}
+    }
+    previousMode=modePicker.value;
+    if(!isReflection()&&pickTarget.value==='failures')pickTarget.value=isSpatial()?'spatial':'probes';
+    pickTarget.querySelector('option[value="failures"]').disabled=!isReflection()||!failureRecords.length;
+    pickTarget.querySelector('option[value="probes"]').disabled=isSpatial();
+    updateSpatial();
+    root.querySelector("[data-reflection-controls]").hidden = !isReflection();
+    root.querySelector("[data-gi-controls]").hidden = !isGi();
+    detail.hidden = root.querySelector(".sample-legend").hidden = !isReflection();
+    watershedDetail.hidden = watershed.length > 0 && !watershedToggle.checked;
+    select();
+    updateGi();
+  }
+  modePicker.addEventListener("change", updateMode);
+  function selectGi(id) {
+    pickedGi = id;
+    selected = -1;
+    select();
+    updateGi();
+  }
+  giProbes.addEventListener("change", draw);
+  watershedToggle.addEventListener("change", () => {
+    watershedDetail.hidden = !watershedToggle.checked;
+    watershedDetail.textContent = basinCount + " shared watershed islands · " + watershed.length.toLocaleString() + " floor samples";
+    draw();
+  });
+  view.addEventListener("click", () => {
+    top = !top;
+    tilt = top ? Math.PI/2 : 0.73;
+    azimuth = top ? 0 : -0.45;
+    view.textContent = top ? "Orbit view" : "Top view";
+    draw();
+  });
+  function fly(previous) {
+    animation = requestAnimationFrame(now => {
+      if (drag?.mode !== "fly") return;
+      const {right, up, depth} = axes();
+      const step = Math.min((now-previous)/1000,0.05) * radius * flySpeedMultiplier * (keys.has("ShiftLeft") || keys.has("ShiftRight") ? 4 : 1);
+      const sideways = Number(keys.has("KeyD")) - Number(keys.has("KeyA"));
+      const vertical = Number(keys.has("KeyE")) - Number(keys.has("KeyQ"));
+      const forward = Number(keys.has("KeyW")) - Number(keys.has("KeyS"));
+      if (sideways || vertical || forward) {
+        const amount = step / Math.hypot(sideways,vertical,forward);
+        pivot = offset(offset(offset(pivot,right,sideways*amount),up,vertical*amount),depth,forward*amount);
+        draw();
+      }
+      fly(now);
+    });
+  }
+  function stopDrag() {
+    drag = undefined;
+    keys.clear();
+    cancelAnimationFrame(animation);
+  }
+  function dolly(delta) {
+    distance = Math.max(radius*0.002, Math.min(initialDistance*16, distance*Math.exp(delta)));
+    requestDraw();
+  }
+  canvas.addEventListener("pointerenter", () => { hovered = true; });
+  canvas.addEventListener("pointerleave", () => { hovered = false; });
+  canvas.addEventListener("contextmenu", e => e.preventDefault());
+  window.addEventListener("keydown", e => {
+    if (drag?.mode === "fly" && ["KeyW","KeyA","KeyS","KeyD","KeyQ","KeyE","ShiftLeft","ShiftRight"].includes(e.code)) {
+      keys.add(e.code);
+      e.preventDefault();
+    }
+    if (!drag && (hovered || document.activeElement === canvas) && e.code === "KeyF"
+        && (e.target === canvas || e.target === document.body) && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      const region = pickedIsland;
+      const islandPositions = region >= 0 && island_samples.length ? island_samples.filter(p=>p[3]===region).map(p=>p.slice(0,3)) : [];
+      const meshPositions = pickTarget.value === "mesh" && pickedMesh >= 0 ? Array.from({length:8},(_,i)=>[0,1,2].map(k=>i&(1<<k)?meshPieces[pickedMesh].maximum[k]:meshPieces[pickedMesh].minimum[k])) : [];
+      const medialPositions = pickTarget.value === "medial" ? pickedMedial>=0
+        ? [medial.segments[pickedMedial].slice(0,3),medial.segments[pickedMedial].slice(3,6)]
+        : pickedMedial<-1 ? [[-2,-2,-1],[2,2,1]].map(offset=>offset.map((v,k)=>v+medial.markers[-pickedMedial-2][k])) : [] : [];
+      const fittedPositions=pickTarget.value==='fit'&&pickedFit?volumeFits[pickedFit.kind].volumes[pickedFit.index].world_corners:[];
+      const spatialBasin=spatialData.basins[pickedSpatialBasin];
+      const spatialPortal=spatialData.portals[pickedSpatialPortal];
+      const spatialPositions=pickTarget.value!=='spatial'?[]:spatialPortal
+        ? (spatialPortal.crossings??[]).flatMap(pair=>pair.map(i=>spatialData.cells[i].slice(0,3)))
+        : spatialBasin?[spatialBasin.minimum,spatialBasin.maximum]:[];
+      const failureFrame=pickTarget.value==='failures'?failurePositions():[];
+      const positions = failureFrame.length ? failureFrame : fittedPositions.length ? fittedPositions : spatialPositions.length ? spatialPositions : medialPositions.length ? medialPositions : meshPositions.length ? meshPositions : pickTarget.value === "island" && islandPositions.length ? islandPositions : isSpatial() ? spatialData.basins.flatMap(b=>[b.minimum,b.maximum]) : isGi() ? (pickedGi>=0?[pickedGi]:eligibleGi()).flatMap(i => giCorners[i])
+        : selected >= 0 ? [captures[selected],...regionsForCapture(selected).flatMap(r=>corners[r])]
+        : islandPositions.length ? islandPositions
+        : region >= 0 ? corners.filter((_,i)=>regionOwner(i)===region).flat() : [];
+      if (positions.length) {
+        pivot = [0,1,2].map(k => {
+          const values = positions.map(p => p[k]);
+          return (Math.min(...values)+Math.max(...values))/2;
+        });
+        distance = Math.max(pickTarget.value === "island" ? 4 : radius*0.002, 2.6*Math.max(...positions.map(p => Math.hypot(...p.map((v,k) => v-pivot[k])))));
+      } else {
+        pivot = center.slice();
+        distance = initialDistance;
+      }
+      draw();
+      e.preventDefault();
+    }
+  });
+  window.addEventListener("keyup", e => keys.delete(e.code));
+  window.addEventListener("blur", stopDrag);
+  canvas.addEventListener("pointerdown", e => {
+    if (drag || e.button > 2) return;
+    e.preventDefault();
+    canvas.focus({preventScroll:true});
+    canvas.setPointerCapture(e.pointerId);
+    const mode = e.button === 1 || (e.button === 0 && e.altKey && (e.ctrlKey || e.metaKey)) ? "pan"
+      : e.button === 2 ? (e.altKey ? "zoom" : "fly")
+      : e.altKey || e.pointerType === "touch" ? "orbit" : "pick";
+    drag = {x:e.clientX,y:e.clientY,moved:false,mode,id:e.pointerId};
+    if (mode === "fly") {
+      showCameraSpeed();
+      if (top) { top = false; view.textContent = "Top view"; draw(); }
+      fly(performance.now());
+    }
+  });
+  canvas.addEventListener("pointermove", e => {
+    if (drag?.id !== e.pointerId) return;
+    const dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+    if (!drag.moved && Math.hypot(dx,dy)<3) return;
+    Object.assign(drag,{x:e.clientX,y:e.clientY,moved:true});
+    if (drag.mode === "zoom") { dolly((dy-dx)*0.009); return; }
+    if (drag.mode === "pan") {
+      const {right,up} = axes();
+      const units = distance/focal();
+      pivot = offset(offset(pivot,right,-dx*units),up,dy*units);
+    } else if (drag.mode === "orbit" || drag.mode === "fly") {
+      const flying = drag.mode === "fly";
+      const eye = offset(pivot,axes().depth,-distance);
+      azimuth += dx * 0.012 * (flying ? 1 : -1);
+      tilt = Math.max(-Math.PI/2+0.001, Math.min(Math.PI/2-0.001, tilt + dy*0.012));
+      if (flying) pivot = offset(eye,axes().depth,distance);
+      top = false;
+      view.textContent = "Top view";
+    }
+    requestDraw();
+  });
+  for (const event of ["pointercancel","lostpointercapture"]) {
+    canvas.addEventListener(event, e => { if (drag?.id === e.pointerId) stopDrag(); });
+  }
+  canvas.addEventListener("pointerup", e => {
+    if (drag?.id !== e.pointerId) return;
+    if(pendingDraw) draw();
+    if (!drag.moved && (drag.mode === "pick" || e.pointerType === "touch")) {
+      const r=canvas.getBoundingClientRect();
+      if(pickTarget.value==='failures'){
+        let hit=null,closest=9;const x=e.clientX-r.left,y=e.clientY-r.top;
+        for(const mark of failureMarks){const d=Math.hypot(x-mark.p[0],y-mark.p[1]);if(d<9&&(!hit||(mark.visible&&!hit.visible)||(mark.visible===hit.visible&&d<closest))){hit=mark;closest=d;}}
+        selectFailure(hit?.index??-1);stopDrag();return;
+      }
+      if(pickTarget.value==='fit'){
+        let hit=null,best=8;
+        const x=e.clientX-r.left,y=e.clientY-r.top;
+        for(const line of fitHitLines){const {a,b}=line,dx=b[0]-a[0],dy=b[1]-a[1];const t=Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/(dx*dx+dy*dy||1)));const d=Math.hypot(x-a[0]-t*dx,y-a[1]-t*dy);
+          if(d<8&&(!hit||(line.visible&&!hit.visible)||(line.visible===hit.visible&&d<best))){hit=line;best=d;}}
+        selectFit(hit?.kind??'reflection',hit?.index??-1);stopDrag();return;
+      }
+      if(pickTarget.value==='spatial') {
+        let viewHit=null,viewDistance=7;
+        for(const mark of spatialViewMarks){const d=Math.hypot(mark.p[0]-e.clientX+r.left,mark.p[1]-e.clientY+r.top);
+          if(d<7&&(!viewHit||(mark.visible&&!viewHit.visible)||(mark.visible===viewHit.visible&&d<viewDistance))){viewHit=mark;viewDistance=d;}}
+        if(viewHit){pickedSpatialCell=viewHit.index;pickedSpatialBasin=spatialData.cells[viewHit.index][4];pickedSpatialPortal=-1;selected=-1;updateSpatial();select(false);stopDrag();return;}
+        let portalHit=null,portalDistance=8;
+        const x=e.clientX-r.left,y=e.clientY-r.top;
+        const checkPortal=mark=>{
+          const a=mark.start??mark.p,b=mark.q??mark.p,dx=b[0]-a[0],dy=b[1]-a[1];
+          const t=Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/(dx*dx+dy*dy||1)));
+          const lineDistance=Math.hypot(x-a[0]-t*dx,y-a[1]-t*dy);
+          const pointDistance=mark.diamond?Math.max(0,(Math.abs(x-mark.p[0])+Math.abs(y-mark.p[1])-mark.diamond)/Math.SQRT2)
+            :mark.radius?Math.hypot(Math.max(0,Math.abs(x-mark.p[0])-mark.radius),Math.max(0,Math.abs(y-mark.p[1])-mark.radius)):Infinity;
+          const d=Math.min(pointDistance,mark.start?Math.max(0,lineDistance-(mark.id===pickedSpatialPortal?1.25:.5)):Infinity);
+          if(d<8&&(!portalHit||(mark.visible&&!portalHit.visible)||(mark.visible===portalHit.visible
+            &&(d<portalDistance-1||(Math.abs(d-portalDistance)<=1&&mark.id===pickedSpatialPortal&&portalHit.id!==pickedSpatialPortal))))) {portalHit=mark;portalDistance=d;}
+        };
+        collectPortalHits(checkPortal,x,y);
+        for(const mark of spatialPortalMarks)checkPortal(mark);
+        if(portalHit){selected=-1;selectSpatialPortal(portalHit.id);stopDrag();return;}
+        pickedSpatialPortal=-1;
+        const best=pickSpatialCell(x,y);
+        pickedSpatialCell=best?.index??-1;
+        pickedSpatialBasin=best?spatialData.cells[best.index][4]:-1;
+        selected=-1;updateSpatial();select(false);stopDrag();return;
+      }
+      if(pickTarget.value === "island") {
+        const hit=pickIsland(e.clientX-r.left,e.clientY-r.top);
+        selected=-1;pickedGi=-1;
+        pickedIsland=hit?.id??-1;pickedIslandPosition=hit?.position??null;
+        select();updateGi();stopDrag();return;
+      }
+      if(pickTarget.value === "medial") {
+        selectMedial(pickMedial(e.clientX-r.left,e.clientY-r.top));
+        stopDrag();return;
+      }
+      if(pickTarget.value === "mesh") {
+        const hit=pickCollision(e.clientX-r.left,e.clientY-r.top);
+        selectMesh(hit?trianglePieces[hit.triangle]:-1,hit?.triangle??-1,hit?.position??null);
+        stopDrag();return;
+      }
+      if (isGi()) {
+        selectGi(pickGiVolume(e.clientX-r.left,e.clientY-r.top));
+        stopDrag();
+        return;
+      }
+      let closest=13, picked=-1;
+      for (const [i, projected] of markers.entries()) {
+        if (!projected) continue;
+        const [x,y] = projected;
+        const d=Math.hypot(x-e.clientX+r.left,y-e.clientY+r.top);
+        if (d<closest) { closest=d; picked=i; }
+      }
+      let pickedRegion=-1;
+      if(isReflection() && picked<0 && bounds.checked) {
+        let best=8;
+        const x=e.clientX-r.left,y=e.clientY-r.top;
+        for(const [i,vertices] of corners.entries()) {
+          const p=vertices.map(project);
+          for(let j=0;j<8;j++)for(const bit of [1,2,4]) {
+            if((j&bit)||!p[j]||!p[j|bit])continue;
+            const a=p[j],b=p[j|bit],dx=b[0]-a[0],dy=b[1]-a[1];
+            const t=Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/(dx*dx+dy*dy||1)));
+            const distance=Math.hypot(x-a[0]-t*dx,y-a[1]-t*dy);
+            if(distance<best){best=distance;pickedRegion=i;picked=regionCapture(i);}
+          }
+        }
+      }
+      selected = picked;
+      pickedIsland = pickedRegion>=0?regionOwner(pickedRegion):owners[picked] ?? -1;
+      select();
+    }
+    stopDrag();
+  });
+  canvas.addEventListener("wheel", e => {
+    e.preventDefault();
+    const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? canvas.clientHeight : 1);
+    if (drag?.mode === "fly") {
+      flySpeedMultiplier = Math.max(.001, Math.min(20, flySpeedMultiplier*Math.exp(-delta*.002)));
+      showCameraSpeed();
+      rememberCamera();
+    } else {
+      dolly(delta*0.0015);
+    }
+  }, {passive:false});
+  new ResizeObserver(draw).observe(canvas);
+  colorScheme.addEventListener("change",()=>{colors.clear();requestDraw();});
+  if(spatialData.gi_rejected){
+    modePicker.value='spatial';
+    fitToggles.gi.checked=true;
+  }
+  updateMode();
+  if(spatialData.gi_rejected){
+    pickTarget.value='fit';
+    pickTarget.dispatchEvent(new Event('change'));
+  }
+  if(failureRecords.length&&placement_failures.failed){
+    modePicker.value='reflection';pickTarget.value='failures';
+    selectFailure(failureUncovered.length?failureConflicts.length:0);updateMode();
+  }
+})();
+</script>

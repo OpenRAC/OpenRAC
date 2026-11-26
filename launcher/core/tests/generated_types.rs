@@ -17,10 +17,10 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use openrac_launcher_core::{
-    actions, config, controls, deeplink, detect, differences, disc_choice, discs, editor_state, enhanced, index,
-    index_apply, jobs, library, mod_error, mod_save_data, mod_tools, mod_updates, modset, overrides, pcsx2_card,
-    plugins, profile, remote, reports, reset, resolver, save_edit, save_edit_rac2, save_edit_rac2_extra, save_transfer,
-    saves, steam, texture_packs, update,
+    actions, config, controls, deeplink, detect, differences, disc_choice, discs, editor_install, editor_state,
+    enhanced, index, index_apply, interface_runs, jobs, library, mod_error, mod_save_data, mod_tools, mod_updates,
+    modset, overrides, pcsx2_card, plugins, profile, remote, reports, reset, resolver, save_edit, save_edit_rac2,
+    save_edit_rac2_extra, save_edit_rac3, save_transfer, saves, steam, texture_packs, update,
 };
 use ts_rs::{Config, TS};
 
@@ -38,6 +38,7 @@ fn export_all(cfg: &Config) {
         deeplink::Install,
         deeplink::WantedMod,
         steam::State,
+        interface_runs::View,
         detect::Tool,
         detect::Detected,
         detect::Check,
@@ -69,6 +70,7 @@ fn export_all(cfg: &Config) {
         openrac_launcher_core::mod_summary::ModLoadSummary,
         pcsx2_card::ImportedSaves,
         save_transfer::ExportedSaves,
+        save_transfer::SaveCopySource,
         save_transfer::SaveImportChoice,
         save_transfer::SaveImportPreview,
         save_transfer::SaveArchiveManifest,
@@ -84,6 +86,7 @@ fn export_all(cfg: &Config) {
         reset::Reset,
         resolver::InstallPlan,
         resolver::InstalledMod,
+        editor_install::Status,
         editor_state::EditorState,
         reset::ResetDone,
         reset::ResetPreview,
@@ -93,6 +96,8 @@ fn export_all(cfg: &Config) {
         save_edit_rac2::Rac2WriteResult,
         save_edit_rac2_extra::Rac2ExtraFields,
         save_edit_rac2_extra::Rac2ExtraWriteResult,
+        save_edit_rac3::Rac3SaveFields,
+        save_edit_rac3::Rac3WriteResult,
         saves::GameSaveStatus,
         texture_packs::Exported,
         texture_packs::ImportMode,

@@ -1,7 +1,8 @@
 <script lang="ts">
   // A path setting: the value, what detection found, a picker, and a check.
-  import { pickFile, pickFolder, type Candidate, type Check } from "$lib/api";
+  import { type Candidate, type Check, pickFile, pickFolder } from "$lib/api";
   import { splitPath } from "$lib/format";
+
   import Icon from "./Icon.svelte";
 
   let {
@@ -30,10 +31,12 @@
 
   $effect(() => {
     const path = value;
+
     result = null;
     if (!path) return;
     checking = true;
     let stale = false;
+
     void check(path)
       .then((r) => {
         if (!stale) result = r;
@@ -41,6 +44,7 @@
       .finally(() => {
         if (!stale) checking = false;
       });
+
     return () => {
       stale = true;
     };
@@ -52,8 +56,10 @@
   async function browse() {
     if (browsing) return;
     browsing = true;
+
     try {
       const picked = folder ? await pickFolder(label) : await pickFile(label);
+
       if (picked) value = picked;
     } finally {
       browsing = false;
@@ -83,7 +89,9 @@
       placeholder="Not set"
       onchange={(e) => (value = e.currentTarget.value.trim() || null)}
     />
-    <button class="small" onclick={() => void browse()}><Icon name="folder" size={14} />Browse</button>
+    <button class="small" onclick={() => void browse()}
+      ><Icon name="folder" size={14} />Browse</button
+    >
     {#if value}<button class="small" onclick={() => (value = null)} aria-label={`Clear ${label}`}
         ><Icon name="x" size={14} /></button
       >{/if}
@@ -105,7 +113,8 @@
           class:on={c.path === value}
           onclick={() => (value = c.path)}
           title={`${c.path} (${c.source})`}
-          ><span class="head">{part.head}</span>{#if part.tail}<span class="tail">{part.tail}</span>{/if}</button
+          ><span class="head">{part.head}</span>{#if part.tail}<span class="tail">{part.tail}</span
+            >{/if}</button
         >
       {/each}
     </div>

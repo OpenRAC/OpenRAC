@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "common/result.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
@@ -125,6 +126,7 @@ private:
     void upload_images();
     // Draws cutout/opaque first, then source-over transparent material runs.
     void draw_parts(bool transparent);
+    void record_parts(std::string_view name, bool transparent);
     // Apply private target and camera state without borrowing world resources.
     void bind_target(const renderer::Camera&, int width, int height);
     // Opaque/partial-alpha passes share the optional private depth culler.
@@ -133,7 +135,7 @@ private:
     renderer::FrameBuffer m_target;
     renderer::Shader m_shader;
     std::unique_ptr<PreviewLighting> m_lighting;
-    std::vector<unsigned> m_images;
+    std::vector<renderer::RasterTexture> m_images;
     unsigned m_vao = 0, m_vertices = 0;
     std::uint64_t m_frame = 0;
 };

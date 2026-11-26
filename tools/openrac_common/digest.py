@@ -9,7 +9,7 @@ Digests of files, read in blocks so a disc image never has to fit in memory.
   digest.file_digest(path, "md5")
 
 Written from the probe tools' bake_all.py (sha256 in 1 MiB blocks). The other copies read the
-whole file at once (editor/assets.py's file_hash and overrides.py's hashes of the textures'
+whole file at once (extractor/assets.py's file_hash and overrides.py's hashes of the textures'
 files) or hash several algorithms in one pass (tools/openrac.py's checksums, which stays: it
 reads a disc image once for all of them); every one of them returns the same hex digest for the
 same file. tools/shared.py, openrac.py, extractor.py, build_android.py, build_port.py and

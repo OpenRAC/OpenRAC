@@ -90,6 +90,9 @@ uniform int foliage_back_shadow;  // Effects detail High: the back's own shadow 
 
 // Backlit thin sheets need a light-facing shadow bias; external occluders still block their light.
 float foliage_sun_visibility(vec3 position, vec3 normal, vec3 light, float front_visibility) {
+#ifdef OPENRAC_CLOUD_SHADOWS
+    front_visibility *= cloud_sun_attenuation;
+#endif
 #ifdef OPENRAC_PROBE_FAST
     // Cheaper blended draws keep the front visibility for the back too (Enhanced, lossy).
     return front_visibility;
@@ -101,7 +104,11 @@ float foliage_sun_visibility(vec3 position, vec3 normal, vec3 light, float front
 #endif
     if (dot(normal, light) >= 0.) return front_visibility;
     vec3 facing = -normal;
-    return min(sun_shadow_visibility(position, facing, facing), hero_shadow_visibility(position, facing));
+    float visibility = min(sun_shadow_visibility(position, facing, facing), hero_shadow_visibility(position, facing));
+#ifdef OPENRAC_CLOUD_SHADOWS
+    if (effect_pass == 0) return clouded_sun_visibility(position, visibility);
+#endif
+    return visibility;
 #endif
 }
 

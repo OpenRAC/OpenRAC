@@ -103,7 +103,6 @@ bool make_pipeline(Output output) {
         log::warn("vulkan: no HDR encode pass ({}); the picture goes out in SDR", error);
         return failed();
     }
-    ++g->submission.shader_compiles;
     const std::array<VkDescriptorSetLayoutBinding, 2> bindings{
         {{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
          {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}}
@@ -275,6 +274,14 @@ void set_metadata() {
     if (!hdr.metadata || vkSetHdrMetadataEXT == nullptr || hdr.shown == Output::Sdr) {
         return;
     }
+#if defined(__APPLE__)
+    // MoltenVK turns the metadata into the layer's CAEDRMetadata (HDR10, with an optical output
+    // scale of 1): Core Animation then reads scRGB's 1.0 as one nit, and the picture is black.
+    // EDR needs no metadata for scRGB: the system maps 1.0 to SDR white by itself.
+    if (hdr.shown == Output::ScRgb) {
+        return;
+    }
+#endif
     VkHdrMetadataEXT m{VK_STRUCTURE_TYPE_HDR_METADATA_EXT};
     m.displayPrimaryRed = {0.708f, 0.292f};
     m.displayPrimaryGreen = {0.170f, 0.797f};
@@ -298,6 +305,13 @@ VkSurfaceFormatKHR choose_hdr_format(
     const SurfaceChoice choice = choose_surface_format(formats, wanted, can_write, nullptr);
     hdr.through_float = choice.output != Output::Sdr && !can_store(choice.format.format);
     hdr.direct = (caps.supportedUsageFlags & VK_IMAGE_USAGE_STORAGE_BIT) != 0 && !hdr.through_float;
+#if defined(__APPLE__) && !defined(OPENRAC_IOS)
+    // Keep compute writes off the macOS EDR drawable. Copy the completed scRGB frame
+    // to the acquired image just as the SDR path does.
+    if (choice.output == Output::ScRgb) {
+        hdr.direct = false;
+    }
+#endif
     hdr.made_for = hdr.asked.wanted;
     hdr.shown = choice.output;
     if (wanted != Output::Sdr && choice.output == Output::Sdr) {

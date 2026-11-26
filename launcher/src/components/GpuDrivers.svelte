@@ -35,12 +35,14 @@
     rendererPick = choice;
     busy = true;
     const saved = await guard(api.gpuRendererSelect(choice).then(() => true));
+
     await load();
     await readGame();
     busy = false;
     if (!saved) return;
     // A running game keeps what it started with: "Return to game" brings that one back.
     const name = choice === "vulkan" ? "Vulkan" : "OpenGL ES";
+
     toast(
       app.game?.running
         ? `Saved. The game that is running keeps its renderer: quit it to start it with ${name}.`
@@ -56,6 +58,7 @@
   async function add() {
     busy = true;
     const driver = await guard(api.gpuDriverImport());
+
     if (driver) toast(`Added ${driver.name} ${driver.version}.`);
     await load();
     busy = false;
@@ -71,6 +74,8 @@
 
   const adreno = $derived(info?.device.gpu === "adreno");
   const mali = $derived(info?.device.gpu === "mali");
+  // OpenGL ES is the default on Mali and Xclipse (OpenracPlugin.kt renderer()).
+  const glesDefault = $derived(mali || info?.device.gpu === "xclipse");
 </script>
 
 <!-- One panel: what the game draws with, and on Vulkan the driver it loads. The drivers show only
@@ -83,9 +88,9 @@
       <strong>Renderer</strong>
       <small>
         {#if rendererPick === "vulkan"}
-          Vulkan 1.3{mali ? "" : ", the default"}; without it OpenGL ES.
+          Vulkan 1.3{glesDefault ? "" : ", the default"}; without it OpenGL ES.
         {:else}
-          OpenGL ES 3.2{mali ? ", the default on Mali GPUs" : ""}.
+          OpenGL ES 3.2{glesDefault ? `, the default on ${mali ? "Mali" : "Xclipse"} GPUs` : ""}.
         {/if}
         From the game's next start.
       </small>
@@ -122,7 +127,7 @@
           {[
             info.device.model,
             info.device.soc,
-            info.device.gpu === "other" ? "" : info.device.gpu === "adreno" ? "Adreno" : "Mali",
+            { adreno: "Adreno", mali: "Mali", xclipse: "Xclipse", other: "" }[info.device.gpu],
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -151,11 +156,17 @@
               <strong>{driver.name} {driver.version}</strong>
               <small>{[driver.vendor, driver.driverVersion].filter(Boolean).join(" · ")}</small>
             </label>
-            <button class="link" disabled={busy} onclick={() => void remove(driver.id, driver.name)}>Remove</button>
+            <button class="link" disabled={busy} onclick={() => void remove(driver.id, driver.name)}
+              >Remove</button
+            >
           </div>
         {/each}
         {#if adreno}
-          <p><button class="small" disabled={busy} onclick={() => void add()}>Add driver (.zip)</button></p>
+          <p>
+            <button class="small" disabled={busy} onclick={() => void add()}
+              >Add driver (.zip)</button
+            >
+          </p>
         {:else}
           <p class="dim note">Custom drivers require an Adreno GPU.</p>
         {/if}

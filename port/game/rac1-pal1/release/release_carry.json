@@ -36,8 +36,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_001FD3E8__game": {
-   "as": "func_001FC8F0__game",
+  "func_001FD3E8__hooked": {
+   "as": "func_001FC8F0__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
@@ -151,8 +151,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_L00_00222B80__game": {
-   "as": "func_L00_00221FD8__game",
+  "func_L00_00222B80__hooked": {
+   "as": "func_L00_00221FD8__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
@@ -261,8 +261,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_L01_0023D688__game": {
-   "as": "func_L01_0023CB00__game",
+  "func_L01_0023D688__hooked": {
+   "as": "func_L01_0023CB00__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
@@ -286,8 +286,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_L02_0022BE40__game": {
-   "as": "func_L02_0022B290__game",
+  "func_L02_0022BE40__hooked": {
+   "as": "func_L02_0022B290__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
@@ -326,8 +326,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_L03_00216D38__game": {
-   "as": "func_L03_002161B0__game",
+  "func_L03_00216D38__hooked": {
+   "as": "func_L03_002161B0__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
@@ -361,8 +361,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_L05_0024D680__game": {
-   "as": "func_L05_0024CAD0__game",
+  "func_L05_0024D680__hooked": {
+   "as": "func_L05_0024CAD0__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
@@ -386,8 +386,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_L06_00235E08__game": {
-   "as": "func_L06_00235200__game",
+  "func_L06_00235E08__hooked": {
+   "as": "func_L06_00235200__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
@@ -411,8 +411,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_L08_00231228__game": {
-   "as": "func_L08_002306A0__game",
+  "func_L08_00231228__hooked": {
+   "as": "func_L08_002306A0__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
@@ -456,8 +456,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_L11_0024E240__game": {
-   "as": "func_L11_0024D6B8__game",
+  "func_L11_0024E240__hooked": {
+   "as": "func_L11_0024D6B8__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
@@ -491,8 +491,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_L12_002407C0__game": {
-   "as": "func_L12_0023FC38__game",
+  "func_L12_002407C0__hooked": {
+   "as": "func_L12_0023FC38__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
@@ -536,8 +536,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_L14_002306C8__game": {
-   "as": "func_L14_0022FB40__game",
+  "func_L14_002306C8__hooked": {
+   "as": "func_L14_0022FB40__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
@@ -581,8 +581,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_L15_00217348__game": {
-   "as": "func_L15_002167A0__game",
+  "func_L15_00217348__hooked": {
+   "as": "func_L15_002167A0__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
@@ -596,8 +596,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_L16_0021EA88__game": {
-   "as": "func_L16_0021DF00__game",
+  "func_L16_0021EA88__hooked": {
+   "as": "func_L16_0021DF00__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
@@ -616,8 +616,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_L17_0021ED38__game": {
-   "as": "func_L17_0021E090__game",
+  "func_L17_0021ED38__hooked": {
+   "as": "func_L17_0021E090__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
@@ -641,8 +641,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_L18_002284E0__game": {
-   "as": "func_L18_00227938__game",
+  "func_L18_002284E0__hooked": {
+   "as": "func_L18_00227938__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },

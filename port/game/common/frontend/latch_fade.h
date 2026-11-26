@@ -32,6 +32,13 @@ public:
     // froze until the step grew into a cut and jumped.
     float frame(float target, bool on, bool new_tick, float tick_rate, double since, bool enabled);
 
+    // A frame whose heading moves by a known amount (the mouse's turn: frontend/mouse_turn.h).
+    // `expected`: where the last frame's heading is now by that move alone. Only what `target` is
+    // off from it (the game turned the camera itself, a missed guess) is carried and fades: the
+    // mouse's own motion shows at once, never eased. `continues`: the last frame was one of these
+    // too; else nothing is known of the move, and the picture goes on as it turned.
+    float frame_known(float target, float expected, bool continues, double since);
+
     float carry() const { return m_carry; }
 
     bool was_on() const { return m_was_on; }  // `on` of the last frame
@@ -42,6 +49,21 @@ private:
     float m_rate = 0.0f;     // how fast the target turns, radians a second
     bool m_was_on = false;
     bool m_shown = false;  // a frame was shown
+};
+
+// Whether the mouse's turn has the picture (frontend/mouse_turn.h): from a frame the mouse or the
+// gyro moves in, until kRestSeconds after the last one. A gamepad player's mouse lies still, so the
+// stick keeps its latch and the interpolated camera when it comes back to rest.
+class MouseHold {
+public:
+    static constexpr double kRestSeconds = 0.25;
+
+    // A frame drawn `since` seconds after the last. `turns`: the mouse may turn the camera now.
+    // `moved`: it (or the gyro) moved since the last frame.
+    bool frame(bool turns, bool moved, double since);
+
+private:
+    double m_still = kRestSeconds;  // seconds since the mouse last moved
 };
 
 }  // namespace openrac::frontend

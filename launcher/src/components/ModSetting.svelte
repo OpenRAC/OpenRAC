@@ -11,6 +11,7 @@
   import * as T from "$lib/modsText";
   import { settingControl } from "$lib/plugins";
   import { formatValue, parseTyped, percentOf, snapValue, stepOf } from "$lib/settingValues";
+
   import Icon from "./Icon.svelte";
   import KeyBindSetting from "./KeyBindSetting.svelte";
 
@@ -48,7 +49,9 @@
 
   const control = $derived(settingControl(s));
   const atDefault = $derived(
-    s.type === "keybind" ? parseBinds(s.value).join(",") === parseBinds(s.default).join(",") : s.value === s.default,
+    s.type === "keybind"
+      ? parseBinds(s.value).join(",") === parseBinds(s.default).join(",")
+      : s.value === s.default,
   );
 
   /** The default as the reset button names it. */
@@ -61,12 +64,17 @@
       case "int":
       case "float":
         return formatValue(s, s.default);
+
       case "keybind": {
         const binds = parseBinds(s.default);
+
         return binds.length ? binds.map(bindLabel).join(", ") : T.KEYBIND.none;
       }
+
       default:
-        return typeof s.default === "string" && s.default !== "" ? `"${s.default}"` : T.SETTING.empty;
+        return typeof s.default === "string" && s.default !== ""
+          ? `"${s.default}"`
+          : T.SETTING.empty;
     }
   });
 
@@ -78,8 +86,10 @@
       clamps = unfolded || node.scrollHeight > node.clientHeight + 1;
     };
     const watch = new ResizeObserver(check);
+
     watch.observe(node);
     check();
+
     return {
       destroy: () => {
         watch.disconnect();
@@ -95,6 +105,7 @@
   function typed(text: string) {
     typing = text;
     const n = parseTyped(s, text);
+
     if (n !== null && n !== s.value) onchange(n, TYPED);
   }
 
@@ -103,6 +114,7 @@
       e.preventDefault();
       const by = stepOf(s) * (e.shiftKey ? 10 : 1) * (e.key === "ArrowUp" ? 1 : -1);
       const n = snapValue(s, (typeof s.value === "number" ? s.value : 0) + by);
+
       typing = null;
       if (n !== s.value) onchange(n, SETTLE);
     } else if (e.key === "Enter") {
@@ -148,7 +160,8 @@
             aria-controls={`${id}-about`}
             aria-label={unfolded ? T.SETTING.less(s.name) : T.SETTING.more(s.name)}
             title={unfolded ? T.SETTING.less(s.name) : T.SETTING.more(s.name)}
-            onclick={() => (unfolded = !unfolded)}><Icon name={unfolded ? "up" : "info"} size={15} /></button
+            onclick={() => (unfolded = !unfolded)}
+            ><Icon name={unfolded ? "up" : "info"} size={15} /></button
           >
         {/if}
       </div>
@@ -175,7 +188,11 @@
             onchange(snapValue(s, Number(e.currentTarget.value)), SETTLE);
           }}
         />
-        <span class="mark" class:hidden={atDefault} aria-hidden="true" title={T.SETTING.defaultMark(defaultText)}
+        <span
+          class="mark"
+          class:hidden={atDefault}
+          aria-hidden="true"
+          title={T.SETTING.defaultMark(defaultText)}
         ></span>
       </div>
       <input

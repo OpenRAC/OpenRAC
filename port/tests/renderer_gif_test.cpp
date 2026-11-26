@@ -4,13 +4,16 @@
 // The direct renderer's CPU half: GIF packets in, triangles and draw groups
 // out. Synthetic packets, laid out the way the game's 2D code builds them.
 
+#include <algorithm>
 #include <cfenv>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include "check.h"
 #include "renderer/direct/direct.h"
@@ -270,10 +273,10 @@ void draw_groups() {
     CHECK(gif.gif(b.bytes));
     CHECK(gif.draws().size() == 4);
     CHECK(gif.draws()[0].count == 12);
-    CHECK(gif.draws()[1].state.blend);
+    CHECK(gif.draws()[1].state.blend.enabled);
     CHECK(gif.draws()[2].state.scissor.x1 == 100);
     CHECK(gif.draws()[3].state.scissor.x1 == 511);
-    CHECK(!gif.draws()[3].state.blend);
+    CHECK(!gif.draws()[3].state.blend.enabled);
 }
 
 // The chip fills a pixel only when its sample point, its integer coordinates, is inside the
@@ -415,7 +418,7 @@ void scissor_of_a_shorter_buffer() {
             true);
     CHECK(gif.gif(b.bytes));
     CHECK(gif.draws().size() == 1);
-    const gs::Scissor& cut = gif.draws()[0].state.scissor;
+    const PixelRect& cut = gif.draws()[0].state.scissor;
     CHECK(cut.x0 == 0 && cut.x1 == 511 && cut.y0 == 0 && cut.y1 == 447);
     // Its bottom (416) is the picture's bottom edge.
     CHECK(near(gif.vertices()[4].y, -1.0f));
@@ -464,6 +467,47 @@ void test_empty_alpha_draw_export() {
     const Rgba8Image& shown = textures.image(gif.draws().back().state.texture);
     const fs::path saved =
         root / "Interface" / texture_pack::file_name(texture_pack::image_hash(shown));
+    CHECK(fs::is_regular_file(saved));
+    texture_pack::configure({}, {}, {});
+    fs::remove_all(root, error);
+    CHECK(!error);
+}
+
+void test_generated_texture_export() {
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / "openrac_gif_generated_texture_dump_test";
+    std::error_code error;
+    fs::remove_all(root, error);
+    CHECK(!error);
+    texture_pack::configure({}, root, {.save = save_dump_marker});
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    constexpr std::uint32_t block = 0x800;
+    std::vector<std::uint8_t> pixels(4 * 4 * 4);
+    pixels[0] = 255;
+
+    // Like the interpolated effect, the draw samples RGB24 and uses a fixed blend weight.
+    const auto draw = [&](std::uint64_t transfer_flags) {
+        GifBuilder packet;
+        packet.image(block, 1, gs::kPsmct32, 4, 4, pixels, transfer_flags);
+        packet.ad(
+            {{gs::kTex0_1, openrac::test::tex0(block, 1, gs::kPsmct24, 2, 2, true)},
+             {gs::kAlpha1, 0x2000000064},
+             {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, true, true)},
+             {gs::kXyz2, xyz2(0, 0, 0)},
+             {gs::kXyz2, xyz2(8, 8, 0)}}
+        );
+        CHECK(gif.gif(packet.bytes));
+        return gif.draws().back().state.texture;
+    };
+    const TextureHandle generated = draw(gs::kGeneratedTextureUpload);
+    CHECK(generated != textures.placeholder());
+    const auto hash = texture_pack::image_hash(textures.image(generated));
+    const fs::path saved = root / "Interface" / texture_pack::file_name(hash);
+    CHECK(!fs::exists(saved));
+
+    // An ordinary upload of the same bytes to the same block is still a dump candidate.
+    CHECK(texture_pack::image_hash(textures.image(draw(0))) == hash);
     CHECK(fs::is_regular_file(saved));
     texture_pack::configure({}, {}, {});
     fs::remove_all(root, error);
@@ -533,7 +577,9 @@ void movie_picture_strips() {
         const DirectState& s = gif.draws().back().state;
         CHECK(s.textured && !s.frame_source && s.source == 0);
         CHECK(s.texture != textures.placeholder() && textures.image(s.texture).width == 512);
-        CHECK(s.fbmsk == 0);  // drawn, not left out as a texture nothing was put at
+        CHECK(
+            s.colour_writes == kWriteColour
+        );  // drawn, not left out as a texture nothing was put at
         const DirectVertex& corner = gif.vertices()[4];
         CHECK(near(corner.s, 32.0f / 512.0f) && near(corner.t, 416.0f / 512.0f));
     }
@@ -569,6 +615,8 @@ void offscreen_then_upload() {
         CHECK(s.source == 0);
         CHECK(s.textured && s.texture != textures.placeholder());
     }
+    // A texture starts at the target's block: the world's quads that sample it get the texture.
+    CHECK(gif.take_drawn_blocks().empty());
 }
 
 // The game names a block in FRAME (its register sets name a panel's target whether or not that
@@ -623,6 +671,11 @@ void upload_over_offscreen() {
     if (!gif.draws().empty()) {
         CHECK(gif.draws().back().state.source == 0);
     }
+    // The world's quads drawn before the upload (Up Your Arsenal's refraction rings through its
+    // frame copy) still read what was drawn there, once.
+    CHECK(gif.offscreen_blocks().empty());
+    CHECK(gif.take_drawn_blocks() == std::vector<std::uint32_t>{kTarget});
+    CHECK(gif.take_drawn_blocks().empty());
 }
 
 // A texture in the pages under the 448-line draw buffer (line 448 on) is a texture, not the frame.
@@ -647,6 +700,164 @@ void texture_under_draw_buffer() {
         const DirectState& s = gif.draws().back().state;
         CHECK(!s.frame_source);
         CHECK(s.textured && s.texture != textures.placeholder());
+    }
+}
+
+// The frame drawn into an off-screen target (Going Commando's frame copy, which the Aranos Prison
+// energy fields refract): on a target wider than the game's picture, the copy is of the picture,
+// the target's middle, where the world draws the game's view; on a 4:3 target, the whole frame.
+void frame_copy_of_the_picture() {
+    TexturePool textures;
+    auto span = [&](float picture) {
+        GifInterpreter gif(textures);
+        gif.set_picture(picture, false);
+        set_draw_buffer_block(0x1000, 448);
+        GifBuilder b;
+        b.ad(
+            {{gs::kFrame1, std::uint64_t{0x1000 / 32} | (std::uint64_t{8} << 16)},
+             {gs::kFrame1, std::uint64_t{0x3340 / 32} | (std::uint64_t{4} << 16)},
+             {gs::kTex0_1, openrac::test::tex0(0x1000, 8, gs::kPsmct32, 9, 9, true)},
+             {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+             {gs::kUv, openrac::test::uv(0, 0)},
+             {gs::kXyz2, xyz2(0, 0, 0)},
+             {gs::kUv, openrac::test::uv(512, 416)},
+             {gs::kXyz2, xyz2(256, 256, 0)}}
+        );
+        CHECK(gif.gif(b.bytes));
+        float lo = 2.0f;
+        float hi = -2.0f;
+        for (const DirectVertex& v : gif.vertices()) {
+            lo = std::min(lo, v.s);
+            hi = std::max(hi, v.s);
+        }
+        CHECK(!gif.draws().empty() && gif.draws().back().state.frame_source);
+        return std::pair{lo, hi};
+    };
+    const auto [lo, hi] = span(1.0f);
+    CHECK(near(lo, 0.0f) && near(hi, 1.0f));
+    const auto [wide_lo, wide_hi] = span(0.75f);
+    CHECK(near(wide_lo, 0.125f) && near(wide_hi, 0.875f));
+}
+
+// The world's strips and quads that sample an off-screen target take the target texture's
+// coordinates: Up Your Arsenal's frame copy (effect texture -1, PSMCT16 256 x 256), which the
+// Galactic Rangers' dropship's heat haze on Veldin samples through its strip routine (fx_strip) at
+// each point's place in the picture, sits in the top-left quarter of a target of
+// kOffscreenPixels, its first row on top. Sampled with the copy's own coordinates, the haze drew
+// black squares with an upside-down corner of the picture in them.
+void offscreen_target_coordinates() {
+    const std::uint64_t copy = openrac::test::tex0(0x3300, 4, gs::kPsmct16, 8, 8, true);
+    const auto at = [&](float s, float t, float want_s, float want_t) {
+        const auto [ts, tt] = offscreen_target_st(copy, s, t);
+        CHECK(near(ts, want_s) && near(tt, want_t));
+    };
+    at(0.0f, 0.0f, 0.0f, 1.0f);  // the copy's first texel: the target's top left
+    at(1.0f, 1.0f, 0.5f, 0.5f);  // its last: the middle of the target, not its far corner
+    at(0.5f, 0.25f, 0.25f, 0.875f);
+    // The 64 x 64 copy (effect texture -3) takes an eighth of the target.
+    const std::uint64_t small = openrac::test::tex0(0x3300, 1, gs::kPsmct16, 6, 6, true);
+    const auto [ss, st] = offscreen_target_st(small, 1.0f, 1.0f);
+    CHECK(near(ss, 0.125f) && near(st, 0.875f));
+}
+
+// Up Your Arsenal's heat haze under the Galactic Rangers' dropship's thrusters (class 6877's draw
+// callback 0x003C8D60, its haze 0x003C8400) samples the game's frame copy (GetEffectTex -1) at each
+// point's place in the game's picture (0x00403F20: s over its width, t down from its top). The
+// window draws it from a native snapshot of its own target, first row at the bottom, the game's
+// picture in the middle of a wider target; never from the chip's frame copy, which on the
+// recorder's frames held no world: the haze drew black boxes.
+void frame_copy_strips() {
+    // The game's two frame-copy shapes (rac3-pal profile.cpp, frame_copy_texture): 256 x 256 and
+    // 64 x 64 PSMCT16, TCC, no CLUT, over any block.
+    CHECK(
+        (openrac::test::tex0(0x3300, 4, gs::kPsmct16, 8, 8, true) & ~0x3FFFull) == 0x620210000ull
+    );
+    CHECK(
+        (openrac::test::tex0(0x1200, 1, gs::kPsmct16, 6, 6, true) & ~0x3FFFull) == 0x598204000ull
+    );
+    // The TEX0 Veldin's dropship sends for its copy strips (a hidden run on 2026-11-24): the whole
+    // 64 bits, its shape the first. Its low half alone (0x20213240, what the port drew while the
+    // decomp's C took GetEffectTex as 32-bit) has neither TH nor TCC and is not a frame copy, so
+    // the copy strips stayed squares: frame_copy never set, no mask pairs, no haze patches.
+    CHECK((0x620213240ull & ~0x3FFFull) == 0x620210000ull);
+    CHECK((0x20213240ull & ~0x3FFFull) != 0x620210000ull);
+
+    const auto at = [](float s, float t, float k, float want_s, float want_t) {
+        const auto [u, v] = frame_copy_st(s, t, k);
+        CHECK(near(u, want_s) && near(v, want_t));
+    };
+    at(0.0f, 0.0f, 1.0f, 0.0f, 1.0f);  // the picture's top left: the snapshot's top left
+    at(1.0f, 1.0f, 1.0f, 1.0f, 0.0f);  // its bottom right: the snapshot's far corner
+    at(0.5f, 0.5f, 1.0f, 0.5f, 0.5f);
+    // A 16:9 target, the 4:3 picture in its middle three quarters.
+    at(0.0f, 0.25f, 0.75f, 0.125f, 0.75f);
+    at(1.0f, 0.25f, 0.75f, 0.875f, 0.75f);
+    at(0.25f, 0.0f, 0.0f, 0.25f, 1.0f);  // no picture scale: the whole target
+
+    // Only a strip that samples the copy asks the pass for a snapshot.
+    std::vector<EffectStrip> strips(2);
+    strips[0].count = strips[1].count = 4;
+    CHECK(!any_frame_copy(strips));
+    strips[1].frame_copy = true;
+    CHECK(any_frame_copy(strips));
+    strips[1].count = 2;  // no triangle: nothing drawn
+    CHECK(!any_frame_copy(strips));
+
+    // The two passes: a mask strip of effect texture 0x3B (ALPHA 0x6A, (0 - 0) FIX + Cd) keeps the
+    // colour and writes its alpha (the effect pass writes the source's alpha), then the copy is
+    // blended in by it (ALPHA 0x54, (Cs - Cd) Ad + Cd): the destination's alpha, not the source's.
+    using openrac::test::alpha_reg;
+    const GlBlend mask = translate_blend(gs::Alpha::decode(alpha_reg(2, 2, 2, 1, 0x80)));
+    CHECK(mask.src == 0u && mask.dst == 1u && mask.equation == 0x8006u);  // ZERO, ONE, ADD
+    const GlBlend haze = translate_blend(gs::Alpha::decode(alpha_reg(0, 1, 1, 1, 0x80)));
+    CHECK(haze.src == 0x0304u && haze.dst == 0x0305u && haze.equation == 0x8006u);
+}
+
+// Each mask and frame-copy pair of the heat haze becomes one round patch of the native haze (its
+// centre, half the square's side, the mask's alpha as its strength); the pair is left out of the
+// strips. A frame-copy strip with no mask over the same corners stays, and so do the others.
+void frame_copy_haze_patches() {
+    const auto square = [](std::vector<EffectVertex>& v, float x, float z, std::uint32_t alpha) {
+        const auto first = static_cast<std::uint32_t>(v.size());
+        // A square of side 2 around (x, 0, z), as a strip.
+        v.push_back({x - 1, 0, z - 1, 0, 0, alpha << 24 | 0x804040});
+        v.push_back({x + 1, 0, z - 1, 1, 0, alpha << 24 | 0x804040});
+        v.push_back({x - 1, 0, z + 1, 0, 1, alpha << 24 | 0x804040});
+        v.push_back({x + 1, 0, z + 1, 1, 1, alpha << 24 | 0x804040});
+        return first;
+    };
+    std::vector<EffectVertex> v;
+    std::vector<EffectStrip> strips(5);
+    // Another effect first, untouched.
+    strips[0].first = square(v, 50, 50, 0x80);
+    strips[0].count = 4;
+    // The mask (ALPHA 0x6A: (0 - 0) FIX + Cd) at half alpha, then its copy (ALPHA 0x54).
+    strips[1].first = square(v, 10, 20, 0x40);
+    strips[1].count = 4;
+    strips[1].alpha = 0x800000006Aull;
+    strips[2].first = square(v, 10, 20, 0x80);
+    strips[2].count = 4;
+    strips[2].alpha = 0x8000000054ull;
+    strips[2].frame_copy = true;
+    // A mask somewhere else, then a copy with no mask of its own: both kept.
+    strips[3].first = square(v, 30, 20, 0x80);
+    strips[3].count = 4;
+    strips[3].alpha = 0x6A;
+    strips[4].first = square(v, 0, 0, 0x80);
+    strips[4].count = 4;
+    strips[4].alpha = 0x54;
+    strips[4].frame_copy = true;
+
+    std::vector<std::array<float, 5>> haze;
+    frame_copy_haze(strips, v, haze);
+    CHECK(haze.size() == 1);
+    CHECK(strips.size() == 3);
+    CHECK(strips[0].first == 0 && strips[1].alpha == 0x6A && strips[2].frame_copy);
+    if (haze.size() == 1) {
+        const auto& p = haze[0];
+        CHECK(near(p[0], 10.0f) && near(p[1], 0.0f) && near(p[2], 20.0f));
+        CHECK(near(p[3], 1.0f));  // half the side
+        CHECK(p[4] > 0.0f && p[4] < 0.1f);  // half the mask's alpha: a faint patch
     }
 }
 
@@ -762,6 +973,338 @@ void opaque_effects() {
 
 }  // namespace
 
+// The frame recorder's blends (draw_state.h BlendMode) are the GS blends the games use, to GL.
+void native_blends() {
+    using openrac::test::alpha_reg;
+    const auto same = [](const GlBlend& a, const GlBlend& b) {
+        return a.src == b.src && a.dst == b.dst && a.equation == b.equation
+               && a.constant == b.constant && a.source_scale == b.source_scale
+               && a.exact == b.exact;
+    };
+    // Mix (Cs - Cd) As + Cd, Add Cs As + Cd, Subtract Cd - Cs As, Multiply (0 - Cd) As + Cd.
+    CHECK(same(
+        translate_blend(Blend::of(BlendMode::Mix)),
+        translate_blend(gs::Alpha::decode(alpha_reg(0, 1, 0, 1)))
+    ));
+    CHECK(same(
+        translate_blend(Blend::of(BlendMode::Add)),
+        translate_blend(gs::Alpha::decode(alpha_reg(0, 2, 0, 1)))
+    ));
+    CHECK(same(
+        translate_blend(Blend::of(BlendMode::Subtract)),
+        translate_blend(gs::Alpha::decode(alpha_reg(2, 0, 0, 1)))
+    ));
+    CHECK(same(
+        translate_blend(Blend::of(BlendMode::Multiply)),
+        translate_blend(gs::Alpha::decode(alpha_reg(2, 1, 0, 1)))
+    ));
+    CHECK(!Blend::of(BlendMode::Opaque).enabled);
+    // The GS's tests as native ones: ATE off is no test; ZTE with GEQUAL.
+    const gs::Test t = gs::Test::decode(0x5360Bull);  // ATE GEQUAL 0x60, RGB_ONLY; ZTE GEQUAL
+    const AlphaTest a = alpha_test_from_gs(t);
+    CHECK(a.compare == Compare::GreaterEqual && a.reference == 0x60);
+    CHECK(
+        depth_test_from_gs(t).enabled && depth_test_from_gs(t).compare == DepthCompare::GreaterEqual
+    );
+    CHECK(alpha_test_from_gs(gs::Test::decode(0)).compare == Compare::Always);
+}
+
+// A recorded frame with no packets: its commands become draws in call order, with native state
+// (a fill and a flat item of the same state would share one draw).
+void recorded_frame_without_packets() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    FrameRecording r;
+    FrameCommand fill;
+    fill.op = FrameOp::Fill;
+    fill.whole = false;
+    fill.rect = {0.0f, 0.0f, 256.0f, 224.0f};
+    fill.rgba = 0x40000000u;
+    fill.blend = BlendMode::Add;
+    r.commands.push_back(fill);
+    UiItem flat;
+    flat.flags = kUiItemFlat | kUiItemShaded;
+    const float xs[4] = {0, 512, 0, 512}, ys[4] = {0, 0, 448, 448};
+    for (int i = 0; i < 4; ++i) {
+        flat.x[i] = xs[i];
+        flat.y[i] = ys[i];
+        flat.rgba[i] = 0x80FFFFFFu;
+    }
+    r.ui_items.push_back(flat);
+    FrameCommand item;
+    item.op = FrameOp::UiItem;
+    r.commands.push_back(item);
+    FrameCommand clear;
+    clear.op = FrameOp::Clear;
+    clear.clear = kClearDepth;
+    r.commands.push_back(clear);
+    const std::vector<FrameSplice> splices{{0, 0}, {0, 1}, {0, 2}};
+    gif.set_commands(&r, splices, 0);
+    CHECK(gif.vif({}));
+    gif.finish_commands();
+    CHECK(gif.draws().size() == 3);
+    if (gif.draws().size() == 3) {
+        const DirectState& f = gif.draws()[0].state;
+        CHECK(f.blend == Blend::of(BlendMode::Add) && !f.textured && !f.depth_write);
+        CHECK(gif.draws()[0].count == 6);
+        // The fill's quarter of the screen, in normalised coordinates.
+        CHECK(near(gif.vertices()[0].x, -1.0f) && near(gif.vertices()[0].y, 1.0f));
+        CHECK(near(gif.vertices()[4].x, 0.0f) && near(gif.vertices()[4].y, 0.0f));
+        CHECK(gif.vertices()[0].rgba[3] == 0x40);
+        CHECK(gif.draws()[1].state.blend == Blend::of(BlendMode::Mix));
+        const DirectState& c = gif.draws()[2].state;
+        CHECK(c.colour_writes == 0 && c.depth_write && c.depth.enabled);
+        // Cleared to the far value 0 of reversed depth: -1 in the 2D pass's -1..1 clip range (0,
+        // as this once checked, is the middle of the buffer, 0.5).
+        CHECK(near(gif.vertices()[12].z, -1.0f));
+    }
+}
+
+// A flat item of the 2D layer over the screen's last column or line goes on to its edge, as a
+// packet's fill does: the pause menu's darkening runs from -0.5 to 511.5 and -0.5 to 447.5, and
+// drawn there it left a line of the undarkened world along the right and bottom. Edges inside the
+// screen stay where they are, and so does a textured item.
+void flat_item_to_the_edges() {
+    TexturePool textures;
+    auto corners = [&](float x0, float y0, float x1, float y1, std::uint32_t flags) {
+        GifInterpreter gif(textures);
+        FrameRecording r;
+        UiItem quad;
+        quad.flags = flags;
+        const float xs[4] = {x0, x1, x0, x1}, ys[4] = {y0, y0, y1, y1};
+        for (int i = 0; i < 4; ++i) {
+            quad.x[i] = xs[i];
+            quad.y[i] = ys[i];
+            quad.rgba[i] = 0x60000000u;
+        }
+        r.ui_items.push_back(quad);
+        FrameCommand item;
+        item.op = FrameOp::UiItem;
+        r.commands.push_back(item);
+        const std::vector<FrameSplice> splices{{0, 0}};
+        gif.set_commands(&r, splices, 0);
+        CHECK(gif.vif({}));
+        gif.finish_commands();
+        CHECK(gif.vertices().size() == 6);
+        return gif.vertices().size() == 6 ? std::make_pair(gif.vertices()[0], gif.vertices()[4])
+                                          : std::make_pair(DirectVertex{}, DirectVertex{});
+    };
+    const auto [first, last] = corners(-0.5f, -0.5f, 511.5f, 447.5f, kUiItemFlat);
+    CHECK(near(first.x, -1.0f - 0.5f / 256.0f) && near(first.y, 1.0f + 0.5f / 224.0f));
+    CHECK(near(last.x, 1.0f) && near(last.y, -1.0f));
+    const auto [inner_first, inner_last] = corners(9.5f, 99.5f, 300.5f, 200.5f, kUiItemFlat);
+    CHECK(near(inner_last.x, 300.5f / 256.0f - 1.0f) && near(inner_last.y, 1.0f - 200.5f / 224.0f));
+    const auto [past_first, past_last] = corners(520.5f, 99.5f, 530.5f, 200.5f, kUiItemFlat);
+    CHECK(near(past_first.x, 520.5f / 256.0f - 1.0f) && near(past_last.x, 530.5f / 256.0f - 1.0f));
+}
+
+// Recorded commands spliced into a stream: before the DIRECT at their offset, after what came
+// before it; those past the stream's end at finish_commands.
+void recorded_splices_in_a_stream() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    const auto direct = [](const GifBuilder& b) {
+        std::vector<std::uint8_t> v(12, 0);
+        const std::uint32_t code = 0x50000000u | static_cast<std::uint32_t>(b.bytes.size() / 16);
+        for (int i = 0; i < 4; ++i) {
+            v.push_back(static_cast<std::uint8_t>(code >> (8 * i)));
+        }
+        v.insert(v.end(), b.bytes.begin(), b.bytes.end());
+        return v;
+    };
+    GifBuilder one;
+    one.ad(
+        {{gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+         {gs::kRgbaq, rgbaq(0xFF, 0, 0, 0x80)},
+         {gs::kXyz2, xyz2(0, 0, 0)},
+         {gs::kXyz2, xyz2(16, 16, 0)}}
+    );
+    std::vector<std::uint8_t> stream = direct(one);
+    const std::size_t second = stream.size();
+    const std::vector<std::uint8_t> two = direct(one);
+    stream.insert(stream.end(), two.begin(), two.end());
+    FrameRecording r;
+    FrameCommand fill;
+    fill.op = FrameOp::Fill;
+    fill.blend = BlendMode::Add;
+    r.commands = {fill, fill};
+    // The stream is the part after the world, from byte 100 of the 2D path: the first fill goes
+    // between the two DIRECTs, the second after the last.
+    const std::vector<FrameSplice> splices{{100 + second, 0}, {100 + stream.size(), 1}};
+    gif.set_commands(&r, splices, 100);
+    CHECK(gif.vif(stream));
+    gif.finish_commands();
+    CHECK(gif.draws().size() == 4);
+    if (gif.draws().size() == 4) {
+        CHECK(!gif.draws()[0].state.blend.enabled);
+        CHECK(gif.draws()[1].state.blend == Blend::of(BlendMode::Add));
+        CHECK(!gif.draws()[2].state.blend.enabled);
+        CHECK(gif.draws()[3].state.blend == Blend::of(BlendMode::Add));
+    }
+}
+
+// A depth rectangle (openrac_frame_fill_depth, the letterbox bars) after a residual draw at the same
+// 24-bit depth takes that draw's depth exactly, tests greater-or-equal and writes it, as the bars'
+// packet did; one at the 2D frames' lower depth lies behind it. A plain fill still neither tests nor
+// writes depth.
+void recorded_depth_fill_takes_the_residual_depth() {
+    constexpr std::uint32_t kBar = 0xFFFFF3;    // draw_letterbox_bars' vertices
+    constexpr std::uint32_t kFrame = 0xFFFFF0;  // DrawRectOverlay's vertices
+    constexpr int kDepth24 = 24;
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    GifBuilder b;
+    b
+        .ad({{gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+             {gs::kRgbaq, rgbaq(0, 0, 0, 0x80)},
+             {gs::kXyz2, xyz2(0, 0, kBar)},
+             {gs::kXyz2, xyz2(16, 16, kBar)}},
+            true);
+    CHECK(gif.gif(b.bytes));
+    const float rect[]{0.0f, 0.0f, 512.0f, 24.0f};
+    FrameRecording r;
+
+    // The bars' depth, then the 2D frames' lower one.
+    for (const std::uint32_t depth : {kBar, kFrame}) {
+        const auto c = depth_fill_command(
+            rect,
+            0x80000000u,
+            BlendMode::Opaque,
+            true,
+            depth,
+            kDepth24,
+            DepthCompare::GreaterEqual,
+            true,
+            kWriteColour
+        );
+        CHECK(c.has_value());
+        r.commands.push_back(c.value_or(FrameCommand{}));
+    }
+    FrameCommand plain;
+    plain.op = FrameOp::Fill;
+    r.commands.push_back(plain);
+    const std::vector<FrameSplice> splices{{0, 0}, {0, 1}, {0, 2}};
+    gif.set_commands(&r, splices, 0);
+    gif.finish_commands();
+
+    // The residual sprite, the two depth rectangles (one state) and the plain fill.
+    CHECK(gif.draws().size() == 3);
+    CHECK(gif.vertices().size() == 24);
+
+    // Their depth and state, when all of them are there.
+    if (gif.draws().size() == 3 && gif.vertices().size() == 24) {
+        const float residual = gif.vertices()[0].z;
+        CHECK(residual == static_cast<float>(static_cast<double>(kBar) / 16777215.0 * 2.0 - 1.0));
+        CHECK(gif.vertices()[6].z == residual && gif.vertices()[11].z == residual);
+        CHECK(gif.vertices()[12].z < residual);
+        const DirectState& bars = gif.draws()[1].state;
+        CHECK(bars.depth.enabled && bars.depth.compare == DepthCompare::GreaterEqual);
+        CHECK(bars.depth_write && bars.colour_writes == kWriteColour);
+        CHECK(!bars.blend.enabled && !bars.textured && gif.draws()[1].count == 12);
+        const DirectState& fill = gif.draws()[2].state;
+        CHECK(!fill.depth.enabled && !fill.depth_write);
+    }
+}
+
+// Keeps a recorder panel's scissor in the same unscaled pixel coordinates as its rectangles.
+void test_recorded_panel_scissor() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    FrameRecording recording;
+    FrameCommand panel;
+    panel.op = FrameOp::TargetBegin;
+    panel.index = kRecordedTargets;
+    panel.width = 256;  // A panel smaller than the screen, with its own pixel coordinates.
+    panel.height = 256;
+    FrameCommand scissor;
+    scissor.op = FrameOp::Scissor;
+    scissor.whole = false;
+    // A preceding UI pass changed the screen's coordinate height.
+    scissor.screen_height = 512.0f;
+    scissor.rect = {16.0f, 32.0f, 96.0f, 128.0f};
+    FrameCommand fill;
+    fill.op = FrameOp::Fill;
+    recording.commands = {panel, scissor, fill};
+    const std::vector<FrameSplice> splices{{0, 0}, {0, 1}, {0, 2}};
+    gif.set_commands(&recording, splices, 0);
+    gif.finish_commands();
+    CHECK(gif.draws().size() == 1);
+
+    // Exclusive API edges become inclusive draw-state bounds without screen scaling on a panel.
+    if (gif.draws().size() == 1) {
+        const PixelRect expected{16, 95, 32, 127};
+        CHECK(gif.draws()[0].state.scissor == expected);
+    }
+}
+
+// Scales screen clips once and intersects an item's own clip with the active recorder scissor.
+void test_recorded_screen_scissor() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    FrameRecording recording;
+    FrameCommand scissor;
+    scissor.op = FrameOp::Scissor;
+    scissor.whole = false;
+    scissor.screen_height = 512.0f;  // Twice 256 source rows maps onto the renderer's 448 rows.
+    scissor.rect = {64.0f, 64.0f, 448.0f, 256.0f};
+    UiItem flat;
+    flat.flags = kUiItemFlat | kUiItemClip;
+    flat.screen_height = 512.0f;
+    flat.clip[0] = 128.0f;
+    flat.clip[1] = 0.0f;
+    flat.clip[2] = 512.0f;
+    flat.clip[3] = 512.0f;
+    recording.ui_items.push_back(flat);
+    FrameCommand item;
+    item.op = FrameOp::UiItem;
+    recording.commands = {scissor, item};
+    const std::vector<FrameSplice> splices{{0, 0}, {0, 1}};
+    gif.set_commands(&recording, splices, 0);
+    gif.finish_commands();
+    CHECK(gif.draws().size() == 1);
+
+    // Y is scaled by 448/512; exclusive right and bottom edges become inclusive draw bounds.
+    if (gif.draws().size() == 1) {
+        const PixelRect expected{128, 447, 56, 223};
+        CHECK(gif.draws()[0].state.scissor == expected);
+    }
+}
+
+// Keeps off-target, inverted and non-finite scissors empty instead of drawing an edge pixel.
+void test_empty_recorded_scissors() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    const float infinity = std::numeric_limits<float>::infinity();
+    const std::array<std::array<float, 4>, 3> clips{{
+        {-32.0f, 0.0f, -1.0f, 1.0f},  // Entirely left of the screen.
+        {32.0f, 0.0f, 16.0f, 1.0f},   // Inverted horizontal bounds.
+        {0.0f, 0.0f, infinity, 1.0f},
+    }};
+
+    // Each malformed input is isolated from the preceding frame's scissor.
+    for (const auto& clip : clips) {
+        gif.clear();
+        FrameRecording recording;
+        FrameCommand scissor;
+        scissor.op = FrameOp::Scissor;
+        scissor.whole = false;
+        scissor.rect = clip;
+        FrameCommand fill;
+        fill.op = FrameOp::Fill;
+        recording.commands = {scissor, fill};
+        const std::vector<FrameSplice> splices{{0, 0}, {0, 1}};
+        gif.set_commands(&recording, splices, 0);
+        gif.finish_commands();
+        CHECK(gif.draws().size() == 1);
+
+        // Empty inclusive bounds become a zero-sized GPU scissor, without dropping the draw record.
+        if (gif.draws().size() == 1) {
+            const PixelRect& bounds = gif.draws()[0].state.scissor;
+            CHECK(bounds.x1 < bounds.x0 || bounds.y1 < bounds.y0);
+        }
+    }
+}
+
 int main() {
     blend_weights();
     opaque_effects();
@@ -777,9 +1320,22 @@ int main() {
     textures_and_vif();
     movie_picture_strips();
     test_empty_alpha_draw_export();
+    test_generated_texture_export();
     offscreen_then_upload();
     frame_named_without_draw();
     upload_over_offscreen();
     texture_under_draw_buffer();
+    frame_copy_of_the_picture();
+    offscreen_target_coordinates();
+    frame_copy_strips();
+    frame_copy_haze_patches();
+    native_blends();
+    recorded_frame_without_packets();
+    flat_item_to_the_edges();
+    recorded_splices_in_a_stream();
+    recorded_depth_fill_takes_the_residual_depth();
+    test_recorded_panel_scissor();
+    test_recorded_screen_scissor();
+    test_empty_recorded_scissors();
     return openrac::test::result();
 }

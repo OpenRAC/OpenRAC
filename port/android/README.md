@@ -73,7 +73,7 @@ first: the game's activity writes that start to `files/debug/last_launch`.
 python tools/android_device.py status                 # the device, the app, the GPU's clock
 python tools/android_device.py sweep --level 1        # the Graphics sweep by script, report copied here
 python tools/android_device.py record 20 --level 1    # a 20 second recording
-python tools/android_device.py start --env OPENRAC_RENDER_OPT_OFF=vk-mode-constants
+python tools/android_device.py start --env OPENRAC_RENDER_OPT_OFF=pipeline-prewarm
 python tools/android_device.py gpu --seconds 30       # Adreno's clock, load and temperature
 python tools/android_device.py screen                 # what the device shows, as a PNG
 python tools/android_device.py press a                # a pad button (start, back, up...), or `tap X Y`
@@ -150,7 +150,7 @@ game's log.
     - Play: the drawer's footer says Vulkan, its Enhanced graphics card has
       its switches, and the log says the probe bake loaded.
     - Add lock-strafe from its link (OpenRAC/openrac-mods): it installs and loads.
-    - Settings has no Discord, Compact layout or Godot, and saves a switch
+    - Settings has no Discord, Compact layout or editor, and saves a switch
       without a Save bar.
 13. **The launcher with a controller.** Without touching the screen: the d-pad
     and left stick move an amber focus ring over every control, A presses, B

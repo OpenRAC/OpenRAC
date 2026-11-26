@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 sys.dont_write_bytecode = True
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "editor"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "extractor"))
 import disc as discs  # noqa: E402
 import level as levels  # noqa: E402
 

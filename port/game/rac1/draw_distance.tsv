@@ -1,0 +1,7 @@
+# Ratchet & Clank: moby classes that keep the game's own draw distance at every Draw distance.
+# A longer Draw distance shows mobys the game would hide. Some classes need that hiding: the game
+# parks them out of sight, or their data puts them far away. List such a class here.
+# Fields, split by tabs: class number, levels, name, reason. game/common/draw_distance_list.h reads
+# it. The reason says what goes wrong when the class is drawn farther.
+# class	levels	name	reason
+1161	Pokitaru	Pokitaru backdrop mesh (no update code, no known name)	Placed with a turn of -5 pi, past the reach of the game's sine. Its rows come out thousands long and its sphere about 9000 units away, so the game never draws it. Drawn farther, it covers the sky in cyan.

@@ -5,17 +5,22 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <optional>
+#include <set>
 #include <source_location>
 #include <stdexcept>
+#include <tuple>
 #include <unordered_set>
 #include <vector>
 
 #include "common/stats.h"
 #include "renderer/direct/gs.h"
 #include "renderer/effects/effects.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
 #include "renderer/settings/render_opt.h"
+#include "renderer/textures/texture_pack.h"
 
 namespace openrac::renderer {
 using namespace gl;
@@ -26,7 +31,8 @@ namespace {
 void normalize_quad_state(std::uint64_t& tex1, std::uint64_t& clamp, std::uint64_t& alpha) {
     const auto filter = gs::Tex1::decode(tex1);
     const bool linear_min = filter.mmin == 1 || filter.mmin == 4 || filter.mmin == 5;
-    tex1 = (std::uint64_t(filter.mmag) << 5) | (std::uint64_t(linear_min) << 6);
+    tex1 = (std::uint64_t(filter.mmag) << 5) | (std::uint64_t(linear_min) << 6)
+           | (std::uint64_t(filter.mipmapped()) << 7);
 
     const auto wrap = gs::Clamp::decode(clamp);
     clamp = std::uint64_t(wrap.wms != gs::Wrap::Repeat)
@@ -41,7 +47,10 @@ void normalize_quad_state(std::uint64_t& tex1, std::uint64_t& clamp, std::uint64
 // ---- Ordered effect draws ----
 
 void EffectRenderer::draw_prepared(
-    const FrameInput& input, RenderState& state, const PreparedEffects& prepared
+    const FrameInput& input,
+    RenderState& state,
+    const PreparedEffects& prepared,
+    bool has_colour_pass
 ) {
     const bool quads = prepared.quads;
     const auto& strip_counts = prepared.strip_counts;
@@ -100,6 +109,12 @@ void EffectRenderer::draw_prepared(
         // A strip sent before the mobys that writes no Z (before_mobys_writes_z: its ZBUF masks
         // it, its TEST keeps only the colour, or its list gives no sign of a surface): colour only.
         bool z_masked = false;
+        // An untextured quad (EffectQuad::untextured): drawn by m_untextured_shader, no texture.
+        bool untextured = false;
+        // A strip that samples the frame copy (EffectStrip::frame_copy): the pass's snapshot.
+        bool frame_copy = false;
+        // A pair run's second texture (PreparedEffects::quad_pairs; tbp is then its first), or 0.
+        std::uint32_t pair = 0;
         bool operator==(const State&) const = default;
     };
 
@@ -136,7 +151,7 @@ void EffectRenderer::draw_prepared(
         state.stats.draw_calls++;
         state.stats.triangles += static_cast<std::uint64_t>(batch.count / 3);
     };
-    const auto flush = [&] {
+    const auto draw_batch_with_alpha_test = [&] {
         // TEST and depth-writing batches may require separate alpha-pass and alpha-fail draws.
         if (batch.count > 0 && set && (set->test != 0 || set->z_write)) {
             // A quad drawn with the list's TEST and ZBUF, as the chip draws it: the pixels that
@@ -187,9 +202,52 @@ void EffectRenderer::draw_prepared(
             const profiling::Zone trace("Effects draw batch");
             draw_batch();
         }
-
+    };
+    bool quads_declared = false;
+    const auto flush = [&] {
+        if (!batch.count) {
+            return;
+        }
+        // Enhanced batches use their enclosing snapshot and geometry scopes.
+        if (quads_declared || (has_colour_pass && enhanced_rendering_available())) {
+            draw_batch_with_alpha_test();
+        } else {
+            RasterTexture texture{m_applied.offscreen};
+            if (m_applied.texture && m_applied.texture != kOffscreenHandle) {
+                const auto [name, mips] = state.textures.prepare_draw_texture(m_applied.texture);
+                texture = {name, mips};
+            }
+            const RasterBuffer geometry[]{
+                {m_vbo, m_vertices.size() * sizeof(Vertex)},
+                {m_quad_indices, m_quad_capacity * 6 * sizeof(std::uint32_t)}
+            };
+            // A batch may have two alpha draws, but both borrow the same geometry and texture.
+            const auto buffers = std::span(geometry).first(quad_indices ? 2 : 1);
+            const auto attachments = m_part == EffectPart::Opaque
+                                             || (m_part == EffectPart::Liquids && !set->z_masked)
+                                             || set->z_write
+                                         ? ColourAttachments::ColourDepth
+                                         : ColourAttachments::ColourDepthRead;
+            raster_pass(
+                name(),
+                state.target,
+                {buffers, {&texture, 1}, attachments, m_material != nullptr},
+                std::cref(draw_batch_with_alpha_test)
+            );
+        }
         batch.count = 0;
     };
+    // The pair unit holds nothing outside a pair run's draws: a draw declares only its own textures.
+    bool pair_bound = m_pair_shader;
+    const auto unbind_pair = [&] {
+        glActiveTexture(GL_TEXTURE0 + kPairUnit);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE0);
+        pair_bound = false;
+    };
+    if (pair_bound) {
+        unbind_pair();
+    }
     // Adds `count` vertices from `first` to the draw, with this state; false when the state has
     // no texture in the pool (apply).
     bool drawable = true;
@@ -197,9 +255,26 @@ void EffectRenderer::draw_prepared(
         // State changes flush earlier geometry before installing the next material.
         if (!set || !(*set == wanted)) {
             flush();
-            drawable = apply(
-                wanted.tex0, wanted.tex1, wanted.clamp, wanted.alpha, state, wanted.tbp, wanted.cbp
-            );
+            // An untextured state binds nothing: its shader does not sample.
+            drawable = wanted.untextured
+                       || apply(
+                           wanted.tex0,
+                           wanted.tex1,
+                           wanted.clamp,
+                           wanted.alpha,
+                           state,
+                           wanted.tbp,
+                           wanted.cbp,
+                           wanted.frame_copy
+                       );
+            if (drawable && wanted.pair != 0) {
+                bind_pair_texture(
+                    state, wanted.tex0, wanted.tex1, wanted.clamp, wanted.pair, wanted.cbp
+                );
+                pair_bound = true;
+            } else if (pair_bound) {
+                unbind_pair();
+            }
 
             // Material bindings precede the shared descriptor read declaration.
             if (m_material) {
@@ -310,23 +385,26 @@ void EffectRenderer::draw_prepared(
             continue;
         }
 
-        add({strip.tex0,
-             strip.tex1,
-             strip.clamp,
-             m_part == EffectPart::Opaque && strip.blend_disabled ? 0 : strip.alpha,
-             0,
-             0,
-             strip.surface,
-             strip.uv_motion,
-             strip.fogged,
-             strip.fog,
-             strip.fog_colour,
-             0,
-             false,
-             strip.before_mobys && !before_mobys_writes_z(strip)},
-            at,
-            count,
-            false);
+        State wanted{
+            strip.tex0,
+            strip.tex1,
+            strip.clamp,
+            m_part == EffectPart::Opaque && strip.blend_disabled ? 0 : strip.alpha,
+            0,
+            0,
+            strip.surface,
+            strip.uv_motion,
+            strip.fogged,
+            strip.fog,
+            strip.fog_colour,
+            0,
+            false,
+            strip.before_mobys && !before_mobys_writes_z(strip)
+        };
+        wanted.frame_copy = strip.frame_copy;
+        // A frame-copy strip without the pass's snapshot is left out, not drawn from the chip's
+        // copy or a placeholder (the black boxes under the dropship's thrusters).
+        add(wanted, at, count, strip.frame_copy);
         at += count;
     }
 
@@ -397,61 +475,126 @@ void EffectRenderer::draw_prepared(
     Shader* const quad_shader = m_active_shader;
     unsigned tested_quads = 0;
     unsigned texture_splits = 0, sampler_splits = 0, blend_splits = 0;
+    unsigned paired_quads = 0;
 
-    // Captured quad order preserves back-to-front blending across shader switches.
-    for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
-        if (!draws(q, input)) {
-            continue;
-        }
-        State wanted{q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp, 0};
-        if (quad_indices) {
-            normalize_quad_state(wanted.tex1, wanted.clamp, wanted.alpha);
-        }
-        Shader* shader = quad_shader;
+    const auto draw_quads = [&] {
+        // Captured quad order preserves back-to-front blending across shader switches.
+        for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
+            if (!draws(q, input)) {
+                continue;
+            }
+            if (q.untextured && m_untextured_shader.id() == 0) {
+                continue;
+            }
+            State wanted{q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp, 0};
+            wanted.untextured = q.untextured;
+            // A quad of a pair run: the run's state, whichever of its two textures it samples.
+            if (const std::size_t i = static_cast<std::size_t>(&q - input.effects.data());
+                !prepared.quad_pairs.empty() && prepared.quad_pairs[i].second != 0) {
+                const QuadPair& pair = prepared.quad_pairs[i];
+                wanted.tex0 = pair.tex0;
+                wanted.tbp = pair.first;
+                wanted.pair = pair.second;
+                paired_quads += q.tbp == pair.second;
+            }
+            if (quad_indices) {
+                normalize_quad_state(wanted.tex1, wanted.clamp, wanted.alpha);
+            }
+            Shader* shader = q.untextured ? &m_untextured_shader : quad_shader;
 
-        // Captured list registers override quad alpha testing and depth writes.
-        if (q.registers && m_part != EffectPart::Opaque) {
-            // The list's TEST and ZBUF (EffectQuad::test, zbuf). An alpha test needs the shader
-            // that keeps it; without that shader the quad is drawn as before, every pixel, no Z.
-            const gs::Test t = gs::Test::decode(q.test);
-            const bool testing =
-                t.ate && t.atst != gs::AlphaTest::Always && t.atst != gs::AlphaTest::Never;
+            // Captured list registers override quad alpha testing and depth writes.
+            if (q.registers && m_part != EffectPart::Opaque) {
+                // The list's TEST and ZBUF (EffectQuad::test, zbuf). An alpha test needs the shader
+                // that keeps it; without that shader the quad is drawn as before, every pixel, no Z.
+                const gs::Test t = gs::Test::decode(q.test);
+                const bool testing =
+                    t.ate && t.atst != gs::AlphaTest::Always && t.atst != gs::AlphaTest::Never;
 
-            // Missing optional test shaders retain the original untested path.
-            if (!testing || m_test_shader.id()) {
-                wanted.test = q.test;
-                wanted.z_write = !gs::Zbuf::decode(q.zbuf).zmsk;
+                // Missing optional test shaders retain the original untested path.
+                if (!testing || m_test_shader.id()) {
+                    wanted.test = q.test;
+                    wanted.z_write = !gs::Zbuf::decode(q.zbuf).zmsk;
 
-                // Only nontrivial alpha tests need the dedicated tested variant.
-                if (testing) {
-                    shader = &m_test_shader;
-                    ++tested_quads;
+                    // Only nontrivial alpha tests need the dedicated tested variant.
+                    if (testing) {
+                        shader = &m_test_shader;
+                        ++tested_quads;
+                    }
                 }
             }
+
+            // List TEST changes must finish the preceding quad batch first.
+            if (m_active_shader != shader) {
+                flush();
+                use_shader(*shader, view_projection, input.camera.view);
+                set.reset();
+            }
+
+            if (batch.count > 0 && set) {
+                texture_splits +=
+                    wanted.tex0 != set->tex0 || wanted.tbp != set->tbp || wanted.cbp != set->cbp;
+                sampler_splits += wanted.tex1 != set->tex1 || wanted.clamp != set->clamp;
+                blend_splits += wanted.alpha != set->alpha;
+            }
+            add(wanted, at, 6, !q.untextured);
+            at += 6;
         }
 
-        // List TEST changes must finish the preceding quad batch first.
-        if (m_active_shader != shader) {
-            flush();
-            use_shader(*shader, view_projection, input.camera.view);
-            set.reset();
+        flush();
+    };
+    // Quad uploads are finished, so the texture set stays stable through every blend and TEST batch.
+    if (quads_from < m_vertices.size() && !m_material && !enhanced_rendering_available()
+        && !texture_pack::dumping()) {
+        std::vector<RasterTexture> textures;
+        std::set<std::tuple<std::uint64_t, std::uint32_t, std::uint32_t>> sources;
+        for (const EffectQuad& quad : input.effects) {
+            if (!draws(quad, input) || quad.untextured
+                || !sources.emplace(quad.tex0, quad.tbp, quad.cbp).second) {
+                continue;
+            }
+            if (const unsigned panel = offscreen_texture(quad.tex0, quad.tbp)) {
+                textures.push_back({panel});
+                continue;
+            }
+            auto tex0 = gs::Tex0::decode(quad.tex0);
+            if (quad.tbp != 0) {
+                tex0.tbp0 = quad.tbp;
+                tex0.cbp = quad.cbp;
+            }
+            // The quad draw takes the same TEXA interpretation as the ordinary batch path.
+            const auto handle = state.textures.resolve(tex0, {0, false, 0x80});
+            const auto [texture, mips] = state.textures.prepare_draw_texture(handle);
+            textures.push_back({texture, mips});
         }
-
-        if (batch.count > 0 && set) {
-            texture_splits +=
-                wanted.tex0 != set->tex0 || wanted.tbp != set->tbp || wanted.cbp != set->cbp;
-            sampler_splits += wanted.tex1 != set->tex1 || wanted.clamp != set->clamp;
-            blend_splits += wanted.alpha != set->alpha;
-        }
-        add(wanted, at, 6, true);
-        at += 6;
+        std::ranges::sort(textures, {}, &RasterTexture::name);
+        const auto distinct = std::ranges::unique(textures, {}, &RasterTexture::name);
+        textures.erase(distinct.begin(), distinct.end());
+        const RasterBuffer geometry[]{
+            {m_vbo, m_vertices.size() * sizeof(Vertex)},
+            {m_quad_indices, m_quad_capacity * 6 * sizeof(std::uint32_t)}
+        };
+        // A newly prepared image can leave a different sampler binding than the strip batch did.
+        m_applied = AppliedState{};
+        quads_declared = true;
+        raster_pass(
+            "effect quads",
+            state.target,
+            {std::span(geometry).first(quad_indices ? 2 : 1),
+             textures,
+             ColourAttachments::ColourDepth},
+            std::cref(draw_quads)
+        );
+    } else {
+        draw_quads();
     }
-
-    flush();
     if (clamp_quads) {
         glDisable(GL_DEPTH_CLAMP);
     }
+    if (pair_bound) {
+        unbind_pair();
+    }
     stats::gauge("effect quads alpha tested", tested_quads);
+    stats::gauge("effect quads on a pair's second texture", paired_quads);
     if (quads && gl::is_vulkan()) {
         stats::gauge("effect quad texture splits", texture_splits);
         stats::gauge("effect quad sampler splits", sampler_splits);

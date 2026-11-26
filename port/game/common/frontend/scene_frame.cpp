@@ -26,6 +26,8 @@
 #include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
+#include "game/common/mod_play.h"
+#include "mods.h"
 #include "openrac/game_host.h"
 #include "program/program.h"
 #include "renderer/direct/direct.h"
@@ -38,18 +40,23 @@
 #include "scene/moby_pose.h"
 
 namespace openrac::frontend {
+
+bool SceneRenderState::enhanced_graphics_available() const {
+    return gl::enhanced_rendering_available() && scene.probe_data_available();
+}
+
 namespace {
 
 // Creates or resets temporal history for the submitted graphics settings.
 bool prepare_temporal(SceneFrame& frame) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     const Kept& scene = frame.scene;
     const auto& graphics = frame.graphics;
-    const bool temporal_wanted = enhanced_graphics_available() && graphics.enhanced_graphics
+    const bool temporal_wanted = owner.enhanced_graphics_available() && graphics.enhanced_graphics
                                  && (graphics.temporal_quality != renderer::TemporalQuality::Off
                                      || (graphics.motion_blur && graphics.motion_blur_strength > 0))
                                  && enhanced::Fsr3::available() && scene.has_camera
-                                 && (scene.draws & 0x1Fu) != 0;
+                                 && (scene.draws & 0x1Fu) != 0 && !split_screen(scene);
 
     // SDK and pose history are absent when enhanced reconstruction is not in use.
     if (temporal_wanted && !owner.temporal) {
@@ -60,7 +67,7 @@ bool prepare_temporal(SceneFrame& frame) {
             if (g) {
                 // Cleanup still retires temporal history after a reported worker error.
                 [[maybe_unused]] const bool finished = finish_render();
-                g->temporal.reset();
+                g->render.temporal.reset();
             }
         });
     } else if (!temporal_wanted && owner.temporal) {
@@ -86,19 +93,22 @@ bool hdr_frame() {
 
 // Recreates the target when its dimensions, samples, depth-sampling requirement or colour
 // format changes.
-void resize_target(SceneFrame& frame, int samples) {
+void resize_target(SceneFrame& frame) {
     auto& target = frame.owner.frame;
     const auto& output = frame.output;
     const bool float_colour = hdr_frame();
-    // Reserve sampleable depth while the level's probe data is still loading.
-    const bool wants_sampleable_depth =
+    // Enhanced passes require single-sample depth, including while probe data loads.
+    const bool sampleable_depth =
         gl::enhanced_rendering_available() && frame.graphics.enhanced_graphics;
-    const bool sampleable_depth = samples == 1 && wants_sampleable_depth;
 
     // Minimized pictures keep their last target until a drawable size returns.
     if (output.box.width <= 0 || output.box.height <= 0) {
         return;
     }
+
+    const int samples =
+        sampleable_depth ? 1
+                         : std::clamp(frame.graphics.msaa, 1, renderer::FrameBuffer::max_samples());
 
     // Stable settings reuse the existing attachments.
     if (target.width() == output.width && target.height() == output.height
@@ -114,9 +124,7 @@ void resize_target(SceneFrame& frame, int samples) {
     // Some drivers advertise sample counts they cannot attach; retry without multisampling.
     if (!created && samples > 1) {
         log::warn("{}; drawing without anti-aliasing", error);
-        created = target.create(
-            output.width, output.height, error, 1, wants_sampleable_depth, float_colour
-        );
+        created = target.create(output.width, output.height, error, 1, false, float_colour);
     }
 
     // Propagate attachment failure through the worker rather than recording against an incomplete target.
@@ -157,14 +165,11 @@ float prepare_target(SceneFrame& frame) {
     constexpr int kNativeRenderScale = 100;  // Percent of the output picture.
     int render_scale = graphics.render_scale;
     // Cap the enhanced render target while preserving the player's scale setting.
-    if (graphics.enhanced_graphics && enhanced_graphics_available()) {
+    if (graphics.enhanced_graphics && frame.owner.enhanced_graphics_available()) {
         render_scale = std::min(render_scale, kNativeRenderScale);
     }
     frame_size(output.box.width, output.box.height, render_scale, output.width, output.height);
-    // Temporal reconstruction supplies antialiasing; native rendering keeps the saved MSAA preference.
-    const int samples =
-        frame.temporal ? 1 : std::clamp(graphics.msaa, 1, renderer::FrameBuffer::max_samples());
-    resize_target(frame, samples);
+    resize_target(frame);
 
     // A wider picture preserves the central television framing; a movie's fills the width.
     if (!frame.scene.movie && output.aspect > kTvAspect && output.box.width > 0
@@ -180,7 +185,7 @@ float prepare_target(SceneFrame& frame) {
 
 // Applies the submitted settings and authored shadow state.
 void set_lighting(SceneFrame& frame) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     const Kept& scene = frame.scene;
     const auto& graphics = frame.graphics;
     auto& input = frame.input;
@@ -193,7 +198,7 @@ void set_lighting(SceneFrame& frame) {
         owner.renderer->textures().set_anisotropy(static_cast<float>(anisotropy));
     }
 
-    const bool enhanced = enhanced_graphics_available() && graphics.enhanced_graphics;
+    const bool enhanced = owner.enhanced_graphics_available() && graphics.enhanced_graphics;
     std::vector<renderer::PointEmitter> emitters;
     const auto& orb_light = graphics.nanotech_light;
     if (enhanced && orb_light.enabled && orb_light.brightness > 0.0f) {
@@ -237,10 +242,20 @@ void set_lighting(SceneFrame& frame) {
     owner.scene.set_environment_probe_debug(graphics.environment_probe_debug);
     input.shadow_quality = graphics.shadow_quality;
     input.shadow_filter = graphics.shadow_filter;
+    input.early_lighting_quality = graphics.early_lighting_quality;
     input.volumetric_quality = graphics.volumetric_quality;
     input.sun_pixel_shadow = enhanced && graphics.enhanced_shadows
                              && owner.scene.sun_shadow_enabled() && scene.has_camera
                              && openrac_game_has_level(scene.level);
+    input.cloud_shadows =
+        graphics.cloud_shadow_override.value_or(owner.profile->cloud_shadow_defaults(scene.level));
+    static const bool& clouds_off =
+        stats::probe("OPENRAC_CLOUD_SHADOWS_OFF", "Reference: disable cloud shadows");
+    input.cloud_shadows.enabled &= input.sun_pixel_shadow && !clouds_off;
+    // Match the sky's authored clock when the game exposes it.
+    const auto cloud_tick =
+        scene.state.sky_tick ? std::uint64_t(*scene.state.sky_tick) : scene.frame;
+    input.cloud_seconds = static_cast<double>(cloud_tick) / program::tick_rate();
     input.hero_pixel_shadow = enhanced && graphics.enhanced_shadows
                               && owner.scene.hero_shadow_enabled()
                               && scene.hero_airborne.has_value() && scene.has_camera
@@ -256,7 +271,7 @@ void set_lighting(SceneFrame& frame) {
 
 // Enables submitted world buckets while retaining native HUD drawing during loading.
 void set_buckets(SceneFrame& frame) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     const Kept& scene = frame.scene;
     const bool has_camera = frame.has_camera;
     static const bool& opaque_effects_off = stats::probe(
@@ -287,7 +302,10 @@ void set_buckets(SceneFrame& frame) {
 // first frame of each run of refused ones is logged (a few runs a session), with the camera's
 // numbers, so that a report carries them.
 std::optional<renderer::Camera> guard_camera(
-    State& owner, const host::GameState& state, const renderer::Camera& camera, std::uint64_t tick
+    SceneRenderState& owner,
+    const host::GameState& state,
+    const renderer::Camera& camera,
+    std::uint64_t tick
 ) {
     const CameraPose pose{state.camera_position, state.forward, state.left, state.up};
 
@@ -329,27 +347,24 @@ std::optional<renderer::Camera> guard_camera(
 
 // Configures visible buckets, the interpolated camera and probe selection.
 void set_camera(SceneFrame& frame) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     const Kept& scene = frame.scene;
     auto& input = frame.input;
     const float picture_scale = frame.picture_scale;
     // Turned by the late camera latch (frontend/camera_latch.h) when it is on.
     const auto state = turned_camera(
         scene.has_prev_state && frame.output.alpha < 1.0f
-            ? blend_camera(scene.prev_state, scene.state, frame.output.alpha)
+            ? blend_camera(scene.prev_state, scene.state, frame.output.alpha, camera_pace(scene))
             : scene.state,
-        {frame.output.latch_yaw, frame.output.latch_pivot}
+        {frame.output.latch_yaw, frame.output.latch_pivot, frame.output.latch_pitch}
     );
     renderer::Camera camera;
     camera.view = state.view();
     camera.target = state.camera_target;
     camera.target_id = state.camera_target_id;
-    // The world's depth starts at the profile's near (GameProfile::depth_near: finer depth far
-    // away), clamped so that nothing nearer is cut away; with precise depth at the window's 0.05.
-    const float profile_near =
-        owner.profile != nullptr && !renderer::precise_depth() ? owner.profile->depth_near() : 0.0f;
-    const float near_z = std::max(0.05f, profile_near);
-    input.depth_clamp = profile_near > 0.05f;
+    // Push the near plane out for Normal depth only when clamping preserves closer geometry.
+    input.depth_clamp = !renderer::precise_depth() && gl::depth_clamp_available();
+    const float near_z = input.depth_clamp ? 0.25f : 0.05f;
     // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is
     // the TV's 4:3, which they were made for), not the window's shape. A wider picture keeps the
     // vertical one and opens the horizontal one by as much as the picture is wider: the game's
@@ -371,21 +386,40 @@ void set_camera(SceneFrame& frame) {
         scene.has_camera ? guard_camera(owner, state, camera, scene.frame) : std::nullopt;
     const bool has_camera = drawn.has_value();
     frame.has_camera = has_camera;
-    const auto background = scene.state.background_or(owner.level.background);
+    auto background = scene.state.background_or(owner.level.background);
+    // A mod's scene air (openrac_api.scene_air) over the game's background: in the picture only.
+    if (const auto air = mods::scene_air(); air && (air->flags & OPENRAC_AIR_BACKGROUND) != 0) {
+        for (int i = 0; i < 3; ++i) {
+            background[i] += (air->background[i] - background[i]) * air->weight;
+        }
+    }
     input.clear_colour = has_camera && (scene.draws & kLevelLayers) != 0
                              ? std::array<float, 4>{background[0], background[1], background[2], 1}
                              : std::array<float, 4>{0, 0, 0, 1};
     set_buckets(frame);
     input.camera = drawn.value_or(camera);
+    input.pvs_bypass = mods::host_camera_overridden()
+                       || (scene.gameplay_camera && mods::camera_visibility_bypassed());
     // Adjust the guarded gameplay lens before the debug camera can replace it. Scaling both
     // projection axes preserves the native aspect ratio and the picture's widescreen expansion.
     // The level's world under the pause menu keeps the lens it was paused with (keep_tick). A tick
     // that drew mobys alone (the pause menu's frame objects over its picture of the frame) is no
     // gameplay view: they are placed for the native lens.
     float opened = 1.0f;
-    if (has_camera && scene.gameplay_camera && (scene.draws & kLevelLayers) != 0
-        && !frame.output.camera_debug.settings.enabled
-        && frame.graphics.gameplay_fov != settings::kDefaultGameplayFov) {
+    // A mod's scene may ask for a field of view of its own (openrac_api.camera_fov, vertical
+    // degrees): drawn only, in place of the player's lens; the game's view tests open with it.
+    const float mod_fov = mods::camera_fov();
+    if (has_camera && mod_fov > 0.0f && (scene.draws & kLevelLayers) != 0
+        && !frame.output.camera_debug.settings.enabled) {
+        const float original = 1.0f / input.camera.projection[5];
+        const float wanted = std::tan(mod_fov * 0.5f * 3.14159265f / 180.0f);
+        const float scale = original / wanted;
+        input.camera.projection[0] *= scale;
+        input.camera.projection[5] *= scale;
+        opened = std::max(1.0f, 1.0f / scale);
+    } else if (has_camera && scene.gameplay_camera && (scene.draws & kLevelLayers) != 0
+               && !frame.output.camera_debug.settings.enabled
+               && frame.graphics.gameplay_fov != settings::kDefaultGameplayFov) {
         const float original = 1.0f / input.camera.projection[5];
         const float percent = static_cast<float>(frame.graphics.gameplay_fov) / 100.0f;
         const float scale = original / std::tan(std::atan(original) * percent);
@@ -430,7 +464,7 @@ void set_camera(SceneFrame& frame) {
 // Records the submitted world and temporal resolve before native HUD drawing. Returns whether this
 // frame drew anew (a repeated frame keeps the picture drawn before).
 bool draw_world(SceneFrame& frame) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     const Kept& scene = frame.scene;
     const auto& graphics = frame.graphics;
     auto& input = frame.input;
@@ -445,17 +479,29 @@ bool draw_world(SceneFrame& frame) {
         // [debug tools] The passes hidden in the overlay; the render timed (common/stats.h).
         debug_overlay::before_render(owner.renderer.get(), frame.input.frame);
         const stats::Scope render_scope("render");
+        // The last frame's samples were let go as they were resolved: one drawn over it starts
+        // from its resolved colour, any other clears them.
+        if (owner.frame.samples_let_go()) {
+            if (input.keep_colour) {
+                owner.frame.restore_samples();
+            } else {
+                owner.frame.samples_written();
+            }
+        }
+        // Split screen: each view's world into its own picture first (none: the views forgotten).
+        draw_split_views(frame);
+        const bool split = split_screen(scene) && frame.has_camera;
         renderer::RenderTarget target{owner.frame.id(), width, height, picture_scale};
-        if (graphics.enhanced_graphics && enhanced_graphics_available()) {
+        const bool enhanced = graphics.enhanced_graphics && owner.enhanced_graphics_available();
+        if (enhanced) {
             target.depth_texture = owner.frame.depth_texture();
         }
         target.resolve_framebuffer = owner.frame.resolve_target();
         target.resolves_itself = owner.frame.resolves_itself();
         target.wide_2d = picture_scale < 1.0f && graphics.hud == settings::Hud::Edges;
 
-        const bool enhanced_world_colour = graphics.enhanced_graphics
-                                           && enhanced_graphics_available() && scene.has_camera
-                                           && !input.keep_colour && (scene.draws & 0x1Fu) != 0;
+        const bool enhanced_world_colour =
+            enhanced && scene.has_camera && !input.keep_colour && (scene.draws & 0x1Fu) != 0;
         const bool bloom_colour =
             enhanced_world_colour && graphics.bloom.enabled && graphics.bloom.strength > 0.0f;
         const bool grade_colour = enhanced_world_colour && graphics.agx_preview;
@@ -508,8 +554,25 @@ bool draw_world(SceneFrame& frame) {
         }
 
         // The mods' heat haze (interface 1.12), over the world and under the HUD.
+        static const bool& haze_log = stats::probe(
+            "OPENRAC_HAZE_LOG", "the frame-copy strips and their heat haze patches, in the log"
+        );
+        static int haze_logged = 0;
+        if (haze_log && !scene.haze.empty() && haze_logged < 24) {
+            ++haze_logged;
+            log::info(
+                "haze drawn frame {}: {} patches, camera {}, keep colour {}, under menu {}, draws "
+                "{:#x}",
+                scene.frame,
+                scene.haze.size(),
+                scene.has_camera,
+                input.keep_colour,
+                scene.world_under_menu,
+                scene.draws
+            );
+        }
         if (!scene.haze.empty() && scene.has_camera && !input.keep_colour && !scene.world_under_menu
-            && (scene.draws & 0x1Fu) != 0) {
+            && (scene.draws & 0x1Fu) != 0 && !split) {
             auto before_hud = std::move(input.before_hud);
             input.before_hud = [&owner,
                                 &scene,
@@ -537,7 +600,34 @@ bool draw_world(SceneFrame& frame) {
                 }
             };
         }
+        if (!split) {
+            owner.renderer->render(input, target);
+            return true;
+        }
+        // Split screen: the views' pictures are the frame's world. Each view whose World the 2D
+        // path reaches is drawn there, over what the game drew in it before (its viewport's clear)
+        // and under its HUD; the others are put on the frame before anything that reads the world
+        // drawn (the read-back copy, bloom) and under the 2D.
+        std::uint32_t in_stream = 0;
+        input.view_pictures = stream_view_pictures(owner, scene, in_stream);
+        auto before_hud = std::move(input.before_hud);
+        input.before_hud = [&owner, width, height, in_stream, before_hud = std::move(before_hud)] {
+            put_split_views(owner, owner.frame.id(), width, height, in_stream);
+            if (before_hud) {
+                before_hud();
+            }
+        };
+        std::vector<std::pair<renderer::BucketRenderer*, bool>> world_buckets;
+        for (const auto& bucket : owner.renderer->renderers()) {
+            if (bucket->bucket() != renderer::Bucket::Hud) {
+                world_buckets.emplace_back(bucket.get(), bucket->enabled);
+                bucket->enabled = false;
+            }
+        }
         owner.renderer->render(input, target);
+        for (const auto& [bucket, enabled] : world_buckets) {
+            bucket->enabled = enabled;
+        }
         return true;
     }
 
@@ -545,15 +635,21 @@ bool draw_world(SceneFrame& frame) {
 }
 }  // namespace
 
+renderer::CloudShadowSettings level_cloud_shadows() {
+    return g ? g->render.profile->cloud_shadow_defaults(g->kept->level)
+             : renderer::CloudShadowSettings{};
+}
+
 void render_scene(
-    State& owner,
+    SceneRenderState& owner,
     const Kept& snapshot,
     const settings::Settings& graphics,
-    FramePresentation& output
+    FramePresentation& output,
+    bool views_begun
 ) {
     const crash::BreadcrumbScope breadcrumbs(output.source_frame);
     crash::breadcrumb("scene setup");
-    SceneFrame frame{owner, snapshot, graphics, output, {}, {}, {}, false, 1};
+    SceneFrame frame{owner, snapshot, graphics, output};
     frame.temporal = prepare_temporal(frame);
     {
         const profiling::Zone trace("Upload scene");
@@ -573,6 +669,9 @@ void render_scene(
 
     // A mod's views (a headset's eyes), from the same scene; nothing without a mod's.
     if (views_wanted()) {
+        if (!views_begun) {
+            begin_views();
+        }
         draw_views(frame, world);
     }
 
@@ -585,11 +684,22 @@ void render_scene(
         gl::glFinish();
     }
 
+#if defined(OPENRAC_VULKAN)
+    // The frame's samples are let go as they are resolved: a tiled GPU (a phone's) then writes out
+    // only the resolved colour, not every sample (at 4x and 3120x1440, 72 MB a frame). Not in a
+    // run of ticks drawn over the last picture (a fade): the next one blends over every sample.
+    if (gl::is_vulkan() && owner.frame.samples() > 1 && !owner.frame.resolves_itself()
+        && !owner.frame.samples_let_go() && !owner.overdraw
+        && vkgl::resolve_dropping_samples(owner.frame.id(), owner.frame.resolve_target())) {
+        owner.frame.samples_dropped();
+    }
+#endif
     output.shown = owner.frame.resolved();
     output.camera = frame.input.camera;
     output.has_camera = frame.has_camera;
+    output.world_under_menu = snapshot.world_under_menu;
     output.tick = frame.input.frame;
-    output.enhanced_graphics = graphics.enhanced_graphics && enhanced_graphics_available();
+    output.enhanced_graphics = graphics.enhanced_graphics && owner.enhanced_graphics_available();
     output.finished = std::chrono::steady_clock::now();
     output.scene_seconds = std::chrono::duration<double>(scene_done - output.started).count();
     output.record_seconds = std::chrono::duration<double>(recorded - scene_done).count();

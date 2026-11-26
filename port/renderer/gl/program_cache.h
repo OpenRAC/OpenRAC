@@ -21,8 +21,13 @@
 #include <cstdint>
 #include <filesystem>
 #include <string_view>
+#include <vector>
 
 #include "renderer/gl/gl.h"
+
+namespace openrac::renderer::shader_variants {
+class Context;
+}
 
 namespace openrac::renderer::program_cache {
 
@@ -59,5 +64,14 @@ Counts counts();
 // Forgets the binaries kept in memory and the driver they belong to, and reads the environment
 // again: a test that changes OPENRAC_GL_PROGRAM_CACHE, or a context of another driver.
 void reset();
+
+// Owns logical program tracking for this GL context; cache resets preserve its live programs.
+shader_variants::Context& variant_context();
+
+// Loads bounded exact feature sets observed for these sources on this driver.
+std::vector<std::vector<int>> feature_sets(const Key& key, std::size_t modes);
+
+// Records one observed set beside the driver's program binaries for the next level or run.
+void note_feature_set(const Key& key, const std::vector<int>& values);
 
 }  // namespace openrac::renderer::program_cache

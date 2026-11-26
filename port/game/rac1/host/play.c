@@ -412,15 +412,32 @@ static int hero_sound_play(int sound, int loop) {
     return func_0022ED80(sound, loop ? 4 : 0, (int)moby);
 }
 
-static void hero_sound_stop(int voice) {
-    const gaddr moby = hero_moby();
-    if (moby == 0 || voice < 0 || voice >= VOICES) {
+static void moby_sound_stop(gaddr moby, int voice) {
+    if (moby == 0 || !in_level() || voice < 0 || voice >= VOICES) {
         return;
     }
     const gaddr slot = OPENRAC_DATA(VOICE_POOL) + (gaddr)voice * VOICE_BYTES;
     if (GREF(uint32_t, slot + VOICE_OWNER) == moby && GREF(uint8_t, slot + VOICE_STATE) != 0) {
         func_0022EAB0(voice);
     }
+}
+
+static void hero_sound_stop(int voice) {
+    moby_sound_stop(hero_moby(), voice);
+}
+
+/* The same on any live moby of the level (openrac_api.moby_sound_play): its class's table. */
+static int moby_sound_play(gaddr moby, int sound, int loop) {
+    if (moby == 0 || !in_level() || sound < 0 || (int8_t)GREF(uint8_t, moby + 0x20u) < 0) {
+        return -1;
+    }
+    return func_0022ED80(sound, loop ? 4 : 0, (int)moby);
+}
+
+/* The game's music streams play in volume group 2 (music_start_track's
+ * snd_play_vag_stream_by_loc_ex_cb calls). */
+static int music_group(void) {
+    return 2;
 }
 
 /* A hit's damage on the hero for a mod (openrac_api.hero_hurt): hero_change_health
@@ -809,6 +826,9 @@ const openrac_game_play rac1_play = {
     .figure_shot2 = rac1_figure_shot2,
     .scene_playing = rac1_scene_playing,
     .scene_start = rac1_scene_start,
+    .pickup_animation = rac1_pickup_animation,
+    .pickup_background = rac1_pickup_background,
+    .infobot_presentation = rac1_infobot_presentation,
     /* Both discs: the port ticks them alike, and their levels, classes, items, scenes and saves
      * mean the same. A disc or a change of this code that breaks that takes a new number. */
     .world_family = "rac1-60-1",
@@ -822,6 +842,9 @@ const openrac_game_play rac1_play = {
     .hero_hold_at = rac1_hero_hold_at,
     .hero_let_go = rac1_hero_let_go,
     .moby_mission = rac1_world_moby_mission,
+    .moby_class_at = rac1_world_moby_class,
+    .camera_overridden = rac1_camera_overridden,
+    .moby_uid = rac1_world_moby_uid,
     .camera_script_next = rac1_camera_script_next,
     .camera_script_view = rac1_camera_script_view,
     .camera_script_play = rac1_camera_script_play,
@@ -833,8 +856,14 @@ const openrac_game_play rac1_play = {
     .collision_triangles = rac1_collision_triangles,
     .camera_set = rac1_camera_set,
     .camera_view = rac1_camera_view,
+    .camera_shake = rac1_camera_shake,
     .hero_sound_play = hero_sound_play,
     .hero_sound_stop = hero_sound_stop,
     .hero_hurt = hero_hurt,
+    .particle_texture_register = rac1_particle_texture_register,
+    .particle_spawn_ex = rac1_particle_spawn_ex,
+    .moby_sound_play = moby_sound_play,
+    .moby_sound_stop = moby_sound_stop,
+    .music_group = music_group,
 };
 #endif

@@ -146,6 +146,8 @@ def _check_setting(i: int, s, errors: list[str]) -> None:
         errors.append(f"{where}: no name")
     if "description" in s and not isinstance(s["description"], str):
         errors.append(f"{where}: description is not text")
+    if "section" in s and not isinstance(s["section"], str):
+        errors.append(f"{where}: section is not text")
     kind = s.get("type")
     if kind not in SETTING_TYPES:
         errors.append(f"{where}: type must be one of {', '.join(sorted(SETTING_TYPES))}")
@@ -282,7 +284,7 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
         return ["the manifest is not a JSON object"]
     if m.get("format") != FORMAT:
         if m.get("format") == 1:
-            return ["format 1 is a data pack (editor/MODDING.md): it is added as a pack, not packaged here"]
+            return ["format 1 is a data pack (extractor/MODDING.md): it is added as a pack, not packaged here"]
         return [f"format must be {FORMAT}"]
     mid = m.get("id")
     if not isinstance(mid, str) or not ID.match(mid) or len(mid) > 64:

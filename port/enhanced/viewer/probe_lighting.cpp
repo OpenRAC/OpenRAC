@@ -26,7 +26,9 @@
 #include "enhanced/tools/baker/sources/probe_fingerprint.h"
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/probe_texture_upload.h"
+#include "enhanced/viewer/shader_sources.h"
 #include "enhanced_viewer_shaders.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
 
 #if defined(OPENRAC_VULKAN)
@@ -159,56 +161,21 @@ unsigned rays_from_environment() {
 }  // namespace
 
 std::string probe_shader_source(std::string source) {
-    if (!enhanced_rendering_available()) {
-        return source;
-    }
-    source.insert(source.find('\n') + 1, enhanced::local_light_shader_source());
-    source.insert(source.find('\n') + 1, shaders::shading_brdf_glsl);
-    source.insert(source.find('\n') + 1, renderer::shaders::shading_normal_glsl);
-    static const bool& gather_off = stats::probe(
-        "OPENRAC_SHADOW_GATHER_OFF", "Reference: 16 individual shadow texel fetches (reload level)"
+    return shader_sources::probe_shader_source(
+        std::move(source), shader_sources::runtime_options()
     );
-    if (gl::is_vulkan() && !gather_off) {
-        source.insert(source.find('\n') + 1, "#define OPENRAC_SHADOW_GATHER 1\n");
-    }
-    static const bool& reference = stats::probe(
-        "OPENRAC_SHADOW_FILTER_REFERENCE",
-        "Profiling reference: nine bilinear shadow taps instead of unique texels"
-    );
-    if (reference) {
-        source.insert(source.find('\n') + 1, "#define OPENRAC_SHADOW_FILTER_REFERENCE 1\n");
-    }
-    static const bool& zero_weight_reference = stats::probe(
-        "OPENRAC_PROBE_ZERO_WEIGHT_REFERENCE",
-        "Profiling reference: fetch probe atlases for zero-weight valid corners"
-    );
-    if (zero_weight_reference) {
-        source.insert(source.find('\n') + 1, "#define OPENRAC_PROBE_ZERO_WEIGHT_REFERENCE 1\n");
-    }
-    return source;
 }
 
 std::string probe_mesh_fragment(std::string source) {
-    if (!enhanced_rendering_available()) {
-        return source;
-    }
-    source.insert(source.find('\n') + 1, shaders::environment_glsl);
-    source += std::string("\n#if !defined(OPENRAC_SOLID)\n") + std::string(shaders::thin_glass_glsl)
-              + "\n#endif\n";
-    return probe_shader_source(std::move(source));
+    return shader_sources::probe_mesh_fragment(
+        std::move(source), shader_sources::runtime_options()
+    );
 }
 
 std::string probe_early_fragment(std::string source) {
-    if (!enhanced_rendering_available()) {
-        return probe_mesh_fragment(std::move(source));
-    }
-    source += shaders::early_lighting_glsl;
-    source.insert(source.find('\n') + 1, shaders::environment_glsl);
-    source += std::string("\n#if !defined(OPENRAC_SOLID)\n") + std::string(shaders::thin_glass_glsl)
-              + "\n#endif\n";
-    source.insert(source.find('\n') + 1, "#define OPENRAC_EARLY_LIGHTING 1\n");
-
-    return probe_shader_source(std::move(source));
+    return shader_sources::probe_early_fragment(
+        std::move(source), shader_sources::runtime_options()
+    );
 }
 
 bool ProbeLighting::upload(
@@ -1002,9 +969,13 @@ void ProbeLighting::bind(
     );
     // Going Commando's original lighting is the anchor (README, Retail anchoring): its moby ambient
     // and terrain vertex lighting carry more of each level's look than its dimmer skies give the
-    // bake. Ratchet & Clank keeps the tuned look it has.
+    // bake. Up Your Arsenal lights its levels with the same routines. Ratchet & Clank keeps the
+    // tuned look it has.
     glUniform1i(
-        shader.uniform("probe_retail_anchor"), active() && m_grid.game_version.starts_with("rac2-")
+        shader.uniform("probe_retail_anchor"),
+        active()
+            && (m_grid.game_version.starts_with("rac2-")
+                || m_grid.game_version.starts_with("rac3-"))
     );
     glUniform3f(
         shader.uniform("probe_sunlight_scale"),
@@ -1035,7 +1006,8 @@ void ProbeLighting::bind(
     if (!active() || !receiver) {
         return;
     }
-    glUniform2f(shader.uniform("probe_frame"), m_grid.frame.axis[0], m_grid.frame.axis[1]);
+    const auto rotation = m_grid.frame.quaternion();
+    glUniform4fv(shader.uniform("probe_frame"), 1, rotation.data());
     glUniform3f(
         shader.uniform("probe_origin"), m_grid.origin[0], m_grid.origin[1], m_grid.origin[2]
     );
@@ -1059,7 +1031,8 @@ void ProbeLighting::bind(
             continue;
         }
         const auto& g = m_region_grids[selected.region];
-        glUniform2f(shader.uniform(kDenseFrame[slot].data()), g.frame.axis[0], g.frame.axis[1]);
+        const auto dense_rotation = g.frame.quaternion();
+        glUniform4fv(shader.uniform(kDenseFrame[slot].data()), 1, dense_rotation.data());
         glUniform3f(
             shader.uniform(kDenseOrigin[slot].data()), g.origin[0], g.origin[1], g.origin[2]
         );
@@ -1179,12 +1152,23 @@ void ProbeLighting::draw_spheres(
             return;
         }
 #endif
-        glDrawElementsInstanced(
-            GL_TRIANGLES,
-            vertices,
-            GL_UNSIGNED_INT,
-            nullptr,
-            static_cast<GLsizei>(m_visible_spheres.size())
+        const renderer::RasterBuffer geometry[]{
+            {m_sphere_buffer, m_visible_spheres.size() * sizeof(Sphere)},
+            {m_sphere_indices, vertices * sizeof(unsigned)}
+        };
+        renderer::raster_pass(
+            "probe sphere overlay",
+            state.target,
+            {geometry, {}, renderer::ColourAttachments::ColourDepthRead, true},
+            [&] {
+                glDrawElementsInstanced(
+                    GL_TRIANGLES,
+                    vertices,
+                    GL_UNSIGNED_INT,
+                    nullptr,
+                    static_cast<GLsizei>(m_visible_spheres.size())
+                );
+            }
         );
         ++state.stats.draw_calls;
         state.stats.triangles += m_visible_spheres.size() * (vertices / 3);

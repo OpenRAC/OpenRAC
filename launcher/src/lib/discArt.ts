@@ -21,6 +21,7 @@ const PRINTS: Record<string, string[]> = {
 function region(version: string): string {
   if (version.startsWith("pal")) return "pal";
   if (["jp", "ntsc-j", "kr", "ko", "ntsc-k"].includes(version)) return "jp";
+
   return "ntsc";
 }
 
@@ -28,8 +29,10 @@ function region(version: string): string {
  *  print shows the North American disc. */
 export function discPrint(game: string, version: string): string | null {
   const regions = PRINTS[game];
+
   // A store build shows its own drawings, never the games' art: the label then.
   if (!regions || storeArtwork()) return null;
   const want = region(version);
+
   return `/img/discs/${game}-${regions.includes(want) ? want : "ntsc"}.webp`;
 }

@@ -3,21 +3,25 @@
 
 /** The kinds of thing My mods holds. */
 export type ModGroup = "gameplay" | "looks" | "tools";
+
 export type ModFilter = "all" | ModGroup;
+
 /** Load order (the order the game reads them, which can be changed) or by name. */
 export type ModSort = "order" | "name";
 
 /** The group a gameplay mod's kind goes in: a mod that is only a page in the launcher is a tool,
- *  Enhanced graphics changes the look, the rest runs in the game. */
+ *  the built-in entries (Enhanced graphics, Keyboard and mouse) are apart, the rest runs in the game. */
 export function groupOf(kind: string): ModGroup {
   if (kind === "tool") return "tools";
-  if (kind === "built-in") return "looks";
+  if (kind === "built-in" || kind === "always-on") return "looks";
+
   return "gameplay";
 }
 
 /** Whether a row's words hold every word of the search, in any case and order. */
 export function matches(query: string, ...words: (string | null | undefined)[]): boolean {
   const text = words.filter(Boolean).join(" ").toLowerCase();
+
   return query
     .toLowerCase()
     .split(/\s+/)
@@ -26,9 +30,16 @@ export function matches(query: string, ...words: (string | null | undefined)[]):
 }
 
 /** The rows as shown: those the search finds, in load order or by name. */
-export function arrange<T>(rows: T[], query: string, sort: ModSort, words: (row: T) => string[]): T[] {
+export function arrange<T>(
+  rows: T[],
+  query: string,
+  sort: ModSort,
+  words: (row: T) => string[],
+): T[] {
   const found = rows.filter((r) => matches(query, ...words(r)));
+
   if (sort === "name") found.sort((a, b) => (words(a)[0] ?? "").localeCompare(words(b)[0] ?? ""));
+
   return found;
 }
 

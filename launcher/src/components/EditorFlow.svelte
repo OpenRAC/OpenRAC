@@ -1,39 +1,56 @@
 <script lang="ts">
   // The Level editor tab's one panel: where the player is with this disc's levels, in a sentence,
-  // and the step that comes next as the main button (Open in Godot beside it where it applies), how
-  // far along a running step is, and under it Your levels, always in view: pack again, export the
-  // levels again, read the game's levels again and delete the level project. The state is the core's look at the editor's folders
+  // and the step that comes next as the main button (Open in OpenRAC Editor beside it where it applies), how
+  // far along a running step is, and under it Your levels, always in view: add a level as a new
+  // planet, rebuild the level projects, repair the game's levels and delete the level projects. The state is the core's look at the editor's folders
   // (core/src/editor_state.rs), asked again when the tab opens, when the window comes back into
-  // focus (the player saved in Godot) and when one of the editor's jobs ends; the words and the
+  // focus (the player saved in the editor) and when one of the editor's jobs ends; the words and the
   // order of the states are lib/editorFlow.ts's. A failed step is said in a player's words
   // (lib/toolErrors.ts), never in the tool's: what it printed is behind "Show details".
-  import { api, pickFile, type EditorState, type GameView, type VersionView } from "$lib/api";
-  import { app, guardShown, jobs, run, runChain, saveConfig, toast } from "$lib/app.svelte";
+  import { onMount } from "svelte";
+
+  import { api, type EditorState, type GameView, onAndroid, type VersionView } from "$lib/api";
   import {
+    app,
+    chooseEditor,
+    guardShown,
+    installEditor,
+    jobs,
+    run,
+    runChain,
+    toast,
+  } from "$lib/app.svelte";
+  import {
+    discMarket,
+    editorStage,
     LEVEL_TOOL_TEXT,
     LEVELS_SECTION,
+    type LevelTool,
     levelTools,
     OPEN_ANYWAY,
     OPEN_ANYWAY_HINT,
+    planetBlocker,
+    type Step,
     STEP_LABEL,
-    editorStage,
     updateNote,
     updateNoteLine,
-    type Step,
   } from "$lib/editorFlow";
   import { levelName, levelsOf } from "$lib/labels";
-  import { GODOT_URL } from "$lib/links";
   import { EDITOR } from "$lib/modsText";
-  import { hidePaths } from "$lib/paths";
   import { foundDisc, setUp } from "$lib/player.svelte";
   import type { Job } from "$lib/queue";
-  import { toolFailure, type NextStep } from "$lib/toolErrors";
-  import { onMount } from "svelte";
+  import { type NextStep, toolFailure } from "$lib/toolErrors";
+
+  import EditorInstall from "./EditorInstall.svelte";
   import EditorReset from "./EditorReset.svelte";
   import Icon from "./Icon.svelte";
   import JobProgress from "./JobProgress.svelte";
 
-  let { game, version, onchanged }: { game: GameView; version: VersionView; onchanged?: () => void } = $props();
+  let {
+    game,
+    version,
+    onchanged,
+  }: { game: GameView; version: VersionView; onchanged?: () => void } = $props();
 
   const scope = $derived({ kind: "version" as const, key: version.key });
   const action = (id: string) => version.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
@@ -41,14 +58,33 @@
   const reexport = $derived(action("editor-reexport"));
   const edit = $derived(action("editor-open"));
   const pack = $derived(action("editor-pack"));
+  const newPlanet = $derived(action("editor-new-planet"));
   const early = $derived(!pack);
-  const lacksGodot = $derived((edit?.blockers ?? []).some((b) => b.replace(/^needs /, "").startsWith("Godot")));
+  /** Null when OpenRAC Editor is downloaded and fits this OpenRAC; else why not ("" when it is not
+   *  downloaded): the panel then offers the download. */
+  const lacksEditor = $derived(
+    app.editor === null
+      ? null
+      : !app.editor.version
+        ? app.editor.problem
+          ? `${app.editor.problem}.`
+          : ""
+        : app.editor.problem
+          ? `${app.editor.problem}.`
+          : null,
+  );
+  /** The editor is there and fits, but brings no steps for this version. */
+  const unsupported = $derived(lacksEditor === null && app.editor !== null && !extract);
   const discFound = $derived(version.status.disc.state === "found");
 
   const live = (j: Job) => j.state === "queued" || j.state === "running";
   const jobsOf = (ids: string[]) =>
-    jobs.list.filter((j) => j.scope.kind === "version" && j.scope.key === version.key && ids.includes(j.actionId));
-  const extracting = $derived(jobsOf(["editor-extract", "editor-reexport", "editor-import"]).find(live) ?? null);
+    jobs.list.filter(
+      (j) => j.scope.kind === "version" && j.scope.key === version.key && ids.includes(j.actionId),
+    );
+  const extracting = $derived(
+    jobsOf(["editor-extract", "editor-reexport", "editor-import"]).find(live) ?? null,
+  );
   const packing = $derived(jobsOf(["editor-pack"]).find(live) ?? null);
 
   // ---- What the core found, asked again when it may have changed ----
@@ -58,8 +94,10 @@
   let asking = 0;
   async function look() {
     const mine = ++asking;
+
     try {
       const seen = await api.editorState(version.key);
+
       if (mine === asking) {
         found = seen;
         unreadable = false;
@@ -73,13 +111,15 @@
   }
 
   onMount(() => {
-    // Back from Godot: what was saved there is seen without a click.
+    // Back from the editor: what was saved there is seen without a click.
     const focused = () => void look();
     const shown = () => {
       if (document.visibilityState === "visible") void look();
     };
+
     window.addEventListener("focus", focused);
     document.addEventListener("visibilitychange", shown);
+
     return () => {
       window.removeEventListener("focus", focused);
       document.removeEventListener("visibilitychange", shown);
@@ -88,9 +128,13 @@
 
   // An editor job ended (here, from Activity or from the game page): look again.
   const ended = $derived(
-    jobsOf(["editor-extract", "editor-reexport", "editor-import", "editor-pack", "overrides-stack"]).filter(
-      (j) => !live(j),
-    ).length,
+    jobsOf([
+      "editor-extract",
+      "editor-reexport",
+      "editor-import",
+      "editor-pack",
+      "overrides-stack",
+    ]).filter((j) => !live(j)).length,
   );
   // (It runs once at first too: the tab's first look.)
   $effect(() => {
@@ -104,6 +148,7 @@
     const last = jobsOf(["editor-extract", "editor-reexport", "editor-pack"])
       .filter((j) => !live(j))
       .at(-1);
+
     return last?.state === "failed" && last.key !== dismissed ? last : null;
   });
   const failure = $derived(failed ? toolFailure(failed.lines) : null);
@@ -114,7 +159,8 @@
       game: version.game,
       state: unreadable ? emptyState() : found,
       discFound,
-      lacksGodot,
+      lacksEditor,
+      unsupported,
       early,
       extracting,
       packing,
@@ -122,7 +168,9 @@
   );
   const note = $derived(found ? updateNote(version.game, found.carried) : null);
   // The failure's own sentence is the stage's when the core already found the same thing.
-  const failureShown = $derived(failure && !(failure.next === "update" && stage.kind === "needs-update"));
+  const failureShown = $derived(
+    failure && !(failure.next === "update" && stage.kind === "needs-update"),
+  );
 
   function emptyState(): EditorState {
     return {
@@ -147,81 +195,90 @@
   let picked = $state<number | null>(null);
   const level = $derived(picked ?? levelsOf(version.game)[0]?.number ?? 0);
   let busy = $state<Step | null>(null);
-  let pickingGodot = false;
-
-  async function chooseGodot() {
-    if (!app.config || pickingGodot) return;
-    pickingGodot = true;
-    const picked = await pickFile(EDITOR.pickGodot).finally(() => (pickingGodot = false));
-    if (!picked) return;
-    const check = await guardShown(api.checkTool("godot", picked));
-    if (!check) return;
-    if (!check.ok) {
-      toast(hidePaths(EDITOR.notGodot(check.message)).text, "error");
-      return;
-    }
-    await saveConfig({ ...app.config, godot: picked });
-  }
 
   async function take(step: Step | NextStep) {
     if (busy) return;
+
     switch (step) {
       case "set-up":
         await setUp(game.id, game.title, foundDisc(game.id)?.path);
+
         return;
-      case "get-godot":
-        await guardShown(api.openUrl(GODOT_URL));
+      case "get-editor":
+        busy = step;
+
+        try {
+          if (await installEditor()) await look();
+        } finally {
+          busy = null;
+        }
+
+        return;
+      case "choose-editor":
+        busy = step;
+
+        try {
+          if (await chooseEditor()) await look();
+        } finally {
+          busy = null;
+        }
+
         return;
       case "prepare":
       case "open":
         if (!edit) return;
         busy = step;
+
         try {
-          // The first time (or a level not read yet), the levels are read before Godot opens.
+          // The first time (or a level not read yet), the levels are read before the editor opens.
           const done =
             edit.runnable && found?.levels.includes(level) !== false
-              ? (await guardShown(api.openLevelInGodot(version.key, level))) !== undefined
+              ? (await guardShown(api.openLevelInEditor(version.key, level))) !== undefined
               : await runChain(scope, extract ? [extract, edit] : [edit], level);
+
           if (done) toast(EDITOR.opening(levelName(version.game, level)));
         } finally {
           busy = null;
         }
+
         return;
       case "update":
       case "repair":
         if (!extract) return;
         busy = step;
+
         try {
           await runChain(scope, [extract]);
         } finally {
           busy = null;
         }
+
         await look();
         onchanged?.();
+
         return;
       case "retry":
         if (failed?.actionId === "editor-pack") return take("pack");
         if (failed?.actionId === "editor-extract") return take("update");
         if (failed?.actionId === "editor-reexport") return exportAgain();
+
         return;
       case "pack":
         if (pack) await run(scope, pack);
-        return;
-      case "play":
-        if (!app.config) return;
-        if (!app.config.playWithMods) await saveConfig({ ...app.config, playWithMods: true });
-        app.version = version.key;
-        app.page = "game";
+
         return;
       case "start-over":
         levelsHeading?.scrollIntoView({ behavior: "smooth", block: "start" });
         levelsHeading?.focus({ preventScroll: true });
+
         return;
       case "settings":
         app.page = "settings";
+
         return;
       case "report":
         app.page = "tasks";
+
         return;
       default:
         return;
@@ -241,32 +298,41 @@
 
   // One orange button on the panel: while a failure offers its own step, that step is the main
   // one and the stage's main step waits beside the others.
-  const failureLeads = $derived(!!(failureShown && failure && failure.next !== "none" && NEXT_LABEL[failure.next]));
+  const failureLeads = $derived(
+    !!(failureShown && failure && failure.next !== "none" && NEXT_LABEL[failure.next]),
+  );
 
   const disabled = (step: Step) => {
     if (busy || extracting || packing) return true;
     if (step === "pack") return !pack?.runnable;
     if (step === "update" || step === "repair") return !extract?.runnable;
-    if (step === "open" || step === "prepare") return !edit || lacksGodot;
+    if (step === "open" || step === "prepare") return !edit || lacksEditor !== null;
+    if (step === "get-editor" || step === "choose-editor") return app.editorDownloading;
+
     return false;
   };
 
-  const ICON: Record<Step, "disc" | "external" | "edit" | "refresh" | "save" | "play"> = {
+  const ICON: Record<Step, "disc" | "download" | "folder" | "edit" | "refresh" | "save"> = {
     "set-up": "disc",
-    "get-godot": "external",
+    "get-editor": "download",
+    "choose-editor": "folder",
     prepare: "edit",
     open: "edit",
     update: "refresh",
     repair: "refresh",
     pack: "save",
-    play: "play",
   };
 
   const picksLevel = (step: Step) => step === "open" || step === "prepare";
   const steps = $derived([...(stage.primary ? [stage.primary] : []), ...stage.secondary]);
   /** The level picker sits right before the button it is for. */
-  const pickerBefore = $derived(lacksGodot ? null : (steps.find(picksLevel) ?? null));
-  const label = (step: Step) => (step === "open" && stage.kind === "needs-update" ? OPEN_ANYWAY : STEP_LABEL[step]);
+  const pickerBefore = $derived(lacksEditor !== null ? null : (steps.find(picksLevel) ?? null));
+  const label = (step: Step) =>
+    step === "open" && stage.kind === "needs-update"
+      ? OPEN_ANYWAY
+      : step === "get-editor" && app.editor?.version
+        ? "Update OpenRAC Editor"
+        : STEP_LABEL[step];
 
   const backup = $derived(found?.backups[0] ?? null);
 
@@ -274,27 +340,75 @@
 
   let levelsHeading = $state<HTMLHeadingElement | null>(null);
   let resets = $state<ReturnType<typeof EditorReset> | null>(null);
-  const tools = $derived(levelTools(unreadable ? null : found, early, discFound));
+  /** The discs of this game OpenRAC Editor makes planets for: the row stays in view on the others
+   *  and says which disc it needs, so that it never just disappears. */
+  const planetDiscs = $derived(
+    game.versions.filter((v) =>
+      v.actions.some((a) => a.id === "editor-new-planet" && a.thisPlatform),
+    ),
+  );
+  const planetWhy = $derived(
+    planetBlocker({
+      here: !!newPlanet,
+      discs: [...new Set(planetDiscs.map((v) => discMarket(v.region)))],
+      lacksEditor,
+      discFound,
+      project: (found?.levels.length ?? 0) > 0,
+    }),
+  );
+  const tools = $derived(
+    levelTools(unreadable ? null : found, early, discFound, !!newPlanet || planetDiscs.length > 0),
+  );
+  /** The level Add as a new planet packs: one of the project's levels, the picked one first. */
+  let planetPicked = $state<number | null>(null);
+  const planetLevels = $derived(found?.levels ?? []);
+  const planetLevel = $derived(
+    planetPicked ?? (planetLevels.includes(level) ? level : (planetLevels[0] ?? level)),
+  );
+  let addingPlanet = $state(false);
+
+  async function addPlanet() {
+    if (!newPlanet || busy) return;
+    addingPlanet = true;
+
+    try {
+      if (await runChain(scope, [newPlanet], planetLevel)) onchanged?.();
+    } finally {
+      addingPlanet = false;
+    }
+  }
   /** The running step the bar is about: reading, exporting again or packing. */
   const working = $derived(extracting ?? packing);
 
   async function exportAgain() {
     if (!reexport || busy) return;
     busy = "update";
+
     try {
       await runChain(scope, [reexport]);
     } finally {
       busy = null;
     }
+
     await look();
     onchanged?.();
   }
 
   /** The row's own step is running: its button turns. */
-  const running = (tool: "pack-again" | "export-again") =>
-    tool === "pack-again" ? packing !== null : extracting?.actionId === "editor-reexport";
-  const toolDisabled = (tool: "pack-again" | "export-again") =>
-    !!busy || !!extracting || !!packing || (tool === "pack-again" ? !pack?.runnable : !reexport?.runnable);
+  const running = (tool: LevelTool) =>
+    tool === "new-planet" ? addingPlanet : extracting?.actionId === "editor-reexport";
+  const toolDisabled = (tool: LevelTool) =>
+    !!busy ||
+    !!extracting ||
+    !!packing ||
+    addingPlanet ||
+    (tool === "new-planet" ? planetWhy !== null : !reexport?.runnable);
+  const TOOL_ICON: Record<LevelTool, "globe" | "refresh"> = {
+    "new-planet": "globe",
+    "export-again": "refresh",
+  };
+  const takeTool = (tool: LevelTool) =>
+    tool === "new-planet" ? void addPlanet() : resets?.askExport();
 </script>
 
 <section class="panel flow" aria-labelledby="flow-title" aria-busy={stage.tone === "busy"}>
@@ -303,7 +417,10 @@
       {#if stage.tone === "busy"}<span class="spinner"></span>{:else if stage.tone === "ok"}<Icon
           name="check"
           size={18}
-        />{:else if stage.tone === "warn"}<Icon name="warn" size={18} />{:else}<Icon name="info" size={18} />{/if}
+        />{:else if stage.tone === "warn"}<Icon name="warn" size={18} />{:else}<Icon
+          name="info"
+          size={18}
+        />{/if}
     </span>
     <h2 id="flow-title">{stage.title}</h2>
     {#if stage.line}<p class="line">{stage.line}</p>{/if}
@@ -321,7 +438,9 @@
         <p>{failure.line}</p>
         <div class="row">
           {#if failure.next !== "none" && NEXT_LABEL[failure.next]}
-            <button class="small primary" onclick={() => void take(failure.next)}>{NEXT_LABEL[failure.next]}</button>
+            <button class="small primary" onclick={() => void take(failure.next)}
+              >{NEXT_LABEL[failure.next]}</button
+            >
           {/if}
           <button class="small ghost" aria-expanded={details} onclick={() => (details = !details)}
             >{details ? "Hide details" : "Show details"}</button
@@ -345,7 +464,9 @@
               onchange={(e) => (picked = Number(e.currentTarget.value))}
               disabled={!!busy || !!extracting}
             >
-              {#each levelsOf(version.game) as l (l.number)}<option value={l.number}>{l.name}</option>{/each}
+              {#each levelsOf(version.game) as l (l.number)}<option value={l.number}
+                  >{l.name}</option
+                >{/each}
             </select>
           {/if}
           <button
@@ -353,12 +474,12 @@
             disabled={disabled(step)}
             onclick={() => void take(step)}
           >
-            {#if busy === step}<span class="spinner"></span>{:else}<Icon name={ICON[step]} size={16} />{/if}
+            {#if busy === step}<span class="spinner"></span>{:else}<Icon
+                name={ICON[step]}
+                size={16}
+              />{/if}
             {label(step)}
           </button>
-          {#if step === "get-godot"}
-            <button onclick={() => void chooseGodot()}><Icon name="folder" size={16} />{EDITOR.chooseGodot}</button>
-          {/if}
         {/each}
       </div>
       {#if stage.kind === "needs-update" && stage.secondary.includes("open")}
@@ -391,9 +512,12 @@
     <p class="muted">Your disc, saves and gameplay mods are never touched here.</p>
     {#if backup}
       <p class="muted">
-        Older copies of your levels, kept by updates, are in the backup folder ({found?.backups.length ?? 0}
+        Older copies of your levels, kept by updates, are in the backup folder ({found?.backups
+          .length ?? 0}
         {(found?.backups.length ?? 0) === 1 ? "copy" : "copies"}).
-        <button class="link" onclick={() => void guardShown(api.openOutput(backup.path))}>Open it</button>
+        <button class="link" onclick={() => void guardShown(api.openOutput(backup.path))}
+          >Open it</button
+        >
       </p>
     {/if}
     <EditorReset
@@ -409,22 +533,36 @@
             <div class="text">
               <h3>{LEVEL_TOOL_TEXT[tool].title}</h3>
               <p class="muted">{LEVEL_TOOL_TEXT[tool].line}</p>
+              {#if tool === "new-planet" && planetWhy}<p class="why">{planetWhy}</p>{/if}
             </div>
-            <button
-              class="small"
-              disabled={toolDisabled(tool)}
-              onclick={() => (tool === "pack-again" ? void take("pack") : resets?.askExport())}
-            >
-              {#if running(tool)}<span class="spinner"></span>{:else}<Icon
-                  name={tool === "pack-again" ? "save" : "refresh"}
-                  size={14}
-                />{/if}{LEVEL_TOOL_TEXT[tool].button}
-            </button>
+            <div class="tool">
+              {#if tool === "new-planet" && planetLevels.length > 1}
+                <select
+                  aria-label={EDITOR.levelLabel}
+                  value={planetLevel}
+                  onchange={(e) => (planetPicked = Number(e.currentTarget.value))}
+                  disabled={toolDisabled(tool)}
+                >
+                  {#each planetLevels as n (n)}<option value={n}
+                      >{levelName(version.game, n)}</option
+                    >{/each}
+                </select>
+              {/if}
+              <button class="small" disabled={toolDisabled(tool)} onclick={() => takeTool(tool)}>
+                {#if running(tool)}<span class="spinner"></span>{:else}<Icon
+                    name={TOOL_ICON[tool]}
+                    size={14}
+                  />{/if}{LEVEL_TOOL_TEXT[tool].button}
+              </button>
+            </div>
           </li>
         {/each}
       {/snippet}
     </EditorReset>
   </section>
+
+  <!-- Its download and folder are offered above while there is none that fits, so only once. -->
+  {#if !onAndroid && stage.kind !== "no-editor"}<EditorInstall />{/if}
 </section>
 
 <style>
@@ -615,6 +753,28 @@
   .actions select:focus-visible {
     outline: 2px solid var(--amber);
     outline-offset: 2px;
+  }
+
+  .tool {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .why {
+    margin: 4px 0 0;
+    font-size: 0.8125rem;
+    color: var(--warn);
+  }
+
+  .tool select {
+    font: inherit;
+    font-size: 0.8125rem;
+    background: var(--control);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    padding: 5px 10px;
   }
 
   .levels {

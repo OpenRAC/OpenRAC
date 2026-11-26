@@ -59,6 +59,9 @@ gaddr func_00131CB8(void) {
          * reads is another build of it, its loop at 0x0026AD20, so the entry is the executable's. */
         loaded_level = OPENRAC_OVERLAY_EXE;
         openrac_guest_restore_executable(RELOCATE_LOW, RELOCATE_HIGH);
+        /* Its data segment at 0x01800000 too: the legal and memory card screens' WADs, which the
+         * title's loop unpacks again and a level's data has written over. */
+        openrac_guest_restore_executable(RELOCATE_HIGH, 0xFFFFFFFFu);
         return TITLE_LOOP;
     } else {
         /* The Insomniac Museum is level 21 to the game and to the disc's table, and its program, the

@@ -716,7 +716,7 @@
        "plugin": {"linux-x86_64": "lib/linux-x86_64/lock_strafe.so"},
        "settings": [{"key": "n", "name": "N", "type": "int", "default": 1, "binds": 1}]
      }},
-    {"name": "a setting description that is not text", "valid": {"launcher": false, "sdk": false, "port": true}, "why": "the port does not read a setting's description",
+    {"name": "a setting description that is not text", "valid": {"launcher": false, "sdk": false, "port": false}, "why": "all three read the line under a setting's name",
      "manifest": {
        "format": 2,
        "id": "lock-strafe",
@@ -726,6 +726,17 @@
        "games": {"rac1": ["pal", "ntsc"]},
        "plugin": {"linux-x86_64": "lib/linux-x86_64/lock_strafe.so"},
        "settings": [{"key": "b", "name": "B", "type": "bool", "default": true, "description": 7}]
+     }},
+    {"name": "a setting section that is not text", "valid": {"launcher": false, "sdk": false, "port": false}, "why": "all three read the heading a setting is shown under",
+     "manifest": {
+       "format": 2,
+       "id": "lock-strafe",
+       "name": "Lock-strafe",
+       "version": "1.0.0",
+       "api": "1.0",
+       "games": {"rac1": ["pal", "ntsc"]},
+       "plugin": {"linux-x86_64": "lib/linux-x86_64/lock_strafe.so"},
+       "settings": [{"key": "b", "name": "B", "type": "bool", "default": true, "section": 7}]
      }},
     {"name": "a choice value twice", "valid": {"launcher": true, "sdk": false, "port": true}, "why": "only the SDK checks the choices' values are distinct",
      "manifest": {

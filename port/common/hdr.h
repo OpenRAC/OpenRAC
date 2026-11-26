@@ -4,7 +4,7 @@
 // HDR output: the game's SDR picture shown on an HDR screen at the player's paper white, so that it
 // looks as it does in SDR (docs/port/HDR.md). This file is the arithmetic and the choices only, with
 // no GPU or SDL in it, so that tests/hdr_test.cpp can pin them; the Vulkan backend's encode pass
-// (renderer/vulkan/shaders/hdr_encode.comp) does the same per pixel and is checked against it.
+// (renderer/vulkan/shaders/hdr_encode.comp) is checked against this arithmetic.
 //
 // With HDR off nothing here runs and the picture goes to the screen as it always did.
 #pragma once

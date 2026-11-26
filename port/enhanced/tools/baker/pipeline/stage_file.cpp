@@ -127,13 +127,25 @@ Result<void> replace_stage_file(
 }
 
 Result<void> write_stage_file(const std::filesystem::path& output, std::string_view text) {
+    return write_stage_stream(output, [&](std::ostream& stream) {
+        stream.write(text.data(), static_cast<std::streamsize>(text.size()));
+    });
+}
+
+Result<void> write_stage_stream(
+    const std::filesystem::path& output, const std::function<void(std::ostream&)>& write
+) {
     // Staging errors must preserve the previous published file.
     try {
         StagedFile staged(output);
         std::ofstream stream(staged.path(), std::ios::binary);
+        if (!stream) {
+            return unexpected(Error{"cannot write staged bake output"});
+        }
 
         // A partial write cannot replace the previous verified file.
-        if (!stream || !stream.write(text.data(), static_cast<std::streamsize>(text.size()))) {
+        write(stream);
+        if (!stream) {
             return unexpected(Error{"cannot write staged bake output"});
         }
 

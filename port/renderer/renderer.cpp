@@ -352,6 +352,8 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
             hud = i;
         }
     }
+    m_hud_reads_depth = true;
+    m_hud_draws = true;
     bool ao_applied = false;
     bool prepass_done = false;
     bool particles_started = false;
@@ -492,6 +494,20 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
             glDepthMask(GL_TRUE);
             glClearDepth(0);
             glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        }
+
+        // The HUD's packets read before before_hud, which asks whether they test depth. Ambient
+        // occlusion left for after the loop reads it too.
+        if (i == hud && m_renderers[i]->enabled) {
+            m_renderers[i]->prepare(input, state);
+            m_hud_reads_depth = m_renderers[i]->reads_frame_depth() || (gtao && !scoped_ao);
+        }
+        if (i == hud) {
+            m_hud_draws =
+                (m_renderers[i]->enabled && !m_renderers[i]->draws_nothing()) || gtao
+                || std::any_of(m_renderers.begin() + i + 1, m_renderers.end(), [](const auto& r) {
+                       return r->enabled;
+                   });
         }
 
         if (i == hud && depth_clamp) {

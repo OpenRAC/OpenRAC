@@ -33,7 +33,6 @@
 #include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/cache/pipeline_cache_file.h"
 #include "renderer/vulkan/graph/graph_barriers.h"
-#include "renderer/vulkan/graph/graph_immediate_work.h"
 #include "renderer/vulkan/graph/graph_pipeline.h"
 #include "renderer/vulkan/graph/prepared_dispatch.h"
 #include "renderer/vulkan/graph/surface_batch.h"
@@ -164,7 +163,6 @@ VkPrimitiveTopology topology_of(GLenum mode) {
 VkPipeline remember_pipeline(Program& program, std::string_view key, VkPipeline pipeline) {
     program.last_pipeline_key.assign(key);
     program.last_pipeline = pipeline;
-    program.last_pipeline_stands_in = false;
     return pipeline;
 }
 
@@ -668,7 +666,7 @@ bool plausible_key(const PipelineKey& key) {
 void log_pipeline_statistics(VkPipeline pipeline, const PipelineKey& k) {
     std::string modes;
     for (std::uint32_t n = 0; n < k.mode_count && n < kModeConstants; ++n) {
-        modes += k.mode[n] == kModeDynamic ? std::string("d") : std::to_string(k.mode[n]);
+        modes += std::to_string(k.mode[n]);
         modes += n + 1 < k.mode_count ? "," : "";
     }
     log_executable_statistics(pipeline, std::format("program {} modes [{}]", k.program, modes));
@@ -690,30 +688,35 @@ VkPipeline create_graphics_pipeline(
 ) {
     const bool colour = k.colour_format != VK_FORMAT_UNDEFINED;
     const auto depth_format = static_cast<VkFormat>(k.depth_format);
+
     // Whether the vertex stage's z is Vulkan's already (glClipControl GL_ZERO_TO_ONE).
-    // And the program's modes the key gives a value (vk-mode-constants), for both stages; a mode
-    // left out keeps its constant's default, which reads the uniform.
+    // Every feature mode is fixed by this variant, for both stages.
     struct Constants {
         VkBool32 zero_to_one;
+        std::uint32_t material_textures;
         std::int32_t mode[kModeConstants];
     };
 
     Constants constants{};
     constants.zero_to_one = (k.depth_mode & kClipZeroToOne) != 0 ? VK_TRUE : VK_FALSE;
-    VkSpecializationMapEntry entries[1 + kModeConstants];
+    constants.material_textures = std::max(1u, g->material_texture_capacity);
+    VkSpecializationMapEntry entries[2 + kModeConstants];
     entries[0] = {kClipZeroToOneConstant, offsetof(Constants, zero_to_one), sizeof(VkBool32)};
     std::uint32_t entry_count = 1;
 
     for (std::uint32_t n = 0; n < std::min<std::uint32_t>(k.mode_count, kModeConstants); ++n) {
-        if (k.mode[n] != kModeDynamic) {
-            constants.mode[n] = k.mode[n];
-            entries[entry_count++] =
-                {kModeConstantBase + n,
-                 static_cast<std::uint32_t>(offsetof(Constants, mode) + n * sizeof(std::int32_t)),
-                 sizeof(std::int32_t)};
-        }
+        constants.mode[n] = k.mode[n];
+        entries[entry_count++] =
+            {kModeConstantBase + n,
+             static_cast<std::uint32_t>(offsetof(Constants, mode) + n * sizeof(std::int32_t)),
+             sizeof(std::int32_t)};
     }
 
+    // Absent specialization IDs are ignored by shaders without material arrays.
+    entries[entry_count++] =
+        {kMaterialTextureCapacityConstant,
+         offsetof(Constants, material_textures),
+         sizeof(std::uint32_t)};
     const VkSpecializationInfo vertex_constants{entry_count, entries, sizeof constants, &constants};
     const VkSpecializationInfo fragment_constants{
         entry_count - 1, entries + 1, sizeof constants, &constants
@@ -981,7 +984,7 @@ PipelineKey library_key(const PipelineKey& k, LibraryPart part) {
             l.viewports = k.viewports;
             l.fixed.cull = k.fixed.cull;
             l.fixed.front = k.fixed.front;
-            // The stage's mode constants are the part's too (vk-mode-constants).
+            // The stage's mode constants are the part's too (pipeline variants).
             l.mode_count = k.mode_count;
             std::memcpy(l.mode, k.mode, sizeof l.mode);
             break;
@@ -1139,11 +1142,8 @@ bool is_making(const PipelinePrewarm& w, const PipelineKey& k, PrewarmPart part)
     });
 }
 
-// Returns the pipeline of key `k` (whose hash_key is `hash`) if the pre-warm made it, waiting for
-// it when it is queued or being made and `wait` says so; nothing when the pre-warm has no such
-// key or is off, and the draw makes it (or links it, which is why it need not wait). Hot path:
-// one lock and three tests once the workers have nothing left.
-std::optional<VkPipeline> prewarm_take(const PipelineKey& k, std::uint64_t hash, bool wait) {
+// Takes the exact warmed pipeline, waiting if its key is already queued or being built.
+std::optional<VkPipeline> prewarm_take(const PipelineKey& k, std::uint64_t hash) {
     // Off: every pipeline is made by its draw.
     if (!prewarm_enabled()) {
         return std::nullopt;
@@ -1159,11 +1159,6 @@ std::optional<VkPipeline> prewarm_take(const PipelineKey& k, std::uint64_t hash,
         // Made by a worker.
         if (const VkPipeline* made = g->pipelines.find(k, hash)) {
             return *made;
-        }
-
-        // Linked from parts instead, the whole one made later.
-        if (!wait) {
-            return std::nullopt;
         }
 
         const bool queued = move_to_front(w.queue, k, PrewarmPart::Whole);
@@ -1371,7 +1366,6 @@ void run_prewarm_worker(PipelinePrewarm& w) {
 
         w.ready.push_back({job.key, job.part, pipeline});
         ++w.made;
-        w.made_count.store(w.made, std::memory_order_relaxed);
         const auto mine = std::ranges::find_if(w.making, [&job](const auto& made) {
             return made.second == job.part && same_key(made.first, job.key);
         });
@@ -1445,7 +1439,7 @@ void prewarm_program(Program& p) {
     // The program's two shader parts as most of its draws take them (filled polygons, one
     // viewport, the fixed state dynamic), so that a pipeline first needed mid-frame is only linked.
     // A program linked from kept objects has them already (vk-program-keep).
-    if (libraries_enabled()) {
+    if (libraries_enabled() && p.modes.empty()) {
         PipelineKey part;
         std::memset(&part, 0, sizeof part);
         part.program = p.serial;
@@ -1466,7 +1460,8 @@ void prewarm_program(Program& p) {
     // Each key of this program in the manifest, as a job for this link's serial.
     for (ManifestKey& entry : g->manifest.keys) {
         // Another program's key, or one of a clamped stage (a manifest of an older run).
-        if (entry.key.program != p.identity || entry.key.clamp_colour != 0) {
+        if (entry.key.program != p.identity || entry.key.clamp_colour != 0
+            || entry.key.mode_count != p.modes.size()) {
             continue;
         }
 
@@ -1785,55 +1780,25 @@ FixedState fixed_state(const Target& t) {
 
 namespace {
 
-// Gives key `k` of program `p` its modes (vk-mode-constants): each mode uniform's value now, or
-// kModeDynamic for one no stage reads or one that has had more values than are worth a pipeline
-// each. A key whose modes are all dynamic is the plain key, with no modes. Worked out once for
-// the draws between two writes of an integer uniform.
+// Gives every marked feature its exact value, including modes with more than four observed values.
+// Hot path: writes invalidate the cached values, so repeated draws share the same key data.
 void key_modes(Program& p, PipelineKey& k) {
+    // Integer writes invalidate this snapshot; no mode can fall back to a dynamic uniform.
     if (p.key_modes_stale) {
         p.key_modes_stale = false;
         p.key_modes.fill(0);
-        bool constant = false;
+        p.key_mode_count = static_cast<std::uint32_t>(p.modes.size());
 
+        // CPU-only mode slots hold GL's initial zero or the latest glUniform value.
         for (std::size_t n = 0; n < p.modes.size(); ++n) {
-            Program::Mode& m = p.modes[n];
-            std::int32_t value = kModeDynamic;
-
-            if (m.offset >= 0 && !m.dynamic) {
-                std::memcpy(&value, p.uniforms.data() + m.offset, sizeof value);
-                const auto seen_end = m.seen.begin() + m.seen_count;
-
-                // A value new to this mode: one more pipeline, or the uniform from now on.
-                if (std::find(m.seen.begin(), seen_end, value) == seen_end) {
-                    if (m.seen_count == m.seen.size()) {
-                        m.dynamic = true;
-                        value = kModeDynamic;
-                    } else {
-                        m.seen[m.seen_count++] = value;
-                    }
-                }
-            }
-
-            p.key_modes[n] = value;
-            constant = constant || value != kModeDynamic;
-        }
-
-        if (constant) {
-            p.key_mode_count = static_cast<std::uint32_t>(p.modes.size());
-        } else {
-            p.key_mode_count = 0;
-            p.key_modes.fill(0);
+            std::memcpy(
+                &p.key_modes[n], p.uniforms.data() + p.modes[n].offset, sizeof(std::int32_t)
+            );
         }
     }
 
     k.mode_count = p.key_mode_count;
     std::memcpy(k.mode, p.key_modes.data(), sizeof k.mode);
-}
-
-// Returns whether the keys of program `p` take its modes: it has some and the entry is on.
-bool keys_take_modes(const Program& p) {
-    return !p.modes.empty()
-           && renderer::render_opt::enabled(renderer::render_opt::Opt::VkModeConstants);
 }
 
 // Returns the pipeline of key `k` (whose hash_key is `hash`) made before, or null: found by its
@@ -1862,14 +1827,11 @@ VkShaderModule fragment_stage(Program& p, const PipelineKey& k) {
     return p.fragment;
 }
 
-// Returns the pipeline of key `k` (whose hash_key is `hash`) of program `p`, which no draw has
-// had: the one the pre-warm made or is making, one linked from parts, or one made here. With
-// `record`, the key goes to the manifest for the next run.
-VkPipeline make_pipeline(Program& p, const PipelineKey& k, std::uint64_t hash, bool record) {
-    // Made ahead by the pre-warm workers, or being made: taken from them rather than made again.
-    // A draw that can link its pipeline from parts waits for no whole one.
+// Obtains the exact pipeline, using a warmed pipeline, library parts or a new direct compile.
+VkPipeline make_pipeline(Program& p, const PipelineKey& k, std::uint64_t hash) {
+    // A queued exact variant is taken from its worker rather than compiled twice on two threads.
     const bool link = libraries_enabled();
-    if (const std::optional<VkPipeline> warmed = prewarm_take(k, hash, !link)) {
+    if (const std::optional<VkPipeline> warmed = prewarm_take(k, hash)) {
         return *warmed;
     }
 
@@ -1879,9 +1841,7 @@ VkPipeline make_pipeline(Program& p, const PipelineKey& k, std::uint64_t hash, b
     // would be a compile of the whole pipeline here, in the middle of a frame.
     if (link) {
         if (const VkPipeline linked = link_pipeline(p, k, fragment); linked != VK_NULL_HANDLE) {
-            if (record) {
-                record_manifest_key(p, k);
-            }
+            record_manifest_key(p, k);
             g->pipelines.insert(k, hash, linked);
             return linked;
         }
@@ -1889,89 +1849,9 @@ VkPipeline make_pipeline(Program& p, const PipelineKey& k, std::uint64_t hash, b
     const VkPipeline pipeline = create_graphics_pipeline(k, p.vertex, fragment, p.layout);
     ++g->measures.pipelines;
     count_pipeline();
-    if (record) {
-        record_manifest_key(p, k);
-    }
+    record_manifest_key(p, k);
     g->pipelines.insert(k, hash, pipeline);
     return pipeline;
-}
-
-// Returns the pipeline a draw of key `k` (its hash_key `hash`, its bytes `bytes`) of program `p`
-// uses while no pipeline of that key exists: the one of key `other`, which draws the same picture
-// (the same key with its modes read from the uniforms, or with them as constants), and the
-// pipeline of `k` is asked of the workers once. With `make_other`, the pipeline of `other` is
-// made here when there is none; without, null is returned and the caller makes `k` itself.
-VkPipeline stand_in_pipeline(
-    Program& p,
-    const PipelineKey& k,
-    std::uint64_t hash,
-    std::string_view bytes,
-    const PipelineKey& other,
-    bool make_other
-) {
-    PipelinePrewarm& w = g->prewarm;
-
-    // Read before the look below, so that a pipeline finished meanwhile is looked for again.
-    const std::uint64_t made = w.made_count.load(std::memory_order_relaxed);
-
-    // A worker has just made it.
-    if (const std::optional<VkPipeline> warmed = prewarm_take(k, hash, false)) {
-        return remember_pipeline(p, bytes, *warmed);
-    }
-
-    const std::uint64_t other_hash = hash_key(other);
-    VkPipeline stand_in = find_pipeline(other, other_hash);
-
-    if (stand_in == VK_NULL_HANDLE) {
-        if (!make_other) {
-            return VK_NULL_HANDLE;
-        }
-
-        // Where a pipeline cannot be linked from parts and the manifest queued this one, the
-        // draw waits for it instead of compiling a second pipeline here.
-        if (!libraries_enabled()) {
-            if (const std::optional<VkPipeline> warmed = prewarm_take(k, hash, true)) {
-                return remember_pipeline(p, bytes, *warmed);
-            }
-        }
-
-        // Not for the manifest: the next run makes the wanted one ahead.
-        stand_in = make_pipeline(p, other, other_hash, false);
-    }
-
-    bool ask = false;
-    const VkShaderModule fragment = fragment_stage(p, k);
-    {
-        std::lock_guard lock(w.mutex);
-
-        // Asked once: a pipeline the driver refused is not asked for at every draw.
-        if (w.mode_keys.insert(hash).second) {
-            ask = true;
-
-            if (!w.level_loaded && !is_making(w, k, PrewarmPart::Whole)
-                && std::ranges::none_of(w.queue, [&k](const PrewarmJob& job) {
-                       return job.part == PrewarmPart::Whole && same_key(job.key, k);
-                   })) {
-                w.queue.push_back({k, p.vertex, fragment, p.layout, PrewarmPart::Whole});
-                start_workers(w);
-                w.changed.notify_all();
-            }
-        }
-    }
-
-    if (ask) {
-        record_manifest_key(p, k);
-
-        if (k.mode_count != 0) {
-            ++g->submission.mode_pipelines;
-        }
-    }
-
-    p.last_pipeline_key.assign(bytes);
-    p.last_pipeline = stand_in;
-    p.last_pipeline_stands_in = true;
-    p.last_pipeline_made = made;
-    return stand_in;
 }
 
 }  // namespace
@@ -2020,17 +1900,11 @@ VkPipeline pipeline_for(
     k.inputs = count;
     k.viewports = static_cast<std::uint32_t>(std::max<std::size_t>(1, g->indexed_viewports.size()));
     std::memcpy(k.input, inputs, sizeof(Input) * count);
-    const bool modes = keys_take_modes(p);
-    if (modes) {
-        key_modes(p, k);
-    }
+    key_modes(p, k);
     // Repeated draws bypass hashing only when every baked graphics field matches
-    // (vk-last-pipeline); off, every draw looks its key up in the table. A pipeline that stands
-    // in for a specialised one is looked up again once the workers have made something.
+    // (vk-last-pipeline); off, every draw looks its key up in the table.
     const std::string_view bytes(reinterpret_cast<const char*>(&k), sizeof k);
     if (p.last_pipeline != VK_NULL_HANDLE && bytes == p.last_pipeline_key
-        && (!p.last_pipeline_stands_in
-            || p.last_pipeline_made == g->prewarm.made_count.load(std::memory_order_relaxed))
         && renderer::render_opt::enabled(renderer::render_opt::Opt::VkLastPipeline)) {
         return p.last_pipeline;
     }
@@ -2041,36 +1915,12 @@ VkPipeline pipeline_for(
         return remember_pipeline(p, bytes, made);
     }
 
-    // A specialised pipeline is made on a worker, and the draw goes on with the one that reads
-    // its modes from the uniforms: the same picture, without a compile in the middle of a frame.
-    if (k.mode_count != 0 && prewarm_enabled()) {
-        PipelineKey plain = k;
-        plain.mode_count = 0;
-        std::memset(plain.mode, 0, sizeof plain.mode);
-        return stand_in_pipeline(p, k, hash, bytes, plain, true);
-    }
-
-    // The entry switched off while the game runs (a sweep step): the specialised pipeline of the
-    // same modes, if there is one, draws until a worker has made the plain one.
-    if (!modes && !p.modes.empty() && prewarm_enabled()) {
-        PipelineKey specialised = k;
-        key_modes(p, specialised);
-
-        if (specialised.mode_count != 0) {
-            const VkPipeline stand_in = stand_in_pipeline(p, k, hash, bytes, specialised, false);
-
-            if (stand_in != VK_NULL_HANDLE) {
-                return stand_in;
-            }
-        }
-    }
-
-    // Without the workers, the specialised pipeline is made here like any other.
+    // The first unseen variant is compiled here; the manifest prewarms it on later runs.
     if (k.mode_count != 0) {
         ++g->submission.mode_pipelines;
     }
 
-    return remember_pipeline(p, bytes, make_pipeline(p, k, hash, true));
+    return remember_pipeline(p, bytes, make_pipeline(p, k, hash));
 }
 
 // ---- Descriptors ----
@@ -2107,6 +1957,15 @@ VkDescriptorSet allocate_set(VkDescriptorSetLayout layout) {
 
 Texture* sampled_texture(const Program& p, std::size_t i) {
     const ProgramUniform& uniform = p.compiled.uniforms[i];
+    // The shader samples unit 13 only when the upscaled material is ready.
+    // Use the same dummy descriptor for capture and binding when that branch is inactive.
+    if (p.upscaled_colours_ready_offset >= 0 && uniform.name == "upscaled_texture_colours") {
+        std::int32_t ready;
+        std::memcpy(&ready, p.uniforms.data() + p.upscaled_colours_ready_offset, sizeof(ready));
+        if (ready == 0) {
+            return nullptr;
+        }
+    }
     const int unit = std::clamp(p.units[i], 0, kUnits - 1);
     const auto& state = g->state;
     // Match the descriptor path's separate bindings for texel buffers, array images and ordinary textures.
@@ -2762,17 +2621,17 @@ void OPENRAC_GLAPI dispatch_compute(GLuint x, GLuint y, GLuint z) {
         return;
     }
     const bool collecting = collecting_surface_chain();
-    if (!collecting && !graph_pipeline_active()) {
-        if (x && y && z) {
-            GraphImmediateWork::dispatch([=] { dispatch_compute(x, y, z); });
-        }
-        return;
-    }
-    prepare_frame();
     auto* p = g->programs.find(g->state.program);
     if (!p || !p->linked || !p->compute_pipeline || !x || !y || !z) {
         return;
     }
+
+    // A collector freezes dispatch packets for its compiled pass to record later.
+    if (!collecting && !graph_pipeline_active()) {
+        throw std::logic_error("compute dispatch requires an owning graph pass");
+    }
+
+    prepare_frame();
     end_rendering(PassEnd::Compute);
     auto& samplers = g->scratch.compute_samplers;
     samplers.clear();

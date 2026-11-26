@@ -18,6 +18,7 @@
 #include "common/breadcrumbs.h"
 #include "renderer/direct/direct.h"
 #include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 #include "renderer_gif_builder.h"
 #include "renderer_gl_context.h"
@@ -212,8 +213,40 @@ std::vector<std::uint8_t> packets() {
          {gs::kXyz2, xyz2(420, 400, 0)},
          {gs::kXyz2, xyz2(460, 440, 0)}}
     );
+
+    // A rejected first draw leaves the panel unallocated until a later sprite samples it.
+    constexpr std::uint64_t kPanelPage = 0x180;
+    p.ad(
+        {{gs::kFrame1, kPanelPage | (4u << 16)},
+         {gs::kTest1,
+          openrac::test::test_reg(
+              false, gs::AlphaTest::Always, 0, gs::AlphaFail::Keep, gs::DepthTest::Never
+          )},
+         {gs::kScissor1, openrac::test::scissor(0, 255, 0, 255)},
+         {gs::kPrim, sprite},
+         {gs::kRgbaq, rgbaq(255, 0, 0, 128)},
+         {gs::kXyz2, xyz2(20, 20, 0)},
+         {gs::kXyz2, xyz2(40, 40, 0)}}
+    );
+    p
+        .ad({{gs::kFrame1, 8u << 16},
+             {gs::kTest1,
+              openrac::test::test_reg(
+                  false, gs::AlphaTest::Always, 0, gs::AlphaFail::Keep, gs::DepthTest::Always
+              )},
+             {gs::kScissor1, openrac::test::scissor(0, 511, 0, 447)},
+             {gs::kTex0_1, openrac::test::tex0(kPanelPage * 32, 4, gs::kPsmct32, 8, 8, true)},
+             {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+             {gs::kRgbaq, rgbaq(128, 128, 128, 128)},
+             {gs::kUv, openrac::test::uv(0, 0)},
+             {gs::kXyz2, xyz2(17, 34, 0)},
+             {gs::kUv, openrac::test::uv(256, 256)},
+             {gs::kXyz2, xyz2(25, 45, 0)}},
+            true);
     return p.bytes;
 }
+
+void test_pass_breadcrumbs(Renderer& renderer, const FrameInput& input, FrameBuffer& frame);
 
 // A skipped tick retains a one-shot texture, but none of that tick's sprite geometry.
 void skipped_tick_uploads() {
@@ -264,10 +297,20 @@ void skipped_tick_uploads() {
     CHECK(frame.create(kWidth, kHeight, error));
     FrameInput input;
     input.packets[static_cast<std::size_t>(Bucket::Hud)] = shown.bytes;
+    // The window can discard world depth before a HUD whose depth tests always pass.
+    input.before_hud = [] {
+        using namespace openrac::gl;
+        if (glInvalidateFramebuffer != nullptr) {
+            constexpr GLenum discarded[] = {GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT};
+            glInvalidateFramebuffer(GL_FRAMEBUFFER, 2, discarded);
+        }
+    };
     renderer.render(input, {frame.id(), kWidth, kHeight});
     const Pixels pixels{frame.read_rgba()};
     CHECK(close(pixels.at(15, 15), 0, 0, 0, 15, 15));
     CHECK(close(pixels.at(35, 35), 0, 255, 0, 35, 35));
+    // One representative HUD draw fits on the bounded trail with its Vulkan graph scopes.
+    test_pass_breadcrumbs(renderer, input, frame);
 }
 
 // Actual renderer passes inherit either trail's frame and leave the rendered pixels unchanged.
@@ -288,12 +331,9 @@ void test_pass_breadcrumbs(Renderer& renderer, const FrameInput& input, FrameBuf
                 }
             }
         };
-        FrameInput observed = input;
-        // A long HUD packet can wrap the bounded trail with its Vulkan graph scopes.
-        observed.before_hud = inspect;
         {
             const BreadcrumbScope context(thread, frame_id);
-            renderer.render(observed, {frame.id(), kWidth, kHeight});
+            renderer.render(input, {frame.id(), kWidth, kHeight});
         }
         inspect();
         CHECK(clear && hud && correct_thread);
@@ -335,6 +375,7 @@ int main() {
 
     CHECK(renderer.last_stats().draw_calls >= 8);
     CHECK(close(px.at(15, 30), 0xFF, 0, 0, 15, 30));            // red
+    CHECK(close(px.at(20, 40), 0, 0, 0, 20, 40));               // newly cleared panel over red
     CHECK(close(px.at(40, 30), 0x7F, 0, 0x7F, 40, 30));         // half blue over red
     CHECK(close(px.at(60, 30), 0, 0, 0x7F, 60, 30));            // half blue over black
     CHECK(close(px.at(5, 5), 0, 0, 0, 5, 5));                   // the clear colour
@@ -446,7 +487,6 @@ int main() {
         }
     }
 
-    test_pass_breadcrumbs(renderer, input, frame);
     frame.release();
     renderer.release();
     return openrac::test::result();

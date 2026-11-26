@@ -27,4 +27,9 @@ multiplayer?: string,
  * The games it is for, of the mod's (a mod for several games, docs/port/MODS.md section 3):
  * shown for those only, and the port gives it its default in the others. Empty: every game.
  */
-games?: Array<string>, };
+games?: Array<string>, 
+/**
+ * The heading it is shown under, here and in the port's menu alike: a section's settings
+ * together, the sections in the order each first appears. Empty: by its group.
+ */
+section?: string, };

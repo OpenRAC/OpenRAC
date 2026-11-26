@@ -139,6 +139,27 @@ inline std::string_view bind_name(int bind) {
     return openrac_bind_to_name(bind);
 }
 
+// ----------------------------------------------------------------------------------------------
+// What an overlay callback is given (interface 1.14, openrac_overlay)
+// ----------------------------------------------------------------------------------------------
+
+// Whether `overlay` has `set_blend`: the port that made it knows 1.33's blends, which `size` says,
+// and the struct reaches the member. Check it before overlay_set_blend or any read of
+// `overlay->set_blend`. Since 1.33.
+inline bool overlay_has_set_blend(const openrac_overlay* overlay) {
+    return overlay != nullptr
+           && overlay->size >= offsetof(openrac_overlay, set_blend) + sizeof(overlay->set_blend)
+           && overlay->set_blend != nullptr;
+}
+
+// Sets how the rectangles and text this callback draws next go over the frame
+// (OPENRAC_OVERLAY_BLEND_*: _SUBTRACT takes the colour times its alpha from the frame, _ADD adds
+// it) until the next call; each callback starts with _ALPHA. False for a port without it or a
+// blend it does not have (the last one stays). Since 1.33.
+inline bool overlay_set_blend(const openrac_overlay* overlay, std::uint32_t blend) {
+    return overlay_has_set_blend(overlay) && overlay->set_blend(overlay->context, blend) != 0;
+}
+
 // The keyboard and mouse for the tick about to run (interface 1.2, openrac_input): a view of the
 // port's state, renewed each tick. Cheap to copy; do not keep it past the tick it was read in.
 class Input {
@@ -1008,6 +1029,353 @@ public:
                  : -1;
     }
 
+    // Since 1.21: whether the port has hook_entry().
+    bool has_hook_entry() const {
+      return m_api->api_minor >= 21 &&
+             m_api->size >= offsetof(openrac_api, hook_entry) + sizeof(void *);
+    }
+
+    // Since 1.21: the entry of a hook point (a type of openrac/games/<game>.hpp),
+    // to call as the game calls it: the mods' replacements, this mod's too when it
+    // took the point, then the game's own function. Asked by the type's permanent
+    // id, the same on every disc. At any time. nullptr when the port has no such
+    // hook point, another signature, or no hook_entry.
+    template <class HookPoint>
+    typename HookPoint::fn hook_entry() const {
+      if (!has_hook_entry()) {
+        return nullptr;
+      }
+      return reinterpret_cast<typename HookPoint::fn>(m_api->hook_entry(
+          detail::hook_id<HookPoint>(), HookPoint::signature));
+    }
+
+    // Since 1.23: whether the port has moby_material().
+    bool has_moby_material() const {
+      return m_api->api_minor >= 23 &&
+             m_api->size >= offsetof(openrac_api, moby_material) + sizeof(void *);
+    }
+
+    // Since 1.24: whether the port draws OPENRAC_MOBY_MATERIAL_OBSIDIAN.
+    bool has_obsidian() const {
+      return has_moby_material() && m_api->api_minor >= 24;
+    }
+
+    // Since 1.25: whether the port draws OPENRAC_MOBY_MATERIAL_ENERGY (and its levels).
+    bool has_energy() const {
+      return has_moby_material() && m_api->api_minor >= 25;
+    }
+
+    // Since 1.23: draws the live moby at `moby` with `material`
+    // (OPENRAC_MOBY_MATERIAL_TINT, _PLATINUM, _OBSIDIAN since 1.24,
+    // _ENERGY_AT(level) since 1.25, or _NONE to clear it) and `rgb` (0xRRGGBB,
+    // 0xFFFFFF no tint; obsidian's glow colour, 0xFFFFFF its default; energy's
+    // colour) until the game removes the moby, the level
+    // changes or the mod clears it. Render-only: no game memory is written. At
+    // any time. Returns false when refused or the port has no such call.
+    bool moby_material(openrac_gaddr moby, std::uint32_t material,
+                       std::uint32_t rgb = 0xFFFFFF) const {
+      return has_moby_material() &&
+             m_api->moby_material(m_handle, moby, material, rgb) ==
+                 OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.25: whether the port has moby_copy_check() and moby_copy().
+    bool has_moby_copy() const {
+      return m_api->api_minor >= 25 &&
+             m_api->size >= offsetof(openrac_api, moby_copy) + sizeof(void *);
+    }
+
+    // Since 1.26: whether moby_copy()'s copies wake and fight with their squad (a 1.25
+    // port's copies of a squad's enemies never woke).
+    bool has_squad_copies() const {
+      return has_moby_copy() && m_api->api_minor >= 26;
+    }
+
+    // Since 1.25: whether moby_copy() may copy the moby in `slot`: OPENRAC_COPY_OK, or
+    // why not (OPENRAC_COPY_*); OPENRAC_HOOK_UNKNOWN for no moby there, outside a
+    // level, once the level's own data is gone, or a port or game without copies. Ask
+    // at the level's load (Going Commando: rac2.level.load).
+    int moby_copy_check(int slot) const {
+      return has_moby_copy() ? m_api->moby_copy_check(m_handle, slot)
+                             : OPENRAC_HOOK_UNKNOWN;
+    }
+
+    // Since 1.25: makes copy `index` (0 the first) of the moby in `slot` at a clear
+    // spot beside it, running on its own and dropping what its original drops. Returns
+    // the copy's slot, or -1 (not allowed, no spot, no room, or no such call).
+    int moby_copy(int slot, int index) const {
+      const int copy =
+          has_moby_copy() ? m_api->moby_copy(m_handle, slot, index) : OPENRAC_HOOK_UNKNOWN;
+      return copy >= 0 ? copy : -1;
+    }
+
+    // Since 1.27: whether the port has moby_pool_raise() and moby_pool_status().
+    bool has_moby_pool() const {
+      return m_api->api_minor >= 27 &&
+             m_api->size >= offsetof(openrac_api, moby_pool_status) + sizeof(void *);
+    }
+
+    // Since 1.27: asks for `extra` more spare moby slots in every level loaded from now on (at
+    // most OPENRAC_MOBY_POOL_EXTRA_MAX). Ask in load(). Returns the slots granted, 0 for none
+    // (or a port or game without the call).
+    int moby_pool_raise(int extra) const {
+      const int granted =
+          has_moby_pool() ? m_api->moby_pool_raise(m_handle, extra) : OPENRAC_HOOK_UNKNOWN;
+      return granted > 0 ? granted : 0;
+    }
+
+    // Since 1.27: fills `out` with the level's pool of spawned mobys as it is now. False outside
+    // a level or with no such call.
+    bool moby_pool_status(openrac_moby_pool& out) const {
+      out = openrac_moby_pool{};
+      out.size = sizeof out;
+      return has_moby_pool() && m_api->moby_pool_status(m_handle, &out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.28: whether the port has menu_look() (developer_menu_look).
+    bool has_menu_look() const {
+      return m_api->api_minor >= 28 &&
+             m_api->size >= offsetof(openrac_api, developer_menu_look) + sizeof(void *);
+    }
+
+    // Since 1.28: how the mod's tab row `action` looks besides its label: `flags`
+    // (OPENRAC_DEVELOPER_MENU_INFO, _LOCKED), text at its right (`value`, null or "" for none), a
+    // progress bar (0 to 1, negative for none) and an icon added with touch_icon (null or "" for
+    // none). Strings are copied. Only during load (after developer_menu) or from the tick
+    // boundary. Returns false when refused or the port has no such call.
+    bool menu_look(std::uint32_t action, std::uint32_t flags, const char* value = nullptr,
+                   float progress = -1.0f, const char* icon = nullptr) const {
+      openrac_developer_menu_look look{};
+      look.size = sizeof look;
+      look.flags = flags;
+      look.value = value;
+      look.progress = progress;
+      look.icon = icon;
+      return has_menu_look() &&
+             m_api->developer_menu_look(m_handle, action, &look) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.28: the row `action` a plain row again. The same times and results as menu_look().
+    bool menu_look_clear(std::uint32_t action) const {
+      return has_menu_look() &&
+             m_api->developer_menu_look(m_handle, action, nullptr) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.10: whether the port has a tab of the mod's own in OpenRAC's menu (developer_menu,
+    // take_developer_menu_action, developer_menu_set_label).
+    bool has_developer_menu() const {
+        return m_api->api_minor >= 10
+               && m_api->size >= offsetof(openrac_api, developer_menu_set_label) + sizeof(void*);
+    }
+
+    // Since 1.10: adds the tab `title` to OpenRAC's menu with `count` rows (copied). Only during
+    // load. Returns false when refused (a title or an action taken, a bad row) or the port has
+    // none.
+    bool developer_menu(
+        const char* title, const openrac_developer_menu_item* items, std::uint32_t count
+    ) const {
+        return has_developer_menu()
+               && m_api->developer_menu(m_handle, title, items, count) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.10: the next row the player chose in the mod's tab, 0 when none is queued. Call it
+    // from the tick boundary until it gives 0.
+    std::uint32_t take_developer_menu_action() const {
+        return has_developer_menu() ? m_api->take_developer_menu_action(m_handle) : 0;
+    }
+
+    // Since 1.10: the row `action`'s label, copied. False when refused or the port has none.
+    bool developer_menu_set_label(std::uint32_t action, const char* label) const {
+        return has_developer_menu()
+               && m_api->developer_menu_set_label(m_handle, action, label) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.22: whether the port has moby_visuals(), guest_text(), sprite_tint() and
+    // pickup_animation().
+    bool has_presentation() const {
+        return m_api->api_minor >= 22
+               && m_api->size >= offsetof(openrac_api, pickup_animation) + sizeof(void*);
+    }
+
+    // Since 1.22: the mod's render-only moby looks for this level load (`count` 0 clears them).
+    // False for bad input or a port without it.
+    bool moby_visuals(const openrac_moby_visual* visuals, int count) const {
+        return has_presentation()
+               && m_api->moby_visuals(m_handle, visuals, count) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.22: a lasting copy of `text` (UTF-8) in game memory, for a text hook to return;
+    // 0 at the limit or on a port without it.
+    gaddr guest_text(const char* text) const {
+        return has_presentation() ? m_api->guest_text(m_handle, text) : 0;
+    }
+
+    // Since 1.22: tints the game's UI sprites `rgb` (0 to 128 a channel; UINT32_MAX: off) and
+    // returns the tint before, to set back before the draw hook returns. UINT32_MAX on a port
+    // without it.
+    std::uint32_t sprite_tint(std::uint32_t rgb) const {
+        return has_presentation() ? m_api->sprite_tint(m_handle, rgb) : UINT32_MAX;
+    }
+
+    // Since 1.22: plays a pickup's presentation (openrac_mod.h says each `kind`); 1 while it plays,
+    // 0 for none or done, -1 busy. 0 on a port without it.
+    int pickup_animation(int kind, int item) const {
+        return has_presentation() ? m_api->pickup_animation(m_handle, kind, item) : 0;
+    }
+
+    // Since 1.29: whether the port has the weapon calls (on_weapon_fire(),
+    // weapon_refire(), on_shot_end(), moby_spawn_live(), weapon_look(),
+    // moby_status(), weapon_record()).
+    bool has_weapon_shots() const {
+      return m_api->api_minor >= 29 &&
+             m_api->size >=
+                 offsetof(openrac_api, weapon_record) + sizeof(void *);
+    }
+
+    // Since 1.29: `fn(user, shot)` for each shot the hero's weapon fires, after
+    // the tick that made it. A plain function (the port keeps no state for a
+    // lambda's capture). Only during load; false when refused or the port or
+    // game has no such call.
+    bool on_weapon_fire(openrac_weapon_fire_fn fn, void *user = nullptr) const {
+      return has_weapon_shots() &&
+             m_api->on_weapon_fire(m_handle, fn, user) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.29: from within on_weapon_fire's call for `serial`, fires that
+    // shot again through the game's own spawn, turned `yaw` radians about the
+    // up axis and `pitch` up, at no ammo. Returns the copy's slot, or -1
+    // (refused, the tick's cap, the pool, or no such call).
+    int weapon_refire(std::uint32_t serial, float yaw,
+                      float pitch = 0.0f) const {
+      const int slot = has_weapon_shots()
+                           ? m_api->weapon_refire(m_handle, serial, yaw, pitch)
+                           : OPENRAC_HOOK_UNKNOWN;
+      return slot >= 0 ? slot : -1;
+    }
+
+    // Since 1.29: `fn(user, end)` for each shot of the hero's weapons that
+    // ended. Only during load; false when refused or there is no such call.
+    bool on_shot_end(openrac_shot_end_fn fn, void *user = nullptr) const {
+      return has_weapon_shots() &&
+             m_api->on_shot_end(m_handle, fn, user) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.29: a shot of class `oclass` the game runs itself, made by its
+    // own spawn for the class at `position` with `velocity` (units a tick),
+    // fired by `owner` (a slot, -1 the hero's gun) at `target` (a slot, -1
+    // none), counting as weapon `item` (-1 the hero's in hand), with
+    // OPENRAC_SPAWN_LIVE_* `flags`. Returns its slot, or -1.
+    int moby_spawn_live(int oclass, const float position[3],
+                        const float velocity[3], int owner = -1,
+                        int target = -1, int item = -1,
+                        std::uint32_t flags = 0) const {
+      openrac_spawn_live spawn{};
+      spawn.size = sizeof spawn;
+      spawn.oclass = oclass;
+      spawn.item = item;
+      spawn.owner = owner;
+      spawn.target = target;
+      spawn.flags = flags;
+      for (int i = 0; i < 3; ++i) {
+        spawn.position[i] = position[i];
+        spawn.velocity[i] = velocity[i];
+      }
+      const int slot = has_weapon_shots()
+                           ? m_api->moby_spawn_live(m_handle, &spawn)
+                           : OPENRAC_HOOK_UNKNOWN;
+      return slot >= 0 ? slot : -1;
+    }
+
+    // Since 1.29: every shot of weapon `item` (and what it makes) drawn with
+    // `material` (OPENRAC_MOBY_MATERIAL_*) in `rgb`; OPENRAC_MOBY_MATERIAL_NONE
+    // clears it. False when refused.
+    bool weapon_look(int item, std::uint32_t material,
+                     std::uint32_t rgb = 0xFFFFFF) const {
+      return has_weapon_shots() && m_api->weapon_look(m_handle, item, material,
+                                                      rgb) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.29: the moby in `slot` frozen or slowed (OPENRAC_MOBY_STATUS_*)
+    // for `ticks` game ticks; OPENRAC_MOBY_STATUS_NONE ends it. False when
+    // refused.
+    bool moby_status(int slot, std::uint32_t status, int ticks) const {
+      return has_weapon_shots() && m_api->moby_status(m_handle, slot, status,
+                                                      ticks) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.29: the game address of weapon `item`'s record in the level's
+    // weapon table, 0 for none. The level's load writes it again.
+    openrac_gaddr weapon_record(int item) const {
+      return has_weapon_shots() ? m_api->weapon_record(m_handle, item) : 0;
+    }
+
+    // Since 1.30: whether the port has weapon_ignore_culling().
+    bool has_weapon_culling() const {
+      return m_api->api_minor >= 30 &&
+             m_api->size >= offsetof(openrac_api, weapon_ignore_culling) +
+                                sizeof(void *);
+    }
+
+    // Since 1.30: weapon `item`'s target picks take every enemy in range and in
+    // sight, on screen or not (true), or the game's drawn ones again (false).
+    // False when refused (a weapon the port does not know, or no such call).
+    bool weapon_ignore_culling(int item, bool enabled = true) const {
+      return has_weapon_culling() &&
+             m_api->weapon_ignore_culling(m_handle, item, enabled ? 1 : 0) ==
+                 OPENRAC_HOOK_OK;
+
+    }
+
+    // Since 1.31: whether the port draws a mod's overlay over the game's menus and scenes too
+    // (on_overlay_phases()).
+    bool has_overlay_phases() const {
+        return m_api->api_minor >= 31
+               && m_api->size >= offsetof(openrac_api, on_overlay_phases) + sizeof(void*);
+    }
+
+    // Since 1.31: `fn(user, overlay)` once a frame to draw over the game in the phases of `phases`
+    // (OPENRAC_OVERLAY_PLAYING, _MENU, _SCENE; overlay->phase says which). It replaces the mod's
+    // on_overlay(). Only during load; false when refused or the port has no such call.
+    bool on_overlay_phases(openrac_overlay_fn fn, void* user, std::uint32_t phases) const {
+        return has_overlay_phases()
+               && m_api->on_overlay_phases(m_handle, fn, user, phases) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.31: whether the port gives the pad's buttons' labels (button_label()).
+    bool has_button_label() const {
+        return m_api->api_minor >= 31
+               && m_api->size >= offsetof(openrac_api, button_label) + sizeof(void*);
+    }
+
+    // Since 1.31: the label of the pad's button `button` (one OPENRAC_PAD_* bit) for the player's
+    // device now: the game's token (OPENRAC_UI_SQUARE ...) or name on a PlayStation pad, the
+    // letter on a lettered pad, the bound key on the keyboard and mouse; its kind
+    // (OPENRAC_BUTTONS_*) into `kind`. Empty, `kind` OPENRAC_HOOK_UNKNOWN, when the port has no
+    // such call or `button` is not one button. Any time.
+    std::string button_label(std::uint32_t button, int* kind = nullptr) const {
+        char out[32] = {};
+        const int k = has_button_label() ? m_api->button_label(m_handle, button, out, sizeof out)
+                                         : OPENRAC_HOOK_UNKNOWN;
+        if (kind != nullptr) {
+            *kind = k;
+        }
+        return k >= 0 ? std::string(out) : std::string();
+    }
+
+    // Synchronous gameplay decisions. Since 1.40; register only during load.
+    bool has_play_queries() const {
+        return m_api->api_minor >= 40
+               && m_api->size >= offsetof(openrac_api, on_play_query) + sizeof(void*)
+               && m_api->on_play_query != nullptr;
+    }
+
+    void on_play_query(uint32_t kinds, openrac_play_query_fn fn, void* user) {
+        if (!has_play_queries()
+            || m_api->on_play_query(m_handle, kinds, fn, user) != OPENRAC_HOOK_OK) {
+            throw Error("on_play_query: unsupported, conflicting kinds, or called outside load");
+        }
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>
@@ -1451,6 +1819,291 @@ public:
     }
     bool prop_remove(int id) const {
         return has_api_12() && m_api->prop_remove(m_handle, id) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.33: whether the port skins props (prop_set_skin).
+    bool has_prop_skin() const {
+        return m_api->api_minor >= 32
+               && m_api->size >= offsetof(openrac_api, prop_set_skin) + sizeof(void*);
+    }
+
+    // Since 1.33: skins prop `id` with `joint_count` joint matrices of 16 floats each, column-major
+    // (see openrac_api.prop_set_skin for the one convention: joint j's matrix takes the mesh's
+    // bind-pose vertex to where the joint puts it, in the mesh's own coordinates, so the identity
+    // is the bind pose; prop_pose's matrix is applied after). Held until the next call. False for
+    // a prop that is not the mod's or went with its level, a count past OPENRAC_PROP_JOINTS_MAX, a
+    // value that is not a number, or a port without it. `joint_matrices` must hold 16 * joint_count
+    // floats: the port reads that many, and cannot check it.
+    bool prop_set_skin(int id, const float* joint_matrices, std::size_t joint_count) const {
+        return has_prop_skin() && joint_count <= OPENRAC_PROP_JOINTS_MAX
+               && m_api->prop_set_skin(
+                      m_handle, id, joint_matrices, static_cast<uint32_t>(joint_count)
+                  ) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.33: the same, with the matrices in one vector. Its size must be a whole number of
+    // joints (16 floats each); any other size is refused here, and nothing is changed.
+    bool prop_set_skin(int id, const std::vector<float>& joint_matrices) const {
+        return joint_matrices.size() % 16 == 0
+               && prop_set_skin(id, joint_matrices.data(), joint_matrices.size() / 16);
+    }
+
+    // Since 1.33: takes prop `id`'s skin off: drawn in its bind pose again.
+    bool prop_clear_skin(int id) const {
+        return has_prop_skin() && m_api->prop_set_skin(m_handle, id, nullptr, 0) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.33: whether the port draws a moby with a mesh of the mod's (model_create,
+    // moby_model_slot).
+    bool has_moby_models() const {
+        return m_api->api_minor >= 32
+               && m_api->size >= offsetof(openrac_api, moby_model_slot) + sizeof(void*);
+    }
+
+    // Since 1.33: makes a model of the .glb `mesh_path` (in the mod's folder) for moby_model_slot:
+    // its handle, or -1 outside a level, for a path the port refuses, past OPENRAC_MODELS_MAX, or
+    // on a port without it. It goes with its level.
+    int model_create(const std::string& mesh_path) const {
+        const int model = has_moby_models() ? m_api->model_create(m_handle, mesh_path.c_str())
+                                            : OPENRAC_HOOK_UNKNOWN;
+        return model >= 0 ? model : -1;
+    }
+
+    // Since 1.33: draws the moby in array `slot` with `model` instead of its class's model (see
+    // openrac_api.moby_model_slot). `matrix` takes the mesh into the moby's model space (null: the
+    // identity). Returns OPENRAC_HOOK_OK, _UNKNOWN or _TAKEN (another mod's moby).
+    int moby_model_slot(int slot, int model, const float* matrix = nullptr) const {
+        if (!has_moby_models()) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        openrac_moby_model m{};
+        m.size = sizeof m;
+        m.model = model;
+        for (int i = 0; i < 16; ++i) {
+            m.matrix[i] = matrix != nullptr ? matrix[i] : (i % 5 == 0 ? 1.0f : 0.0f);
+        }
+        return m_api->moby_model_slot(m_handle, slot, &m);
+    }
+
+    // Since 1.33: gives the moby in array `slot` its own model back.
+    bool moby_model_clear(int slot) const {
+        return moby_model_slot(slot, -1) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.33: whether the port draws every moby of a class with a mesh of the mod's
+    // (moby_model_class).
+    bool has_moby_model_class() const {
+        return m_api->api_minor >= 32
+               && m_api->size >= offsetof(openrac_api, moby_model_class) + sizeof(void*);
+    }
+
+    // Since 1.33: draws every moby of class `oclass` in `scope` (OPENRAC_MODEL_WORLD, _MENU or both)
+    // with `model`: the game's own pictures of the item too, in the menu scope (see
+    // openrac_api.moby_model_class). Returns OPENRAC_HOOK_OK, _UNKNOWN or _TAKEN (another mod's).
+    int moby_model_class(int oclass, uint32_t scope, int model, const float* matrix = nullptr) const {
+        if (!has_moby_model_class()) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        openrac_moby_model m{};
+        m.size = sizeof m;
+        m.model = model;
+        for (int i = 0; i < 16; ++i) {
+            m.matrix[i] = matrix != nullptr ? matrix[i] : (i % 5 == 0 ? 1.0f : 0.0f);
+        }
+        return m_api->moby_model_class(m_handle, oclass, scope, &m);
+    }
+
+    // Since 1.33: gives the class its own model back in `scope`.
+    bool moby_model_class_clear(int oclass, uint32_t scope) const {
+        return moby_model_class(oclass, scope, -1) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.34: whether the port draws OPENRAC_MOBY_MATERIAL_PAINT (and its glow levels).
+    bool has_paint() const {
+        return has_moby_material() && m_api->api_minor >= 34;
+    }
+
+    // Since 1.38: whether the port draws OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT: paint whose
+    // strongly saturated texels (a visor, lamps) take a second colour.
+    bool has_paint_accent() const {
+        return has_paint() && m_api->api_minor >= 38;
+    }
+
+    // Since 1.39: whether the port takes OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS (paint that draws the
+    // moby's effects in its colour too) and paint in weapon_look.
+    bool has_paint_effects() const {
+        return has_paint() && m_api->api_minor >= 39;
+    }
+
+    // Since 1.34: whether the port draws every moby of a class with a material
+    // (moby_material_class).
+    bool has_moby_material_class() const {
+        return m_api->api_minor >= 34
+               && m_api->size >= offsetof(openrac_api, moby_material_class) + sizeof(void*);
+    }
+
+    // Since 1.34: draws every moby of class `oclass` in `scope` (OPENRAC_MODEL_WORLD, _MENU or
+    // both) with `material` (OPENRAC_MOBY_MATERIAL_*, _NONE to take the mod's off) and `rgb`, the
+    // menus' own pictures of the class too in the menu scope; a moby's own moby_material wins (see
+    // openrac_api.moby_material_class). Returns false when refused or the port has no such call.
+    bool moby_material_class(int oclass, uint32_t scope, std::uint32_t material,
+                             std::uint32_t rgb = 0xFFFFFF) const {
+        return has_moby_material_class()
+               && m_api->moby_material_class(m_handle, oclass, scope, material, rgb)
+                      == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.33: whether the port takes the effect's options (particle_spawn_ex).
+    bool has_particle_spawn_ex() const {
+      return m_api->api_minor >= 32 &&
+             m_api->size >=
+                 offsetof(openrac_api, particle_spawn_ex) + sizeof(void *);
+    }
+
+    // Since 1.33: starts the game's own particle effect with the options in
+    // `spawn` (see openrac_particle_spawn). The size is set here. Returns
+    // OPENRAC_HOOK_OK, _FULL or _UNKNOWN.
+    int particle_spawn_ex(openrac_particle_spawn spawn) const {
+      if (!has_particle_spawn_ex()) {
+        return OPENRAC_HOOK_UNKNOWN;
+      }
+      spawn.size = sizeof spawn;
+      return m_api->particle_spawn_ex(m_handle, &spawn);
+    }
+
+    // Since 1.33: whether the port registers particle textures (particle_texture_register).
+    bool has_particle_texture_register() const {
+      return m_api->api_minor >= 32 &&
+             m_api->size >=
+                 offsetof(openrac_api, particle_texture_register) + sizeof(void *);
+    }
+
+    // Since 1.33: registers a particle texture in the game's format: `indices` is the 32 x 32 texture's
+    // 1024 8-bit indices, `clut` its 1024-byte palette (openrac_particle_texture). Returns the id the
+    // texture byte takes (128 to 255), OPENRAC_HOOK_FULL when all are taken, or OPENRAC_HOOK_UNKNOWN.
+    int particle_texture_register(const std::vector<std::uint8_t>& indices,
+                                  const std::vector<std::uint8_t>& clut) const {
+      if (!has_particle_texture_register() || indices.size() != 1024 || clut.size() != 1024) {
+        return OPENRAC_HOOK_UNKNOWN;
+      }
+      openrac_particle_texture t{};
+      t.size = sizeof t;
+      std::memcpy(t.indices, indices.data(), sizeof t.indices);
+      std::memcpy(t.clut, clut.data(), sizeof t.clut);
+      return m_api->particle_texture_register(m_handle, &t);
+    }
+
+    // Since 1.33: whether the port draws a moby at an address with a mesh of the mod's (moby_model_at).
+    bool has_moby_model_at() const {
+        return m_api->api_minor >= 32
+               && m_api->size >= offsetof(openrac_api, moby_model_at) + sizeof(void*);
+    }
+
+    // Since 1.33: draws the moby at `address` with `model` (see openrac_api.moby_model_at); the matrix as
+    // moby_model_slot's. Returns OPENRAC_HOOK_OK, _TAKEN or _UNKNOWN.
+    int moby_model_at(std::uint32_t address, int model, const float* matrix = nullptr) const {
+        if (!has_moby_model_at()) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        openrac_moby_model m{};
+        m.size = sizeof m;
+        m.model = model;
+        for (int i = 0; i < 16; ++i) {
+            m.matrix[i] = matrix != nullptr ? matrix[i] : (i % 5 == 0 ? 1.0f : 0.0f);
+        }
+        return m_api->moby_model_at(m_handle, address, &m);
+    }
+
+    // Since 1.33: gives the moby at `address` its own model back.
+    bool moby_model_at_clear(std::uint32_t address) const {
+        return moby_model_at(address, -1) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.33: hides this moby's native mesh for a mod-owned replacement or an empty-handed pose.
+    int moby_model_at_hide(std::uint32_t address) const {
+        const auto& a = *m_api;
+        if (a.api_minor < 32 ||
+            a.size < offsetof(openrac_api, moby_model_at) + sizeof a.moby_model_at ||
+            a.moby_model_at == nullptr) return OPENRAC_HOOK_UNKNOWN;
+        openrac_moby_model m{};
+        m.size = sizeof m;
+        m.flags = OPENRAC_MODEL_HIDE_NATIVE;
+        m.model = -1;
+        m.matrix[0] = m.matrix[5] = m.matrix[10] = m.matrix[15] = 1.0f;
+        return a.moby_model_at(m_handle, address, &m);
+    }
+
+    // Since 1.33, RAC1 only: reserves unused native item IDs during load; refused if another mod holds one.
+    int rac1_reserve_item_ids(const std::uint32_t* ids, std::uint32_t count) const {
+        const auto& a = *m_api;
+        if (a.api_minor < 32 ||
+            a.size < offsetof(openrac_api, rac1_reserve_item_ids) + sizeof a.rac1_reserve_item_ids ||
+            a.rac1_reserve_item_ids == nullptr) return OPENRAC_HOOK_UNKNOWN;
+        return a.rac1_reserve_item_ids(m_handle, ids, count);
+    }
+
+    // Since 1.33, RAC1 only: moves a queued native ammo panel by (x, y) HUD reference units.
+    int rac1_ammo_panel_offset(std::int32_t handle, std::int32_t x, std::int32_t y) const {
+        const auto& a = *m_api;
+        if (a.api_minor < 32 ||
+            a.size < offsetof(openrac_api, rac1_ammo_panel_offset) + sizeof a.rac1_ammo_panel_offset ||
+            a.rac1_ammo_panel_offset == nullptr) return OPENRAC_HOOK_UNKNOWN;
+        return a.rac1_ammo_panel_offset(m_handle, handle, x, y);
+    }
+
+    // Since 1.33, RAC1 only: registers a native-backed weapon during load.
+    int rac1_weapon_register(const openrac_rac1_weapon& weapon) const {
+        const auto& a = *m_api;
+        if (a.api_minor < 32 ||
+            a.size < offsetof(openrac_api, rac1_weapon_register) + sizeof a.rac1_weapon_register ||
+            a.rac1_weapon_register == nullptr) return OPENRAC_HOOK_UNKNOWN;
+        return a.rac1_weapon_register(m_handle, &weapon);
+    }
+
+    // Since 1.33, RAC1 only: gives a registered weapon and its initial ammunition during play.
+    int rac1_weapon_grant(std::uint32_t item) const {
+        const auto& a = *m_api;
+        if (a.api_minor < 32 ||
+            a.size < offsetof(openrac_api, rac1_weapon_grant) + sizeof a.rac1_weapon_grant ||
+            a.rac1_weapon_grant == nullptr) return OPENRAC_HOOK_UNKNOWN;
+        return a.rac1_weapon_grant(m_handle, item);
+    }
+
+    // Since 1.33: whether the port has the installed games' data folders (game_data_dir).
+    bool has_game_data() const {
+        return m_api->api_minor >= 32
+               && m_api->size >= offsetof(openrac_api, game_data_dir) + sizeof(void*);
+    }
+
+    // Since 1.33: the data folder of the installed game `game` ("rac2") into `path`. Returns the folder's length
+    // (> 0, path set) when it is installed, 0 when it is not installed or extracted, OPENRAC_HOOK_UNKNOWN when the
+    // port cannot say, or OPENRAC_HOOK_REFUSED when the manifest does not declare the game in "reads_games".
+    int game_data_dir(const std::string& game, std::string& path) const {
+        path.clear();
+        if (!has_game_data()) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        char buffer[4096];
+        const int length = m_api->game_data_dir(m_handle, game.c_str(), buffer, sizeof buffer);
+        if (length > 0) {
+            path.assign(buffer, static_cast<std::size_t>(length));
+        }
+        return length;
+    }
+
+    // Since 1.33: whether the port has the gameplay camera's visibility bypass
+    // (camera_visibility_bypass).
+    bool has_camera_visibility_bypass() const {
+        return m_api->api_minor >= 32
+               && m_api->size >= offsetof(openrac_api, camera_visibility_bypass) + sizeof(void*);
+    }
+
+    // Since 1.33: draws the level's gameplay view with frustum culling alone, without the level's
+    // baked camera visibility, until cleared (`enabled` false) or the level goes (see
+    // openrac_api.camera_visibility_bypass). False outside a level in play, and on a port without it.
+    bool camera_visibility_bypass(bool enabled) const {
+        return has_camera_visibility_bypass()
+               && m_api->camera_visibility_bypass(m_handle, enabled ? 1 : 0) == OPENRAC_HOOK_OK;
     }
 
     // Since 1.12: a sound of the mod's (a .wav or .ogg in its folder): its id, or -1.
@@ -2064,9 +2717,25 @@ public:
         return has_slot14(offsetof(openrac_api, on_overlay));
     }
 
-    // Since 1.14: `fn(user, overlay)` once a frame to draw over the game. During load.
+    // Since 1.14: `fn(user, overlay)` once a frame to draw over the game while a level is in play.
+    // During load. on_overlay_phases draws over menus too.
     bool on_overlay(openrac_overlay_fn fn, void* user = nullptr) const {
         return has_overlay() && m_api->on_overlay(m_handle, fn, user) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.33: whether the port has the game's camera shake (camera_shake).
+    bool has_camera_shake() const {
+        return m_api->api_minor >= 32
+               && m_api->size >= offsetof(openrac_api, camera_shake) + sizeof(void*);
+    }
+
+    // Since 1.33: starts the game's own camera shake on the level camera, channel 0 or 1 (see
+    // openrac_api.camera_shake). The countdown runs only in play, not in a cutscene or movie.
+    // False outside a level, for a bad channel, amplitude or count, or on a port without it.
+    // `frames` 0 stops the channel.
+    bool camera_shake(int channel, float amplitude, int frames) const {
+        return has_camera_shake()
+               && m_api->camera_shake(m_handle, channel, amplitude, frames) == OPENRAC_HOOK_OK;
     }
 
     // Since 1.14: whether this port has the shots with more to say.
@@ -2279,6 +2948,131 @@ public:
                           && m_api->identity_key(text, sizeof text) > 0;
         text[sizeof text - 1] = 0;
         return says ? text : "";
+    }
+
+    // Since 1.35: what a cutscene needs. The picture's vertical field of view in
+    // degrees while the mod holds the camera (0: the game's); false without the camera or the call.
+    bool camera_fov(float degrees) const {
+        return has_slot14(offsetof(openrac_api, camera_fov))
+               && m_api->camera_fov(m_handle, degrees) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.35: hides the game's own HUD (the mods' lines stay) or shows it again.
+    bool hud_hide(bool hidden) const {
+        return has_slot14(offsetof(openrac_api, hud_hide))
+               && m_api->hud_hide(m_handle, hidden ? 1 : 0) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.35: the game's music at `gain` (0 to 1), eased; 1 gives it back.
+    bool music_volume(float gain) const {
+        return has_slot14(offsetof(openrac_api, music_volume))
+               && m_api->music_volume(m_handle, gain) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.35: hero_set_joints for the moby in `slot`; an empty list takes them off.
+    bool moby_set_joints(int slot, const std::vector<openrac_joint_offset>& joints) const {
+        return has_slot14(offsetof(openrac_api, moby_set_joints))
+               && m_api->moby_set_joints(m_handle, slot, joints.empty() ? nullptr : joints.data(),
+                                         static_cast<int>(joints.size()))
+                      == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.35: where joint `joint` of the moby in `slot` is, as last drawn.
+    bool moby_joint_position(int slot, int joint, float out[3]) const {
+        return has_slot14(offsetof(openrac_api, moby_joint_position))
+               && m_api->moby_joint_position(slot, joint, out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.35: one of the moby's class's sounds on it; its voice, or -1.
+    int moby_sound_play(int slot, int sound, bool loop) const {
+        return has_slot14(offsetof(openrac_api, moby_sound_play))
+                   ? m_api->moby_sound_play(m_handle, slot, sound, loop ? 1 : 0)
+                   : -1;
+    }
+
+    // Since 1.35: stops a voice moby_sound_play gave.
+    void moby_sound_stop(int voice) const {
+        if (has_slot14(offsetof(openrac_api, moby_sound_stop))) {
+            m_api->moby_sound_stop(m_handle, voice);
+        }
+    }
+
+    // Since 1.35: the fog and background the picture is drawn with (nullptr: the
+    // game's again); false outside a level, for a value out of range or a port without it.
+    bool scene_air(const openrac_air* air) const {
+        return has_slot14(offsetof(openrac_api, scene_air)) && m_api->scene_air(m_handle, air) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.35: slow motion, each tick `stretch` (1 to 8) times as long; false for
+    // a value out of range or a port without it.
+    bool time_stretch(float stretch) const {
+        return has_slot14(offsetof(openrac_api, time_stretch)) && m_api->time_stretch(m_handle, stretch) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.35: hides the level's tie `tie` from the picture, or shows it again;
+    // false outside a level, for a number below 0 or past 65535 or a port without it.
+    bool tie_hide(int tie, bool hidden) const {
+        return has_slot14(offsetof(openrac_api, tie_hide)) && m_api->tie_hide(m_handle, tie, hidden ? 1 : 0) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.35: plays animation `animation` of a skinned prop's .glb at `seconds`
+    // (-1: the mesh as stored); false for a prop not the mod's or a port without it.
+    bool prop_animate(int prop, int animation, float seconds, bool loop) const {
+        return has_slot14(offsetof(openrac_api, prop_animate))
+               && m_api->prop_animate(m_handle, prop, animation, seconds, loop ? 1 : 0) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.35: a moby's joint's axes and place in the level, as last drawn, into
+    // `out` (x, y, z axes, then the place); false for no such joint or a port without it.
+    bool moby_joint_frame(int slot, int joint, float (&out)[12]) const {
+        return has_slot14(offsetof(openrac_api, moby_joint_frame))
+               && m_api->moby_joint_frame(slot, joint, out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.35: the spawn id of the placed moby in `slot` (its record's uid, which
+    // stays when the level is edited; a key is the record's place), -1 for none or a port without it.
+    int moby_uid(int slot) const {
+        return has_slot14(offsetof(openrac_api, moby_uid)) && m_api->moby_uid != nullptr ? m_api->moby_uid(slot) : -1;
+    }
+
+    // Since 1.36: whether the port draws sharper pictures of cells the mod paints in a 2D-layer
+    // texture (sharp_cells).
+    bool has_sharp_cells() const {
+        return m_api->api_minor >= 36
+               && m_api->size >= offsetof(openrac_api, sharp_cells) + sizeof(void*);
+    }
+
+    // Since 1.36: replaces the mod's pages of sharper cells with `count` (0 clears them; the port
+    // copies them), set before the mod paints the texels (see openrac_api.sharp_cells); each page's
+    // and cell's `size` is the mod's to set. False when refused or the port has no such call.
+    bool sharp_cells(const openrac_sharp_page* pages, int count) const {
+        return has_sharp_cells() && m_api->sharp_cells(m_handle, pages, count) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.37: whether the port lets the mod drive the pads' motors (set_motors).
+    bool has_set_motors() const {
+        return m_api->api_minor >= 37
+               && m_api->size >= offsetof(openrac_api, set_motors) + sizeof(void*);
+    }
+
+    // Since 1.37: drives pad `port`'s motors (0 or 1, as on_pad numbers it) as the game's own
+    // vibration does: `small_motor` 0 or 1, `large_motor` 0 to 255, each motor the stronger of the
+    // game's and the mods'. A command lasts a fifth of a second, so send it every tick while it
+    // rumbles; 0, 0 stops. Send 0, 0 at load to have the menu show the player's vibration settings
+    // in a game without rumble of its own. On the game's thread only (load, on_frame, a hook),
+    // never from a thread of the mod's. False when refused or the port has no such call.
+    bool set_motors(int port, int small_motor, int large_motor) const {
+        return has_set_motors()
+               && m_api->set_motors(m_handle, port, small_motor, large_motor) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.37: turns an option of the port's menu on or off, by its name
+    // (sdk/docs/menu-options.md): OPENRAC_MENU_OPTION_ON, _OFF, or _DEFAULT for the port's choice.
+    // A name the port does not know is taken and changes nothing. False for a port without the
+    // call, an empty name or another state.
+    bool menu_option_set(const char* option, int state) const {
+        return has_slot14(offsetof(openrac_api, menu_option_set))
+               && m_api->menu_option_set(m_handle, option, state) == OPENRAC_HOOK_OK;
     }
 
     // Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1:

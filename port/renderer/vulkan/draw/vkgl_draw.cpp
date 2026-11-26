@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <regex>
 #include <span>
 #include <stdexcept>
@@ -26,10 +27,13 @@
 #include "renderer/gl/gl.h"
 #include "renderer/gl/gpu_draw.h"
 #include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/draw/error_draw_state.h"
+#include "renderer/vulkan/draw/gpu_draw_sources.h"
 #include "renderer/vulkan/graph/graph_barriers.h"
 #include "renderer/vulkan/graph/graph_immediate_work.h"
 #include "renderer/vulkan/graph/graph_pipeline.h"
 #include "renderer/vulkan/graph/surface_batch.h"
+#include "renderer/vulkan/pipelines/material_shader_sources.h"
 #include "renderer/vulkan/pipelines/shader_compiler.h"
 #include "renderer/vulkan/vkgl_internal.h"
 
@@ -426,28 +430,6 @@ void draw(
     if (count <= 0 || instances <= 0) {
         return;
     }
-    if (!graph_pipeline_active()) {
-        GraphImmediateWork::draw(
-            [=] {
-                draw(
-                    mode,
-                    count,
-                    instances,
-                    indexed,
-                    index_type,
-                    index_offset,
-                    first,
-                    gpu_page,
-                    gpu_command,
-                    indirect_buffer,
-                    gpu_draw_count
-                );
-            },
-            gpu_page,
-            indirect_buffer
-        );
-        return;
-    }
     // The draw's count, and its time for the vk_draw_ms gauge. The two clock reads are taken only
     // while the debug tools measure (vk-draw-clock): the gauge is published only then.
     struct Timed {
@@ -480,6 +462,27 @@ void draw(
     const State& s = g->state;
     if (s.viewport[2] <= 0 || s.viewport[3] <= 0) {
         return;
+    }
+
+    // The pass must own the valid draw before binding any native state.
+    if (!graph_pipeline_active()) {
+        throw std::logic_error("draw requires an owning graph pass");
+    }
+
+    std::optional<ErrorDrawState> error_state;
+    // Unknown geometry cannot contribute depth. Defer its diagnostic to a writable colour pass.
+    if (p->compiled.fallback == GraphicsFallback::Fullscreen) {
+        if (!graph_colour_write_allowed(t)) {
+            return;
+        }
+        error_state.emplace(g->state);
+        mode = GL_TRIANGLES;
+        count = 3;
+        instances = 1;
+        indexed = false;
+        first = 0;
+        gpu_page = nullptr;
+        indirect_buffer = 0;
     }
     validate_pipeline_draw(t);
     // What it samples, in the layout for sampling: moved before the drawing begins. The list is

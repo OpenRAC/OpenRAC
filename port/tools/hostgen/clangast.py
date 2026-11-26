@@ -16,9 +16,16 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+
+# Clang's JSON AST nests one level per operand, so a long chain of `else if`s or a
+# long sum in matched C goes past Python's default 1,000 frames in the recursive
+# walkers here and in the translators. Python 3.12+ keeps pure-Python frames off
+# the C stack, so a higher limit is safe.
+sys.setrecursionlimit(max(sys.getrecursionlimit(), 100_000))
 
 # GCC 2.95 accepted these; Clang makes them errors unless told otherwise.
 RELAXED = [
@@ -84,8 +91,7 @@ def run(clang: str, path: Path, cwd: Path, flags: list[str], json_out: bool) -> 
     # rewritten, and ccache's inode cache can then give the answer to what the file held before
     # (a cache hit kept a conflicting declaration's check quiet, while the AST dump after it
     # failed): `clang` on PATH is ccache's wrapper on Fedora, and the port's build sets one up
-    # (cmake/FastBuild.cmake). The checks are a small part of hostgen's Clang time; the AST dumps
-    # after them cannot be cached anyway.
+    # (cmake/FastBuild.cmake). The AST dumps cannot be cached anyway.
     env = dict(os.environ, CCACHE_DISABLE="1")
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, errors="replace", env=env)
 
@@ -103,8 +109,10 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
       the start of the function that makes the call; f's own declaration
       and definition stay as they are.
     - An inline assembly statement whose constraints or registers Clang
-      does not know: replaced by a call to openrac_hostgen_asm() (on the
-      same lines), so the function becomes a stub that says why.
+      does not know: VU0 macro-mode instructions on GCC's "j" registers are
+      written as C (vu0_macro_c); anything else is replaced by a call to
+      openrac_hostgen_asm() (on the same lines), so the function becomes a
+      stub that says why.
     - "conflicting types for 'f'" after an earlier declaration or definition
       of f: the later declaration, and the calls after it, use an alias of
       f's symbol. So does a later definition of f that contradicts an
@@ -118,8 +126,9 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
       declaration, and the name recorded as an alias of the label's symbol
       ("alias NAME SYMBOL" in the fixes), which hostgen follows.
     - "too few arguments to function call": a call to a K&R function with
-      fewer arguments than its definition. The missing ones are passed as 0
-      (on the console they were whatever the registers held).
+      fewer arguments than its definition. The missing ones are passed as
+      openrac_hostgen_unset(): 0, or with hostgen.json "unpassed_registers" the
+      caller's own arguments in those registers, as on the console (lower.py).
 
     Both edits stay on their line, so line numbers do not move.
     """
@@ -164,6 +173,11 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
         msg = d["msg"]
         line = int(d["line"]) - 1
         col = int(d["col"]) - 1
+        if 0 <= line < len(lines) and _unwrite_vu0_c(lines, line, col):
+            # C written for VU0 inline assembly (vu0_macro_c) that Clang refuses in its context: the
+            # statement's stub, as before.
+            fixes.append(f"line {line + 1}: VU0 inline assembly Clang refused as C, made a stub")
+            continue
         m = re.match(r"redeclaration of '(\w+)' with a different type", msg)
         # an extern of a variable: plain, of an anonymous struct ({...}), or with attributes
         if m and re.match(r"^\s*extern\b(?:[^;{}]|\{[^{}]*\})*;\s*$", lines[line]) \
@@ -197,6 +211,12 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
                 alias = f"{name}__openrac_decl_{line + 1}"
                 decl = re.sub(rf"\b{name}\b", alias, lines[line], count=1)
                 what = "a second declaration"
+                # The symbol is the name's own, not an alias an earlier contradiction gave it: a
+                # third declaration of func_0038CE20 in Veldin's L01_0035F480.c, after a second one
+                # had become func_0038CE20__openrac_decl_140, contradicts that alias and was labelled
+                # with it, so its calls went to the executable's code at 0x0038CE20 (another routine)
+                # instead of the level's vector scale.
+                symbol = re.sub(r"(?:__openrac_decl_\d+)+$", "", name)
                 if re.search(r"__asm__\s*\(", decl):
                     # Already labelled with its symbol: the label stays the alias's.
                     n = 1
@@ -208,7 +228,7 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
                     n = 1
                     what = "a local that repeats a parameter's name"
                 else:
-                    decl, n = re.subn(r"\)\s*;", f') __asm__("{name}");', decl, count=1)
+                    decl, n = re.subn(r"\)\s*;", f') __asm__("{symbol}");', decl, count=1)
                 if n == 0 and note["msg"].startswith("previous declaration is here"):
                     # Not a declaration but the definition, which says other types than a
                     # declaration before it (a shared header's `void *` where the body takes
@@ -220,7 +240,7 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
                     heading = " ".join(lines[line:end] + [lines[end].split("{", 1)[0]])
                     if "{" in lines[end] and ";" not in heading:
                         heading = re.sub(rf"\b{name}\b", alias, heading, count=1).strip()
-                        decl = f'{heading} __asm__("{name}"); {decl}'
+                        decl = f'{heading} __asm__("{symbol}"); {decl}'
                         what = "the definition"
                         n = 1
                 if n == 0:
@@ -285,11 +305,24 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
                     fixes.append(f"line {line + 1}: second asm label {lm.group(4)} for {lm.group(1)} removed")
                 break
             continue
+        m = re.match(r"unknown register name '\$?(v[fi]\d+)' in asm", msg)
+        if m and 0 <= line < len(lines) and _drop_vu0_clobber(lines, line, col, m.group(1)):
+            # A VU0 register in the statement's clobbers ("vf1", "vf2"), which Clang has no name for. It
+            # tells GCC only what the statement writes, and the port keeps none of those registers: the
+            # clobber goes and the statement stays, so vu0_assembly sees its instructions and
+            # "vu0_assembly_from_retail" translates the function from its assembly. Made a stub, it did
+            # nothing: Veldin's func_L01_003AA658 and Annihilation Nation's func_L07_0035CC10.
+            fixes.append(f"line {line + 1}: VU0 register {m.group(1)} dropped from the inline assembly's clobbers")
+            continue
         if re.match(r"(invalid (output|input) constraint|unknown register name|invalid operand in inline asm"
                     r"|couldn't allocate .* inline asm)", msg):
+            stubs = sum(ln.count("openrac_hostgen_asm();") for ln in lines)
             replaced = _replace_asm(lines, line, col)
             if replaced:
-                fixes.append(f"line {line + 1}: inline assembly Clang cannot read, made a stub")
+                if sum(ln.count("openrac_hostgen_asm();") for ln in lines) > stubs:
+                    fixes.append(f"line {line + 1}: inline assembly Clang cannot read, made a stub")
+                else:
+                    fixes.append(f"line {line + 1}: VU0 inline assembly written as C")
             continue
         m = re.search(r"array has incomplete element type '[^']*'(?: \(aka '(?:struct|union) (\w+)'\))?", msg)
         if m:
@@ -309,20 +342,250 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
         if m:
             want, have = int(m.group(1)), int(m.group(2))
             src = lines[line]
-            pad = ", ".join(["0"] * (want - have))
+            pad = ", ".join(["openrac_hostgen_unset()"] * (want - have))
             if have:
                 pad = ", " + pad
             if 0 <= col < len(src) and src[col] == ")":
                 lines[line] = src[:col] + pad + src[col:]
-                fixes.append(f"line {line + 1}: passed {want - have} missing argument(s) as 0")
+                fixes.append(f"line {line + 1}: passed {want - have} missing argument(s) as unset")
     for at, decls in inserts.items():
         lines[at] = " ".join(dict.fromkeys(decls)) + " " + lines[at]
     return "\n".join(lines), fixes
 
 
+# ---- VU0 macro-mode inline assembly as C ----
+#
+# The decompilations write small vector routines as GCC inline assembly on its "j" class (a VU0
+# float register): `__asm__("lqc2 %0, %1" : "=j"(x) : "m"(*(vu0_v4 *)b))`, then vadd.xyz and sqc2.
+# Clang does not know the class, and such a statement made its function a stub: rac3's
+# func_L01_00446BF0 (the stepped line test between two segments) never moved its points along
+# the segments, and the wrench's sweep and the enemies' sight lines tested the wrong places. The
+# few instructions these statements use are written here as C on four floats a register.
+
+_VU0_REG_CLASSES = ("j",)
+# Leads the C written for a statement, so that C Clang then refuses goes back to a stub (fix_from_diagnostics).
+VU0_C_MARK = "/*openrac_vu0*/"
+_VU0_LVALUE = re.compile(r"\s*[A-Za-z_]\w*(?:\s*(?:\.|->)\s*[A-Za-z_]\w*|\s*\[[^\[\]]*\])*\s*")
+_LANES = "xyzw"
+
+
+def _asm_parts(stmt: str) -> tuple[str, list[list[tuple[str, str]]]] | None:
+    """The template (its string literals joined, escapes read) and the operand lists (outputs,
+    inputs) of an asm statement's text: [(constraint, expression)], or None."""
+    j = stmt.find("(")
+    if j < 0:
+        return None
+    body = stmt[j + 1:stmt.rfind(")")]
+    sections: list[str] = []
+    depth, cur, k = 0, [], 0
+    while k < len(body):
+        ch = body[k]
+        if ch == '"':
+            e = k + 1
+            while e < len(body) and body[e] != '"':
+                e += 2 if body[e] == "\\" else 1
+            cur.append(body[k:e + 1])
+            k = e + 1
+            continue
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif ch == ":" and depth == 0:
+            sections.append("".join(cur))
+            cur = []
+            k += 1
+            continue
+        cur.append(ch)
+        k += 1
+    sections.append("".join(cur))
+    literals = re.findall(r'"((?:[^"\\]|\\.)*)"', sections[0])
+    if not literals or re.sub(r'"(?:[^"\\]|\\.)*"|\s', "", sections[0]):
+        return None
+    template = "".join(literals).replace("\\n", "\n").replace("\\t", "\t")
+    operands: list[list[tuple[str, str]]] = []
+    for sec in (sections[1:3] + ["", ""])[:2]:
+        ops: list[tuple[str, str]] = []
+        k = 0
+        while k < len(sec):
+            m = re.compile(r'\s*"([^"]*)"\s*\(').match(sec, k)
+            if m is None:
+                if sec[k:].strip(" \t\n,"):
+                    return None
+                break
+            e, depth = m.end(), 1
+            while e < len(sec) and depth:
+                depth += {"(": 1, ")": -1}.get(sec[e], 0)
+                e += 1
+            if depth:
+                return None
+            ops.append((m.group(1).strip(), sec[m.end():e - 1].strip()))
+            k = e
+            while k < len(sec) and sec[k] in " \t\n,":
+                k += 1
+        operands.append(ops)
+    return template, operands
+
+
+def vu0_macro_c(stmt: str) -> str | None:
+    """C for an inline assembly statement of VU0 macro-mode instructions on "j" operands (lqc2,
+    sqc2, vadd and vsub on .xyz or .xyzw, vmr32.xyzw), or None when it has anything else.
+
+    Each register operand is four floats, read from its C expression before the instructions (an
+    input, a "+" output, an input tied to an output by its number) and written back after them (an
+    output); a memory operand is read or written where the instruction does it. A field-masked
+    result into an output that nothing loaded keeps its first source's w (the second's when the
+    first is $vf0, which is (0, 0, 0, 1)), as the port's headers/vu0.h helpers do: retail puts
+    such results in the register the source was loaded into."""
+    parts = _asm_parts(stmt)
+    if parts is None:
+        return None
+    template, (outs, ins) = parts
+    operands = outs + ins
+    if not any(c.lstrip("=+&") in _VU0_REG_CLASSES for c, _ in operands):
+        return None
+    reg: dict[int, int] = {}            # operand number -> register
+    mem: dict[int, str] = {}            # operand number -> its address
+    init: dict[int, str] = {}           # register -> the expression it is loaded from
+    store: dict[int, str] = {}          # register -> the expression it is written back to
+    for n, (cons, expr) in enumerate(operands):
+        kind = cons.lstrip("=+&")
+        if kind in _VU0_REG_CLASSES:
+            if not _VU0_LVALUE.fullmatch(expr):
+                return None
+            reg[n] = n
+            if n >= len(outs) or cons.startswith("+"):
+                init[n] = expr
+            if n < len(outs):
+                store[n] = expr
+        elif kind == "m":
+            mem[n] = f"((float *)&({expr}))"
+        elif kind == "i" and n >= len(outs):
+            mem[n] = f"((float *)({expr}))"     # an address as a constant (lqc2 %0, %1 : "i"(&D))
+        elif kind.isdigit() and n >= len(outs) and int(kind) in reg:
+            r = reg[int(kind)]
+            reg[n] = r
+            if not _VU0_LVALUE.fullmatch(expr):
+                return None
+            init[r] = expr
+        else:
+            return None
+    def lane(r: int, i: int) -> str:
+        return f"openrac_vf{r}_{_LANES[i]}"
+
+    defined = set(init)
+    body: list[str] = []
+
+    def source(arg: str) -> tuple[str, int | None] | None:
+        m = re.fullmatch(r"%(\d+)", arg)
+        if m and int(m.group(1)) in reg:
+            return "reg", reg[int(m.group(1))]
+        if re.fullmatch(r"\$?vf0", arg):
+            return "vf0", None
+        return None
+
+    def value(src: tuple[str, int | None], i: int) -> str:
+        if src[0] == "vf0":
+            return "1.0f" if i == 3 else "0.0f"
+        return lane(src[1], i)
+
+    for line in re.split(r"[\n;]", template):
+        line = line.strip()
+        if not line:
+            continue
+        op, _, rest = line.partition(" ")
+        args = [a.strip() for a in rest.split(",")] if rest.strip() else []
+        if op in ("lqc2", "sqc2") and len(args) == 2:
+            m = re.fullmatch(r"%(\d+)", args[1])
+            r = source(args[0])
+            if m is None or int(m.group(1)) not in mem or r is None or r[0] != "reg":
+                return None
+            at = mem[int(m.group(1))]
+            for i in range(4):
+                if op == "lqc2":
+                    body.append(f"{lane(r[1], i)} = {at}[{i}];")
+                else:
+                    body.append(f"{at}[{i}] = {lane(r[1], i)};")
+            if op == "lqc2":
+                defined.add(r[1])
+            continue
+        m = re.fullmatch(r"(vadd|vsub)\.(xyz|xyzw)", op)
+        if m and len(args) == 3:
+            d, a, b = source(args[0]), source(args[1]), source(args[2])
+            if d is None or d[0] != "reg" or a is None or b is None:
+                return None
+            if d[1] not in defined and m.group(2) == "xyz":
+                keep = a if a[0] == "reg" else b
+                body.append(f"{lane(d[1], 3)} = {value(keep, 3)};")
+            sign = "+" if m.group(1) == "vadd" else "-"
+            for i in range(len(m.group(2))):
+                body.append(f"{lane(d[1], i)} = {value(a, i)} {sign} {value(b, i)};")
+            defined.add(d[1])
+            continue
+        if op == "vmr32.xyzw" and len(args) == 2:
+            d, a = source(args[0]), source(args[1])
+            if d is None or d[0] != "reg" or a is None:
+                return None
+            rotated = [value(a, (i + 1) % 4) for i in range(4)]
+            if a[0] == "reg":
+                body.append("{ " + " ".join(f"float t{i}_ = {rotated[i]};" for i in range(4)) + " "
+                            + " ".join(f"{lane(d[1], i)} = t{i}_;" for i in range(4)) + " }")
+            else:
+                body.extend(f"{lane(d[1], i)} = {rotated[i]};" for i in range(4))
+            defined.add(d[1])
+            continue
+        return None
+    used = sorted(set(reg.values()))
+    head = [f"float {', '.join(f'{lane(r, i)} = 0.0f' for i in range(4))};" for r in used]
+    for r, expr in sorted(init.items()):
+        head.extend(f"{lane(r, i)} = ((float *)&({expr}))[{i}];" for i in range(4))
+    tail = []
+    for r, expr in sorted(store.items()):
+        tail.extend(f"((float *)&({expr}))[{i}] = {lane(r, i)};" for i in range(4))
+    return VU0_C_MARK + "{ " + " ".join(head + body + tail) + " }"
+
+
+def _unwrite_vu0_c(lines: list[str], line: int, col: int) -> bool:
+    """Puts the stub call back in place of the C vu0_macro_c wrote at (line, col), if any is there."""
+    src = lines[line]
+    start = src.rfind(VU0_C_MARK, 0, col + 1)
+    if start < 0:
+        return False
+    depth, j = 0, start + len(VU0_C_MARK)
+    while j < len(src):
+        depth += {"{": 1, "}": -1}.get(src[j], 0)
+        j += 1
+        if depth == 0:
+            break
+    if depth or col >= j:
+        return False
+    lines[line] = src[:start] + "openrac_hostgen_asm();" + src[j:]
+    return True
+
+
+def _drop_vu0_clobber(lines: list[str], line: int, col: int, reg: str) -> bool:
+    """Blanks the clobber string Clang points at (`"vf1"` or `"$vf1"`) and a comma next to it, keeping every
+    column, so the other diagnostics on the line still point at their places. False when the text there is
+    not that clobber."""
+    src = lines[line]
+    m = re.compile(r'"\$?' + re.escape(reg) + r'"').match(src, col)
+    if m is None:
+        return False
+    start, end = m.span()
+    after = re.compile(r"\s*,").match(src, end)
+    if after:
+        end = after.end()
+    else:
+        before = re.search(r",\s*$", src[:start])
+        if before:
+            start = before.start()
+    lines[line] = src[:start] + " " * (end - start) + src[end:]
+    return True
+
+
 def _replace_asm(lines: list[str], line: int, col: int) -> bool:
-    """Replaces the asm statement around (line, col) with openrac_hostgen_asm();
-    keeping every line break."""
+    """Replaces the asm statement around (line, col) with its C (vu0_macro_c) or, where hostgen
+    cannot write it, openrac_hostgen_asm(); keeping every line break."""
     text = "\n".join(lines)
     offsets = [0]
     for ln in lines:
@@ -349,12 +612,20 @@ def _replace_asm(lines: list[str], line: int, col: int) -> bool:
                 end = text.find(";", j)
                 break
         j += 1
-    if end is None or end < 0:
+    if end is None or end < 0 or end + 1 < at:
+        # No statement around the place Clang points at (one written over already in this round):
+        # the statement before it is another one, left alone.
         return False
     stmt = text[start:end + 1]
-    call = "openrac_hostgen_asm();"
-    blank = "".join("\n" if ch == "\n" else " " for ch in stmt[len(call):])
-    new = text[:start] + call + blank + text[end + 1:]
+    call = vu0_macro_c(stmt) or "openrac_hostgen_asm();"
+    # The statement's text blanked, its line breaks kept. The call takes the place of its start,
+    # up to its first line break: `__asm__ (` alone on a line is shorter than the call, and a
+    # break the call wrote over moved every later line up one, so the fixes of later diagnostics
+    # (L07_003C7468.c's definitions after func_L07_003C8BA0's assembly) went to the line above.
+    blank = "".join("\n" if ch == "\n" else " " for ch in stmt)
+    first_break = blank.find("\n")
+    cut = len(call) if first_break < 0 else min(len(call), first_break)
+    new = text[:start] + call + blank[cut:] + text[end + 1:]
     lines[:] = new.split("\n")
     return True
 
@@ -631,12 +902,11 @@ def parse_unit(clang: str, root: Path, rel: str, flags: list[str], attempts: int
     path = root / rel
     fixes: list[str] = []
     for _ in range(attempts):
-        check = run(clang, Path(rel), root, flags, json_out=False)
+        # One Clang run gives both the AST and the errors: a separate syntax check first was
+        # nearly half of hostgen's Clang time.
+        check = run(clang, Path(rel), root, flags, json_out=True)
         if check.returncode == 0:
-            out = run(clang, Path(rel), root, flags, json_out=True)
-            if out.returncode != 0:
-                return None, out.stderr
-            ast = json.loads(out.stdout)
+            ast = json.loads(check.stdout)
             annotate(ast)
             text = path.read_text(encoding="utf-8", errors="surrogateescape")
             asm_strings(text, ast, rel, root)

@@ -1,14 +1,25 @@
 # Going Commando, Up Your Arsenal and Deadlocked levels
 
 What the three later games' level data shares with Ratchet & Clank's and
-what each changes, as the editor reads it ([editor/games.py](../../../editor/games.py),
-[editor/wads.py](../../../editor/wads.py)). The layouts are Wrench's
+what each changes, as the editor reads it ([extractor/games.py](../../../extractor/games.py),
+[extractor/wads.py](../../../extractor/wads.py)). The layouts are Wrench's
 (https://github.com/chaoticgd/wrench, GPL-3.0-or-later; read and
 re-implemented, no code copied); each was checked on the retail disc named
 below by reading every level with the editor's readers (2026-10-20).
 
 **Games.** RAC2 = Going Commando `SCUS_972.68` v1.01, RAC3 = Up Your Arsenal
 `SCUS_973.53`, RAC4 = Deadlocked `SCUS_974.65`, all NTSC-U (**retail**).
+The PAL discs read the same way: Up Your Arsenal's `SCES_524.56`, and Deadlocked's
+`SCES_532.85` (Ratchet: Gladiator), whose table of contents and level headers are
+NTSC-U's, with the same 47 levels; its six sample levels (0, 1, 4, 41, 42, 61) give
+the same meshes, triangles and textures as NTSC-U's (2026-11-20).
+
+Deadlocked's online public beta (`SCUS_974.87`, built 2005-06-30) is not read: it is a
+pre-release format. Its table of contents has no level table where retail's is, its
+level headers are 0xc70 bytes (retail 0xc68) with the level data at +0x10 instead of
++0x18, its level data WAD lacks retail's art instances, gameplay core and navigation
+sections, and its gameplay files are a different WAD revision. Its five levels, the
+multiplayer menu and four maps (0, 44, 45, 46 and 48), are on the retail discs too.
 RAC1 is in [DISC.md](DISC.md) and [LEVEL.md](LEVEL.md).
 
 ## 1. What the four games share
@@ -95,7 +106,7 @@ range (+0x58).
   first such entry's address, not in the core data.
 - **Swizzle (RAC4).** An 8-bit texture's pixels are stored in the GS's
   PSMT8 block order. Wrench's `map_pixel_index_rac4` turns them back
-  (written out in [level.py](../../../editor/level.py) `unswizzle`); its sky
+  (written out in [level.py](../../../extractor/level.py) `unswizzle`); its sky
   textures are turned the other way, as Wrench reads them. The level
   texture direction was checked by eye on one RAC4 terrain texture; the sky
   direction is Wrench's and not checked.
@@ -167,7 +178,7 @@ those faces are drawn untextured.
 | Mobys | +0x44, 0x78 bytes | +0x4C, 0x88 bytes | gameplay +0x30, 0x70 bytes |
 
 Each table is a count, 12 bytes of padding, then the records. The moby
-records ([games.py](../../../editor/games.py) has every field):
+records ([games.py](../../../extractor/games.py) has every field):
 
 | Field | RAC1 | RAC2, RAC3 | RAC4 |
 |---|---|---|---|
@@ -194,7 +205,7 @@ angular velocity (three s16 each; not read).
 
 ## 3. What the editor reads, per game
 
-Counts are from reading every level of each disc (`editor/extract.py port`,
+Counts are from reading every level of each disc (`extractor/extract.py port`,
 2026-10-20): RAC2 27 levels, 9,442 textures, 4,444 moby models of 5,796
 classes, 1,864 tie and 358 shrub classes, 17,422 mobys, 42,671 ties and
 28,901 shrubs placed; RAC3 51 levels, 17,534 textures, 6,996 moby models of
@@ -220,7 +231,7 @@ levels counts once per level).
 | Missions (RAC4's per-mission instances and classes) | | | no |
 | Packing back | no | no | no |
 
-What a level could not read is listed in its `level.json` (Godot) or
+What a level could not read is listed in its `level.json` (OpenRAC Editor) or
 `manifest.json` (`stats.problems`).
 
 ## Open

@@ -15,6 +15,7 @@ import zlib
 
 import bake_level
 import diagnostics
+import seed_regions
 from test_baker_cli import exported_room
 
 BAKER = Path(sys.argv.pop(1)).resolve() if __name__ == '__main__' and len(sys.argv) > 1 else None
@@ -109,7 +110,7 @@ class NativePipeline(unittest.TestCase):
         def save_edit():
             (packed_level/'placements.json').write_text(json.dumps(placements))
             stacked = subprocess.run(
-                [sys.executable, str(ROOT/'editor/overrides.py'), 'stack', '--into', str(self.root/'packs'),
+                [sys.executable, str(ROOT/'extractor/overrides.py'), 'stack', '--into', str(self.root/'packs'),
                  '--levels', str(self.exports), '--packed', str(packed), '--out', str(mods)],
                 capture_output=True, text=True, timeout=20)
             self.assertEqual(stacked.returncode, 0, stacked.stdout + stacked.stderr)
@@ -213,11 +214,13 @@ class NativePipeline(unittest.TestCase):
         path = self.cache/'level_00'/'sparse.orpg'
         raw = path.read_bytes()
         self.assertEqual(raw[:4], b'ORGP')
+        raw_header = seed_regions.coarse_header(path)
 
         self.run_bake('--compression', 'none')
         packed = path.read_bytes()
         self.assertEqual(packed[:4], bytes.fromhex('04 22 4d 18'))
         self.assertLess(len(packed), len(raw))
+        self.assertEqual(seed_regions.coarse_header(path, BAKER), raw_header)
         self.assertEqual(self.run_bake('--compression', 'none')
                          .stdout.count('up to date'), 2)
 
@@ -387,13 +390,13 @@ class NativePipeline(unittest.TestCase):
         self.run_bake('--compression', 'bc6h', '--no-lz4-assets')
         path = self.cache/'level_00'/'sparse.orpg'
         compressed = path.read_bytes()
-        self.assertEqual(struct.unpack_from('<I', compressed, 4)[0], 8)
+        self.assertEqual(struct.unpack_from('<I', compressed, 4)[0], 10)
         # Identity has a variable byte length; depth and colour tags follow the fixed grid header.
         identity_bytes = struct.unpack_from('<I', compressed, 12)[0]
-        self.assertEqual(struct.unpack_from('<II', compressed, 96 + identity_bytes), (3, 1))
+        self.assertEqual(struct.unpack_from('<II', compressed, 112 + identity_bytes), (3, 1))
         self.run_bake('--compression', 'none', '--no-lz4-assets')
         raw = path.read_bytes()
-        self.assertEqual(struct.unpack_from('<II', raw, 96 + identity_bytes), (3, 0))
+        self.assertEqual(struct.unpack_from('<II', raw, 112 + identity_bytes), (3, 0))
         self.assertGreater(len(raw), len(compressed))
         self.assertNotEqual(compressed, raw)
         result = self.run_bake('--compression', 'none', '--no-lz4-assets')
@@ -454,6 +457,31 @@ class NativePipeline(unittest.TestCase):
         self.assertEqual(result.stdout.count('up to date'),2)
         self.assertEqual(modified,(final/'sparse.orpg').stat().st_mtime_ns)
 
+    def test_watershed_debug_export_failure_keeps_verified_bake(self):
+        level = self.levels[0]
+        matrix = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]
+        (level/'placements.json').write_text(json.dumps(dict(ties=[],shrubs=[],mobys=[
+            dict(index=0,**{'class':0},matrix=matrix)])))
+        (level/'probe-bake.json').write_text(json.dumps(dict(version=1,
+            regions=dict(enabled=False,interior_lighting=False),
+            environment_probes=dict(resolution=4,filter_samples=1,maximum_probes=16))))
+        self.run_bake()
+
+        final = self.cache/level.name
+        partial = self.cache/f'.{level.name}.partial'
+        final.rename(partial)
+        shutil.copyfile(partial/'openrac-bake.json',partial/'openrac-bake.partial.json')
+        debug = partial/'spatial-watershed.json'
+        debug.unlink()
+        debug.mkdir()
+        (debug/'blocked.txt').write_text('Force diagnostic publication to fail')
+
+        result = self.run_bake()
+        self.assertIn('could not save layered watershed debug data', result.stdout + result.stderr)
+        self.assertTrue(json.loads((final/'bake-result.json').read_text())['verified'])
+        self.assertTrue((final/'sparse.orpg').is_file())
+        self.assertTrue((final/'environment.orpe').is_file())
+
     @unittest.skipUnless(os.name == 'nt', 'Windows sharing locks prevent directory moves')
     def test_persistent_installation_lock_restores_previous_lighting_then_retry_resumes(self):
         self.run_bake()
@@ -501,6 +529,19 @@ class NativePipeline(unittest.TestCase):
                 self.assertEqual(bool(json.loads((output/'regions.json').read_text())['regions']),local_regions)
                 evidence = json.loads((output/'seed-plan.json').read_text())
                 self.assertTrue(evidence.get('floor_anchors',evidence['moby_seeds']))
+                shared = json.loads((output/'placement-islands.json').read_text())
+                placement = json.loads((output/'environment-placement-report.json').read_text())
+                ids = {sample[3] for sample in shared['samples']}
+                self.assertTrue(ids)
+                self.assertTrue(set(placement['owners']) <= ids)
+                self.assertTrue({sample[3] for sample in placement['watershed']} <= ids)
+                self.assertEqual(len(placement['spaces']), len(shared['islands']))
+                self.assertEqual(placement['spaces_before_merge'], placement['lighting_spaces'])
+                registered = json.loads((output/'regions.json').read_text())['regions']
+                self.assertEqual(set(registered), set(shared['volumes'])-{'sparse.orpg'})
+                if local_regions:
+                    self.assertTrue(all(set(shared['volumes'][name]) <= ids for name in registered))
+                    self.assertEqual(evidence['regions'], [])
         self.assertIn('up to date', self.run_bake().stdout)
         (output/'environment.orpe').unlink()
         self.assertIn(f'{level.name}: baked', self.run_bake().stdout)
@@ -511,6 +552,42 @@ class NativePipeline(unittest.TestCase):
         (level/'probe-bake.json').write_text(json.dumps(settings))
         self.run_bake()
         self.assertFalse((output/'environment.orpe').exists())
+
+    def test_authored_probe_spacing_does_not_change_automatic_grids(self):
+        level = self.levels[0]
+        matrix = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]
+        (level/'placements.json').write_text(json.dumps(dict(ties=[],shrubs=[],mobys=[
+            dict(index=0,**{'class':0},matrix=matrix)])))
+        profile = level/'probe-bake.json'
+        settings = dict(version=1, dense_spacing=[4,4,4],
+            regions=dict(no_moby_seeds=True, interior_lighting=True),
+            environment_probes=dict(resolution=4, filter_samples=1, maximum_probes=16))
+        profile.write_text(json.dumps(settings))
+        self.run_bake()
+        output = self.cache/level.name
+        registry = output/'regions.json'
+        automatic = json.loads(registry.read_text())['regions']
+        self.assertTrue(automatic)
+
+        def grid_placement(name):
+            report = (output/(name+'.txt')).read_text().splitlines()
+            return [line for line in report if line.startswith((
+                'probe_origin ', 'probe_orientation ', 'probe_pitch ', 'probe_roll ',
+                'probe_spacing ', 'probe_dimensions '))]
+
+        original = {name: grid_placement(name) for name in automatic}
+
+        settings['regions']['authored'] = [
+            dict(bounds=[-4,-4,1,4,4,4], spacing=[2,2,1], fit_to_floor=True)]
+        profile.write_text(json.dumps(settings))
+        self.run_bake()
+        regions = json.loads(registry.read_text())['regions']
+        self.assertEqual(regions[:-1], automatic)
+        self.assertEqual({name: grid_placement(name) for name in automatic}, original)
+        text = grid_placement(regions[-1])
+        self.assertIn('probe_origin -4 -4 1', text)
+        self.assertIn('probe_spacing 2 2 1', text)
+        self.assertIn('probe_dimensions 5 5 4', text)
 
     def test_background_scene_without_collision_skips_gameplay_floor_analysis(self):
         level = self.levels[0]

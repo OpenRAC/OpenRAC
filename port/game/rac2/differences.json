@@ -3,6 +3,50 @@
   "game": "rac2",
   "differences": [
     {
+      "id": "planet-platinum-count",
+      "kind": "fix",
+      "name": "Planet platinum bolts",
+      "discs": [
+        "ntsc",
+        "pal"
+      ],
+      "original": "The ship's planet page displays global statistics rather than the selected planet's platinum bolt count.",
+      "port": "Show collected and total platinum bolts for the selected planet, following Greatest Hits. Maktar includes the Jamming Array. Original restores the disc's global statistics.",
+      "bypassed": {
+        "ntsc2": "Greatest Hits already behaves so: host/gh_fixes.c calls its own function before it reads the key"
+      },
+      "setting": {
+        "key": "fix_planet_platinum_count",
+        "default": true
+      },
+      "refs": [
+        "port/game/rac2/host/gh_fixes.c",
+        "port/game/rac2/host/gh_fixes.h"
+      ]
+    },
+    {
+      "id": "mining-reverse",
+      "kind": "fix",
+      "name": "Mining vehicle reverse",
+      "discs": [
+        "ntsc",
+        "pal"
+      ],
+      "original": "The mining vehicle scales its thrust by the signed acceleration twice, turning reverse thrust forward.",
+      "port": "Use the acceleration's magnitude for the second thrust scale, as Greatest Hits does, so Circle reverses. Original restores the disc's signed second scale.",
+      "bypassed": {
+        "ntsc2": "Greatest Hits already behaves so: host/gh_fixes.c calls its own function before it reads the key"
+      },
+      "setting": {
+        "key": "fix_mining_reverse",
+        "default": true
+      },
+      "refs": [
+        "port/game/rac2/host/gh_fixes.c",
+        "port/game/rac2/host/gh_fixes.h"
+      ]
+    },
+    {
       "id": "wide-moby-effects",
       "kind": "fix",
       "name": "Wide-screen effects",
@@ -33,8 +77,26 @@
       "refs": ["port/game/rac2/host/wide_view.c"]
     },
     {
+      "id": "sheep-once",
+      "kind": "always",
+      "name": "Sheep turned once",
+      "discs": ["ntsc"],
+      "original": "On USA v1.01 the Sheepinator can turn a Joba arena security robot again in the frame it went back to sleep, which deletes it; once all 16 are gone, an Impossible Challenge round that wants one never ends.",
+      "port": "A moby the Sheepinator already turned is left alone, so the arena keeps its robots and every round can end.",
+      "refs": ["port/game/rac2/host/sheep_once.c"]
+    },
+    {
+      "id": "prison-wrench",
+      "kind": "always",
+      "name": "Prison wrench upgrade",
+      "discs": ["ntsc"],
+      "original": "On USA v1.01 the wrench upgrade in Aranos Prison counts challenge mode's wrench as already upgraded: the pickup hides itself and the OmniWrench 12000 is never given. USA v2.00 and PAL give it.",
+      "port": "The upgrade is tested as USA v2.00 tests it: in challenge mode the pickup shows and gives the OmniWrench 12000 until the wrench has it.",
+      "refs": ["port/game/rac2-ntsc/hand/func_L14_003F4F98.c", "games/rac2/decomp src/us2/levels/14_aranos_prison/L14_003F64DC.c"]
+    },
+    {
       "id": "mapper-markers",
-      "kind": "port",
+      "kind": "always",
       "name": "Mapper markers",
       "discs": ["ntsc", "pal"],
       "original": "USA v1.01's and PAL's Mapper only show the whole map: crystals on Tabora and moonstones on Grelbin are not marked. USA v2.00 added the markers.",

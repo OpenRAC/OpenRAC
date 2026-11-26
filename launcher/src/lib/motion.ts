@@ -7,12 +7,14 @@ import { cubicOut } from "svelte/easing";
 import type { FlyParams, SlideParams } from "svelte/transition";
 
 /** The player asked their system for less motion. */
-export const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+export const reduced =
+  typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Whether a page, or the game on it, gives way to the next in one slide (the browser's view
  *  transitions, app.css), rather than simply changing. Off for good once the app says its webview
  *  draws without accelerated compositing (stopSlides). */
-export let slides = !reduced && typeof document !== "undefined" && "startViewTransition" in document;
+export let slides =
+  !reduced && typeof document !== "undefined" && "startViewTransition" in document;
 
 /** No more page slides: WebKitGTK without its accelerated compositing mode (a Steam Deck, where the
  *  launcher turns it off) crashed in a view transition whenever a page was opened. */
@@ -36,12 +38,17 @@ if (slides) {
     "click",
     (e) => {
       const transition = sliding;
+
       if (!transition || e.target !== document.documentElement) return;
       e.stopPropagation();
       const { clientX: x, clientY: y } = e;
+
       transition.skipTransition();
       void transition.finished.finally(() => {
-        const target = document.elementFromPoint(x, y)?.closest<HTMLElement>("button, a, [role='button']");
+        const target = document
+          .elementFromPoint(x, y)
+          ?.closest<HTMLElement>("button, a, [role='button']");
+
         target?.click();
       });
     },
@@ -74,25 +81,38 @@ export function holdSlide(read: Promise<unknown>): void {
 export function slide(change: () => void, way: Way, code?: Promise<unknown>) {
   if (!slides || sliding) {
     change();
+
     return;
   }
+
   const root = document.documentElement;
+
   root.dataset.nav = way;
   // Before the browser takes its picture of the page leaving: what draws with WebGL (Games' wave)
   // puts a still copy in its place, as Android's WebView leaves WebGL out of the pictures.
   root.dataset.sliding = "";
   document.dispatchEvent(new Event("slidestart"));
   const transition = document.startViewTransition(async () => {
-    if (code) await Promise.race([code.catch(() => undefined), new Promise((done) => setTimeout(done, CODE_WAIT_MS))]);
+    if (code)
+      await Promise.race([
+        code.catch(() => undefined),
+        new Promise((done) => setTimeout(done, CODE_WAIT_MS)),
+      ]);
     reads = [];
     change();
     await tick();
     const held = reads;
+
     reads = [];
-    if (held.length) await Promise.race([Promise.all(held), new Promise((done) => setTimeout(done, READ_WAIT_MS))]);
+    if (held.length)
+      await Promise.race([
+        Promise.all(held),
+        new Promise((done) => setTimeout(done, READ_WAIT_MS)),
+      ]);
     await tick();
     await pictures();
   });
+
   sliding = transition;
   void transition.finished.finally(() => {
     if (sliding !== transition) return;
@@ -107,6 +127,7 @@ function pictures(): Promise<void> {
   const pending = [...document.querySelectorAll("main img")].filter(
     (img): img is HTMLImageElement => img instanceof HTMLImageElement && !img.complete,
   );
+
   if (!pending.length) return Promise.resolve();
   // Loaded, not decoded: decode() does not finish while the slide holds the page's drawing, so on
   // Android (where the app's pictures are fetched again on each visit) every Games visit waited the
@@ -118,17 +139,25 @@ function pictures(): Promise<void> {
           const settle = () => {
             done();
           };
+
           img.addEventListener("load", settle, { once: true });
           img.addEventListener("error", settle, { once: true });
         }),
     ),
   );
+
   return Promise.race([loaded, new Promise((done) => setTimeout(done, 120))]).then(() => undefined);
 }
 
 /** What comes into view: up from 10 px below, fading in; DELAY staggers what follows. */
 export function enter(delay = 0): FlyParams {
-  return { y: 10, opacity: 0, duration: reduced ? 0 : 260, delay: reduced ? 0 : delay, easing: cubicOut };
+  return {
+    y: 10,
+    opacity: 0,
+    duration: reduced ? 0 : 260,
+    delay: reduced ? 0 : delay,
+    easing: cubicOut,
+  };
 }
 
 /** What comes in with its page, staggered as enter(). Where the page itself slides in, its parts

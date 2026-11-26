@@ -126,9 +126,10 @@ bool parse_destinations(
     }
     const auto& entries = root["destinations"];
     if (root["format"].number() != 1 || root["game"].string() != game || game != "rac1"
-        || root["version"].string() != version || version != "pal" || !entries.is_array()
-        || entries.items().empty() || entries.items().size() > 256) {
-        error = "destinations.json must contain 1 to 256 destinations for RAC1 PAL";
+        || root["version"].string() != version || !entries.is_array() || entries.items().empty()
+        || entries.items().size() > 256) {
+        error =
+            "destinations.json must contain 1 to 256 Ratchet & Clank destinations for this disc";
         return false;
     }
     std::vector<CustomMap> maps;

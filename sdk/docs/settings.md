@@ -33,6 +33,7 @@ from the game's next start.
 | `max_length` | `string` |
 | `binds` | `keybind`: how many inputs it takes, 1 or 2 (2 when absent) |
 | `group` | `keybind`: keybinds of the same group may not share an input (the launcher warns); of different groups they may |
+| `section` | the heading it is shown under, in the launcher and the port's menu alike (optional): a section's settings together, the sections in the order each first appears |
 
 The launcher shows a switch for `bool`, a segmented control or a list for
 `choice`, "press a key" buttons for `keybind`, and a field for the others.

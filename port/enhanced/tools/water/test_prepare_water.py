@@ -49,6 +49,21 @@ class Preparation(unittest.TestCase):
             self.assertEqual(run.call_count,3)
         self.assertEqual((self.level/'water.bin').read_bytes(), b'water')
 
+    def test_pal_export_is_prepared_with_pal_tables(self):
+        (self.level/'bake-inputs/overlay.bin').write_bytes(overlay('pal'))
+        manifest = {**self.manifest, 'version': 'pal'}
+
+        def native(memory, collision, output, baker, **kwargs):
+            self.assertEqual(kwargs['version'], 'pal')
+            output.write_bytes(b'water')
+            output.with_suffix('.mesh').write_bytes(b'mesh')
+
+        with patch.object(prepare_water.subprocess, 'check_output', return_value='{}'), \
+             patch.object(bake_water, 'bake_native', side_effect=native) as run:
+            prepare_water.prepare(self.level, manifest, baker=Path('native-baker'))
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual((self.level/'water.bin').read_bytes(), b'water')
+
     def test_failed_native_mesh_keeps_both_published_files(self):
         """A native failure after writing fields must not publish an incomplete pair."""
         (self.level/'water.bin').write_bytes(b'previous water')
@@ -109,12 +124,12 @@ class Preparation(unittest.TestCase):
         (self.level/'bake-inputs/overlay.bin').unlink()
         with patch('disc.Disc') as reader:
             reader.return_value.__enter__.return_value = disc
-            self.assertEqual(prepare_water.source_overlay(self.level, Path('disc.iso')).read_bytes(), raw)
-        self.assertEqual(prepare_water.source_overlay(self.level, None).read_bytes(), raw)
+            self.assertEqual(prepare_water.source_overlay(self.level, Path('disc.iso'), 'ntsc').read_bytes(), raw)
+        self.assertEqual(prepare_water.source_overlay(self.level, None, 'ntsc').read_bytes(), raw)
 
     def test_fresh_export_bakes_once_and_missing_or_changed_files_rebuild(self):
-        def bake(memory, collision, output, boundaries):
-            bake_water.read_surfaces(memory)
+        def bake(memory, collision, output, boundaries, version):
+            bake_water.read_surfaces(memory, version)
             output.write_bytes(b'water')
             output.with_suffix('.mesh').write_bytes(b'mesh')
         with patch.object(bake_water, 'bake', side_effect=bake) as run:
@@ -155,7 +170,7 @@ class Preparation(unittest.TestCase):
 
     def test_unsupported_levels_are_untouched_and_missing_inputs_are_actionable(self):
         with patch.object(bake_water, 'bake') as run:
-            for fields in ({'version': 'pal'}, {'level': 0}, {'game': 'rac2'}):
+            for fields in ({'version': 'jp'}, {'level': 0}, {'game': 'rac2'}):
                 prepare_water.prepare(self.level, {**self.manifest, **fields})
             run.assert_not_called()
         (self.level/'bake-inputs/overlay.bin').unlink()

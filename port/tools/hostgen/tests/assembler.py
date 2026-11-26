@@ -97,6 +97,8 @@ def encode(op: str, args: list[str], addr: int, labels: dict[str, int], symbols:
         return reg(args[0]) << 21 | reg(args[1]) << 16 | SPECIAL[op]
     if op == "syscall":
         return SPECIAL[op]
+    if op == "teq":
+        return reg(args[0]) << 21 | reg(args[1]) << 16 | 0x34
     if op in ("ei", "di"):
         return 0x42000038 if op == "ei" else 0x42000039
     if op in SPECIAL:
@@ -157,6 +159,8 @@ def encode(op: str, args: list[str], addr: int, labels: dict[str, int], symbols:
         else:
             ft, funct = args[2], VU_3[base]
         return 0x12 << 26 | 1 << 25 | d << 21 | reg(ft) << 16 | reg(args[1]) << 11 | reg(args[0]) << 6 | funct
+    if op == "mfc0":
+        return 0x10 << 26 | reg(args[0]) << 16 | reg(args[1]) << 11
     if op == "bc0f":
         return 0x41000000 | rel(args[0]) & 0xFFFF
     raise ValueError(f"the test assembler has no {op}")

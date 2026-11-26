@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "custom_map.h"
 
@@ -30,15 +31,16 @@ struct Options {
     bool unlock_all_gadgets = false;
     fs::path levels;           // the extracted levels the window draws (level_00, ...)
     fs::path
-        mods;  // levels edited in Godot and packed (editor/pack.py), read in place of the disc's
+        mods;  // levels edited in OpenRAC Editor and packed (OpenRAC Editor's openrac/tools/pack.py), read in place of the disc's
     fs::path settings;  // the player's settings (settings.h); in OpenRAC's data folder unless given
     fs::path controls;  // the player's controls files (controls_store.h); likewise
     fs::path mod_data;  // the native mods' own folders (openrac_api.data_dir); likewise
+    fs::path games_root;  // the installed games' folders (openrac_api.game_data_dir); games_root_of
     fs::path plugins;   // the native mods' list (mods.h): <data>/plugins/plugins.json unless given
     fs::path probes;    // the player's probe bakes, a level_NN folder each (enhanced rendering)
     bool no_mods = false;  // purist mode: no native mod is loaded (docs/port/MODS.md)
     bool expect_map = false;  // --map: the launcher requires map support, including on older builds
-    bool ship_map = false;    // opt-in PAL ship destination, with campaign cards disabled
+    bool ship_map = false;    // opt-in PAL/NTSC ship destination, with campaign cards disabled
     bool expect_destinations = false;     // requires the new registry on older launchers/builds
     std::vector<CustomMap> destinations;  // installed worlds, each with its own private mount
     std::optional<CustomMap> custom_map;  // map.json of the stacked packs, only with mods on
@@ -47,6 +49,11 @@ struct Options {
     bool debug_overlay = false;  // the debug overlay shown from the start (F3 shows and hides it)
     bool check_levels =
         false;  // read every extracted level as the window would, say what is wrong, and stop
+    fs::path
+        interface_run;  // --interface-run: note the interface textures, write a run file at exit
+    fs::path interface_export;  // --interface-export: rebuild the run files' textures here, and end
+    std::vector<fs::path> interface_runs;  // --interface-runs (repeatable): the run files to export
+    std::string interface_only;  // --only: the categories to export ("font,interface,effects")
     fs::path asm_part;  // the part of the game built from the disc (program/asm_part.cpp), if not
                         // in its place in the data folder
 };
@@ -54,6 +61,10 @@ struct Options {
 // OpenRAC's folder in the player's data home, where the launcher keeps cards and settings:
 // %LOCALAPPDATA%\openrac on Windows (launcher/core/src/saves.rs, data_home).
 fs::path data_home();
+
+// The folder the installed games sit in (interface 1.33): the launcher's <install>/active, beside this
+// game's data folder (<install>/active/<game>/data). Empty when `data` is not laid out so.
+fs::path games_root_of(const fs::path& data);
 
 // Returns this program's name, openrac-<id> (openrac-rac1-pal).
 std::string program_name();

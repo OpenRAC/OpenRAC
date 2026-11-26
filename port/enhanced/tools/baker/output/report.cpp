@@ -12,6 +12,7 @@
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 
 #include "common/profiler.h"
 #include "enhanced/lighting/bake_lz4.h"
@@ -41,6 +42,24 @@ void write_emission_regions(std::ostream& output, std::span<const SurfaceEmissio
     output << ']';
 }
 }  // namespace
+
+std::string probe_header_bytes(const std::filesystem::path& path) {
+    auto bytes = read_bake_asset(path, kMaxProbeAssetBytes);
+    if (is_lz4_bake_asset(bytes)) {
+        bytes = decompress_bake_asset(bytes, kMaxProbeAssetBytes);
+    }
+
+    constexpr std::size_t maximum_header_bytes = 256;
+    constexpr std::string_view hex = "0123456789abcdef";
+    const auto count = std::min(bytes.size(), maximum_header_bytes);
+    std::string result;
+    result.reserve(count * 2);
+    for (const auto byte : std::span(bytes).first(count)) {
+        result += hex[byte >> 4];
+        result += hex[byte & 15];
+    }
+    return result;
+}
 
 std::string describe_level_bake_profile(const LevelBakeProfile& profile) {
     std::ostringstream output;
@@ -100,6 +119,20 @@ std::string describe_level_bake_profile(const LevelBakeProfile& profile) {
            << ",\"player_radius\":" << traversal.player_radius
            << ",\"player_height\":" << traversal.player_height
            << ",\"minimum_swim_depth\":" << traversal.minimum_swim_depth << '}';
+    if (!profile.playable_areas.empty()) {
+        output << ",\"playable_areas\":[";
+        bool first = true;
+        for (const auto& area : profile.playable_areas) {
+            if (!first) {
+                output << ',';
+            }
+            first = false;
+            output << "{\"minimum\":[" << area.minimum[0] << ',' << area.minimum[1] << ','
+                   << area.minimum[2] << "],\"maximum\":[" << area.maximum[0] << ','
+                   << area.maximum[1] << ',' << area.maximum[2] << "]}";
+        }
+        output << ']';
+    }
     output << "}\n";
     return output.str();
 }
@@ -341,6 +374,8 @@ void write_grid_report(std::ostream& report, const ProbeGrid& grid, const BakeSe
     const auto resolution = grid.map_resolution;
     report << "\nprobe_origin " << grid.origin[0] << ' ' << grid.origin[1] << ' ' << grid.origin[2]
            << "\nprobe_orientation " << grid.frame.axis[0] << ' ' << grid.frame.axis[1]
+           << "\nprobe_pitch " << grid.frame.pitch[0] << ' ' << grid.frame.pitch[1]
+           << "\nprobe_roll " << grid.frame.roll[0] << ' ' << grid.frame.roll[1]
            << "\nprobe_dimensions " << grid.dimensions[0] << ' ' << grid.dimensions[1] << ' '
            << grid.dimensions[2] << "\nprobe_spacing " << grid.spacing[0] << ' ' << grid.spacing[1]
            << ' ' << grid.spacing[2] << "\nprobe_count " << grid.probe_count()

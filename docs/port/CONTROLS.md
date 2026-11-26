@@ -2,9 +2,11 @@
 
 What presses the game's pad: the files that say it, how they layer, the
 names in them, which controller each player is, and the menu's Controls tab
-that changes them. Keyboard and mouse remapping are not done yet: the
-keyboard keeps the button bindings of `bind_*` (keys named in them) and the
-port's own stick keys, and the mouse is a mod's (the `keyboard-mouse` mod).
+that changes them. In Ratchet & Clank the keyboard and mouse are the
+built-in Keyboard and mouse's ([KEYBOARD_MOUSE.md](KEYBOARD_MOUSE.md)), with
+binds of their own on the launcher's Mods tab; elsewhere the keyboard keeps
+the button bindings of `bind_*` (keys named in them) and the port's own
+stick keys.
 
 Code: [platform/bindings.h](../../port/platform/bindings.h) (the names, the
 table the pad is pressed from, the tuning, what is held back when it
@@ -74,7 +76,7 @@ Resetting:
 - one player: that player's own lines (`p1.*` or `p2.*`) leave the file, and
   the player reads every player's controls again.
 
-The bindings that [#123](https://github.com/OpenRAC/OpenRAC/pull/123) kept in
+Bindings that older versions kept in
 `settings/<id>.ini` (`bind_*` keys) move once into `<game>.ini` at the next
 start, those the file does not already name, and leave the settings file.
 
@@ -222,7 +224,7 @@ N as every player" takes their own controls away):
 
 ## 7. What it cannot do
 
-- The game never sees pressure: the pad library's replacement
+- The game never sees pressure: the port's pad report
   ([lib/pad.c](../../port/game/common/lib/pad.c)) rebuilds it from the
   buttons. A trigger's travel presses a button past the press point; its
   depth goes no further ([CONTROLLERS.md](CONTROLLERS.md), section 8).

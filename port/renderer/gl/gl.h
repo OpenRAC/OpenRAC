@@ -156,7 +156,7 @@ inline constexpr GLenum GL_DEPTH24_STENCIL8 = 0x88F0;
 inline constexpr GLenum GL_DEPTH_COMPONENT32F = 0x8CAC;
 inline constexpr GLenum GL_DEPTH32F_STENCIL8 = 0x8CAD;
 inline constexpr GLenum GL_FLOAT_32_UNSIGNED_INT_24_8_REV = 0x8DAD;
-// glClipControl's (OpenGL 4.5, ARB_clip_control).
+// glClipControl's (OpenGL 4.5, ARB_clip_control, EXT_clip_control).
 inline constexpr GLenum GL_LOWER_LEFT = 0x8CA1;
 inline constexpr GLenum GL_NEGATIVE_ONE_TO_ONE = 0x935E;
 inline constexpr GLenum GL_ZERO_TO_ONE = 0x935F;
@@ -320,6 +320,7 @@ inline constexpr GLenum GL_FRAMEBUFFER_COMPLETE = 0x8CD5;
     X(void, glUseProgram, (GLuint program))                                                        \
     X(GLint, glGetUniformLocation, (GLuint program, const GLchar *name))                           \
     X(void, glUniform1i, (GLint location, GLint v0))                                               \
+    X(void, glUniform1ui, (GLint location, GLuint v0))                                             \
     X(void, glUniform1f, (GLint location, GLfloat v0))                                             \
     X(void, glUniform2f, (GLint location, GLfloat v0, GLfloat v1))                                 \
     X(void, glUniform3f, (GLint location, GLfloat v0, GLfloat v1, GLfloat v2))                     \
@@ -398,9 +399,6 @@ bool loaded();
 // renderer optimisations without changing desktop GL or ES behaviour.
 bool is_vulkan();
 
-// The Metal backend (renderer/metal: GL_VERSION names "OpenRAC on Metal").
-bool is_metal();
-
 // Enhanced rendering (probe GI, modern shadows, GTAO: port/enhanced) is compiled into the desktop
 // builds and chosen when the game starts: the `enhanced_rendering` setting (the launcher's Mods
 // entry), or OPENRAC_ENHANCED=1 (or OPENRAC_PROBE_GI naming a bake) for scripts and tests. It is
@@ -431,16 +429,14 @@ inline bool is_es() {
 // True when the context lists the extension (GL_EXTENSIONS, read once by load()).
 bool has_extension(const char* name);
 
-// glClipControl (OpenGL 4.5 or ARB_clip_control on the desktop, and the Vulkan backend's): null
-// where the context lacks it (macOS's 4.1, OpenGL ES). With GL_ZERO_TO_ONE a clip-space z goes to
-// the window as it is, not as (z + w) / 2, whose sum keeps only 2^-24 of the depth range: the
-// world's depth (precise_depth.h) is drawn so.
+// Clip control from the active backend, if available. The world uses GL_ZERO_TO_ONE
+// to avoid losing far-depth precision in the usual (z + w) / 2 conversion.
 using PFN_glClipControl = void(OPENRAC_GLAPI*)(GLenum origin, GLenum depth);
 extern PFN_glClipControl glClipControl;
 
-// True when glEnable(GL_DEPTH_CLAMP) works: always on the desktop, and on ES with EXT_depth_clamp.
+// Whether the active OpenGL or Vulkan device can clamp depth.
 inline bool depth_clamp_available() {
-    return !is_es() || has_extension("GL_EXT_depth_clamp");
+    return (!is_es() && !is_vulkan()) || has_extension("GL_EXT_depth_clamp");
 }
 
 // True when the context compiles shaders on threads of its own (KHR_ or ARB_parallel_shader_compile,

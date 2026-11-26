@@ -25,6 +25,7 @@
 #include "renderer/vulkan/vkgl_internal.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 
 namespace {
 
@@ -339,7 +340,7 @@ void test_descriptor_failure_is_not_retried() {
     const FunctionOverride injected(vkAllocateDescriptorSets, fail_descriptor_allocation);
     bool rejected = false;
     try {
-        openrac::renderer::world::gl::glDispatchCompute(1, 1, 1);
+        openrac::test::graph_dispatch(openrac::renderer::world::gl::glDispatchCompute, 1, 1, 1);
     } catch (const std::runtime_error& failure) {
         rejected =
             std::string(failure.what()).find("allocate frame descriptors") != std::string::npos;
@@ -448,6 +449,7 @@ int run_tests() {
     config.width = 8;  // A tiny attachment suffices; these tests do not rasterise scenes.
     config.height = 8;
     config.validation = true;
+    config.compile_missing_shaders = true;  // Failure injection uses custom GLSL fixtures.
     std::string error;
 
     // Hosts without Vulkan report a CTest skip rather than passing without exercising the backend.

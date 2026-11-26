@@ -185,8 +185,9 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab, int chip) {
     const float pad = dp(30.0f);
     // A new entry's help rises into place and fades in.
     MenuMotion& m = s.menu_motion;
-    if (m.help_of != s.menu_hover) {
+    if (m.help_of != s.menu_hover || m.help_title != s.menu_hover_title) {
         m.help_of = s.menu_hover;
+        m.help_title = s.menu_hover_title;
         m.help = 0.0f;
     }
     m.help = std::min(1.0f, m.help + ImGui::GetIO().DeltaTime / kMedium);
@@ -226,10 +227,12 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab, int chip) {
             list,
             ImVec2(a.x + pad, y),
             ink(ui().amber),
-            std::string(menu::tab_name(e.tab)) + "  /  " + e.section
+            std::string(menu::tab_name(e.tab)) + "  /  "
+                + (s.menu_hover_section.empty() ? std::string(e.section) : s.menu_hover_section)
         );
         y += menu_fonts.small->FontSize + dp(12.0f);
-        const std::string label = entry_label(id, menu::kDesktop);
+        const bool own = !s.menu_hover_title.empty();
+        const std::string label = own ? s.menu_hover_title : entry_label(id, menu::kDesktop);
         y += text_block(
             list, menu_fonts.head, ImVec2(a.x + pad, y), ink(ui().gold), label.c_str(), wrap
         );
@@ -241,7 +244,14 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab, int chip) {
             dp(1.5f)
         );
         y += dp(18.0f);
-        text_block(list, menu_fonts.body, ImVec2(a.x + pad, y), ink(ui().soft), e.help, wrap);
+        text_block(
+            list,
+            menu_fonts.body,
+            ImVec2(a.x + pad, y),
+            ink(ui().soft),
+            own ? s.menu_hover_help.c_str() : e.help,
+            wrap
+        );
     } else {
         const char* line = mod_tab ? "A mod's own menu: its items do what the mod says they do."
                                    : "Point at an option, or move to it with the arrow keys or a "
@@ -485,6 +495,18 @@ void menu_window(const Shown& shown) {
     const int tab_count = static_cast<int>(tabs.size());  // the bar's tabs, before its buttons
     tabs.push_back({menu::entry(menu::Id::Quit).label, -1, -1, kQuitPage});
     tabs.push_back({"Resume", -1, -1, kResumePage});
+    if (!s.menu_want_mod_tab.empty() && s.menu_open) {
+        for (std::size_t i = 0; i < tabs.size(); ++i) {
+            std::string name = tabs[i].name;
+            std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) {
+                return static_cast<char>(std::tolower(c));
+            });
+            if (tabs[i].mod >= 0 && name == s.menu_want_mod_tab) {
+                s.menu_tab = static_cast<int>(i);
+            }
+        }
+        s.menu_want_mod_tab.clear();
+    }
     if (s.menu_want_tab >= 0) {
         for (std::size_t i = 0; i < tabs.size(); ++i) {
             if (tabs[i].catalog == s.menu_want_tab) {
@@ -766,6 +788,8 @@ void menu_window(const Shown& shown) {
                     set_menu(false);
                 }
                 card_end();
+            } else if (tab.catalog == static_cast<int>(menu::Tab::Controls)) {
+                draw_controls_tab(menu::kDesktop);
             } else if (tab.catalog >= 0) {
                 draw_tab(static_cast<menu::Tab>(tab.catalog), menu::kDesktop);
             } else {

@@ -74,7 +74,8 @@ EffectParents effect_parents(const SceneFrame& frame) {
         const auto previous = scene.prev_matrices.find(address);
         const renderer::Mat4& current = scene.live[n].matrix;
 
-        if (previous == scene.prev_matrices.end() || !same_moby(previous->second, current)) {
+        const renderer::Vec3* pace = moby_pace(scene, address);
+        if (previous == scene.prev_matrices.end() || !same_moby(previous->second, current, pace)) {
             continue;
         }
 
@@ -83,7 +84,7 @@ EffectParents effect_parents(const SceneFrame& frame) {
             EffectParent{
                 previous->second,
                 current,
-                blend_matrix(previous->second, current, frame.output.alpha)
+                blend_matrix(previous->second, current, frame.output.alpha, pace)
             }
         );
     }
@@ -135,7 +136,7 @@ void set_attached_strips(SceneFrame& frame, const EffectParents& parents) {
 
         for (auto& vertex : std::span(frame.strip_vertices).subspan(first, count)) {
             float point[3] = {vertex.x, vertex.y, vertex.z};
-            follow_moby(parent->second.previous, parent->second.drawn, point);
+            follow_strip_parent(point, parent->second, strip.previous_parent_position_only);
             vertex.x = point[0];
             vertex.y = point[1];
             vertex.z = point[2];
@@ -183,7 +184,13 @@ CallbackParents owner_moves(const Kept& scene, float alpha) {
             const auto last = scene.prev_matrices.find(scene.addresses[n]);
 
             if (dx * dx + dy * dy + dz * dz < 1e-6f && last != scene.prev_matrices.end()) {
-                moves.emplace(m.address, std::pair{now, blend_matrix(last->second, now, alpha)});
+                moves.emplace(
+                    m.address,
+                    std::pair{
+                        now,
+                        blend_matrix(last->second, now, alpha, moby_pace(scene, scene.addresses[n]))
+                    }
+                );
                 break;
             }
         }

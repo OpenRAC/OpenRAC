@@ -21,11 +21,13 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "renderer/direct/gs.h"
+#include "renderer/gl/framebuffer.h"
 #include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
 
@@ -56,6 +58,36 @@ bool before_mobys_writes_z(const EffectStrip& strip);
 // A strip the liquids' pass draws: a solid one (liquid_strip), or one the game sent before the
 // world's mobys (EffectStrip::before_mobys), drawn where the game drew it.
 bool liquid_pass_strip(const EffectStrip& strip);
+
+// A strip or quad's texture coordinates (s, t over TEX0's size) on the texture of an off-screen
+// target the 2D path drew at TEX0's block, which spans kOffscreenPixels chip pixels across and
+// down with its first row on top. Up Your Arsenal's frame copy (effect texture -1, 256 x 256) is
+// sampled so by the world's quads and by the strips of its strip routine (fx_strip).
+std::array<float, 2> offscreen_target_st(std::uint64_t tex0, float s, float t);
+
+// A frame-copy strip's texture coordinates (EffectStrip::frame_copy: s, t over the game's picture,
+// t down from its top, as Up Your Arsenal's 0x00403F20 projects a point) on the native snapshot of
+// the target, which spans the whole target with its first row at the bottom. On a target wider
+// than the picture the game's picture is the target's middle, `picture_scale_x` of its width.
+std::array<float, 2> frame_copy_st(float s, float t, float picture_scale_x);
+
+// Whether any strip of `strips` this pass draws samples the frame copy.
+bool any_frame_copy(std::span<const EffectStrip> strips);
+
+// Up Your Arsenal's heat haze (the Galactic Rangers' dropship's thrusters, Veldin's 0x003C8400 and
+// its copies in the other levels) draws each patch as two square strips at the same place: a mask
+// of effect texture 0x3B that keeps the colour and writes only the destination alpha (ALPHA 0x6A,
+// (0 - 0) FIX + Cd), then the frame copy blended in by that alpha (ALPHA 0x54, (Cs - Cd) Ad + Cd),
+// its ST the corners' places in the picture pushed outwards. The window draws each such pair as a
+// round patch of the native heat haze (Haze): its centre, its radius (half the square's side, in
+// the game's units) and its strength from the mask's alpha, which fades as the patch drifts away.
+// Moves those pairs' patches into `haze` (x, y, z, radius, strength) and leaves the pairs out of
+// `strips`; a frame-copy strip without its mask stays.
+void frame_copy_haze(
+    std::vector<EffectStrip>& strips,
+    std::span<const EffectVertex> vertices,
+    std::vector<std::array<float, 5>>& haze
+);
 
 bool opaque_effect_strip(const EffectStrip& strip, std::span<const EffectVertex> vertices);
 bool opaque_effect_quad(const EffectQuad& quad);
@@ -151,13 +183,39 @@ public:
     void release() override;
 
 private:
+    // A run of quads drawn as one (pair_quads): its two textures (pool keys; second 0 for none) and
+    // the TEX0 its draw takes (the run's first quad's; only TCC and TFX of it are read then).
+    struct QuadPair {
+        std::uint32_t first = 0, second = 0;
+        std::uint64_t tex0 = 0;
+    };
+
     // Draw metadata is shared by preparation and deferred recording within the enclosing chain.
     struct PreparedEffects {
         std::vector<int> strip_counts;  // Expanded stream counts, in accepted strip order.
         std::vector<std::optional<EffectMesh>> meshes;  // Matching resident-material mesh handles.
         std::size_t quads_from = 0;                     // First quad vertex after expanded strips.
         bool quads = false;
+        // Per quad of FrameInput::effects: its pair run (pair_quads), or none.
+        std::vector<QuadPair> quad_pairs;
     };
+
+    // The texture unit of a pair run's second texture (tex_T2 in m_shader).
+    static constexpr unsigned kPairUnit = 2;
+
+    // Finds runs of quads that take turns with two textures and differ in nothing else (a field of
+    // sparks paging two images through one block): each run is then one draw, its second texture
+    // on kPairUnit, picked per vertex (Vertex::pair). Empty when this frame cannot pair.
+    std::vector<QuadPair> pair_quads(const FrameInput& input, RenderState& state) const;
+    // Binds a pair run's second texture on kPairUnit with TEX1's filtering and CLAMP's wrapping.
+    void bind_pair_texture(
+        RenderState& state,
+        std::uint64_t tex0,
+        std::uint64_t tex1,
+        std::uint64_t clamp,
+        std::uint32_t tbp,
+        std::uint32_t cbp
+    );
 
     // Queues scene snapshots and their colour consumers, or retains immediate unknown materials.
     void record_colour(
@@ -168,7 +226,10 @@ private:
     // Records the existing fused GS batching loop with prepared, frame-owned geometry.
     // Hot path: retains the existing size/nesting of effect batching to preserve draw and upload order.
     void draw_prepared(
-        const FrameInput& input, RenderState& state, const PreparedEffects& prepared
+        const FrameInput& input,
+        RenderState& state,
+        const PreparedEffects& prepared,
+        bool has_colour_pass
     );
     // Orders shared material inputs once per selected effect shader, after provider bindings are
     // installed.
@@ -176,6 +237,14 @@ private:
     void use_shader(Shader& shader, const Mat4& view_projection, const Mat4& view);
     void bind_vertex_stream(unsigned vao, std::size_t first);
     void reserve_quad_indices(std::size_t quads);
+    // Resolves a panel drawn by the 2D renderer before this effect pass.
+    static unsigned offscreen_texture(std::uint64_t tex0_bits, std::uint32_t tbp);
+    // Whether this pass draws a strip that samples the frame copy (EffectStrip::frame_copy).
+    bool draws_frame_copy(const FrameInput& input) const;
+    // Copies the target's colour as drawn so far into m_frame_copy (the game's frame copy, made
+    // natively), for the frame-copy strips that follow; m_frame_copy_texture is then its texture,
+    // else 0. Records into the colour graph where it is on.
+    void snapshot_frame_copy(const RenderTarget& target);
     // Binds TEX0's texture with TEX1's filtering and CLAMP's wrapping, and sets ALPHA's blend.
     // False when the pool has nothing at TEX0's block (the draw is left out, not the placeholder).
     bool apply(
@@ -185,7 +254,8 @@ private:
         std::uint64_t alpha,
         RenderState& state,
         std::uint32_t tbp = 0,
-        std::uint32_t cbp = 0
+        std::uint32_t cbp = 0,
+        bool frame_copy = false
     );
 
     // The rest of apply, once the texture is bound: TEX0's TCC and TFX, the texture's alpha scale
@@ -196,6 +266,9 @@ private:
         float x, y, z;
         float s, t;
         std::uint8_t r, g, b, a;
+        // 0xFF: the quad samples its pair run's second texture (kPairUnit), else 0.
+        std::uint8_t pair = 0;
+        std::uint8_t unused[3]{};
     };
 
     // Whether this pass draws `strip` (m_part).
@@ -217,7 +290,12 @@ private:
     static constexpr TextureHandle kOffscreenHandle = ~TextureHandle{0};
 
     EffectPart m_part = EffectPart::All;
+    // The pass's snapshot of the target for the frame-copy strips (snapshot_frame_copy).
+    FrameBuffer m_frame_copy;
+    unsigned m_frame_copy_texture = 0;
     Shader m_shader;
+    // m_shader was built with the pair runs' second texture (OPENRAC_EFFECT_PAIR).
+    bool m_pair_shader = false;
     Shader m_depth_shader;
     Shader m_quad_shader;
     // The quads drawn with the list's TEST (EffectQuad::registers) that test alpha: the quads'
@@ -225,6 +303,9 @@ private:
     // m_test_plain: built from the material's plain quad source, bound as m_quad_shader is.
     Shader m_test_shader;
     bool m_test_plain = false;
+    // The untextured quads (EffectQuad::untextured): the same fragment with `textured` a uniform
+    // (0 here), not compiled to 1 as EffectStaticControls does for the textured shaders.
+    Shader m_untextured_shader;
     Shader* m_active_shader = nullptr;
     bool m_colour_reads_ready = false;  // Reset whenever the effect pass changes its shader.
     std::unique_ptr<EffectMaterial> m_material;

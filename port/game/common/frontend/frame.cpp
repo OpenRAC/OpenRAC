@@ -42,16 +42,22 @@
 #include "common/stats.h"
 #include "debug_menu.h"
 #include "debug_overlay.h"
+#include "scene/gold_case_preview.h"
+#include "scene/pickup_preview.h"
+#include "scene/vendor_preview.h"
 #ifdef OPENRAC_LIGHT_AUTHORING
 #include "enhanced/lighting/object_lights.h"
 #endif
 #include "frontend.h"
 #include "game/common/frontend/draw_coverage.h"
 #include "game/common/frontend/effects_dump.h"
+#include "game/common/frontend/energy_effects.h"
 #include "game/common/frontend/hero_shadows.h"
+#include "game/common/frontend/input_latency.h"
 #include "game/common/frontend/menu_layers.h"
 #include "game/common/frontend/scenery_capture.h"
 #include "game/common/frontend/state.h"
+#include "game/common/frontend/view_mobys.h"
 #include "game/common/frontend/water_interactions.h"
 #include "game/common/moby_proc.h"
 #include "mod_menu.h"
@@ -63,6 +69,7 @@
 #include "platform/performance_hint.h"
 #include "platform/pump.h"
 #include "renderer/direct/direct.h"
+#include "renderer/effects/effects.h"
 #include "renderer/effects/shadows.h"
 #include "renderer/renderer.h"
 #include "renderer/world/fog.h"
@@ -70,6 +77,7 @@
 #include "scene/level_renderer.h"
 #include "scene/moby_pose.h"
 #include "scene/moby_shadow.h"
+#include "scene/preview_transform.h"
 
 namespace openrac::frontend {
 
@@ -112,6 +120,51 @@ std::uint32_t word_at(std::span<const std::uint8_t> ram, std::uint32_t at) {
     return w;
 }
 
+// What the game is doing for the frame recorder's warnings: the level program loaded and the game's
+// touch context (play, menu, a weapon's upgrade as "dialog", a scene), set by capture_2d_path
+// before it walks the list. The dropped-anchor warning is told a few times in each of these, not
+// 20 times a session: a session's first 20 were all spent on the front end and its movies, so a
+// screen reached later (a weapon's upgrade) logged none whatever it dropped.
+struct RecorderSituation {
+    int level = -1;
+    std::string context;
+
+    bool operator==(const RecorderSituation&) const = default;
+};
+
+RecorderSituation g_recorder_situation;
+
+RecorderSituation recorder_situation(int level) {
+    RecorderSituation s;
+    s.level = level;
+    s.context = "-";
+    if (openrac_game_touch != nullptr) {
+        const char* context = nullptr;
+        const char* hints[OPENRAC_TOUCH_HINTS_MAX] = {};
+        if (openrac_game_touch(&context, hints) >= 0 && context != nullptr && *context != '\0') {
+            s.context = context;
+        }
+    }
+    return s;
+}
+
+// Whether the dropped-anchor warning is told now: at most kTimes in a row of frames in one
+// situation; a new situation is told again.
+bool tell_dropped_anchors() {
+    constexpr int kTimes = 5;
+    static RecorderSituation told_for{-2, {}};
+    static int left = 0;
+    if (!(g_recorder_situation == told_for)) {
+        told_for = g_recorder_situation;
+        left = kTimes;
+    }
+    if (left <= 0) {
+        return false;
+    }
+    --left;
+    return true;
+}
+
 /*
  * The GIF data a frame's display list sends straight to the GS (VIF DIRECT): the 2D path (HUD,
  * menus, text, fades). The chain is followed as the DMA controller follows a source chain (the
@@ -127,6 +180,79 @@ struct QuadMark {
     bool zbuf_seen;
 };
 
+// Reports actual placement drops, including anchors that exist only earlier in walk order.
+void note_recorder_drops(
+    const renderer::FrameRecording& recording,
+    std::span<const std::uint32_t> tags,
+    std::span<const std::size_t> places,
+    std::uint32_t chain
+) {
+    const std::size_t dropped =
+        static_cast<std::size_t>(std::count(places.begin(), places.end(), renderer::kDropped));
+    stats::gauge("recorder anchors missed", static_cast<double>(dropped));
+
+    // Told as the dropped anchors are (tell_dropped_anchors): a few in a row in each level and game
+    // context, so that a screen reached late in a session is still told.
+    if (dropped == 0 || !tell_dropped_anchors()) {
+        return;
+    }
+
+    log::warn(
+        "frame recorder: {} of {} commands dropped (chain {:08x}, recording {}, {} tags; frame {}, "
+        "level {}, {})",
+        dropped,
+        recording.commands.size(),
+        chain,
+        recording.serial,
+        tags.size(),
+        g->index,
+        g_recorder_situation.level,
+        g_recorder_situation.context
+    );
+
+    // The commands' detail only for a situation's first drop: those told after it in the same
+    // situation are mostly the same list sent again.
+    static RecorderSituation detailed_for{-2, {}};
+    if (g_recorder_situation == detailed_for) {
+        return;
+    }
+    detailed_for = g_recorder_situation;
+
+    // A malformed recording can contain many commands; the first eight bound each warning's detail.
+    constexpr std::size_t kMostDetails = 8;
+    for (std::size_t n = 0; n < std::min(places.size(), kMostDetails); ++n) {
+        const renderer::FrameCommand& command = recording.commands[n];
+
+        // Report surviving commands too, so a partial match identifies its successful anchor.
+        if (places[n] != renderer::kDropped) {
+            log::warn(
+                "frame recorder: command {} {} anchor {:08x} at tag {}",
+                n,
+                renderer::frame_op_name(command.op),
+                command.anchor,
+                places[n]
+            );
+            continue;
+        }
+
+        const char* reason = "inherits dropped predecessor";
+
+        // An anchor can be missing entirely or already behind the forward-only search cursor.
+        if (command.anchor != 0) {
+            const bool found = std::find(tags.begin(), tags.end(), command.anchor) != tags.end();
+            reason = found ? "tag only before preceding placement" : "no tag reached";
+        }
+
+        log::warn(
+            "frame recorder: command {} {} anchor {:08x} dropped: {}",
+            n,
+            renderer::frame_op_name(command.op),
+            command.anchor,
+            reason
+        );
+    }
+}
+
 std::vector<std::uint8_t> direct_packets(
     std::span<const std::uint8_t> ram,
     std::uint32_t chain,
@@ -138,13 +264,17 @@ std::vector<std::uint8_t> direct_packets(
     std::size_t* world_marker = nullptr,
     std::size_t* moby_marker = nullptr,
     std::vector<QuadMark>* quad_marks = nullptr,
-    std::vector<State::MarkedMobys>* texture_mobys = nullptr
+    std::vector<State::MarkedMobys>* texture_mobys = nullptr,
+    const renderer::FrameRecorder* recorder = nullptr,
+    const renderer::FrameRecording** recorded = nullptr,
+    std::vector<renderer::FrameSplice>* splices = nullptr,
+    std::span<const std::uint32_t> earlier = {}
 ) {
     std::vector<std::uint8_t> vif;
-    std::uint32_t tag_at =
+    // The submitted root selects a producer-owned generation before any anchor is considered: the
+    // root of the picture's last list.
+    const std::uint32_t list_root =
         openrac_guest_ram_address_for_size(chain, static_cast<std::uint32_t>(ram.size())) & ~0xFu;
-    std::uint32_t stack[2] = {0, 0};
-    int depth = 0;
     // For OPENRAC_DRAW_COVERAGE, where each run of the VIF data came from in game memory (the
     // scratchpad's as 0x70000000 on): its offset in `vif`, its address.
     const bool covering = strips != nullptr && draw_coverage::armed();
@@ -170,66 +300,90 @@ std::vector<std::uint8_t> direct_packets(
             vif.insert(vif.end(), spr + at, spr + at + bytes);
         }
     };
-    for (int steps = 0; tag_at != 0 && steps < 20000; ++steps) {
-        // A list holds no more data than game memory does: a chain that runs past that loops (a tag
-        // that points back, from a bad pointer) and would grow `vif` by up to 1 MB a tag, 20 GB over
-        // the steps, which takes the computer's memory with it. It is cut there, once noted.
-        if (vif.size() > ram.size()) {
-            static bool noted = false;
-            if (!noted) {
-                noted = true;
-                log::warn(
-                    "display list from {:#x} runs past {} bytes: a looping chain, cut",
-                    chain,
-                    ram.size()
-                );
+    // Every tag's address and where its data starts in `vif`: where the frame recorder's commands
+    // anchored to it go (docs/port/FRAME_RECORDER.md, section 4).
+    std::vector<std::uint32_t> tag_addresses;
+    std::vector<std::size_t> tag_vif;
+    // The lists of the picture sent before this one (program/picture_lists.h), then this one,
+    // walked into one stream in that order: the tags of all of them place the recording's commands.
+    std::vector<std::uint32_t> roots(earlier.begin(), earlier.end());
+    roots.push_back(chain);
+    for (const std::uint32_t root : roots) {
+        std::uint32_t tag_at =
+            openrac_guest_ram_address_for_size(root, static_cast<std::uint32_t>(ram.size()))
+            & ~0xFu;
+        std::uint32_t stack[2] = {0, 0};
+        int depth = 0;
+        for (int steps = 0; tag_at != 0 && steps < 20000; ++steps) {
+            if (recorder != nullptr) {
+                // Cursor helpers and RAM reads use the direct RAM view, including aliased NEXT
+                // targets.
+                tag_addresses.push_back(openrac_guest_ram_address_for_size(
+                    tag_at, static_cast<std::uint32_t>(ram.size())
+                ));
+                tag_vif.push_back(vif.size());
             }
-            break;
-        }
-        const std::uint32_t lo = word_at(ram, tag_at);
-        const std::uint32_t raw_addr = word_at(ram, tag_at + 4);
-        const bool from_spr = (raw_addr & 0x80000000u) != 0;
-        const std::uint32_t addr = raw_addr & 0x7FFFFFF0;
-        const std::uint32_t qwc = lo & 0xFFFF;
-        const std::uint32_t id = (lo >> 28) & 7;
-        append(tag_at + 8, 8);  // the two VIF codes in the tag
-        const std::uint32_t after = tag_at + 16;
-        if (from_spr && id != 0 && id != 3 && id != 4) {
-            break;  // a chain continuing in the scratchpad: not followed
-        }
-        switch (id) {
-            case 0:  // refe
-                from_spr ? append_scratchpad(addr, qwc * 16) : append(addr, qwc * 16);
-                tag_at = 0;
-                break;
-            case 1:  // cnt
-                append(after, qwc * 16);
-                tag_at = after + qwc * 16;
-                break;
-            case 2:  // next
-                append(after, qwc * 16);
-                tag_at = addr;
-                break;
-            case 3:  // ref
-            case 4:  // refs
-                from_spr ? append_scratchpad(addr, qwc * 16) : append(addr, qwc * 16);
-                tag_at = after;
-                break;
-            case 5:  // call
-                append(after, qwc * 16);
-                if (depth < 2) {
-                    stack[depth++] = after + qwc * 16;
+            // A list holds no more data than game memory does: a chain that runs past that loops
+            // (a tag that points back, from a bad pointer) and would grow `vif` by up to 1 MB a
+            // tag, 20 GB over the steps, which takes the computer's memory with it. It is cut
+            // there, once noted.
+            if (vif.size() > ram.size()) {
+                static bool noted = false;
+                if (!noted) {
+                    noted = true;
+                    log::warn(
+                        "display list from {:#x} runs past {} bytes: a looping chain, cut",
+                        root,
+                        ram.size()
+                    );
                 }
-                tag_at = addr;
                 break;
-            case 6:  // ret
-                append(after, qwc * 16);
-                tag_at = depth > 0 ? stack[--depth] : 0;
-                break;
-            default:  // end
-                append(after, qwc * 16);
-                tag_at = 0;
-                break;
+            }
+            const std::uint32_t lo = word_at(ram, tag_at);
+            const std::uint32_t raw_addr = word_at(ram, tag_at + 4);
+            const bool from_spr = (raw_addr & 0x80000000u) != 0;
+            const std::uint32_t addr = raw_addr & 0x7FFFFFF0;
+            const std::uint32_t qwc = lo & 0xFFFF;
+            const std::uint32_t id = (lo >> 28) & 7;
+            append(tag_at + 8, 8);  // the two VIF codes in the tag
+            const std::uint32_t after = tag_at + 16;
+            if (from_spr && id != 0 && id != 3 && id != 4) {
+                break;  // a chain continuing in the scratchpad: not followed
+            }
+            switch (id) {
+                case 0:  // refe
+                    from_spr ? append_scratchpad(addr, qwc * 16) : append(addr, qwc * 16);
+                    tag_at = 0;
+                    break;
+                case 1:  // cnt
+                    append(after, qwc * 16);
+                    tag_at = after + qwc * 16;
+                    break;
+                case 2:  // next
+                    append(after, qwc * 16);
+                    tag_at = addr;
+                    break;
+                case 3:  // ref
+                case 4:  // refs
+                    from_spr ? append_scratchpad(addr, qwc * 16) : append(addr, qwc * 16);
+                    tag_at = after;
+                    break;
+                case 5:  // call
+                    append(after, qwc * 16);
+                    if (depth < 2) {
+                        stack[depth++] = after + qwc * 16;
+                    }
+                    tag_at = addr;
+                    break;
+                case 6:  // ret
+                    append(after, qwc * 16);
+                    tag_at = depth > 0 ? stack[--depth] : 0;
+                    break;
+                default:  // end
+                    append(after, qwc * 16);
+                    tag_at = 0;
+                    break;
+            }
         }
     }
 
@@ -240,6 +394,26 @@ std::vector<std::uint8_t> direct_packets(
         }
     }
     std::vector<std::uint8_t> gif;
+
+    // The recording this list was built with, and where each of its commands goes in `vif`.
+    const renderer::FrameRecording* recording =
+        recorder != nullptr ? recorder->match(list_root, tag_addresses) : nullptr;
+    std::vector<std::size_t> command_vif;
+    if (recording != nullptr) {
+        const std::vector<std::size_t> places = renderer::place_commands(*recording, tag_addresses);
+        for (const std::size_t t : places) {
+            command_vif.push_back(
+                t == renderer::kDropped ? renderer::kDropped
+                : t < tag_vif.size()    ? tag_vif[t]
+                                        : vif.size()
+            );
+        }
+        note_recorder_drops(*recording, tag_addresses, places, chain);
+    }
+    if (recorded != nullptr) {
+        *recorded = recording;
+    }
+    std::size_t next_command = 0;
 
     // The GS registers the strips are drawn with, as the DIRECT data before them leaves them (A+D
     // writes), and the strip being unpacked: its GIF tag at VU address 0, then ST (V2-32) at 1,
@@ -257,6 +431,7 @@ std::vector<std::uint8_t> direct_packets(
     bool strip_context = false;
     // Scoped parent of vertices in a display list produced one tick before the captured mobys.
     std::uint32_t previous_effect_parent = 0;
+    bool previous_effect_parent_position_only = false;
     // The fog line the liquid grid's packet gives the strip program (build_interpolated_dma_packet,
     // func_L02_002A52D0, unpacks it to VU addresses 0x3AC to 0x3AF): the view context's fog_mul
     // (0x3AC.w), screen_bias with fog_add in w (0x3AE), then the far and near F (0x3AF.x, .y).
@@ -282,10 +457,12 @@ std::vector<std::uint8_t> direct_packets(
     renderer::ImageUpload* filling = nullptr;
     std::size_t filling_bytes = 0;
     const auto start_image = [&]() {
+        const auto transfer = renderer::gs::Bitbltbuf::decode(reg_bitbltbuf);
         renderer::ImageUpload image;
-        image.dbp = static_cast<std::uint32_t>((reg_bitbltbuf >> 32) & 0x3FFF);
-        image.dbw = static_cast<std::uint32_t>((reg_bitbltbuf >> 48) & 0x3F);
-        image.dpsm = static_cast<std::uint8_t>((reg_bitbltbuf >> 56) & 0x3F);
+        image.dbp = transfer.dbp;
+        image.dbw = transfer.dbw;
+        image.dpsm = transfer.dpsm;
+        image.generated = transfer.generated;
         image.width = static_cast<std::uint32_t>(reg_trxreg & 0xFFF);
         image.height = static_cast<std::uint32_t>((reg_trxreg >> 32) & 0xFFF);
         const std::uint32_t bits = image.dpsm == 0x00                         ? 32
@@ -306,7 +483,7 @@ std::vector<std::uint8_t> direct_packets(
     const std::size_t strips_at_start = strips != nullptr ? strips->size() : 0;
     std::optional<std::size_t> strips_at_world;
     std::optional<std::size_t> strips_after_early_effects;
-    std::size_t direct_at = 0;   // where the DIRECT being read starts in the 2D data
+    std::size_t direct_at = 0;  // where the DIRECT being read starts in the 2D data
     const auto track_direct = [&](const std::uint8_t* d, std::size_t size) {
         std::size_t p = 0;
         if (image_left > 0) {
@@ -341,6 +518,8 @@ std::vector<std::uint8_t> direct_packets(
                             // Only explicitly attached strips follow a delayed parent transform.
                             if ((value >> 48) == OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER) {
                                 previous_effect_parent = static_cast<std::uint32_t>(value);
+                                previous_effect_parent_position_only =
+                                    (value & OPENRAC_PREVIOUS_EFFECT_PARENT_POSITION_ONLY) != 0;
                             }
 
                             if ((value >> 48) == renderer::GifInterpreter::kWorldMarker
@@ -481,8 +660,72 @@ std::vector<std::uint8_t> direct_packets(
                    : std::prev(it)->second
                          + static_cast<std::uint32_t>(offset - std::prev(it)->first);
     };
+    // The recorded commands that go before `vif` offset `upto`: each a splice of the 2D stream at
+    // its end so far, and what the window reads of the world, the mobys and the effect quads there
+    // (as it read the markers the host C used to write into the list).
+    const auto run_commands = [&](std::size_t upto) {
+        while (recording != nullptr && next_command < command_vif.size()
+               && (command_vif[next_command] <= upto
+                   || command_vif[next_command] == renderer::kDropped)) {
+            const auto index = static_cast<std::uint32_t>(next_command++);
+            const renderer::FrameCommand& c = recording->commands[index];
+            if (command_vif[index] == renderer::kDropped) {
+                continue;
+            }
+            if (splices != nullptr) {
+                splices->push_back({gif.size(), index});
+            }
+            switch (c.op) {
+                case renderer::FrameOp::World:
+                    if (world_marker != nullptr && *world_marker == SIZE_MAX) {
+                        *world_marker = gif.size();
+                    }
+                    if (strips != nullptr && !strips_at_world) {
+                        strips_at_world = strips->size();
+                    }
+                    break;
+                case renderer::FrameOp::WorldMobys:
+                    if (strips != nullptr && !strips_after_early_effects) {
+                        strips_after_early_effects = strips->size();
+                    }
+                    break;
+                case renderer::FrameOp::WorldShrubs:
+                    // Only after the world has started, as OPENRAC_WORLD_SHRUBS_MARKER's.
+                    if (strips != nullptr && strips_at_world && !strips_after_early_effects) {
+                        strips_after_early_effects = strips->size();
+                    }
+                    break;
+                case renderer::FrameOp::EffectParent:
+                    previous_effect_parent = c.index;
+                    previous_effect_parent_position_only = (c.value & 1u) != 0;
+                    break;
+                case renderer::FrameOp::Mobys:
+                    if (moby_marker != nullptr && *moby_marker == SIZE_MAX) {
+                        *moby_marker = gif.size();
+                    }
+                    if (texture_mobys != nullptr) {
+                        texture_mobys->push_back(
+                            {static_cast<std::uint32_t>(c.value),
+                             static_cast<std::uint32_t>(c.value >> 32) & 0xFFFFu,
+                             frame_width[(reg_prim >> 9) & 1] < 512}
+                        );
+                    }
+                    break;
+                case renderer::FrameOp::EffectQuad:
+                    if (quad_marks != nullptr) {
+                        quad_marks->push_back(
+                            {c.index, contexts[0].test, contexts[0].zbuf, contexts[0].zbuf_seen}
+                        );
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    };
     std::size_t at = 0;
     while (at + 4 <= vif.size()) {
+        run_commands(at);
         std::uint32_t code;
         std::memcpy(&code, vif.data() + at, 4);
         at += 4;
@@ -612,6 +855,7 @@ std::vector<std::uint8_t> direct_packets(
                 strip.blend_disabled = strip_blend_disabled;
                 strip.surface = surface;
                 strip.previous_parent = previous_effect_parent;
+                strip.previous_parent_position_only = previous_effect_parent_position_only;
                 strip.uv_motion = uv_motion;
                 static const bool& strip_fog_off = stats::probe(
                     "OPENRAC_STRIP_FOG_OFF", "reference: the effect strips drawn without the GS fog"
@@ -664,6 +908,7 @@ std::vector<std::uint8_t> direct_packets(
             strip_tag = false;
         }
     }
+    run_commands(SIZE_MAX);
     // Keep the early effects below the scenery, including partially blended surface layers.
     if (strips != nullptr && strips_after_early_effects) {
         const std::size_t from = strips_at_world.value_or(strips_at_start);
@@ -734,6 +979,7 @@ bool read_window_events() {
     // A controls file changed beside the game (the launcher) is applied within a second.
     g->controls.poll(static_cast<double>(SDL_GetTicks()) / 1000.0);
     g->input.update();
+    input_latency::sampled(g->input.pad(0).buttons);  // [debug tools] OPENRAC_INPUT_LATENCY
     // The controllers connected are remembered beside the controls, for the launcher.
     if (g->input.take_devices_changed()) {
         g->controls.remember(g->input.devices());
@@ -787,14 +1033,22 @@ int world_to_draw(std::span<const std::uint8_t> ram, int level) {
 // Uses the requested world after graphics ownership returns.
 void use_world(std::span<const std::uint8_t> ram, int level) {
     const int world = world_to_draw(ram, level);
-    use_level(world);
     // The flight between planets plays while the game reads the next level from the disc; its
     // number is already the level word's. Its files are read meanwhile, not after the flight.
+    int next_level = -1;
     if (world == -2 && openrac_game_front_end != nullptr && openrac_game_front_end->level != 0) {
         const std::uint32_t next = word_at(ram, openrac_game_front_end->level);
         if (next < static_cast<std::uint32_t>(openrac_game_front_end->levels)) {
-            preload_level(static_cast<int>(next));
+            next_level = static_cast<int>(next);
         }
+    }
+    // A game whose loading screen is a world of its own (Up Your Arsenal's ship, level 97) draws
+    // that one's mobys there, not a flight world's (the game draws no other layer).
+    const int loading = world == -2 ? g->render.profile->loading_world() : -1;
+    use_level(loading >= 0 ? loading : world);
+    load_prop_meshes();
+    if (next_level >= 0) {
+        preload_level(next_level);
     }
 }
 
@@ -1044,7 +1298,7 @@ void log_tick_state(
             if (m.address + 0x100 > ram.size()) {
                 continue;
             }
-            const auto fade = g->profile->moby_distance_fade(ram.data() + m.address, state);
+            const auto fade = g->render.profile->moby_distance_fade(ram.data() + m.address, state);
             culled += fade ? 0 : 1;
             fading += fade && *fade < 0x80 ? 1 : 0;
         }
@@ -1174,7 +1428,10 @@ void log_mobys_near_hero(std::span<const std::uint8_t> ram, const host::GameStat
             float sphere[4];
             float t = 0.0f;
             std::memcpy(sphere, b, sizeof sphere);
-            std::memcpy(&t, b + 0x54, 4);
+            const std::uint32_t anim = g->render.profile->moby_anim_fields();
+            const std::uint32_t update_at = g->render.profile->moby_update();
+            const std::uint32_t pvars_at = g->render.profile->moby_pvars();
+            std::memcpy(&t, b + anim + 4, 4);
             log::info(
                 "moby {} class {} at {:#x}: state {} mode {:#06x} seq {} frame {} t {:.2f} "
                 "pos {:.2f} {:.2f} {:.2f} dist {:.2f} radius {:.2f} "
@@ -1184,21 +1441,83 @@ void log_mobys_near_hero(std::span<const std::uint8_t> ram, const host::GameStat
                 m.address,
                 b[0x20],
                 static_cast<unsigned>(b[0x34] | b[0x35] << 8),
-                b[0x52],
-                b[0x50],
+                b[anim + 2],
+                b[anim],
                 t,
                 m.matrix[12],
                 m.matrix[13],
                 m.matrix[14],
                 d,
                 sphere[3],
-                word_at(ram, m.address + 0x74),
-                word_at(ram, m.address + 0x78),
+                word_at(ram, m.address + update_at),
+                word_at(ram, m.address + pvars_at),
                 b[0x30],
                 b[0x31],
                 static_cast<unsigned>(b[0x32] | b[0x33] << 8)
             );
         }
+    }
+}
+
+// Returns the mods' materials (interface 1.23) on this frame's live mobys, by address: the level's
+// whole list of them (`listed` of `mobys`, not the extra ones), so that one the game removed drops
+// its material (mods::moby_materials).
+std::unordered_map<std::uint32_t, mods::MobyMaterial> mod_materials(
+    const std::vector<host::LiveMoby>& mobys, std::size_t listed
+) {
+    std::vector<mods::LiveMobyId> live;
+    live.reserve(listed);
+    // Each listed moby by address and class, as the mods' list checks them.
+    for (std::size_t i = 0; i < listed && i < mobys.size(); ++i) {
+        live.push_back({mobys[i].address, mobys[i].class_id});
+    }
+
+    std::unordered_map<std::uint32_t, mods::MobyMaterial> out;
+    // One material a moby, for the lookup in pose_mobys.
+    for (const mods::MobyMaterial& material : mods::moby_materials(live)) {
+        out.insert_or_assign(material.moby, material);
+    }
+    return out;
+}
+
+// Puts a mod's material on a moby's instance, render-only: its rgb multiplies the tint (0xFF a
+// channel as it is), and the material goes to mesh.frag (platinum) by Instance::mod_material.
+// Energy (interface 1.25) multiplies only its share of rgb (OPENRAC_MOBY_MATERIAL_ENERGY_BODY), which
+// mesh.frag takes back out for its rim and glow packets; its level stays with the effects
+// (energy_effects.h). Paint (interface 1.34) multiplies all of rgb, which mesh.frag lays over the
+// texel's grey; its glow level goes with the material (scene::kModMaterialPaint + the level).
+void apply_mod_material(scene::Instance& instance, const mods::MobyMaterial& material) {
+    // 0xRRGGBB: a byte a channel, red highest.
+    constexpr float kChannelMax = 255.0f;
+    constexpr int kRedShift = 16;
+    constexpr int kGreenShift = 8;
+    constexpr std::uint32_t kByte = 0xFF;
+    const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(material.material);
+    const float share =
+        kind == OPENRAC_MOBY_MATERIAL_ENERGY ? OPENRAC_MOBY_MATERIAL_ENERGY_BODY : 1.0f;
+    const auto channel = [&](int shift) {
+        const float value = static_cast<float>((material.rgb >> shift) & kByte) / kChannelMax;
+        return 1.0f - share + share * value;
+    };
+    instance.tint[0] *= channel(kRedShift);
+    instance.tint[1] *= channel(kGreenShift);
+    instance.tint[2] *= channel(0);
+    instance.mod_material = static_cast<std::uint16_t>(kind);
+    if (kind == OPENRAC_MOBY_MATERIAL_PAINT) {
+        constexpr int kLevelShift = 8;
+        constexpr std::uint32_t kLevelMask = 0xF;
+        constexpr int kAccentRedShift = 20;
+        constexpr int kAccentGreenShift = 16;
+        constexpr int kAccentBlueShift = 12;
+        constexpr std::uint32_t kNibble = 0xF;
+        const std::uint32_t level = (material.material >> kLevelShift) & kLevelMask;
+        // An accent (1.38): each channel's nibble as a 0xRRGGBB top nibble, for paint_material.
+        const bool accent = (material.material & OPENRAC_MOBY_MATERIAL_PAINT_ACCENT) != 0;
+        const std::uint32_t accent_rgb =
+            ((material.material >> kAccentRedShift & kNibble) << 20)
+            | ((material.material >> kAccentGreenShift & kNibble) << 12)
+            | ((material.material >> kAccentBlueShift & kNibble) << 4);
+        instance.mod_material = scene::paint_material(level, accent, accent_rgb);
     }
 }
 
@@ -1293,7 +1612,7 @@ std::optional<std::vector<host::ShrubDraw>> shrub_draws(
         return g->world_shrubs;
     }
     const profiling::Zone trace("Shrub draws");
-    return g->profile->shrub_draws(ram, openrac_game_loaded_overlay());
+    return g->render.profile->shrub_draws(ram, openrac_game_loaded_overlay());
 }
 
 // Captures the ties and shrubs as the game holds them, one per loaded instance
@@ -1302,7 +1621,7 @@ std::optional<std::vector<host::ShrubDraw>> shrub_draws(
 std::optional<scene::GameScenery> scenery_matrices(
     std::span<const std::uint8_t> ram, bool world_ran, const host::GameState& state
 ) {
-    const auto words = g->profile->scenery_matrices();
+    const auto words = g->render.profile->scenery_matrices();
     if (!world_ran || (words[0] == 0 && words[1] == 0)) {
         return std::nullopt;
     }
@@ -1311,16 +1630,17 @@ std::optional<scene::GameScenery> scenery_matrices(
         words,
         state,
         settings::get().draw_distance_scale(),
-        {g->level.instances[static_cast<std::size_t>(scene::Layer::Ties)].size(),
-         g->level.instances[static_cast<std::size_t>(scene::Layer::Shrubs)].size()}
+        {g->render.level.instances[static_cast<std::size_t>(scene::Layer::Ties)].size(),
+         g->render.level.instances[static_cast<std::size_t>(scene::Layer::Shrubs)].size()},
+        g->render.profile->scenery_matrices_level(),
+        g->render.profile->tie_cap_after_records()
     );
     const auto& result = captured.scenery;
     const std::uint32_t tie_cap = captured.tie_cap;
     const float shrub_cap = captured.shrub_cap;
     std::optional<scene::Pvs::Mask> mask;
     if (occlusion_address() != 0) {
-        if (const gaddr m = openrac_relocate_data(occlusion_address());
-            m + sizeof(scene::Pvs::Mask) <= ram.size()) {
+        if (const gaddr m = occlusion_in_ram(); m + sizeof(scene::Pvs::Mask) <= ram.size()) {
             mask.emplace();
             std::memcpy(mask->data(), ram.data() + m, mask->size());
         }
@@ -1400,6 +1720,20 @@ TickMobys pose_mobys(
     if (state.moby_view) {
         state.moby_view->scale = settings::get().draw_distance_scale();
     }
+    // Split screen: the state each view's world was drawn with since the last capture, at the
+    // same draw distance (recorder::view_camera).
+    std::array<std::optional<host::GameState>, renderer::kFrameViews> view_states = g->view_states;
+    std::uint8_t tested_views = 0;
+    int views_drawn = 0;
+    for (std::uint32_t n = 0; n < renderer::kFrameViews; ++n) {
+        if (view_states[n]) {
+            tested_views = static_cast<std::uint8_t>(tested_views | (1u << n));
+            ++views_drawn;
+            if (view_states[n]->moby_view) {
+                view_states[n]->moby_view->scale = settings::get().draw_distance_scale();
+            }
+        }
+    }
     // Active distance at Match: the mobys the game leaves asleep loop their animation in the
     // picture (frontend/sleeping_mobys.h). Read from the game's memory, never written to it.
     const bool animate_sleeping = !settings::get().original_active_distance;
@@ -1417,7 +1751,7 @@ TickMobys pose_mobys(
             ram,
             addresses,
             {state.camera_position[0], state.camera_position[1], state.camera_position[2]},
-            g->profile->moby_anim_fields(),
+            g->render.profile->moby_anim_fields(),
             world_ran && !under_menu
         );
     }
@@ -1426,6 +1760,53 @@ TickMobys pose_mobys(
     // its joint palette goes to the scene, which skins the class's mesh with it. OPENRAC_ANIM=0
     // draws every moby in its bind pose.
     static const bool animate = env::flag(env::Var::Anim);
+    auto replacements = mods::moby_visuals();
+    // Read before the mobys the game drew but did not list are added below.
+    const auto materials = mod_materials(state.mobys, state.mobys.size());
+    namespace cases = scene::gold_case_preview;
+    cases::cases.clear();
+    if (g->render.level.game == "rac1") {
+        for (const auto& moby : state.mobys) {
+            if (!cases::source(moby.class_id)) {
+                continue;
+            }
+            const auto visual =
+                std::find_if(replacements.begin(), replacements.end(), [&](const auto& v) {
+                    return v.moby == moby.address && v.height > 0 && v.oclass > 0;
+                });
+            if (visual == replacements.end()) {
+                continue;
+            }
+            auto anchor = moby.matrix;
+            float nearest = 1.0f;
+            for (const auto& box : state.mobys) {
+                if (box.class_id == 304) {
+                    const float dx = box.matrix[12] - moby.matrix[12],
+                                dy = box.matrix[13] - moby.matrix[13];
+                    const float distance = dx * dx + dy * dy;
+                    if (distance >= nearest) {
+                        continue;
+                    }
+                    nearest = distance;
+                    const float yaw = std::atan2(box.matrix[1], box.matrix[0]);
+                    anchor = renderer::identity();
+                    anchor[0] = anchor[5] = std::cos(yaw);
+                    anchor[1] = std::sin(yaw);
+                    anchor[4] = -anchor[1];
+                    anchor[12] = box.matrix[12];
+                    anchor[13] = box.matrix[13];
+                    anchor[14] = box.matrix[14] + 1.8f;
+                }
+            }
+            cases::cases.push_back(
+                {moby.address,
+                 moby.class_id,
+                 visual->oclass,
+                 {anchor[12], anchor[13], anchor[14]},
+                 anchor}
+            );
+        }
+    }
     std::vector<scene::Instance> live;
     std::vector<std::uint32_t> live_addresses;
     std::vector<int> live_joints;
@@ -1434,15 +1815,13 @@ TickMobys pose_mobys(
     std::uint32_t shadow_moby = 0;
     scene::MobyShadowState shadow_state;
     std::vector<renderer::ShadowSet> shadow_sets;
-    const bool every_shadow = g->profile->every_moby_casts_shadow();
+    const bool every_shadow = g->render.profile->every_moby_casts_shadow();
     std::vector<Kept::TargetMoby> target_mobys;
     // The point lights' third light of each moby they reach, where the game lights mobys by them;
     // as many as the shader's moby_point_lights holds (mesh.vert).
     std::vector<std::array<float, 8>> point_lit;
     constexpr std::size_t kPointLitMobys = 32;
-    const gaddr point_bank = g->profile->mobys_take_point_lights() && light_bank_address() != 0
-                                 ? openrac_relocate_data(light_bank_address())
-                                 : 0;
+    const gaddr point_bank = g->render.profile->mobys_take_point_lights() ? light_bank_in_ram() : 0;
 
     // A moby to pose: its address and joints, and its instance (in target_mobys or in live).
     struct PoseJob {
@@ -1503,7 +1882,7 @@ TickMobys pose_mobys(
                 }
             );
         };
-        const bool narrow_buffers = g->profile->own_mobys_into_narrow_buffers();
+        const bool narrow_buffers = g->render.profile->own_mobys_into_narrow_buffers();
         for (const auto& [address, camera] : g->moby_cameras) {
             OwnCameraLayer layer =
                 narrow_buffers && marked(address, true) && frame_focal[0] > 0.0f
@@ -1530,29 +1909,65 @@ TickMobys pose_mobys(
                     break;
             }
             if (!drawn(address)) {
-                g->profile->add_moby(ram, address, state.mobys);
+                g->render.profile->add_moby(ram, address, state.mobys);
             }
         }
     }
+    openrac_infobot_presentation infobot_presentation{};
+    const bool presenting_infobot =
+        openrac_game_play_host && openrac_game_play_host->infobot_presentation
+        && openrac_game_play_host->infobot_presentation(&infobot_presentation);
     const auto hero_rig = read_hero_shadow_rig(
         openrac_game_front_end,
         g->loaded,
-        g->scene.hero_shadow_enabled(),
-        g->profile->shadow_directions() != 0
+        g->render.scene.hero_shadow_enabled() || presenting_infobot,
+        g->render.profile->shadow_directions() != 0
     );
 
     const bool inspect_bones = debug_overlay::picker_snapshot_needed();
 #ifdef OPENRAC_LIGHT_AUTHORING
-    auto attached_catalog =
-        enhanced_graphics_available() ? enhanced::current_object_lights(g->level.game) : nullptr;
+    auto attached_catalog = enhanced_graphics_available()
+                                ? enhanced::current_object_lights(g->render.level.game)
+                                : nullptr;
     if (attached_catalog && attached_catalog->objects.empty()) {
         attached_catalog.reset();
     }
 #endif
     const bool free_camera = debug_overlay::free_camera_enabled();
+    // The view a draw distance exception is culled by: the game's own draw distance. Made once.
+    std::optional<host::GameState> game_distance_view;
+    // Every view of a split screen drawn in this capture: each moby tested from each view's camera
+    // (frontend/view_mobys.h), each instance's views kept (Kept::live_views).
+    const bool per_view = world_ran && !free_camera && views_drawn >= 2;
+    std::array<std::optional<host::GameState>, renderer::kFrameViews> view_distance_views;
+    std::vector<std::uint8_t> live_views;
+    // The mobys the mods draw with a mesh of their own (interface 1.33), by address.
+    const std::vector<mods::MobyModelDraw> model_draws = mods::moby_models_drawn();
+    std::unordered_map<std::uint32_t, const mods::MobyModelDraw*> model_overrides;
+    std::map<std::pair<int, std::uint32_t>, const mods::MobyModelDraw*> class_overrides;
+    // The mods' materials on whole classes (interface 1.34), by class and scope.
+    std::map<std::pair<int, std::uint32_t>, mods::MobyMaterial> class_materials;
+    for (const mods::ClassMaterialDraw& draw : mods::class_materials()) {
+        class_materials.emplace(std::make_pair(draw.oclass, draw.scope), draw.material);
+    }
+    for (const mods::MobyModelDraw& draw : model_draws) {
+        if (draw.scope == 0) {
+            model_overrides.emplace(draw.address, &draw);
+        } else {
+            class_overrides.emplace(std::make_pair(draw.oclass, draw.scope), &draw);
+        }
+    }
     for (std::size_t index = 0; index < state.mobys.size(); ++index) {
         bool light_only = false;
         const host::LiveMoby& m = state.mobys[index];
+        if (presenting_infobot && (hero_rig.owns(m.address) || m.class_id == 0)) {
+            continue;
+        }
+        if (std::any_of(replacements.begin(), replacements.end(), [&](const auto& v) {
+                return v.moby == m.address && v.oclass == -1;
+            })) {
+            continue;
+        }
         const bool extra = index >= listed;
         // Hidden (mode bits 0x81): MobyProc does not draw it (the parked ship while the landing one
         // comes down, Clank's spare parts, Umbris's water plates, whose wave grid is drawn instead).
@@ -1578,29 +1993,50 @@ TickMobys pose_mobys(
                 return c.first == m.address;
             });
         std::optional<std::uint8_t> distance_fade = std::uint8_t{0x80};
+        std::uint8_t drawn_views = kEveryView;
         if (!extra && world_ran && m.address + 0x34 <= ram.size() && !own_camera) {
             // The freecam flies away from the game's camera, whose depth and sides it is not: a
             // moby behind Ratchet is in its view. Kept by its draw distance from the game's camera
             // in any direction, the window's own view of the freecam culls the rest.
-            if (free_camera) {
-                distance_fade = host::moby_free_camera_reach(ram.data() + m.address, state);
-            } else if (state.moby_view && g->profile->keeps_game_draw_distance(m.class_id)) {
-                host::GameState retail = state;
-                retail.moby_view->scale = 1.0f;
-                distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, retail);
+            // A class in the game's draw distance exceptions (port/game/<game>/draw_distance.tsv)
+            // keeps the game's own draw distance at every Draw distance.
+            // The test from `seen`, or from `kept`, its copy at the game's own draw distance.
+            const auto fade_from = [&](const host::GameState& seen,
+                                       std::optional<host::GameState>& kept) {
+                const host::GameState* view = &seen;
+                if (seen.moby_view && g->render.profile->keeps_game_draw_distance(m.class_id)) {
+                    if (!kept) {
+                        kept = seen;
+                        kept->moby_view->scale = 1.0f;
+                    }
+                    view = &*kept;
+                }
+                return free_camera
+                           ? host::moby_free_camera_reach(ram.data() + m.address, *view)
+                           : g->render.profile->moby_distance_fade(ram.data() + m.address, *view);
+            };
+            if (per_view) {
+                // Split screen drawn in one capture: in the views whose own camera's test it
+                // passes, at the strongest of their fades (frontend/view_mobys.h).
+                const ViewFade seen = fade_in_views(tested_views, [&](std::uint32_t n) {
+                    return fade_from(*view_states[n], view_distance_views[n]);
+                });
+                distance_fade = seen.fade;
+                drawn_views = seen.views;
             } else {
-                distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, state);
+                distance_fade = fade_from(state, game_distance_view);
             }
         }
         if (!distance_fade) {
 #ifdef OPENRAC_LIGHT_AUTHORING
             // An unseen mesh may still carry a light whose sphere reaches visible receivers.
-            const auto model = g->level.moby_classes.find(m.class_id);
-            if (!attached_catalog || model == g->level.moby_classes.end()) {
+            const auto model = g->render.level.moby_classes.find(m.class_id);
+            if (!attached_catalog || model == g->render.level.moby_classes.end()) {
                 continue;
             }
-            const auto key =
-                enhanced::object_light_key(g->level, scene::Layer::Mobys, model->second.first);
+            const auto key = enhanced::object_light_key(
+                g->render.level, scene::Layer::Mobys, model->second.first
+            );
             const auto lights = attached_catalog->objects.find(key);
             if (lights == attached_catalog->objects.end()
                 || std::none_of(
@@ -1611,6 +2047,7 @@ TickMobys pose_mobys(
                 continue;
             }
             light_only = true;
+            drawn_views = kEveryView;
 #else
             continue;
 #endif
@@ -1621,23 +2058,346 @@ TickMobys pose_mobys(
                })) {
             continue;
         }
-        auto cls = g->level.moby_classes.find(m.model_class);
-        if (cls == g->level.moby_classes.end() && !m.model_only) {
-            cls = g->level.moby_classes.find(m.class_id);
+        // A mesh a mod draws this moby with instead (interface 1.33): for the moby it was set on
+        // (its address and its class), in the scene when the mod's model was read into it; until
+        // then the moby keeps its class's model. It does not need its class to be in the level's.
+        const mods::MobyModelDraw* mod_model = nullptr;
+        std::uint32_t mod_model_index = 0;
+        // The moby's own override first, then its class's in the moby's scope: a moby the game draws
+        // with a camera of its own (a menu's, the vendor's: own_camera) is of the menu scope, the
+        // others of the world's.
+        const mods::MobyModelDraw* wanted = nullptr;
+        if (const auto draw = model_overrides.find(m.address);
+            draw != model_overrides.end() && draw->second->oclass == m.class_id) {
+            wanted = draw->second;
+        } else if (const auto draw = class_overrides.find(
+                       {m.class_id, own_camera ? OPENRAC_MODEL_MENU : OPENRAC_MODEL_WORLD}
+                   );
+                   draw != class_overrides.end()) {
+            wanted = draw->second;
         }
-        if (cls == g->level.moby_classes.end()) {
+        if (wanted != nullptr) {
+            if (wanted->hidden) {
+                continue;
+            }
+            const auto mesh =
+                std::find_if(g->prop_models.begin(), g->prop_models.end(), [&](const auto& held) {
+                    return held.first == wanted->mesh;
+                });
+            if (mesh != g->prop_models.end()) {
+                mod_model = wanted;
+                mod_model_index = mesh->second;
+            }
+        }
+        const auto replacement =
+            std::find_if(replacements.rbegin(), replacements.rend(), [&](const auto& v) {
+                return v.moby == m.address && g->render.level.moby_classes.contains(v.oclass);
+            });
+        const int replacement_class = replacement == replacements.rend() ? -1
+                                      : g->render.level.game == "rac1"
+                                          ? scene::vendor_preview::model_class(replacement->oclass)
+                                          : replacement->oclass;
+        const bool replaced =
+            replacement != replacements.rend()
+            && (scene::preview_replaces_class(
+                    replacement_class, m.model_class, m.class_id, into_texture.contains(m.address)
+                )
+                || (cases::source(m.class_id) && replacement->height > 0));
+        auto cls =
+            g->render.level.moby_classes.find(replaced ? replacement->oclass : m.model_class);
+        if (cls == g->render.level.moby_classes.end() && !m.model_only) {
+            cls = g->render.level.moby_classes.find(m.class_id);
+        }
+        if (cls == g->render.level.moby_classes.end() && mod_model == nullptr) {
             continue;
         }
         scene::Instance instance{cls->second.first, m.matrix, {1, 1, 1, 1}};
+        const bool native_gold =
+            replaced && replacement->height == 0
+            && scene::vendor_preview::normal_weapon_class(replacement_class) != replacement_class
+            && scene::vendor_preview::normal_weapon_class(replacement_class) == m.class_id;
+        const bool custom_pose = replaced && !native_gold;
+        const bool replacement_pose = custom_pose || native_gold;
+        const std::optional<host::GoldBoltReads> bolt_reads = g->render.profile->gold_bolt_reads();
+        const bool native_bolt_pickup =
+            bolt_reads && replaced && replacement->height > 0 && replacement_class == 0x46E
+            && scene::pickup_preview::equipment_source(m.class_id) && !own_camera;
+        if (native_bolt_pickup) {
+            // Read the same class scale and animation constants used by
+            // GoldBoltUpdate, rather than fitting the bolt into weapon bounds.
+            const auto word = [&](std::uint32_t address) {
+                std::uint32_t value = 0;
+                if (address + 4 <= ram.size()) {
+                    std::memcpy(&value, ram.data() + address, 4);
+                }
+                return value & 0x1FFFFFFu;
+            };
+            const auto number = [&](std::uint32_t address) {
+                float value = 0;
+                if (address + 4 <= ram.size()) {
+                    std::memcpy(&value, ram.data() + address, 4);
+                }
+                return std::isfinite(value) ? value : 0.0f;
+            };
+            const auto constants =
+                openrac_relocate_level_data(bolt_reads->constants_level, bolt_reads->constants);
+            static float class_scale = 0;
+            for (const auto& bolt : state.mobys) {
+                if (bolt.class_id == 1134) {
+                    const auto bolt_class = word(bolt.address + 0x24);
+                    if (bolt_class) {
+                        class_scale = number(bolt_class + 0x24);
+                    }
+                    if (class_scale > 0) {
+                        break;
+                    }
+                }
+            }
+            if (class_scale <= 0) {
+                // Collected level mobys retain their class header until reused.
+                const auto first = word(bolt_reads->moby_table);
+                const auto end = word(bolt_reads->moby_table_end);
+                if (first && end > first && end <= ram.size() && (end - first) % 0x100 == 0) {
+                    for (auto at = first; at < end; at += 0x100) {
+                        std::int16_t id = 0;
+                        std::memcpy(&id, ram.data() + at + 0xA6, 2);
+                        if (id == 1134 && word(at + 0x24)) {
+                            class_scale = number(word(at + 0x24) + 0x24);
+                            break;
+                        }
+                    }
+                }
+            }
+            renderer::Vec3 home{m.matrix[12], m.matrix[13], m.matrix[14] - 1};
+            if (const auto source = g->render.level.moby_classes.find(m.class_id);
+                source != g->render.level.moby_classes.end()) {
+                for (const auto& placed :
+                     g->render.level.instances[static_cast<int>(scene::Layer::Mobys)]) {
+                    if (placed.model == source->second.first
+                        && std::hypot(placed.matrix[12] - home[0], placed.matrix[13] - home[1])
+                               < .1f) {
+                        home = {placed.matrix[12], placed.matrix[13], placed.matrix[14]};
+                        break;
+                    }
+                }
+            }
+
+            // Advance with native simulation time, independently of a weapon's
+            // spin rate and the window refresh rate.
+            struct Clock {
+                std::uint64_t tick = ~0ull;
+                float seconds = 0;
+            };
+
+            static std::map<std::pair<int, std::uint32_t>, Clock> clocks;
+            auto& clock = clocks[{g->loaded, m.address}];
+            if (clock.tick != g->index && world_ran && !under_menu) {
+                clock.seconds += number(bolt_reads->frame_seconds);
+            }
+            clock.tick = g->index;
+            instance.matrix = scene::pickup_preview::native_gold(
+                home,
+                clock.seconds,
+                class_scale * number(constants),
+                number(constants + 4),
+                number(constants + 8),
+                {number(constants + 0x10),
+                 number(constants + 0x14),
+                 number(constants + 0x18),
+                 number(constants + 0x1C)}
+            );
+            instance.world_sphere = {};
+        }
+        if (custom_pose && !native_bolt_pickup) {
+            const bool infobot = replacement_class == 0x2EE;
+            const bool panel = into_texture.contains(m.address);
+            const bool generic_vendor =
+                !infobot && replacement_class != 0x46E && replacement->height == 0;
+            const auto& target = g->render.level.models[instance.model];
+            const auto& low = infobot && target.preview_bounds ? target.preview_min : target.min;
+            const auto& high = infobot && target.preview_bounds ? target.preview_max : target.max;
+            if (infobot && !cases::source(m.class_id)) {
+                const host::GameState* camera = &state;
+                if (const auto own = into_texture.find(m.address); own != into_texture.end()) {
+                    camera = own->second;
+                } else if (const auto shown = on_screen.find(m.address); shown != on_screen.end()) {
+                    camera = shown->second;
+                }
+                instance.matrix = scene::facing_preview(
+                    m.matrix,
+                    camera->camera_position,
+                    camera->forward,
+                    panel ? camera->up : renderer::Vec3{0, 0, 1}
+                );
+            }
+            float wanted = replacement->height;
+            const auto original = g->render.level.moby_classes.find(m.model_class);
+            float target_extent = high[2] - low[2];
+            if (wanted == 0 && original != g->render.level.moby_classes.end()) {
+                const auto& model = g->render.level.models[original->second.first];
+                wanted = model.max[2] - model.min[2];
+                if ((infobot && panel) || generic_vendor) {
+                    // The native gun's pivot and bind bounds do not frame a tall, animated bot.
+                    // Fit its entire idle cycle within a square, leaving room for the labels.
+                    wanted = 0.72f
+                             * std::max(
+                                 {model.max[0] - model.min[0],
+                                  model.max[1] - model.min[1],
+                                  model.max[2] - model.min[2]}
+                             );
+                    target_extent =
+                        generic_vendor
+                            ? std::max({high[0] - low[0], high[1] - low[1], high[2] - low[2]})
+                            : std::max(high[1] - low[1], high[2] - low[2]);
+                }
+            }
+            if (target_extent > 0.0001f && wanted > 0) {
+                const float basis = replacement->height > 0
+                                        ? std::sqrt(
+                                              instance.matrix[8] * instance.matrix[8]
+                                              + instance.matrix[9] * instance.matrix[9]
+                                              + instance.matrix[10] * instance.matrix[10]
+                                          )
+                                        : 1.0f;
+                const float scale = wanted / (target_extent * std::max(basis, 0.0001f));
+                for (int col = 0; col < 3; ++col) {
+                    for (int row = 0; row < 3; ++row) {
+                        instance.matrix[col * 4 + row] *= scale;
+                    }
+                }
+            }
+            if (generic_vendor && original != g->render.level.moby_classes.end()) {
+                const auto& model = g->render.level.models[original->second.first];
+                const auto center = renderer::transform_point(
+                    m.matrix,
+                    {(model.min[0] + model.max[0]) * 0.5f,
+                     (model.min[1] + model.max[1]) * 0.5f,
+                     (model.min[2] + model.max[2]) * 0.5f}
+                );
+                for (int axis = 0; axis < 3; ++axis) {
+                    instance.matrix[12 + axis] = center[axis];
+                }
+            }
+            if ((infobot && panel) || generic_vendor) {
+                for (int axis = 0; axis < 3; ++axis) {
+                    for (int local = 0; local < 3; ++local) {
+                        instance.matrix[12 + axis] -=
+                            instance.matrix[local * 4 + axis] * (low[local] + high[local]) * 0.5f;
+                    }
+                }
+            }
+        }
+        if (g->render.level.game == "rac1" && replaced && !native_bolt_pickup
+            && scene::pickup_preview::should_adjust(
+                m.class_id, replacement_class, replacement->height, own_camera
+            )) {
+            namespace pickup = scene::pickup_preview;
+            const auto& shape = g->render.level.models[instance.model];
+            const renderer::Vec3 center{
+                (shape.min[0] + shape.max[0]) * .5f,
+                (shape.min[1] + shape.max[1]) * .5f,
+                (shape.min[2] + shape.max[2]) * .5f
+            };
+            float angle = 0;
+            if (m.address + 0x4c <= ram.size()) {
+                std::memcpy(&angle, ram.data() + m.address + 0x48, sizeof angle);
+            }
+            if (replacement_class != 0x2EE) {
+                // Gold Bolts tumble around randomized X/Y axes. Equipment instead
+                // stands upright and turns around Z, with its own saved orientation.
+                const float scale = std::sqrt(
+                    instance.matrix[0] * instance.matrix[0]
+                    + instance.matrix[1] * instance.matrix[1]
+                    + instance.matrix[2] * instance.matrix[2]
+                );
+                const renderer::Vec3 position{
+                    instance.matrix[12], instance.matrix[13], instance.matrix[14]
+                };
+                instance.matrix = renderer::identity();
+                instance.matrix[0] = instance.matrix[5] = std::cos(angle) * scale;
+                instance.matrix[1] = std::sin(angle) * scale;
+                instance.matrix[4] = -std::sin(angle) * scale;
+                instance.matrix[10] = scale;
+                for (int axis = 0; axis < 3; ++axis) {
+                    instance.matrix[12 + axis] = position[axis];
+                }
+            }
+            instance.matrix = pickup::apply(
+                instance.matrix, center, angle, pickup::get(replacement_class, m.class_id == 750)
+            );
+            instance.world_sphere = {};
+        }
+        if (g->render.level.game == "rac1" && replaced && cases::source(m.class_id)
+            && replacement->height > 0 && !own_camera) {
+            const auto& shape = g->render.level.models[instance.model];
+            const renderer::Vec3 center{
+                (shape.min[0] + shape.max[0]) * .5f,
+                (shape.min[1] + shape.max[1]) * .5f,
+                (shape.min[2] + shape.max[2]) * .5f
+            };
+            auto entry = cases::get(replacement_class);
+            // Every item uses the case's axes and center, independently of the
+            // gold weapon originally displayed in this slot.
+            const auto slot =
+                std::find_if(cases::cases.begin(), cases::cases.end(), [&](const auto& c) {
+                    return c.address == m.address;
+                });
+            if (slot != cases::cases.end()) {
+                instance.matrix = slot->anchor;
+                const float yaw = std::atan2(instance.matrix[1], instance.matrix[0]);
+                const float x = entry.model.x, y = entry.model.y;
+                entry.model.x = x * std::cos(yaw) - y * std::sin(yaw);
+                entry.model.y = x * std::sin(yaw) + y * std::cos(yaw);
+                const float scale = 1.5f
+                                    / std::max(
+                                        {shape.max[0] - shape.min[0],
+                                         shape.max[1] - shape.min[1],
+                                         shape.max[2] - shape.min[2],
+                                         .001f}
+                                    );
+                for (int col = 0; col < 3; ++col) {
+                    for (int row = 0; row < 3; ++row) {
+                        instance.matrix[col * 4 + row] *= scale;
+                    }
+                }
+            }
+            if (entry.model.spin) {
+                entry.model.roll += float(g->index % 21600) * 0.5f;
+            }
+            instance.matrix = scene::pickup_preview::apply(instance.matrix, center, 0, entry);
+            instance.world_sphere = {};
+        }
+        if (mod_model != nullptr) {
+            // A mesh of a mod's draws in place of the moby's model (interface 1.33, moby_model_slot).
+            instance.model = mod_model_index;
+            instance.matrix = renderer::multiply(m.matrix, mod_model->matrix);
+        }
         instance.lighting_only = light_only;
-        instance.gameplay_essential = g->profile->gameplay_essential(m.class_id);
+        instance.gameplay_essential = g->render.profile->gameplay_essential(m.class_id);
         instance.occlusion = m.occlusion;
         if (extra || into_texture.contains(m.address)) {
             instance.occlusion = scene::Pvs::always;
         }
-        // Authored bounds do not cover debug stand-ins or replacement meshes.
-        if (!cls->second.second && g->level.overridden_models == 0) {
+        // Authored bounds do not cover debug stand-ins or replacement meshes (a mod's mesh, here,
+        // has its own).
+        if (mod_model == nullptr && !custom_pose && !cls->second.second
+            && g->render.level.overridden_models == 0) {
             instance.world_sphere = m.world_sphere;
+        }
+        // A moby drawn as another model (scene/moby_skin.h): its class's logic, the skin's look, at
+        // the skin's scale. Its pose is the skin's own animation, below.
+        const scene::MobySkin* skin = nullptr;
+        if (!g->moby_skins.empty() && m.address + 0x100 <= ram.size()) {
+            const int id = g->render.profile->moby_spawn_id(ram.data() + m.address);
+            const auto found = g->moby_skins.by_spawn_id.find(id);
+            if (id >= 0 && found != g->moby_skins.by_spawn_id.end()) {
+                skin = &found->second;
+                instance.model = skin->model;
+                instance.world_sphere = {};
+                for (int i = 0; i < 12; ++i) {
+                    instance.matrix[static_cast<std::size_t>(i)] *= skin->scale;
+                }
+            }
         }
         // How MobyProc blends it (ReRAC's MobyBlend, from the game's moby draw). Its vertex alpha is
         // its alpha byte (+0x23) times its distance fade (GameProfile::moby_distance_fade: the last 16
@@ -1669,7 +2429,7 @@ TickMobys pose_mobys(
         }
         // Its light word (+0x38: set 0, set 1, the cross-fade) and ambient colour (+0x3C), as
         // MobyProc reads them to light it.
-        if (!g->level.light_sets.empty() && m.address + 0x100 <= ram.size()) {
+        if (!g->render.level.light_sets.empty() && m.address + 0x100 <= ram.size()) {
             const std::uint8_t* b = ram.data() + m.address;
             instance.moby_light =
                 {static_cast<float>(b[0x38]),
@@ -1679,7 +2439,7 @@ TickMobys pose_mobys(
             // w: with mode bit 0x10, 1 + its glow word's RGB (+0x90 in Ratchet & Clank), which
             // MobyProc's glow list draws its glow packets in; 0 without (a 24-bit integer is exact
             // in a float).
-            const std::uint32_t at = g->profile->moby_glow_word();
+            const std::uint32_t at = g->render.profile->moby_glow_word();
             const std::uint32_t glow =
                 static_cast<std::uint32_t>(b[at] | b[at + 1] << 8 | b[at + 2] << 16);
             instance.moby_ambient =
@@ -1702,6 +2462,38 @@ TickMobys pose_mobys(
             const unsigned colour = b[0x3c] | b[0x3d] << 8 | b[0x3e] << 16;
             if (g->scripted_moby_colours.matches(g->loaded, m.address, colour)) {
                 instance.moby_light[3] = -1.0f;
+            }
+        }
+        if (g->render.level.game == "rac1" && own_camera && replacement != replacements.rend()
+            && replacement->height == 0 && !into_texture.contains(m.address)
+            && !on_screen.contains(m.address)) {
+            namespace preview = scene::vendor_preview;
+            const auto& a = preview::get(preview::key(replacement->oclass, true));
+            const auto& shape = g->render.level.models[instance.model];
+            const renderer::Vec3 pivot{
+                (shape.min[0] + shape.max[0]) * .5f,
+                (shape.min[1] + shape.max[1]) * .5f,
+                (shape.min[2] + shape.max[2]) * .5f
+            };
+            float spin_angle = 0;
+            if (m.address + 0x4c <= ram.size()) {
+                std::memcpy(&spin_angle, ram.data() + m.address + 0x48, sizeof spin_angle);
+            }
+            instance.matrix = preview::can_hologram_basis(instance.matrix, replacement_class);
+            instance.matrix = preview::orient(
+                preview::freeze_spin(instance.matrix, spin_angle, a.spin), a, pivot, true
+            );
+            if (a.pivot_enabled) {
+                auto view = state.view();
+                for (const auto& [address, camera] : g->moby_cameras) {
+                    if (address == m.address) {
+                        view = camera.view();
+                        break;
+                    }
+                }
+                instance.matrix = preview::spin_pivot(
+                    instance.matrix, a.spin ? spin_angle : 0, a, {view[0], view[4], view[8]}
+                );
             }
         }
         // Drawn by the game with a camera of its own: placed so the world's camera sees it where
@@ -1732,11 +2524,21 @@ TickMobys pose_mobys(
                 break;
             }
         }
+        // A mod's material on it (interface 1.23), wherever it is drawn: the world or a target.
+        if (const auto material = materials.find(m.address); material != materials.end()) {
+            apply_mod_material(instance, material->second);
+        } else if (const auto by_class = class_materials.find(
+                       {m.class_id, own_camera ? OPENRAC_MODEL_MENU : OPENRAC_MODEL_WORLD}
+                   );
+                   by_class != class_materials.end()) {
+            // Its class's (interface 1.34), when it has none of its own.
+            apply_mod_material(instance, by_class->second);
+        }
         bool attached_bones = false;
 #ifdef OPENRAC_LIGHT_AUTHORING
         if (attached_catalog && !attached_catalog->objects.empty()) {
             const auto lights = attached_catalog->objects.find(
-                enhanced::object_light_key(g->level, scene::Layer::Mobys, instance.model)
+                enhanced::object_light_key(g->render.level, scene::Layer::Mobys, instance.model)
             );
             attached_bones =
                 lights != attached_catalog->objects.end()
@@ -1747,15 +2549,46 @@ TickMobys pose_mobys(
 #endif
 
         // Unweighted joints are needed only by bone attachments or explicit developer inspection.
-        const auto& model = g->level.models[instance.model];
-        const int joints =
-            std::max(model.joints, (inspect_bones || attached_bones) ? int(model.bones.size()) : 0);
+        const auto& model = g->render.level.models[instance.model];
+        int joints =
+            replacement_pose
+                ? (model.preview_poses.empty() ? 0 : int(model.bones.size()))
+                : std::max(
+                      model.joints, (inspect_bones || attached_bones) ? int(model.bones.size()) : 0
+                  );
+        // A mod's mesh is rigid: the game's palette would number another mesh's joints wrongly.
+        if (mod_model != nullptr) {
+            joints = 0;
+        }
+        if (skin != nullptr) {
+            // The skin's animation for the class's sequence, from when the sequence began.
+            const int sequence = ram[m.address + g->render.profile->moby_anim_fields() + 2];
+            const auto pose =
+                animate ? scene::prop_rig_palette(
+                              skin->rig,
+                              scene::moby_skin_animation(*skin, sequence),
+                              scene::moby_skin_seconds(g->moby_skins, m.address, sequence),
+                              true
+                          )
+                        : std::vector<std::array<float, 16>>{};
+            joints = 0;
+            if (!pose.empty()) {
+                instance.palette = static_cast<int>(palette.size());
+                palette.insert(palette.end(), pose.begin(), pose.end());
+                joints = static_cast<int>(pose.size());
+            }
+        } else if (animate && replacement_pose && !model.preview_poses.empty()) {
+            const auto& pose = model.preview_poses[g->index % model.preview_poses.size()];
+            instance.palette = int(palette.size());
+            palette.insert(palette.end(), pose.begin(), pose.end());
+        }
         if (debug && g->index % 100 == 0 && m.class_id == 0) {
             // The hero, for bring-up: where he is and what his animation fields and pose say.
             const auto pose = scene::moby_palette(ram, m.address);
             const std::uint8_t* b = ram.data() + m.address;
+            const std::uint32_t anim = g->render.profile->moby_anim_fields();
             float t = 0.0f;
-            std::memcpy(&t, b + 0x54, 4);
+            std::memcpy(&t, b + anim + 4, 4);
             bool finite = !pose.empty();
             for (const auto& f : pose) {
                 for (const auto& row : f) {
@@ -1772,10 +2605,10 @@ TickMobys pose_mobys(
                 m.matrix[13],
                 m.matrix[14],
                 m.matrix[0],
-                b[0x52],
-                b[0x50],
-                b[0x53],
-                b[0x51],
+                b[anim + 2],
+                b[anim],
+                b[anim + 3],
+                b[anim + 1],
                 t,
                 pose.size(),
                 joints,
@@ -1784,18 +2617,22 @@ TickMobys pose_mobys(
             );
         }
         // Its pose, evaluated after the loop with the others' on several threads.
-        if (animate && joints > 0) {
+        if (animate && joints > 0 && skin == nullptr && !replacement_pose) {
             const bool target = into_texture.contains(m.address) || on_screen.contains(m.address);
             pose_jobs.push_back(
                 {m.address, joints, target, target ? target_mobys.size() : live.size()}
             );
         }
         // Only world instances attach to water; menu and render-to-texture previews keep their poses.
-        instance.floats_on_water = g->profile->floats_on_water(m.class_id)
+        instance.floats_on_water = g->render.profile->floats_on_water(m.class_id)
                                    && instance.moby_light[3] < 1.5f
                                    && !into_texture.contains(m.address);
         if (const auto t = into_texture.find(m.address); t != into_texture.end()) {
             target_mobys.push_back({m.address, instance, *t->second});
+            if (g->render.level.game == "rac1" && replacement != replacements.rend()
+                && replacement->height == 0) {
+                target_mobys.back().preview_item_class = replacement->oclass;
+            }
             target_mobys.back().camera.focal_x = frame_focal[0];
             target_mobys.back().camera.focal_y = frame_focal[1];
             continue;
@@ -1811,13 +2648,27 @@ TickMobys pose_mobys(
                                       && openrac_game_has_level(g->loaded)
                                       && instance.moby_light[3] < 1.5f && instance.tint[3] > 0;
         instance.gameplay_essential |= owned_by_hero || instance.hero_shadow_anchor;
+        if (g->render.level.game == "rac1" && own_camera && replacement != replacements.rend()
+            && replacement->height == 0) {
+            namespace preview = scene::vendor_preview;
+            const auto& a = preview::get(preview::key(replacement->oclass, true));
+            const auto eye = renderer::transform_point(
+                state.view(), {instance.matrix[12], instance.matrix[13], instance.matrix[14]}
+            );
+            const float pixel = std::abs(eye[2]) / std::max(state.focal_x, 1.0f);
+            for (int axis = 0; axis < 3; ++axis) {
+                instance.matrix[12 + axis] +=
+                    pixel * (-a.x * state.left[axis] - a.y * state.up[axis]);
+            }
+            instance.world_sphere = {};
+        }
         live_joints.push_back(instance.palette >= 0 ? joints : 0);
-        if (every_shadow && g->profile->shadow_directions() != 0
+        if (every_shadow && g->render.profile->shadow_directions() != 0
             && openrac_game_has_level(g->loaded) && animate && !extra
             && instance.moby_light[3] < 1.5f && instance.tint[3] > 0.0f) {
-            const auto directions = OPENRAC_DATA(g->profile->shadow_directions());
+            const auto directions = OPENRAC_DATA(g->render.profile->shadow_directions());
             const auto cast =
-                g->profile->shadow_slab_on_up_axis()
+                g->render.profile->shadow_slab_on_up_axis()
                     ? scene::moby_shadow_state_on_axis(ram, m.address, directions, state.view())
                     : scene::moby_shadow_state(ram, m.address, directions, state.view());
             if (cast.enabled) {
@@ -1850,10 +2701,10 @@ TickMobys pose_mobys(
                 }
             }
         }
-        if (!every_shadow && g->profile->shadow_directions() != 0
+        if (!every_shadow && g->render.profile->shadow_directions() != 0
             && openrac_game_has_level(g->loaded) && animate && instance.hero_shadow_anchor
             && instance.moby_light[3] < 1.5f && instance.tint[3] > 0.0f) {
-            const auto directions = OPENRAC_DATA(g->profile->shadow_directions());
+            const auto directions = OPENRAC_DATA(g->render.profile->shadow_directions());
             shadow_state = scene::moby_shadow_state(ram, m.address, directions, state.view());
             if (shadow_state.enabled) {
                 shadows = scene::moby_shadows(ram, m.address, m.matrix, shadow_state.scale);
@@ -1875,8 +2726,9 @@ TickMobys pose_mobys(
                 );
             }
         }
-        if (animate && instance.hero_shadow_anchor && g->game.starts_with("rac1-") && g->loaded == 1
-            && enhanced_graphics_available() && settings::get().enhanced_graphics) {
+        if (animate && instance.hero_shadow_anchor && g->render.game.starts_with("rac1-")
+            && g->loaded == 1 && enhanced_graphics_available()
+            && settings::get().enhanced_graphics) {
             const auto pose = scene::moby_pose_matrices(ram, m.address);
             // Ratchet's two palm roots, identified by their finger children in the
             // extracted class-0 skeleton; joint 56 also carries the wrench attachment.
@@ -1897,8 +2749,119 @@ TickMobys pose_mobys(
                 }
             }
         }
+        if (per_view) {
+            live_views.resize(live.size(), kEveryView);
+            live_views.push_back(drawn_views);
+        }
         live.push_back(instance);
         live_addresses.push_back(m.address);
+    }
+    if (!only_own_camera && !under_menu && presenting_infobot
+        && infobot_presentation.special_item) {
+        const auto found = g->special_pickup_clips.find(infobot_presentation.special_item);
+        if (found != g->special_pickup_clips.end()) {
+            const auto& clip = found->second;
+            const bool face_camera = infobot_presentation.special_item == 407
+                                     || infobot_presentation.special_item == 37
+                                     || infobot_presentation.special_item == 1002;
+            const float angle = infobot_presentation.yaw - (face_camera ? 0 : clip.yaw);
+            auto anchor = renderer::identity();
+            anchor[0] = anchor[5] = std::cos(angle);
+            anchor[1] = std::sin(angle);
+            anchor[4] = -anchor[1];
+            if (face_camera) {
+                anchor = renderer::multiply(anchor, clip.upright);
+            }
+            for (int axis = 0; axis < 3; ++axis) {
+                anchor[12 + axis] = infobot_presentation.position[axis];
+            }
+            int index = 0;
+            for (const auto& actor : clip.actors) {
+                const auto tick = std::min(
+                    std::size_t(std::max(0.0f, infobot_presentation.time) * clip.fps),
+                    actor.frames.size() - 1
+                );
+                const auto& frame = actor.frames[tick];
+                renderer::Vec3 relative{};
+                for (int axis = 0; axis < 3; ++axis) {
+                    relative[axis] =
+                        (frame.position[axis] - clip.origin[axis]) * infobot_presentation.scale;
+                }
+                scene::Instance instance;
+                instance.model = actor.model;
+                instance.matrix = renderer::multiply(
+                    anchor,
+                    renderer::multiply(
+                        renderer::translation(relative),
+                        renderer::scale(actor.scale * infobot_presentation.scale)
+                    )
+                );
+                if (!frame.pose.empty()) {
+                    instance.palette = int(palette.size());
+                    palette.insert(palette.end(), frame.pose.begin(), frame.pose.end());
+                }
+                instance.occlusion = scene::Pvs::always;
+                instance.moby_light = {0, 0, 0, 1};
+                instance.gameplay_essential = true;
+                live.push_back(instance);
+                live_addresses.push_back(0xFFFFFD00u + unsigned(index++));
+                live_joints.push_back(0);
+            }
+        }
+    }
+    if (!only_own_camera && !under_menu && g->infobot_pickup_model >= 0 && openrac_game_play_host
+        && openrac_game_play_host->infobot_presentation) {
+        openrac_infobot_presentation presentation{};
+        if (openrac_game_play_host->infobot_presentation(&presentation)
+            && !presentation.special_item) {
+            const auto id = std::uint32_t(g->infobot_pickup_model);
+            const auto& model = g->render.level.models[id];
+            const auto& poses = g->infobot_pickup_poses;
+            if (!poses.empty()) {
+                scene::Instance bot;
+                bot.model = id;
+                auto anchor = renderer::identity();
+                for (int axis = 0; axis < 3; ++axis) {
+                    anchor[12 + axis] = presentation.position[axis];
+                }
+                bot.matrix =
+                    scene::facing_preview(anchor, state.camera_position, state.forward, {0, 0, 1});
+                const float scale =
+                    1.2f * presentation.scale / std::max(model.max[2] - model.min[2], 0.001f);
+                const renderer::Vec3 center{
+                    (model.min[0] + model.max[0]) * 0.5f,
+                    (model.min[1] + model.max[1]) * 0.5f,
+                    model.min[2]
+                };
+                for (int col = 0; col < 3; ++col) {
+                    for (int row = 0; row < 3; ++row) {
+                        bot.matrix[col * 4 + row] *= scale;
+                        bot.matrix[12 + row] -= bot.matrix[col * 4 + row] * center[col];
+                    }
+                }
+                // Open the display. Reverse the same poses to close;
+                // the presentation's world anchor never moves or flies away.
+                const auto frame = std::size_t(
+                    std::clamp(presentation.openness, 0.0f, 1.0f) * float(poses.size() - 1)
+                );
+                auto pose = poses[frame];
+                const auto root = renderer::inverse_affine(pose[0]).value_or(renderer::identity());
+                for (auto& joint : pose) {
+                    joint = renderer::multiply(root, joint);
+                }
+                bot.palette = int(palette.size());
+                palette.insert(palette.end(), pose.begin(), pose.end());
+                bot.occlusion = scene::Pvs::always;
+                bot.moby_light = {0, 0, 0, 1};
+                // Native class 750 uses glow RGB 0x8C8C8C. These unlit packets
+                // contain the cyan eye/chest textures; zero makes them black.
+                bot.moby_ambient[3] = float(0x8C8C8C) + 1.0f;
+                bot.gameplay_essential = true;
+                live.push_back(bot);
+                live_addresses.push_back(0xFFFFFE00u);
+                live_joints.push_back(0);
+            }
+        }
     }
     // The mods' props (interface 1.12): their meshes where the mods posed them, lit as a moby of the
     // level is, identified across frames by a key no game address takes.
@@ -1971,19 +2934,52 @@ TickMobys pose_mobys(
             instance.moby_light = {0.0f, 0.0f, 0.0f, 1.0f};
             instance.occlusion = scene::Pvs::always;
             instance.blend = props[i].blend;
+            // A skin the mod gave it (interface 1.33): the mesh's joints, one matrix each in the
+            // scene's palette, in the mesh's own coordinates as mesh.vert applies them, a joint the
+            // mod left out as it is stored (identity). A mesh with no skin takes none.
+            int joints = 0;
+            if (props[i].skin && model->second < g->render.level.models.size()) {
+                joints = g->render.level.models[model->second].joints;
+            }
+            if (joints > 0) {
+                instance.palette = static_cast<int>(palette.size());
+                const auto& skin = *props[i].skin;
+                const scene::LevelScene::JointColumns stored{
+                    1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
+                };
+                for (std::size_t j = 0; j < static_cast<std::size_t>(joints); ++j) {
+                    palette.push_back(j < skin.size() ? skin[j] : stored);
+                }
+            } else if (props[i].animation >= 0) {
+                // A skinned prop in its animation (prop_animate): its palette after the mobys'.
+                const auto rig =
+                    std::find_if(g->prop_rigs.begin(), g->prop_rigs.end(), [&](const auto& r) {
+                        return r.first == props[i].mesh;
+                    });
+                if (rig != g->prop_rigs.end()) {
+                    const auto pose = scene::prop_rig_palette(
+                        rig->second, props[i].animation, props[i].seconds, props[i].loop
+                    );
+                    if (!pose.empty()) {
+                        instance.palette = static_cast<int>(palette.size());
+                        palette.insert(palette.end(), pose.begin(), pose.end());
+                        joints = static_cast<int>(pose.size());
+                    }
+                }
+            }
             if (instance.blend != 0) {
                 // A glow or a spark: drawn with the mobys' blended groups, no shadow.
                 live.push_back(instance);
                 live_addresses.push_back(0xFFFFFF00u + static_cast<std::uint32_t>(props[i].id));
-                live_joints.push_back(0);
+                live_joints.push_back(joints);
                 continue;
             }
             // A prop casts the hero's kind of shadow (a board under his feet goes with his): in the
             // Enhanced shadow map as his equipment does, and, while the game draws his shadow, as
             // one capsule along the mesh's longer side, half its shorter side thick.
             instance.hero_shadow_caster = openrac_game_has_level(g->loaded);
-            if (shadow_moby != 0 && model->second < g->level.models.size()) {
-                const scene::Model& mesh = g->level.models[model->second];
+            if (shadow_moby != 0 && model->second < g->render.level.models.size()) {
+                const scene::Model& mesh = g->render.level.models[model->second];
                 const renderer::Vec3 size{
                     mesh.max[0] - mesh.min[0], mesh.max[1] - mesh.min[1], mesh.max[2] - mesh.min[2]
                 };
@@ -2022,7 +3018,7 @@ TickMobys pose_mobys(
             }
             live.push_back(instance);
             live_addresses.push_back(0xFFFFFF00u + static_cast<std::uint32_t>(props[i].id));
-            live_joints.push_back(0);
+            live_joints.push_back(joints);
         }
     }
     // The poses: each a pure function of the game's memory, evaluated in parallel (the costliest
@@ -2071,6 +3067,9 @@ TickMobys pose_mobys(
             palette.push_back(c);
         }
     }
+    if (per_view) {
+        live_views.resize(live.size(), kEveryView);
+    }
     return {
         std::move(live),
         std::move(live_addresses),
@@ -2084,41 +3083,57 @@ TickMobys pose_mobys(
         water_hands,
         std::move(point_lit),
         shrub_draws(ram, world_ran && !under_menu),
-        scenery_matrices(ram, world_ran && !under_menu, state)
+        scenery_matrices(ram, world_ran && !under_menu, state),
+        std::move(live_views)
     };
 }
 
 // Gives the scene this tick's fog and the lights as the game holds them.
 void light_scene(std::span<const std::uint8_t> ram, const host::GameState& state) {
-    g->scene.set_fog(
-        state.fog_colour, state.fog_near, state.fog_far, state.fog_near_f, state.fog_far_f
-    );
+    // A mod's scene air (openrac_api.scene_air) over the game's fog: in the picture only.
+    std::array<float, 3> fog_colour = state.fog_colour;
+    float fog_near = state.fog_near, fog_far = state.fog_far;
+    float fog_near_f = state.fog_near_f, fog_far_f = state.fog_far_f;
+    if (const auto air = mods::scene_air(); air && (air->flags & OPENRAC_AIR_FOG) != 0) {
+        const float w = air->weight;
+        const auto mix = [w](float a, float b) {
+            return a + (b - a) * w;
+        };
+        for (int i = 0; i < 3; ++i) {
+            fog_colour[i] = mix(fog_colour[i], air->fog_colour[i]);
+        }
+        // The game's depths are its units x 1024; F is 255 for none, 0 for all fog.
+        fog_near = mix(fog_near, air->fog_near * 1024.0f);
+        fog_far = mix(fog_far, air->fog_far * 1024.0f);
+        fog_near_f = mix(fog_near_f, 255.0f);
+        fog_far_f = mix(fog_far_f, 255.0f * (1.0f - air->fog_thickness));
+    }
+    g->render.scene.set_fog(fog_colour, fog_near, fog_far, fog_near_f, fog_far_f);
     // The light bank as the game holds it now (16 sets of 0x40 bytes; the executable's, each
     // level's copy elsewhere): the level loader fills it from the gameplay file, and the game changes
     // sets at run time (the page menus write set 14 for their frame mobys, fog zones the hero's).
-    if (light_bank_address() != 0) {
-        const gaddr bank = openrac_relocate_data(light_bank_address());
+    if (const gaddr bank = light_bank_in_ram(); bank != 0) {
         if (bank + 16 * 0x40 <= ram.size()) {
             std::vector<float> sets(16 * 16);
             std::memcpy(sets.data(), ram.data() + bank, sets.size() * sizeof(float));
-            g->scene.set_light_sets(sets);
+            g->render.scene.set_light_sets(sets);
             if (bank + 16 * 0x40 + 8 * 0x20 <= ram.size()) {
                 std::array<float, 64> points{};
                 std::memcpy(points.data(), ram.data() + bank + 16 * 0x40, sizeof(points));
-                g->scene.set_point_lights(points);
+                g->render.scene.set_point_lights(points);
             }
         }
     }
     // The game's occlusion mask, which picks retail's fallback outside the baked grid.
     std::optional<scene::Pvs::Mask> occlusion;
     if (occlusion_address() != 0) {
-        const gaddr mask = openrac_relocate_data(occlusion_address());
+        const gaddr mask = occlusion_in_ram();
         if (mask + sizeof(scene::Pvs::Mask) <= ram.size()) {
             occlusion.emplace();
             std::memcpy(occlusion->data(), ram.data() + mask, occlusion->size());
         }
     }
-    g->scene.set_game_pvs(occlusion);
+    g->render.scene.set_game_pvs(occlusion);
 }
 
 // Keeps this tick's scene for the frames drawn until the next one (Kept), the last tick's as
@@ -2137,6 +3152,7 @@ void keep_tick(
     if (k.level != g->loaded) {
         k.has_state = false;
         k.live.clear();
+        k.live_views.clear();
         k.addresses.clear();
         k.joints.clear();
         k.shadows.clear();
@@ -2152,6 +3168,23 @@ void keep_tick(
         g->water_impulses.clear();
     }
     const bool adjacent = g->index == k.frame + 1;
+    // The moves into the tick about to become the last one, from the one before it: the pace each
+    // moby and the eye kept (geometry.h kept_pace).
+    k.camera_pace.reset();
+    if (adjacent && k.has_state && k.has_prev_state) {
+        const auto& p0 = k.prev_state.camera_position;
+        const auto& p1 = k.state.camera_position;
+        k.camera_pace = renderer::Vec3{p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]};
+    }
+    k.prev_paces.clear();
+    for (std::size_t i = 0; adjacent && i < k.live.size() && i < k.addresses.size(); ++i) {
+        const auto before = k.prev_matrices.find(k.addresses[i]);
+        if (before != k.prev_matrices.end()) {
+            const auto& m0 = before->second;
+            const auto& m1 = k.live[i].matrix;
+            k.prev_paces[k.addresses[i]] = {m1[12] - m0[12], m1[13] - m0[13], m1[14] - m0[14]};
+        }
+    }
     k.prev_state = k.state;
     k.has_prev_state = k.has_state && adjacent;
     k.prev_matrices.clear();
@@ -2161,13 +3194,14 @@ void keep_tick(
         k.prev_matrices[k.addresses[i]] = k.live[i].matrix;
         k.prev_spheres[k.addresses[i]] = k.live[i].world_sphere;
         if (i < k.joints.size() && k.joints[i] > 0 && k.live[i].palette >= 0) {
-            k.prev_poses[k.addresses[i]] = {k.live[i].palette, k.joints[i]};
+            k.prev_poses[pose_key(k.addresses[i], k.live[i].model)] =
+                {k.live[i].palette, k.joints[i]};
         }
     }
     k.water_impulses.swap(g->water_impulses);
     g->water_impulses.clear();
     if (adjacent && k.has_state) {
-        water_projectile_impulses(*g->profile, state.mobys, k.state.mobys, k.water_impulses);
+        water_projectile_impulses(*g->render.profile, state.mobys, k.state.mobys, k.water_impulses);
     }
     k.prev_palette = std::move(k.palette);
     k.prev_shadows = std::move(k.shadows);
@@ -2194,35 +3228,59 @@ void keep_tick(
                                   : std::array<std::vector<std::array<float, 12>>, 2>{};
         k.scenery = std::move(*mobys.scenery);
     }
-    k.hero_airborne =
-        g->profile->hero_state() != 0
-            ? scene::hero_airborne(
-                  ram, OPENRAC_DATA(g->profile->hero_state()), g->profile->hero_air_frames()
-              )
-            : std::nullopt;
+    k.scenery.mod_hidden_ties = mods::hidden_ties();
+    k.hero_airborne = g->render.profile->hero_state() != 0
+                          ? scene::hero_airborne(
+                                ram,
+                                OPENRAC_DATA(g->render.profile->hero_state()),
+                                g->render.profile->hero_air_frames()
+                            )
+                          : std::nullopt;
     std::uint32_t mode = 0;
     // The level's mode while a real-time cutscene plays (the profile's). Movies bypass world
     // reconstruction.
-    const auto cutscene_mode = g->profile->cutscene_mode();
+    const auto cutscene_mode = g->render.profile->cutscene_mode();
     const bool has_mode = openrac_game_mode != nullptr && openrac_game_mode(&mode) != 0;
     k.cutscene = has_mode && cutscene_mode && mode == *cutscene_mode;
-    // Both games report mode zero for normal play. Unknown modes retain the native lens.
-    k.gameplay_camera = has_mode && mode == 0;
+    // Both games report mode zero for normal play; the quick select's mode plays on under the
+    // wheel (profile.h quick_select_mode). Unknown modes retain the native lens.
+    const auto quick_select_mode = g->render.profile->quick_select_mode();
+    k.gameplay_camera =
+        has_mode && (mode == 0 || (quick_select_mode && mode == *quick_select_mode));
     k.state = state;
     k.has_state = true;
     k.live = std::move(mobys.live);
+    k.live_views = std::move(mobys.live_views);
     k.target_mobys = std::move(mobys.target_mobys);
-    k.texture_variant = g->profile->texture_variant(ram);
+    k.texture_variant = g->render.profile->texture_variant(ram);
     k.addresses = std::move(mobys.addresses);
     k.joints = std::move(mobys.joints);
     k.palette = std::move(mobys.palette);
     k.draws = draws;
+    // Movie transitions can leave a tick without world layers. The portable
+    // Infobot presentation keeps its current level visible on both sides.
+    if (openrac_game_play_host && openrac_game_play_host->pickup_background
+        && openrac_game_play_host->pickup_background()) {
+        constexpr std::uint32_t background =
+            (1u << static_cast<unsigned>(renderer::Bucket::Sky))
+            | (1u << static_cast<unsigned>(renderer::Bucket::Terrain))
+            | (1u << static_cast<unsigned>(renderer::Bucket::Ties))
+            | (1u << static_cast<unsigned>(renderer::Bucket::Shrubs));
+        if ((draws & background) != background) {
+            static bool noted = false;
+            if (!noted) {
+                log::info("Infobot pickup: keeping level background (native layers {:#x})", draws);
+                noted = true;
+            }
+        }
+        k.draws |= background;
+    }
     k.haze.clear();
     for (const mods::HazeDraw& h : mods::haze_drawn()) {
         k.haze.push_back({h.position[0], h.position[1], h.position[2], h.radius, h.strength});
     }
     k.has_camera = state.forward[0] != 0.0f || state.forward[1] != 0.0f || state.forward[2] != 0.0f;
-    g->last_tick_menu =
+    g->render.last_tick_menu =
         k.before_world >= 0x40000;  // the last tick's, read before this one's is kept
     k.frame = g->index++;
 }
@@ -2234,7 +3292,38 @@ struct TickPackets {
     std::vector<renderer::EffectStrip> strips;
     std::size_t before_world = 0;
     const std::vector<renderer::UiQuad>* named_quads = nullptr;
+    // The frame recorder's commands this list was built with, and where they go in `packets`.
+    renderer::FrameRecording recording;
+    std::vector<renderer::FrameSplice> splices;
+    // The split-screen views the game drew last (Kept::views).
+    std::vector<renderer::FrameView> views;
+    // The heat haze of the strips that sample the game's frame copy through a mask of their own
+    // (renderer::frame_copy_haze), drawn natively with the mods' patches (Haze).
+    std::vector<std::array<float, 5>> haze;
 };
+
+// How many of `splices` (in order) go before the world, the 2D path split at `before_world`: those
+// before that byte, and those at it recorded before the recording's World command.
+std::size_t splices_before_world(
+    const renderer::FrameRecording& recording,
+    std::span<const renderer::FrameSplice> splices,
+    std::size_t before_world
+) {
+    std::uint32_t world = UINT32_MAX;
+    for (std::size_t i = 0; i < recording.commands.size(); ++i) {
+        if (recording.commands[i].op == renderer::FrameOp::World) {
+            world = static_cast<std::uint32_t>(i);
+            break;
+        }
+    }
+    std::size_t n = 0;
+    while (n < splices.size()
+           && (splices[n].offset < before_world
+               || (splices[n].offset == before_world && splices[n].command < world))) {
+        ++n;
+    }
+    return n;
+}
 
 // Keeps this tick's 2D path (the display list's direct GIF data, from `chain` where the game
 // sends it so, else the list the game's profile says is shown in the program `level`) and where its
@@ -2242,6 +3331,7 @@ struct TickPackets {
 TickPackets capture_2d_path(
     std::span<const std::uint8_t> ram,
     std::uint32_t chain,
+    std::span<const std::uint32_t> earlier,
     int level,
     std::uint32_t draws,
     bool debug
@@ -2259,8 +3349,8 @@ TickPackets capture_2d_path(
     // RAC1 keeps two alternating list buffers and the sent list is one tick behind; Deadlocked
     // submits the title's list through VIF1 DMA without that RAC1 buffer-index convention, and
     // so does Going Commando: their profiles say so (sends_display_list).
-    const bool sent_chain = g->profile->sends_display_list();
-    const std::uint32_t shown = sent_chain ? chain : g->profile->shown_chain(ram, level);
+    const bool sent_chain = g->render.profile->sends_display_list();
+    const std::uint32_t shown = sent_chain ? chain : g->render.profile->shown_chain(ram, level);
     std::vector<renderer::EffectVertex> strip_vertices;
     std::vector<renderer::EffectStrip> strips;
     std::size_t before_world = SIZE_MAX;
@@ -2269,8 +3359,14 @@ TickPackets capture_2d_path(
     std::size_t moby_marker = SIZE_MAX;
     std::vector<QuadMark> quad_marks;
     g->texture_mobys.clear();
-    renderer::g_quads_sample_targets = g->profile->own_mobys_into_narrow_buffers();
+    renderer::g_quads_sample_targets = g->render.profile->own_mobys_into_narrow_buffers();
     draw_coverage::begin_tick(level, g->index);
+    // What the game's host C recorded since the last capture (openrac/frame.h): closed, so that
+    // the list walked now can find the recording it was built with.
+    g->recorder.close();
+    const renderer::FrameRecording* recorded = nullptr;
+    std::vector<renderer::FrameSplice> splices;
+    g_recorder_situation = recorder_situation(level);
     std::vector<std::uint8_t> packets = direct_packets(
         ram,
         shown,
@@ -2282,8 +3378,100 @@ TickPackets capture_2d_path(
         &world_marker,
         &moby_marker,
         &quad_marks,
-        &g->texture_mobys
+        &g->texture_mobys,
+        &g->recorder,
+        &recorded,
+        &splices,
+        sent_chain ? earlier : std::span<const std::uint32_t>{}
     );
+    // The strips that sample the game's frame copy are drawn from the window's own picture.
+    for (renderer::EffectStrip& strip : strips) {
+        strip.frame_copy =
+            strip.upload_count == 0 && g->render.profile->frame_copy_texture(strip.tex0);
+    }
+    // Up Your Arsenal's heat haze (the Galactic Rangers' dropship's thrusters): each mask and
+    // frame-copy pair is a round patch of the native haze over the world, sized by the window's
+    // own projection, instead of two squares blended by the destination alpha.
+    static const bool& haze_log = stats::probe(
+        "OPENRAC_HAZE_LOG", "the frame-copy strips and their heat haze patches, in the log"
+    );
+    static int haze_logged = 0;
+    const bool log_haze = haze_log && haze_logged < 12
+                          && std::ranges::any_of(strips, [](const renderer::EffectStrip& s) {
+                                 return s.frame_copy || ((s.alpha & 0xFF) == 0x54);
+                             });
+    if (log_haze) {
+        ++haze_logged;
+        log::info(
+            "haze frame {}: {} strips, draws {:#x}, level {}", g->index, strips.size(), draws, level
+        );
+        for (std::size_t i = 0; i < strips.size(); ++i) {
+            const renderer::EffectStrip& s = strips[i];
+            const bool near_copy = std::ranges::any_of(
+                std::span(strips).subspan(i, std::min<std::size_t>(5, strips.size() - i)),
+                [](const renderer::EffectStrip& c) {
+                    return c.frame_copy || ((c.alpha & 0xFF) == 0x54);
+                }
+            );
+            if (!near_copy) {
+                continue;
+            }
+            const renderer::EffectVertex v0 =
+                s.count > 0 && s.first < strip_vertices.size() ? strip_vertices[s.first]
+                                                               : renderer::EffectVertex{};
+            log::info(
+                "  strip {}: count {} tex0 {:#x} alpha {:#x} test {:#x} copy {} uploads {} "
+                "noblend {} v0 ({:.3f} {:.3f} {:.3f}) st ({:.3f} {:.3f}) rgba {:#010x}",
+                i,
+                s.count,
+                s.tex0,
+                s.alpha,
+                s.test,
+                s.frame_copy,
+                s.upload_count,
+                s.blend_disabled,
+                v0.x,
+                v0.y,
+                v0.z,
+                v0.s,
+                v0.t,
+                v0.rgba
+            );
+        }
+    }
+    const std::size_t haze_before = k.haze.size();
+    if ((draws & 0x1Fu) != 0) {
+        renderer::frame_copy_haze(strips, strip_vertices, k.haze);
+    }
+    if (log_haze) {
+        log::info("  -> {} haze patches, {} strips left", k.haze.size() - haze_before, strips.size());
+        for (std::size_t i = haze_before; i < k.haze.size(); ++i) {
+            const auto& p = k.haze[i];
+            log::info(
+                "  patch ({:.2f} {:.2f} {:.2f}) radius {:.3f} strength {:.4f}",
+                p[0], p[1], p[2], p[3], p[4]
+            );
+        }
+    }
+    if (recorded != nullptr) {
+        k.recording = *recorded;
+        k.splices = std::move(splices);
+    } else if (const renderer::FrameRecording* alone = g->recorder.latest_unanchored();
+               alone != nullptr && alone->serial == g->recorder.latest_serial()) {
+        // A recording made with no anchors (a frame the game hands over in commands alone): drawn
+        // in call order, at the 2D path's start.
+        k.recording = *alone;
+        for (std::size_t i = 0; i < alone->commands.size(); ++i) {
+            k.splices.push_back({0, static_cast<std::uint32_t>(i)});
+        }
+    }
+    // Split screen: the views come from the recording closed last, not from the one the list
+    // matched. Up Your Arsenal's split-screen maps send each player's view in a list of its own
+    // without waiting for a vertical blank, so each send ends a tick (openrac_game_dma_send): a
+    // tick closes one player's view while the list it walks is the other player's, sent before.
+    if (const renderer::FrameRecording* last = g->recorder.latest()) {
+        k.views = last->views;
+    }
     // The effect quads the list marks (openrac_game_effect_quad_marker) take the TEST and ZBUF in
     // effect there: Going Commando's flight sparks and flames test alpha GEQUAL 0x60, and the
     // pixels that pass write Z. A list of this tick marks this tick's quads. Going Commando's list
@@ -2342,21 +3530,19 @@ TickPackets capture_2d_path(
     stats::gauge("effect quads marked", double(quads_marked));
     // The markers in a list index the quads of the tick that built it, and the list shown is the
     // one the last tick built (the game builds the next while this one is sent), one tick behind
-    // the quads just recorded; FadeToBlack sends an old list again. Drawn with this tick's quads, a
-    // marker named another quad whenever they changed, and the HUD (the bolts, the health, a
-    // HelpDesk frame) and the menus flashed for a tick: the white flicker, and the palettes landing
-    // on pixels that 8587dcfa held the last layer for. Each marker names its tick's generation
-    // (ui_quad); the quads of the last four ticks that drew any are kept, and the list is drawn
-    // with the ones it names.
+    // the quads just recorded; FadeToBlack sends an old list again. Drawn with this tick's quads,
+    // a marker would name another quad whenever they changed, and the HUD and menus would flash
+    // for a tick. So each marker names its tick's generation (ui_quad); the quads of the last four
+    // ticks that drew any are kept, and the list is drawn with the ones it names.
     if (!g->ui_quads.empty()) {
-        const std::uint32_t generation = g->ui_generation & 0x3F;
-        g->ui_kept[generation & 3] = {generation, std::move(g->ui_quads)};
+        const std::uint32_t ui_generation = g->ui_generation & 0x3F;
+        g->ui_kept[ui_generation & 3] = {ui_generation, std::move(g->ui_quads)};
         ++g->ui_generation;
     }
     const std::vector<renderer::UiQuad>* named_quads = nullptr;
     if (const auto named = marker_generation(packets)) {
-        for (const auto& [generation, quads] : g->ui_kept) {
-            if (generation == *named && !quads.empty()) {
+        for (const auto& [kept_generation, quads] : g->ui_kept) {
+            if (kept_generation == *named && !quads.empty()) {
                 named_quads = &quads;
             }
         }
@@ -2393,13 +3579,21 @@ TickPackets capture_2d_path(
     // A game whose menus draw their mobys on the screen late in their 2D path (Going Commando's
     // Ship Shack: its frame saved to a texture first, then its panels, then the ship): what comes
     // before them is under them, wherever the first render to a texture was.
-    if (moby_marker != SIZE_MAX && g->profile->own_mobys_split_the_2d()) {
+    if (moby_marker != SIZE_MAX && g->render.profile->own_mobys_split_the_2d()) {
         before_world = moby_marker;
     }
     // The flight between planets is drawn as the boot program draws it, also when it starts from a
     // planet whose level program is still loaded (world_to_draw: the flight's world): split there,
     // the planet's name was taken as coming before the world and the stars hid it.
-    k.before_world = openrac_game_has_level(level) && world_to_draw(ram, level) >= 0
+    // A loading screen with a world of its own (GameProfile::loading_world): its frame's clear and
+    // stars are under its mobys. It splits at the world's marker its moby pass put in the boot
+    // program's list; a list the game resends while it reads the disc, which ends before that
+    // pass's marker, has the world over all of it.
+    const bool loading = g->render.profile->loading_world() >= 0 && world_to_draw(ram, level) == -2;
+    if (loading && world_marker == SIZE_MAX) {
+        before_world = k.packets.size();
+    }
+    k.before_world = (openrac_game_has_level(level) && world_to_draw(ram, level) >= 0) || loading
                          ? std::min(before_world, k.packets.size())
                          : 0;
     k.named_quads = named_quads;
@@ -2418,17 +3612,17 @@ void choose_repeat_frame(int level, bool debug) {
          openrac_game_has_level(level) != 0,
          k.packets.size(),
          k.before_world,
-         g->frame.id() != 0,
+         g->render.frame.id() != 0,
          level}
     );
     // A movie's tick starts from a cleared frame: the game's picture before it does not show
     // around the movie.
     k.movie = g->movie_playing;
-    g->repeat_frame = !k.movie && picture == TickPicture::Repeat;
-    g->overdraw = !k.movie && picture == TickPicture::Overdraw;
+    g->render.repeat_frame = !k.movie && picture == TickPicture::Repeat;
+    g->render.overdraw = !k.movie && picture == TickPicture::Overdraw;
     // The picture stands, but the chip still took the images the tick's list sent: kept, a block
     // the game sends once is there when a later tick draws from it.
-    if (g->repeat_frame && g->hud && g->profile->repeated_ticks_send_images()
+    if (g->render.repeat_frame && g->hud && g->render.profile->repeated_ticks_send_images()
         && sends_image(k.packets)) {
         g->hud->retain_uploads(k.packets);
     }
@@ -2436,7 +3630,7 @@ void choose_repeat_frame(int level, bool debug) {
         log::info(
             "frame {}: {}",
             g->index,
-            g->repeat_frame ? "the last frame stands" : "the 2D goes over the last frame"
+            g->render.repeat_frame ? "the last frame stands" : "the 2D goes over the last frame"
         );
     }
     if (debug && k.frame % 100 == 0 && !k.strips.empty()) {
@@ -2473,6 +3667,25 @@ void choose_repeat_frame(int level, bool debug) {
     }
 }
 
+// Draws the quads a moby's draw callbacks drew this tick (EffectQuad::parent) in its mod's energy
+// colour (interface 1.25, energy_effects.h), when a mod draws it as energy. The particles took
+// theirs in particle_quads.
+void energy_callback_quads() {
+    const auto energy_mobys = mods::energy_materials();
+    if (energy_mobys.empty()) {
+        return;
+    }
+    for (renderer::EffectQuad& quad : g->effects) {
+        const auto found = quad.parent != 0 ? energy_mobys.find(quad.parent) : energy_mobys.end();
+        if (found == energy_mobys.end()) {
+            continue;
+        }
+        if (const auto look = energy::look_of(found->second.material, found->second.rgb)) {
+            energy::apply(quad, *look, false);
+        }
+    }
+}
+
 // Keeps the world effects, the sky and the particles the game drew this tick, and the native
 // quads its 2D list names (`named_quads`, capture_2d_path), and clears what was gathered.
 void keep_effects(
@@ -2491,11 +3704,12 @@ void keep_effects(
     effect_textures();  // before the sky's sprites go in front of the effect quads
     sky_sprite_quads(state);
     particle_quads(ram, state);
+    energy_callback_quads();
     // The last tick's corners of the quads that carry an id, when it was the tick before this
     // one: a frame drawn between ticks moves each from there, as the mobys move (scene_hud.cpp's
     // set_packets). Kept effects of an older tick, or of a tick that kept no world, move nothing.
     k.prev_effect_corners.clear();
-    if (g->profile->interpolates_effect_quads() && k.effects_frame + 1 == k.frame) {
+    if (g->render.profile->interpolates_effect_quads() && k.effects_frame + 1 == k.frame) {
         for (const renderer::EffectQuad& e : k.effects) {
             if (e.id != 0) {
                 auto& corners = k.prev_effect_corners[e.id];
@@ -2503,10 +3717,16 @@ void keep_effects(
             }
         }
     }
+    const bool sky_adjacent = k.effects_frame + 1 == k.frame;
     k.effects_frame = k.frame;
     ++g->effect_generation;
     k.effects = std::move(g->effects);
     k.effect_uploads = std::move(g->effect_uploads);
+    // The last tick's sky shells, when it was the tick before this one, for a frame drawn between
+    // ticks to turn each from (scene_hud.cpp), as the mobys move from theirs: the loading screen's
+    // stars and galaxy turn a little each pass (SkyDraw's copy, 0x003CE568).
+    k.prev_sky_shells = k.sky_shells;
+    k.prev_sky_shell_mask = sky_adjacent ? k.sky_shell_mask : 0u;
     k.sky_shells = g->sky_shells;
     k.sky_shell_mask = std::exchange(g->sky_shell_mask, 0u);
     // The list's own tick's quads (above). The game's FadeToBlack (after a story card, between
@@ -2546,7 +3766,7 @@ void report_tick(std::span<const std::uint8_t> ram, int level) {
     }
     // [debug tools] What the game holds this tick, for the overlay and the dump.
     debug_overlay::tick(
-        {g->game.c_str(),
+        {g->render.game.c_str(),
          ram,
          level,
          &k.state,
@@ -2643,10 +3863,12 @@ bool begin_capture(State& owner) {
         return false;
     }
     // Deferred uploads belong to this frame, after the previous snapshot has finished.
-    if (owner.renderer) {
-        for (const auto& image : owner.pending_images) {
-            owner.renderer->textures().upload(image);
-        }
+    if (owner.render.renderer && !owner.pending_images.empty()) {
+        run_graphics([&] {
+            for (const auto& image : owner.pending_images) {
+                owner.render.renderer->textures().upload(image);
+            }
+        });
     }
     // What the game sent during the last tick goes again once that tick's list has been replayed.
     owner.pending_images = std::move(owner.images_after_list);
@@ -2664,7 +3886,7 @@ host::GameState captured_state(
     }
 
     // Synchronous frames and transitions still capture after acquiring graphics ownership.
-    return prepared ? std::move(prepared->state) : g->profile->read_state(ram, level);
+    return prepared ? std::move(prepared->state) : g->render.profile->read_state(ram, level);
 }
 
 // Draws the tick's own frame, or leaves it to between when the frame cap holds it back.
@@ -2737,7 +3959,7 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
     const auto started = std::chrono::steady_clock::now();
     PreparedTick prepared;
     prepared.level = g->loaded;
-    prepared.state = g->profile->read_state(ram, level);
+    prepared.state = g->render.profile->read_state(ram, level);
     static bool noting = false;  // the profile's diagnostics run (the game's thread, at its vsync)
     if (const bool recording = effects_dump::armed(); recording || noting) {
         const host::DiagnosticsInput diagnostics{
@@ -2745,9 +3967,11 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
         };
         noting = recording;
         if (recording) {
-            effects_dump::note(g->profile->diagnostics(ram, level, prepared.state, diagnostics));
+            effects_dump::note(
+                g->render.profile->diagnostics(ram, level, prepared.state, diagnostics)
+            );
         } else {
-            g->profile->diagnostics_off(diagnostics);
+            g->render.profile->diagnostics_off(diagnostics);
         }
     }
     const bool world_ran = g->world_camera.has_value();
@@ -2770,7 +3994,12 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
     return false;
 }
 
-bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws) {
+bool frame(
+    std::span<const std::uint8_t> ram,
+    std::uint32_t chain,
+    std::span<const std::uint32_t> earlier,
+    std::uint32_t draws
+) {
     const profiling::Zone trace("Capture tick");
 
     // Resource changes require exclusive graphics ownership.
@@ -2823,7 +4052,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         log_tick_state(ram, state, level, draws);
     }
     log_mobys_near_hero(ram, state);
-    auto packets = capture_2d_path(ram, chain, level, draws, debug);
+    auto packets = capture_2d_path(ram, chain, earlier, level, draws, debug);
     // Catch up before posing hundreds of objects for a picture that will never be displayed.
     if (pacing.late > pacing.period && g->skipped < kMostSkipped && g->index > 1 && world_ran
         && (draws & OPENRAC_DRAW_TERRAIN) != 0 && g->hud
@@ -2832,6 +4061,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         ++g->index;
         g->ui_quads.clear();
         g->moby_cameras.clear();
+        g->view_states = {};
         g->effects.clear();
         ++g->effect_generation;
         g->effect_states_before.clear();
@@ -2851,21 +4081,28 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
                           ? std::move(prepared->mobys)
                           : pose_mobys(ram, state, world_ran, only_own_camera, under_menu, debug);
     g->moby_cameras.clear();
+    g->view_states = {};
     stats::gauge("render preparation ms", prepared ? prepared->seconds * 1000.0 : 0.0);
     part.emplace("lights");
     light_scene(ram, state);
-    g->scene.set_moby_point_lights(mobys.point_lit);
-    g->scene.set_terrain_point_lights(g->profile->terrain_takes_point_lights());
+    g->render.scene.set_moby_point_lights(mobys.point_lit);
+    g->render.scene.set_terrain_point_lights(g->render.profile->terrain_takes_point_lights());
     part.emplace("tick kept");
     keep_tick(ram, state, draws, std::move(mobys));
     g->kept->world_under_menu = under_menu;
+    g->kept->overlay_phase = mods::overlay_phase();
     // The pause menu runs in a mode of its own, but the world under it (the picture of the frame
     // it took, or a level's world drawn live under it) is the level's, seen with the camera it was
-    // paused with: a gameplay camera when the game was paused from play.
+    // paused with: a gameplay camera when the game was paused from play. A freeze screen's world
+    // (Ratchet & Clank's mode 4: help, prompts, a mod's own freeze) is the same: the level drawn
+    // again as it stopped, with the lens it had.
     std::uint32_t mode_now = 0;
-    const auto pause_mode = g->profile->pause_mode();
-    const bool paused = pause_mode && openrac_game_mode != nullptr
-                        && openrac_game_mode(&mode_now) != 0 && mode_now == *pause_mode;
+    const auto pause_mode = g->render.profile->pause_mode();
+    const auto freeze_mode = g->render.profile->freeze_mode();
+    const bool has_mode_now = openrac_game_mode != nullptr && openrac_game_mode(&mode_now) != 0;
+    const bool paused =
+        has_mode_now
+        && ((pause_mode && mode_now == *pause_mode) || (freeze_mode && mode_now == *freeze_mode));
     if (under_menu || paused) {
         g->kept->gameplay_camera = g->paused_from_play;
     } else if (world_ran) {
@@ -2874,7 +4111,13 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     g->kept->packets = std::move(packets.packets);
     g->kept->strip_vertices = std::move(packets.strip_vertices);
     g->kept->strips = std::move(packets.strips);
+    g->kept->haze.insert(g->kept->haze.end(), packets.haze.begin(), packets.haze.end());
     g->kept->before_world = bytes_before_world(packets.before_world, under_menu);
+    g->kept->splices_before_world =
+        splices_before_world(packets.recording, packets.splices, g->kept->before_world);
+    g->kept->recording = std::move(packets.recording);
+    g->kept->splices = std::move(packets.splices);
+    g->kept->views = std::move(packets.views);
     part.reset();
     return finish_tick(ram, state, packets.named_quads, level, debug, scene);
 }
@@ -2897,8 +4140,8 @@ bool keep_picture() {
     // The console shows its frame buffer as it is: the picture stands and nothing is drawn again.
     // Drawn again, the kept tick's 2D read the textures a load had written over since (the flight's
     // planet name came out as a solid block and its planet striped, before the landing).
-    g->repeat_frame = true;
-    draw_kept(false);
+    g->render.repeat_frame = true;
+    draw_kept(false, true);
     return !g->render_failed;
 }
 

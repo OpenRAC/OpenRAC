@@ -6,8 +6,8 @@
 // happens once a day however often the launcher is opened. A private window, where storage
 // throws, is checked once per start and no more.
 import { api, type ModUpdate, type VersionView } from "$lib/api";
-import { playerVersion } from "$lib/player.svelte";
 import { app } from "$lib/app.svelte";
+import { playerVersion } from "$lib/player.svelte";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -51,11 +51,14 @@ export const modUpdates = $state<{ found: Record<string, ModOffer>; offer: ModOf
 /** The versions whose gameplay mods can be updated: one per game, the one a player plays. */
 function versionsToCheck(): VersionView[] {
   const found: VersionView[] = [];
+
   for (const game of app.library?.games ?? []) {
     const v = playerVersion(game);
     const play = v?.actions.find((a) => a.id === "play");
+
     if (v && play && play.state !== "planned") found.push(v);
   }
+
   return found;
 }
 
@@ -68,13 +71,17 @@ export async function lookForModUpdates(): Promise<void> {
   for (const v of versionsToCheck()) {
     if (!checkDue(v.game)) continue;
     const sources = await api.pluginsSources(v.game).catch(() => null);
+
     if (!sources || Object.keys(sources.mods).length === 0) continue;
     const found = await api.pluginsCheckUpdates(v.game, v.name).catch(() => null);
+
     markChecked(v.game);
     if (!found) continue;
     const updates = found.updates.filter((u) => !sources.mods[u.id]?.pin);
+
     if (updates.length === 0) continue;
     const offer: ModOffer = { game: v.game, version: v.name, title: v.title, updates };
+
     modUpdates.found[v.game] = offer;
     modUpdates.offer ??= offer;
   }
@@ -87,6 +94,8 @@ export function dismissModUpdates() {
 
 /** A game's mods were updated: nothing is left to offer for it, here or on the Mods tab. */
 export function forgetModUpdates(game: string) {
-  modUpdates.found = Object.fromEntries(Object.entries(modUpdates.found).filter(([id]) => id !== game));
+  modUpdates.found = Object.fromEntries(
+    Object.entries(modUpdates.found).filter(([id]) => id !== game),
+  );
   if (modUpdates.offer?.game === game) modUpdates.offer = null;
 }

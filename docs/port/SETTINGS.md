@@ -40,9 +40,9 @@ Both read one list ([menu_catalog.cpp](../../port/game/common/menu_catalog.cpp),
 the entries marked `kGamePage`), so a row shows the same value and steps the
 same way in both. The page scrolls with the cursor. **Cross** or **Right**
 moves a row to its next value, **Left** to the one before. A change is applied
-and saved at once: no setting needs the game started again. Anti-aliasing says
-"(upscaler)" while the upscaler draws one sample a pixel and keeps the choice
-for later.
+and saved at once: no setting needs the game started again. Enhanced Graphics
+uses one sample per pixel. The Anti-aliasing row keeps the saved MSAA choice
+for standard graphics.
 
 Probe lighting is required by enhanced graphics and follows its master switch.
 The legacy `probe_lighting` key is accepted but ignored and is omitted when saving.
@@ -57,19 +57,21 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Field of View | `gameplay_fov` | `100` (default), `80` to `120` in steps of 5 | Under **Graphics > Picture**, adjusts the gameplay camera relative to its original field of view. Drag the slider, tap its arrows or use D-pad left and right. The world under the pause menu keeps it; cutscenes keep their original framing. The game's view tests (moby effects, liquids, fires, air traffic) open with it, sideways and up and down, as they do sideways for a wider picture. |
 | HUD | `hud` | `centre`, `edges` | In a picture wider than 4:3: the HUD where the game put it, in the 4:3 middle, or the elements the game anchors to the left or right of the screen (the weapon, the bolts, the side meters) out at the picture's sides. Menus and text stay in the middle either way |
 | Render scale | `render_scale` | `100`, `50`, `75`, `125`, `150`, `200` (a file may hold 25 to 400) | The frame's resolution as a percentage of the picture's pixels in the window. Over 100 is supersampling; enhanced rendering caps the effective scale at 100 without changing the saved value. Under 100 is for a slow graphics card. The frame is never larger than 8192 pixels a side |
-| Anti-aliasing | `msaa` | `1` (`off`), `2`, `4`, `8`, `16` | Samples a pixel (MSAA). The page offers what the card gives (`GL_MAX_SAMPLES`); a file's larger number is held to it |
+| Anti-aliasing | `msaa` | `1` (`off`), `2`, `4`, `8`, `16` | Samples per pixel in standard graphics, up to the device limit (`GL_MAX_SAMPLES`). Enhanced Graphics always uses one sample |
 | Enhanced rendering (experimental) | `enhanced_rendering` | `0` (default), `1` | Whether the game makes the enhanced renderer at all (probe lighting, modern sun/Ratchet shadows, GTAO; [port/enhanced](../../port/enhanced/README.md)). Read at start; Vulkan only. Ratchet & Clank (PAL, NTSC-U) and Going Commando (its three discs). Off, none of it is made and the game draws exactly as a build without it. The launcher's Mods tab writes it (**Enhanced graphics**, a built-in entry with the keys below on its page) and then plays with Vulkan (`OPENRAC_GL_API=vulkan`) and the player's probe bakes (`--probes <data>/probes/<version>`), which it makes from their own extracted levels. From a shell, `OPENRAC_ENHANCED=1` does the same as the key; `OPENRAC_ENHANCED=0` keeps it off |
 | Enhanced graphics (F4) | `enhanced_graphics` | `1` (default), `0` | With enhanced rendering on: the in-game master switch for probe lighting, modern sun/Ratchet shadows, GTAO and FSR. Turning it off restores original lighting/stencil shadows and native rendering without changing individual preferences |
-| Preset | (no key) | `Low`, `Medium`, `High`, `Custom` | Enhanced menu only. Sets the costly options together and saves each under its own key. Low: upscaling Performance, shadow quality Low, shadow filtering Fast, occlusion Low, motion blur off, texture upscaling Normal. Medium: upscaling Balanced, shadow quality Medium, the rest as High. High: upscaling Quality, shadow quality High, shadow filtering Soft, occlusion Performance, motion blur on, texture upscaling Edge-aware. The row shows Custom for any other mix. A new settings file starts at Medium on Android and Apple Silicon, at High elsewhere |
-| Temporal upscaling | `temporal_quality` | `off`, `native-aa`, `quality` (default; `balanced` on Android and Apple Silicon), `balanced`, `performance` | Enhanced Vulkan only, with compatible probe data. Reconstructs the world before the full-resolution HUD, with Arm ASR on a Snapdragon (Qualcomm) GPU and AMD FSR 3.1 elsewhere (`OPENRAC_TEMPORAL_UPSCALER`); no frame generation. Quality uses a 1.5x display-to-render ratio, Balanced 1.7x and Performance 2x. Native AA uses the existing render resolution. Active FSR replaces MSAA while preserving its saved setting. Requires a build with `OPENRAC_FSR3`; unsupported backends keep native rendering |
+| Preset | (no key) | `Low`, `Medium`, `High`, `Custom` | Enhanced menu only. Sets the costly options together and saves each under its own key. Low uses 75% render scale, Performance upscaling, Low shadow quality, Fast shadow filtering, Low occlusion, motion blur off and Normal texture upscaling. Medium uses 100% render scale, Balanced upscaling and Medium shadow quality, with the other options as High. High uses 100% render scale, Quality upscaling, High shadow quality, Soft shadow filtering, Performance occlusion, motion blur on and Edge-aware texture upscaling. A manual change to one of these options can make the preset Custom. A new settings file starts at Medium on Android and Apple Silicon, at High elsewhere |
+| Temporal upscaling | `temporal_quality` | `off`, `native-aa`, `quality` (default; `balanced` on Android and Apple Silicon), `balanced`, `performance` | Enhanced Vulkan only, with compatible probe data. Reconstructs the world before the full-resolution HUD, with Arm ASR on a Snapdragon (Qualcomm) GPU and AMD FSR 3.1 elsewhere (`OPENRAC_TEMPORAL_UPSCALER`); no frame generation. Quality uses a 1.5x display-to-render ratio, Balanced 1.7x and Performance 2x. Native AA uses the existing render resolution. Requires a build with `OPENRAC_FSR3`; unsupported backends keep native rendering |
 | Upscaling sharpening | `temporal_sharpness` | `0.0` to `1.0` (default `0.2`) | RCAS sharpening after temporal reconstruction; zero disables sharpening |
 | Probe spheres | `probe_spheres` | `0` (default), `1` | Enhanced Settings window placement overlay: cyan sparse, green dense, gold relocated, magenta invalid. Spheres follow camera/region selection and CPU-region fades; lighting blends up to three local regions per fragment |
 | Medial axis | `medial_axis_debug` | `0` (default), `1` | Enhanced > Diagnostics: green centre paths, pink junctions and white component centres from the bake |
 | Environment probes | `environment_probe_debug` | `0` (default), `1` | Enhanced > Diagnostics: mirror spheres show each capture; cyan reflection bounds and faint hidden wire markers show coverage |
 | Modern shadows | `enhanced_shadows` | `1` (default), `0` | Independently toggles sun cascades and Ratchet's shadow map in the Enhanced Settings window. Off restores original stencil shadows while keeping GI and GTAO preferences |
 | Volumetrics | `volumetric_quality` | `off` (default), `low`, `medium`, `high` | Experimental, available in the in-game enhanced developer panel only. Sample grid density: Low uses 64-pixel columns/24 depth slices, Medium 32/48, High 16/96. Off retains original fog. Applies immediately; fog thickness stays unchanged |
+| Cloud shadows | Session only | Enabled on Rilgar with Enhanced Shadows | Both lighting paths sample the same animated pattern. Fully sun-occluded surfaces use cascade shading. In Enhanced Developer Settings, tune travel, undulation, scale, light range and strength. Reset cloud shadows restores the level preset |
 | Shadow quality | `shadow_quality` | `high` (default; `medium` on Android and Apple Silicon), `medium`, `low` | High uses 2048x2048 for the nearest sun cascade, 1024x1024 for the other cascades and 512x512 for Ratchet. Medium halves the sun map dimensions but keeps Ratchet at 512x512. Low quarters the sun map dimensions and uses 256x256 for Ratchet. Changes apply immediately, including the scrolling shadow cache |
 | Shadow filtering | `shadow_filter` | `soft` (default), `fast` | How the sun's shadow edges are filtered where the opaque world is lit. Soft uses a wide kernel and blends between cascades. Fast uses four taps and one cascade at a time: harder edges at a lower cost, for weak GPUs |
+| Early Lit cache quality | `early_lighting_quality` | `normal` (default), `high` | Normal uses one lighting sample per 4×4 render pixels. High uses one per 2×2. All three Enhanced presets select Normal |
 | Probe normal bias | `probe_normal_bias` | `0.0` to `2.0` world units (default `0.5`) | Offsets the GI visibility receiver along the camera-facing surface normal; updates immediately |
 | Probe view bias | `probe_view_bias` | `0.0` to `2.0` world units (default `0.5`) | Offsets the GI visibility receiver toward the camera; updates immediately |
 | Main directional light override | `sun_direction_override` | `0` (default), `1` | Advanced in Graphics > Enhanced Settings. Overrides primary direct light and its shadows; baked bounce lighting retains its baked direction. Off restores the verified profile or authored direction |
@@ -90,9 +92,9 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Texture filtering | `texture_filter` | `normal`, `edge-aware` (default with Enhanced Graphics) | In Graphics > Enhanced Settings, enabled by the Enhanced graphics master switch. Enlarged world textures (meshes, reflections, sky and world effects): original sampling or cached 2x edge-aware colour reconstruction with directional debanding (Vulkan compute only; OpenGL supports Normal only; other saved values use Normal there). The cache is limited to 64 MiB per texture pool and falls back to Normal when full. Alpha/cutout coverage, shadow/depth sampling, HUD text and distant mip/anisotropic filtering are unchanged |
 | Anisotropic filtering | `anisotropy` | `auto` (default), `1` (`off`: trilinear), `2`, `4`, `8`, `16` | Auto uses 4x with Enhanced Graphics and Off with OpenGL or original graphics. Explicit choices are preserved across modes; the menus offer Auto first. The anisotropic filter of the world's textures is held to what the driver offers |
 | Texture pack | `texture_pack` | `0`, `1` (default `1`) | Reads a texture pack from `<data>/texture_packs/<game id>/` (`rac1-pal`, `rac1-ntsc`, `rac2-ntsc`), PNGs named by the textures they replace, at any size ([TEXTURE_PACKS.md](TEXTURE_PACKS.md)). No folder, no change. Off with `--no-mods` too. Counts from the next start |
-| Draw distance | `draw_distance` | `100` (Original), `150`, `200`, `400` (default), `0` (Unlimited) | How far mobys, ties, shrubs (and Going Commando's terrain) are drawn, in percent of the game's own distances. Original draws as far as the console, with its fades and shrub billboards. Larger steps draw farther. Unlimited draws all in view. It changes only the picture: the game still runs its mobys at the console's distances (see Active distance). What the game hides (occlusion, hidden records, other level chunks) stays hidden. Ratchet & Clank's shrub limits need the levels exported again |
+| Draw distance | `draw_distance` | `100` (Original), `150`, `200`, `400` (default), `0` (Unlimited) | How far mobys, ties, shrubs (and Going Commando's terrain) are drawn, in percent of the game's own distances. Original draws as far as the console, with its fades and shrub billboards. Larger steps draw farther. Unlimited draws all in view. It changes only the picture: the game still runs its mobys at the console's distances (see Active distance). What the game hides (occlusion, hidden records, other level chunks) stays hidden. Some mobys keep the game's distance at every step, because the game hides them only by distance; each game lists them with the reason in `port/game/<game>/draw_distance.tsv`. Ratchet & Clank's shrub limits need the levels exported again |
 | Active distance | `active_distance` | `match` (default), `original` | What far mobys do in the picture. The game runs mobys only near the camera, as on the console. Match plays the looping animation of the far, sleeping ones in the picture only; the game never sees it. They do not move from their place, and an animation played once (coming out of something, opening) is not played. Original shows them still |
-| HDR output | `hdr` | `off` (default), `on` | Shows the game on an HDR screen without the dim, washed-out look, and lets glows and explosions go brighter than white ([HDR.md](HDR.md)). `on`: HDR whenever the screen offers it (on Android, when the system says the display is in HDR mode). Vulkan only. Turning it on from `off` needs a restart. Off, the picture is exactly as before |
+| HDR output | `hdr` | `off` (default), `on` | Shows the game on an HDR screen without the dim, washed-out look, and lets glows and explosions go brighter than white ([HDR.md](HDR.md)). `on`: HDR whenever the screen offers it (on Android, when the system says the display is in HDR mode). Vulkan, and Metal on macOS (EDR). Turning it on from `off` needs a restart, except on Metal. Off, the picture is exactly as before |
 | HDR paper white | `hdr_paper_white` | `0` (the system's SDR white, else 203), `80` to `1000` nits | How bright the game's white is in HDR. By default, the system's SDR brightness |
 | HDR peak | `hdr_peak` | `0` (the display's, else 1000), `400` to `10000` nits | The brightest that glows and explosions may go, also sent to the screen as HDR metadata |
 | HDR highlights | `hdr_highlights` | `0` to `100` percent (default `100`) | How much brighter than white glows get. `0` is as in SDR |
@@ -111,6 +113,7 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Mute in background | `mute_unfocused` | `0`, `1` | Silence while another window has the keyboard |
 | Game fixes: one row each | `fix_...` | `1` (the port's fix), `0` (the console's behaviour) | What the port changes from the console that a player may switch back (section 8). Ratchet & Clank: `fix_wide_moby_effects`, `fix_wide_nanotech_orbs`, `fix_wide_liquids` |
 | (F9, F10) | `volume` | `100`, `0` to `100` | How loud everything the port plays is |
+| Keyboard and mouse | `kbm_<key>` | the manifest's defaults | Ratchet & Clank and Going Commando: the built-in Keyboard and mouse's binds and settings ([KEYBOARD_MOUSE.md](KEYBOARD_MOUSE.md)), `kbm_mouse_sensitivity = 1.5`, `kbm_jump = Space,MouseRight`. Written by the game's menu (Controls, Keyboard and mouse) and the launcher's Mods tab (its entry under Built in); used at once, also while the game runs. A value that cannot be read is its default |
 | Touch controls: Action buttons | `touch_style` | `0` (on), `1` (off) | On: the touch pad shows action buttons with icons that follow what the game is doing (on foot, Clank, swimming, a menu; [touch_controls.h](../../port/game/common/frontend/touch_controls.h)). Off: the DualShock's buttons |
 | Touch controls: Button size | `touch_scale` | `75`, `50` to `150` (percent) | The on-screen pad's size against its own ([touch_pad.h](../../port/platform/touch_pad.h)). Smaller controls sit nearer the screen's edges as well |
 | Touch controls: Camera speed | `touch_camera` | `100`, `25` to `300` (percent) | How short a push of the finger on the right of the screen, from where it landed, turns the camera at full speed: 200 halves the push. Above 100%, a full sideways swipe also turns the camera faster (rac1, rac2) |
@@ -142,7 +145,9 @@ section 3 are from before that. What it draws is its own business:
 - anything else: frames **between** ticks as well, the camera, the mobys and
   their poses moved from the last tick's to this one's by the time each frame
   is shown (half a tick behind the game, so that the next tick is ready
-  before the frame that needs it). `display` draws one a refresh, a number
+  before the frame that needs it; with Vulkan's render thread, or the
+  low-latency frames, no lag: their frames stop when the next tick is due,
+  and with the lag they only got half way before it). `display` draws one a refresh, a number
   that many a second, `unlimited` as many as the machine manages.
 - `vsync` decides only whether a frame waits for a refresh. With it off and
   `frame_rate = display`, the port's own clock keeps the display's rate.
@@ -435,11 +440,11 @@ follows ReRAC's idea and says so in
 | Setting | OpenGOAL | ReRAC | OpenRAC | |
 |---|---|---|---|---|
 | Choose the controller, port mapping | yes | first pad only | each player's controller by its id, or the next free one ([CONTROLS.md](CONTROLS.md)) | **now** |
-| Rebind controller, keyboard, mouse | yes | no | the controller's buttons and sticks, chords, every game's and each game's own, in their own files and a window in the game ([CONTROLS.md](CONTROLS.md)); keys on the buttons only | **now** for the controller; keyboard and mouse **later** |
+| Rebind controller, keyboard, mouse | yes | no | the controller's buttons and sticks, chords, every game's and each game's own, in their own files and a window in the game ([CONTROLS.md](CONTROLS.md)); keys and mouse buttons for every action of the built-in Keyboard and mouse ([KEYBOARD_MOUSE.md](KEYBOARD_MOUSE.md)) | **now** |
 | Stick deadzone, sensitivity | yes | fixed scale 1.33 | the game's own, and the port's per stick if set, with inversion | **now** |
 | Vibration on or off | yes | no rumble | rumble as the game drives it, no switch | **later**: a row on the game's own options |
 | Camera inverted, speed | its own page | the game's Camera page | the game's Camera page | **never** in the port: the game has it |
-| Keyboard, mouse camera and movement | yes | mouse as right stick | keyboard as a pad, no mouse | **later** |
+| Keyboard, mouse camera and movement | yes | mouse as right stick | raw mouse camera (rac1), mouse as right stick (rac2), WASD with walk ([KEYBOARD_MOUSE.md](KEYBOARD_MOUSE.md)) | **now** |
 | Ignore the controller while unfocused | yes | no | `pad_background = 0` ([CONTROLS.md](CONTROLS.md)) | **now** |
 | Controller LED, trigger effects, pressure | yes | no | no | **never** for the LED and triggers (nothing in the game drives them); pressure **later** |
 
@@ -498,15 +503,16 @@ Each entry:
 | Field | |
 |---|---|
 | `id` | lower-case words joined by hyphens: `wide-liquids` |
-| `kind` | `fix`: the player may switch it back. `guard`: keeps the game from crashing where the console carried on unnoticed; shown, never switched (off would only mean the crash). `port`: a difference that comes with being a PC program, for the record |
+| `kind` | `fix`: the player may switch it back. `guard`: keeps the game from crashing where the console carried on unnoticed; shown, never switched (off would only mean the crash). `always`: a fix that is always on (a soft lock, a feature one disc lacks); listed with the game fixes, never switched. `port`: a difference that comes with being a PC program, for the record |
 | `name` | a few words. A fix's is its row on the game's Options page: 22 letters at most |
-| `discs` | the game's versions it applies to: `pal`, `ntsc`, and Going Commando's `ntsc2` (USA v2.00) |
+| `discs` | the game's versions it applies to: `pal`, `ntsc`, Ratchet & Clank's `pal1` (PAL v1.00) and `jp` (NTSC-J), and Going Commando's `ntsc2` (USA v2.00). List every version whose program runs the code: the configure stops when host C reads a fix key a version it compiles into does not list |
 | `original` | what the PS2 game does |
 | `port` | what the port does, and why; for a fix, what off brings back |
 | `setting` | a fix only: `{"key": "fix_...", "default": true}`. On is the port's fix |
-| `refs` | where it is: commits, files, docs. Shown with the launcher's developer tools on |
+| `bypassed` | a fix only, optional: `{"<disc>": "why"}`, versions not in `discs` that compile host C naming its key but never reach the read, because that disc already behaves so and its C calls the game's own function first (Going Commando's Greatest Hits fixes on `ntsc2`). The disc gets no setting and shows no row, and its configure does not stop |
+| `refs` | where it is: files and docs. Shown with the launcher's developer tools on |
 
-Write only what the code or a commit shows. A fix is:
+Write only what the code shows. A fix is:
 
 - **a setting**: `fix_... = 1` or `0` in the settings file (section 1),
   written with the others, read at start;
@@ -529,10 +535,11 @@ must give the console's behaviour, exactly), and its key in
 `tests/game_fixes_test.cpp` if the test should hold it to its code. The
 configure refuses a file that breaks a rule (a fix without a setting, a
 setting on anything else, a key twice, a name too long), the launcher's
-tests the same, and `game_fixes` checks that every key the rac1 host C asks
+tests the same, and one whose `discs` leave out a version that compiles host
+C naming its key (unless `bypassed` names that version). `game_fixes` checks that every key the rac1 host C asks
 for is in the table.
 
-Ratchet & Clank's fixes now, all on by default and all for both discs:
+Ratchet & Clank's fixes, all on by default and on every disc:
 
 | Key | Off |
 |---|---|
@@ -541,6 +548,7 @@ Ratchet & Clank's fixes now, all on by default and all for both discs:
 | `fix_wide_liquids` | the draw callback lists and the liquid grid's cull ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: seas, lava and sand are missing near the sides |
 | `fix_wide_air_traffic` | Kerwan's air traffic's sphere test ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: the traffic stops near the sides, in view |
 | `fix_wide_fires` | the smoke and fire emitter's sphere test ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: fires near the sides go out |
+| `fix_wide_barriers` | Orxon's energy barriers' sphere test ([wide_view.c](../../port/game/rac1/host/wide_view.c)) against the 4:3 view: a barrier near the sides vanishes |
 
 At 4:3 none of them changes anything.
 

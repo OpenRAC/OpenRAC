@@ -4,8 +4,9 @@
   // with --play. Not shown on Android and macOS; the desktop shortcut is Linux's.
   import { api, errorText, type SteamState } from "$lib/api";
   import { app } from "$lib/app.svelte";
-  import { shortcutOptions } from "$lib/shortcuts";
   import { SHORTCUT_TEXT as T, STEAM_TEXT as S } from "$lib/modsText";
+  import { shortcutOptions } from "$lib/shortcuts";
+
   import Reason from "./Reason.svelte";
 
   let { version }: { version: string } = $props();
@@ -17,6 +18,7 @@
 
   $effect(() => {
     const key = version;
+
     steam = "noSteam";
     said = null;
     if (!options.steam) return;
@@ -31,23 +33,27 @@
   async function addToSteam() {
     busy = "steam";
     said = null;
+
     try {
       steam = await api.steamAdd(version);
       said = { text: S.added, failed: false };
     } catch (e) {
       said = { text: errorText(e), failed: true };
     }
+
     busy = null;
   }
 
   async function createShortcut() {
     busy = "desktop";
     said = null;
+
     try {
       said = { text: T.created(await api.shortcutCreate(version)), failed: false };
     } catch (e) {
       said = { text: errorText(e), failed: true };
     }
+
     busy = null;
   }
 </script>
@@ -67,7 +73,10 @@
       >
     </span>
     <button
-      disabled={busy !== null || steam === "flatpakSteam" || steam === "noUser" || steam === "added"}
+      disabled={busy !== null ||
+        steam === "flatpakSteam" ||
+        steam === "noUser" ||
+        steam === "added"}
       onclick={() => void addToSteam()}
     >
       {#if busy === "steam"}<span class="spinner"></span>{/if}{steam === "added"

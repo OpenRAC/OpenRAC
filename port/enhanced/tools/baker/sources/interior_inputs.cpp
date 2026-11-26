@@ -297,10 +297,10 @@ Result<InteriorInput> load_interior_input(
         }
 
         // This adapter reads the environment transitions of the validated gameplay schemas: RAC1's
-        // (PAL and NTSC) and RAC2's (assets/world/gameplay.cpp places its transitions).
+        // (PAL and NTSC), RAC2's and RAC3's (assets/world/gameplay.cpp places their transitions).
         if (!bake_identity_supported(manifest["game"].string(), manifest["version"].string())
             || !manifest["level"].is_number() || manifest["level"].number() < 0
-            || manifest["level"].number() > (manifest["game"].string() == "rac2" ? 30 : 18)
+            || manifest["level"].number() > highest_level(manifest["game"].string())
             || std::floor(manifest["level"].number()) != manifest["level"].number()) {
             return unexpected(Error{"unsupported interior level identity"});
         }
@@ -316,8 +316,12 @@ Result<InteriorInput> load_interior_input(
         input.level = static_cast<int>(manifest["level"].number(-1));
         input.source_sha256 = *source;
         input.triangles = read_collision(bake_input(level / "collision.glb", overrides));
+        const auto& game = manifest["game"].string();
         input.transitions = read_transitions(
-            gameplay, manifest["game"].string() == "rac2" ? assets::Game::Rac2 : assets::Game::Rac1
+            gameplay,
+            game == "rac3"   ? assets::Game::Rac3
+            : game == "rac2" ? assets::Game::Rac2
+                             : assets::Game::Rac1
         );
         return input;
     } catch (const std::exception& error) {

@@ -6,12 +6,18 @@ the way OpenGOAL's `extractor` does for Jak and Daxter. Standard library only.
   python3 tools/extractor.py IMAGE --game rac1 [--proj-path DIR] [steps]
 
 Steps (all of them when none is named):
-  --extract    copy the disc's files into PROJ/iso_data/GAME/ and keep the image
-               there too: Ratchet & Clank reads most of its data by sector, not
-               by file, so the image is linked (copied across file systems)
+  --extract    copy the disc's files into PROJ/iso_data/GAME/: the file system's
+               files, every other sector as lumps cut where the game's table of
+               contents points (lumps/), and sectors.tsv, the map from each sector
+               to its file, which is all the port reads (openrac_common/disc_files.py).
+               The image is kept there too, linked (copied across file systems), for
+               the level tools, which still read it
   --boot-only  with --extract: write out only SYSTEM.CNF and the boot executable,
-               which is all the port reads beside the image; every file is still
-               read and checked. Gigabytes less to write (the Android launcher's)
+               and no lumps or map; every file is still read and checked. Enough for
+               the level tools, not for the port, which reads the files only
+  --link-image with --extract: when the image cannot be hard-linked, keep a
+               symbolic link to it rather than a second copy. For an image the
+               launcher keeps itself (Android's, which lets no app hard-link)
   --validate   refuse the image unless its boot executable is a build OpenRAC
                knows (games/GAME/game.json: serial, size and SHA-1), as
                OpenGOAL's --validate does; implied by --extract
@@ -34,7 +40,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from openrac_common import digest, files, games, iso9660, paths
+from openrac_common import digest, disc_files, files, games, iso9660, paths
 
 SECTOR = iso9660.SECTOR
 
@@ -146,9 +152,11 @@ def print_new_build(serial: str | None, boot_sha1: str | None, hashes: dict[str,
 
 # --- Steps ------------------------------------------------------------------------------
 
-def extract(image: Path, game: str, proj: Path, minimum: int = MIN_IMAGE_SIZE, boot_only: bool = False) -> dict:
+def extract(image: Path, game: str, proj: Path, minimum: int = MIN_IMAGE_SIZE, boot_only: bool = False,
+            link_image: bool = False) -> dict:
     """Extract and validate IMAGE into PROJ/iso_data/GAME; returns the build info written.
-    BOOT_ONLY: of the disc's files only SYSTEM.CNF and the boot executable are written."""
+    BOOT_ONLY: of the disc's files only SYSTEM.CNF and the boot executable are written.
+    LINK_IMAGE: a symbolic link to IMAGE where no hard link can be made, not a copy."""
     check_image_file(image, minimum)
     entries = files_of(image)
     serial = iso9660.boot_serial(image)
@@ -191,19 +199,48 @@ def extract(image: Path, game: str, proj: Path, minimum: int = MIN_IMAGE_SIZE, b
         raise
     print(f"validated: {g['title']} ({version['region']}, {serial}), boot executable SHA-1 matches games/{game}/game.json")
 
-    # Most of Ratchet & Clank's data is addressed by sector, outside the file
-    # system: keep the image beside the files for the decompile step.
-    how = files.link_or_copy(image, temp / "disc.iso", keep_metadata=False)
-    print(f"  disc.iso: {how} from {image}")
+    # What the port reads at run time: the sectors the file system does not hold, as lumps, and
+    # the map from every sector to its file (disc_files). The map is written last.
+    if not boot_only:
+        written = {path for path, _, _ in entries}
+        with open(image, "rb") as f:
+            rows = disc_files.plan(entries, image.stat().st_size // SECTOR, disc_files.toc_lumps(image))
+            rows = disc_files.write_lumps(f, rows, temp, written.__contains__)
+        try:
+            disc_files.unpack_programs(game, temp, boot=serial)
+        except ValueError as e:
+            shutil.rmtree(temp)
+            raise ExtractError(4012, str(e)) from e
+        print(f"  {disc_files.MAP_NAME}: {len(rows)} runs of sectors, each read from its file")
+        disc_files.write_map(rows, temp)
+
+    # The level tools (extractor/extract.py port) still read the image: keep it beside the
+    # files, which are what the port reads. An image
+    # inside the set-up being replaced (its own disc.iso, a copy, not a link)
+    # moves into the new one at the end: a link to it would go with the old set-up.
+    inside = final.resolve() in image.resolve().parents
+    # The set-up's own disc.iso that is a link (Android, Unpack the disc's files): the new one
+    # links to the same image, never a copy of it, and keeps the image's name.
+    own_link = image.is_symlink() and image.parent.resolve() == final.resolve()
+    if inside:
+        print(f"  disc.iso: kept from {image}")
+    else:
+        source = image.resolve() if own_link else image
+        how = files.link_or_copy(source, temp / "disc.iso", keep_metadata=False, symlink=link_image or own_link)
+        print(f"  disc.iso: {how} from {source}")
+    earlier = final / "buildinfo.json"
+    named = json.loads(earlier.read_text())[0].get("image") if (inside or own_link) and earlier.is_file() else None
     info = [{
         "serial": serial,
         "version": f"{game}/{name}",
         "elf_sha1": hashes[serial],
         "files": len(hashes),
         "contents": contents_hash(hashes),
-        "image": image.name,
+        "image": named or image.name,
     }]
     (temp / "buildinfo.json").write_text(json.dumps(info, indent=2) + "\n")
+    if inside:
+        files.replace(image.resolve(), temp / "disc.iso")
     if final.exists():
         shutil.rmtree(final)
     temp.rename(final)
@@ -222,6 +259,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--proj-path", type=Path, default=paths.repo_root() / "build" / "port")
     parser.add_argument("-e", "--extract", action="store_true")
     parser.add_argument("--boot-only", action="store_true")
+    parser.add_argument("--link-image", action="store_true")
     parser.add_argument("-v", "--validate", action="store_true")
     parser.add_argument("-d", "--decompile", action="store_true")
     parser.add_argument("-c", "--compile", action="store_true")
@@ -229,7 +267,8 @@ def main(argv: list[str] | None = None) -> int:
     every = not (args.extract or args.validate or args.decompile or args.compile)
     try:
         if every or args.extract or args.validate:
-            extract(args.image.resolve(), args.game, args.proj_path.resolve(), boot_only=args.boot_only)
+            extract(args.image.resolve(), args.game, args.proj_path.resolve(), boot_only=args.boot_only,
+                    link_image=args.link_image)
         if every or args.decompile:
             not_yet("decompile")
         if every or args.compile:

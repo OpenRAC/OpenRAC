@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Precise world depth: reversed Z in a 32-bit float depth buffer, with clip-space z sent to the
-// window as it is (glClipControl GL_ZERO_TO_ONE), for a game that asks (GameProfile::precise_depth).
+// window as it is (glClipControl GL_ZERO_TO_ONE) when the backend supports both.
 //
 // The camera's projection keeps GL's form (perspective_reversed, z in -w..w): everything that reads
 // it or the depth buffer back (culling, shadows, ambient occlusion, temporal upscaling, the GS-Z
@@ -18,12 +18,7 @@
 
 namespace openrac::renderer {
 
-// Asks for precise depth from the next frame buffer made on (before the first: the frame buffers
-// keep the depth format they were made with).
-void request_precise_depth(bool wanted);
-
-// Whether the world's depth is precise: it was asked for and the context has glClipControl. The
-// frame buffers then have a DEPTH32F_STENCIL8 depth.
+// Whether the backend can use float depth-stencil and zero-to-one clip depth together.
 bool precise_depth();
 
 // `projection` (GL's form, z in -w..w) for glClipControl's GL_ZERO_TO_ONE: its z row is half the

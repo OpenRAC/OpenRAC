@@ -11,10 +11,6 @@ root: string | null,
  */
 python: string | null, 
 /**
- * Godot 4 (4.7+), for the level editor.
- */
-godot: string | null, 
-/**
  * Docker, which rac1/pal's and rac4's builds run in.
  */
 docker: string | null, 
@@ -23,6 +19,12 @@ docker: string | null,
  * Off, the launcher shows a player's three steps: set up from your disc, play, edit levels.
  */
 developer: boolean, 
+/**
+ * Up Your Arsenal (rac3) is still in development: its build, set-up and Play stay blocked
+ * until a developer turns this on, after the launcher's three confirmations (Settings,
+ * Developer). Default off.
+ */
+rac3Dev: boolean, 
 /**
  * The save editor shows every field of a save, raw bytes included (for debugging). Off, the
  * player's safe set only.
@@ -105,14 +107,11 @@ gameColors: boolean,
 detailedGameLog: boolean, 
 /**
  * What the game draws with on Windows, Linux and macOS: "vulkan" (the default), the port's
- * Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the MoltenVK its bundle carries),
- * "opengl" (OpenGL 4.1), or, on macOS only, "metal", the port's Metal renderer
- * (OPENRAC_GL_API=metal, port/renderer/metal). Where Vulkan or Metal cannot start, the game
- * draws with OpenGL (port/platform/window.cpp); "metal" on any other system plays as
- * "vulkan" (renderer_for). Not used on Android, which keeps its own choice
- * (src-tauri/src/android.rs).
+ * Vulkan renderer, shown as Metal on macOS because the game runs it through MoltenVK,
+ * or "opengl" (OpenGL 4.1). Android keeps its own renderer setting. iOS uses Metal
+ * through MoltenVK.
  */
-renderer: "opengl" | "vulkan" | "metal", 
+renderer: "opengl" | "vulkan", 
 /**
  * Linux: the launcher's own window draws without WebKitGTK's accelerated compositing mode
  * (webkit.rs), for a graphics driver that crashes it. Turned on by the launcher itself after
@@ -154,6 +153,17 @@ multiplayerName: string,
  * `OPENRAC_IDENTITY_KEY`.
  */
 multiplayerKey: string, 
+/**
+ * The multiplayer hub every game's online play starts at (multiplayer.rs): a host name or an
+ * IP address, and a port. The hub logs players in and lists the game servers to pick from.
+ * The official hub (`hub.openrac.dev:7177`) unless changed in Settings; anyone can host one
+ * (the OpenRAC/Server repository). Given to the game as `OPENRAC_SERVER=host:port`.
+ */
+multiplayerServerHost: string, 
+/**
+ * The server's port, 1 to 65535; a saved value out of range reads as the official port.
+ */
+multiplayerServerPort: number, 
 /**
  * The mod indexes to read (index.rs), in order; empty: the built-in list (`index::INDEXES`).
  */

@@ -137,7 +137,5 @@ int file_descriptor();
 std::string_view header_for_crash();
 // Calls emit(text, length, context) for each of the last lines, the oldest first.
 void recent_lines(void (*emit)(const char* text, std::size_t length, void* context), void* context);
-// How many lines recent_lines keeps.
-std::size_t recent_capacity();
 
 }  // namespace openrac::log

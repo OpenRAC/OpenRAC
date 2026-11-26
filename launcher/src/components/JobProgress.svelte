@@ -3,25 +3,30 @@
   // when the output says how far along it is, an animated bar when it does not) and, behind
   // "Details", the last lines it printed. A strip of fixed layout across the hero card: nothing
   // here changes the width of the button above it, and no line of output can push it wider.
-  // An editor tool says its step and count itself (editor/progress_line.py): then the step is in
+  // An editor tool says its step and count itself (extractor/progress_line.py): then the step is in
   // its words, the count names the level ("Kerwan, 3 of 18"), and once a few levels are done, how
   // long is left. Only a change of step is read out; the count is in the bar's value. `plain`: in
   // a panel of its own (the level editor's), without the strip's box.
   import { levelName } from "$lib/labels";
-  import type { Job } from "$lib/queue";
   import {
     isGame,
     phaseLabel,
     progressPercent,
     readProgress,
+    type Sample,
     tailLines,
     timeLeft,
     toolProgress,
-    type Sample,
   } from "$lib/progress";
+  import type { Job } from "$lib/queue";
+
   import Icon from "./Icon.svelte";
 
-  let { job, now = Date.now(), plain = false }: { job: Job; now?: number; plain?: boolean } = $props();
+  let {
+    job,
+    now = Date.now(),
+    plain = false,
+  }: { job: Job; now?: number; plain?: boolean } = $props();
 
   let open = $state(false);
   let box = $state<HTMLPreElement | null>(null);
@@ -33,6 +38,7 @@
   const count = $derived.by(() => {
     if (tool?.done == null || tool.total === null) return null;
     const of = `${tool.done} of ${tool.total}`;
+
     return tool.level !== null && game ? `${levelName(game, tool.level)}, ${of}` : of;
   });
   const progress = $derived(
@@ -45,6 +51,7 @@
   $effect(() => {
     if (tool?.done == null) return;
     const seen = { step: tool.step, done: tool.done, at: Date.now() };
+
     if (latest?.step === seen.step && latest.done === seen.done) return;
     if (first?.step !== seen.step || seen.done < first.done) first = seen;
     latest = seen;
@@ -72,8 +79,14 @@
     {:else if progress.note}
       <span class="pct">{progress.note}</span>
     {/if}
-    <button class="ghost small toggle" onclick={() => (open = !open)} aria-expanded={open} aria-controls="job-details">
-      Details<span class="caret" class:open aria-hidden="true"><Icon name="arrow" size={13} /></span>
+    <button
+      class="ghost small toggle"
+      onclick={() => (open = !open)}
+      aria-expanded={open}
+      aria-controls="job-details"
+    >
+      Details<span class="caret" class:open aria-hidden="true"><Icon name="arrow" size={13} /></span
+      >
     </button>
   </div>
 
@@ -102,8 +115,11 @@
   {/if}
 
   {#if open}
-    <pre id="job-details" class="mono" bind:this={box} aria-label="The last lines the task printed">{text ||
-        "Nothing has been printed yet."}</pre>
+    <pre
+      id="job-details"
+      class="mono"
+      bind:this={box}
+      aria-label="The last lines the task printed">{text || "Nothing has been printed yet."}</pre>
   {/if}
 </div>
 

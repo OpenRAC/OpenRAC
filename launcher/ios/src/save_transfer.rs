@@ -1,6 +1,6 @@
 //! iOS handoff paths around the desktop save archive format. UIKit owns Files and sharing.
 use super::{text, value, Runtime};
-use openrac_launcher_core::{catalog, save_transfer as transfer, saves};
+use openrac_launcher_core::{catalog, mod_save_data, save_transfer as transfer, saves};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
@@ -13,6 +13,12 @@ fn serial(runtime: &Runtime, args: &Value) -> Result<String, String> {
         .find(|v| v.serial.eq_ignore_ascii_case(requested))
         .map(|v| v.serial)
         .ok_or_else(|| "Choose a known game's save card".into())
+}
+
+/// The installed mods' per-save records (mod_save_data.rs), carried by an export and written back
+/// by an import: none before an install folder is set.
+fn mod_records(runtime: &Runtime) -> mod_save_data::RecordFiles {
+    runtime.config.install_dir.as_deref().map(mod_save_data::RecordFiles::installed).unwrap_or_default()
 }
 
 fn handoff(runtime: &Runtime, area: &str, path: &Path) -> Result<PathBuf, String> {
@@ -42,7 +48,8 @@ pub(super) fn command(runtime: &Runtime, name: &str, args: &Value) -> Result<Val
             };
             let dir = handoff(runtime, "exports", Path::new(text(args, "directory")?))?;
             let dest = dir.join(transfer::export_name(&serial, slot));
-            let manifest = transfer::export_card(&card, &serial, slot, &runtime.bundle.version, &dest)?;
+            let records = mod_records(runtime);
+            let manifest = transfer::export_card(&card, &serial, slot, &runtime.bundle.version, &dest, &records)?;
             value(transfer::ExportedSaves {
                 saved: dest.to_string_lossy().into_owned(),
                 slots: manifest.slots.into_iter().filter(|s| !s.empty).collect(),
@@ -54,7 +61,7 @@ pub(super) fn command(runtime: &Runtime, name: &str, args: &Value) -> Result<Val
                 value(transfer::preview_into(&card, &serial, &source)?)
             } else {
                 let choice = serde_json::from_value(args["choice"].clone()).map_err(|e| e.to_string())?;
-                value(transfer::import_into(&card, &serial, &source, &choice)?)
+                value(transfer::import_into(&card, &serial, &source, &choice, &mod_records(runtime))?)
             }
         }
         "restore_backup" => {

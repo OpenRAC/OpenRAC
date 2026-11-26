@@ -1,0 +1,186 @@
+// Generated from sdk/bindings/rac3.json by sdk/tools/gen_binding.py. Do not edit.
+// SPDX-License-Identifier: MIT
+//
+// rac3's hook points as C++ types, for the SDK's C++ layer (openrac/mod.hpp, docs/port/MODS.md):
+// each one's permanent id, its name and signature as openrac_api.hook takes them, and the type of a
+// function of it. mod.hook<...>() asks for a hook point by its id. The same types by id are in
+// openrac::rac3::hooks (rac3.player.take_damage: hooks::player::take_damage).
+#pragma once
+
+#include <cstdint>
+
+namespace openrac::rac3 {
+
+// Takes a hit's points from the hero's health (the s32 at 0x001A7430, hero +0x2850), scaled by the armour's factor and the help measure's, at least 1 and never below 0 (hero_damage); the hero's hit reaction calls it for each hit. Going Commando's rac2.player.take_damage.
+struct Hero_TakeDamage {
+    static constexpr const char* id = "rac3.player.take_damage";
+    static constexpr const char* name = "Hero_TakeDamage";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
+// Gives the player item id (item_give): its owned and new bytes (0x00142CA0, 0x00142D40, a byte per item), its row's starting ammo to a gun that has none, the vendor's list (Vendor_StockAdd) and the quick select. Givers, purchases and each level's start (Level_GiveItems) go through it.
+struct Item_Give {
+    static constexpr const char* id = "rac3.item.give";
+    static constexpr const char* name = "Item_Give";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
+// The vendor's Mega upgrade of item id (weapon_buy_mega): its level set to 5, its ammo filled, its experience cleared. The vendor calls it after the price is paid; a replacement can carry out its own upgrade.
+struct Item_Upgrade {
+    static constexpr const char* id = "rac3.item.upgrade";
+    static constexpr const char* name = "Item_Upgrade";
+    static constexpr const char* signature = "i32(i32)";
+    using fn = int32_t (*)(int32_t);
+};
+
+// Steps weapon id to its next level (weapon_level_up): its row (the item's byte at 0x001425C0) moves along the row's +0x46, its experience is raised to the old row's step and its ammo filled. A replacement that does not call the original blocks the step.
+struct Weapon_LevelUp {
+    static constexpr const char* id = "rac3.weapon.level_up";
+    static constexpr const char* name = "Weapon_LevelUp";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
+// Takes rounds of a gun's ammo (ammo_use; item -1: the one in hand): 1 when there were enough, 0 otherwise; always 1 for a gun without a maximum. Every gun calls it as it fires. Rac1's TakeAmmo.
+struct Weapon_TakeAmmo {
+    static constexpr const char* id = "rac3.weapon.take_ammo";
+    static constexpr const char* name = "Weapon_TakeAmmo";
+    static constexpr const char* signature = "i32(i32,i32)";
+    using fn = int32_t (*)(int32_t, int32_t);
+};
+
+// Adds rounds to a gun's ammo (ammo_add, the words at 0x001427F0), capped at its row's maximum (+0x8A); returns what did not fit. Ammo pickups and the vendor call it.
+struct Weapon_AddAmmo {
+    static constexpr const char* id = "rac3.weapon.add_ammo";
+    static constexpr const char* name = "Weapon_AddAmmo";
+    static constexpr const char* signature = "i32(i32,i32)";
+    using fn = int32_t (*)(int32_t, int32_t);
+};
+
+// The price in bolts of the vendor's row under the cursor (vendor_price): the gun's (+0x7C of its row), its level-5 row's for a Mega row, 9/10 of it with the discount. The vendor's screen and the purchase both ask it.
+struct Vendor_Price {
+    static constexpr const char* id = "rac3.vendor.price";
+    static constexpr const char* name = "Vendor_Price";
+    static constexpr const char* signature = "i32()";
+    using fn = int32_t (*)();
+};
+
+// Fills the vendor's weapons rows from its stock (vendor_weapon_list): a rounds row for each owned gun that is not full, a special row, a row for each gun for sale (Mega rows in challenge mode), and keeps the cursor on its item. The vendor calls it as it opens and after a purchase.
+struct Vendor_BuildList {
+    static constexpr const char* id = "rac3.vendor.build_list";
+    static constexpr const char* name = "Vendor_BuildList";
+    static constexpr const char* signature = "i32(i32)";
+    using fn = int32_t (*)(int32_t);
+};
+
+// Lists item id for the vendor (vendor_stock_add; vendor_stock at 0x001D54D8, a u16 per entry: the item, bit 15 owned, bit 14 not yet for sale). Item_Give calls it.
+struct Vendor_StockAdd {
+    static constexpr const char* id = "rac3.vendor.stock_add";
+    static constexpr const char* name = "Vendor_StockAdd";
+    static constexpr const char* signature = "i32(i32)";
+    using fn = int32_t (*)(int32_t);
+};
+
+// An enemy's death (moby_killed): its class's experience to the gun that killed it (by its damage record), the hero's experience and its bolt drop (Bolt_SpawnPickups). Enemies call it as they die. Going Commando's rac2.moby.record_death.
+struct Moby_RecordDeath {
+    static constexpr const char* id = "rac3.moby.record_death";
+    static constexpr const char* name = "Moby_RecordDeath";
+    static constexpr const char* signature = "void(u32,i32,i32)";
+    using fn = void (*)(uint32_t, int32_t, int32_t);
+};
+
+// Queues a damage record (a game address) for moby victim in the hit ring (damage_queue; 0x001EED00, 64 entries): a moby keeps one pending (+0xA8), which a hit at least as strong replaces and a weaker one only adds its flags to. The guns and the shock mod call it. Going Commando's rac2.combat.post_hit.
+struct Moby_PostHit {
+    static constexpr const char* id = "rac3.combat.post_hit";
+    static constexpr const char* name = "Moby_PostHit";
+    static constexpr const char* signature = "void(u32,u32)";
+    using fn = void (*)(uint32_t, uint32_t);
+};
+
+// Spawns a burst of bolt coins from moby (bolts_drop): an amount from low to high split into the biggest coins that fit, each made by Bolt_SpawnPickup; flag 8 at most maximum coins (the rest banked, 0x0014269C). Enemies' drops (Moby_Killed) and the levels' scripted bursts come here. A replacement can change low and high, or make the coins itself.
+struct Bolt_SpawnPickups {
+    static constexpr const char* id = "rac3.bolt.spawn_pickups";
+    static constexpr const char* name = "Bolt_SpawnPickups";
+    static constexpr const char* signature = "void(u32,i32,i32,i32,i32,i32,f32)";
+    using fn = void (*)(uint32_t, int32_t, int32_t, int32_t, int32_t, int32_t, float);
+};
+
+// Makes one bolt coin worth value at position with velocity (game addresses of four floats each) from source (bolt_coin_spawn): its moby, or 0; 64 units or more from the camera the value is banked instead.
+struct Bolt_SpawnPickup {
+    static constexpr const char* id = "rac3.bolt.spawn_pickup";
+    static constexpr const char* name = "Bolt_SpawnPickup";
+    static constexpr const char* signature = "i32(i32,i32,i32,i32,i32,i32)";
+    using fn = int32_t (*)(int32_t, int32_t, int32_t, int32_t, int32_t, int32_t);
+};
+
+// A bolt coin collected (bolt_pickup_collect): its value added to the player's bolts (0x00142660), the bolt HUD shown for 180 frames and its sparkle. The coin's update calls it as it reaches the hero. A replacement can add more with openrac_api.bolts.
+struct Bolt_Collect {
+    static constexpr const char* id = "rac3.bolt.collect";
+    static constexpr const char* name = "Bolt_Collect";
+    static constexpr const char* signature = "i32(i32)";
+    using fn = int32_t (*)(int32_t);
+};
+
+// The way to the next level (level_load, each level's copy): picks the transition for the level asked for, sets level_current (0x001D545C) and starts reading its files. Going Commando's rac2.level.load.
+struct Level_Load {
+    static constexpr const char* id = "rac3.level.load";
+    static constexpr const char* name = "Level_Load";
+    static constexpr const char* signature = "i32()";
+    using fn = int32_t (*)();
+};
+
+// A level's start (give_level_items): the standing items (the suit, the camera options, the thruster-pack) through Item_Give, then the level's own. Every level calls it as it starts.
+struct Level_GiveItems {
+    static constexpr const char* id = "rac3.level.give_items";
+    static constexpr const char* name = "Level_GiveItems";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// The hero's death over (hero_death_done: state 57 ended, or a fall out of the level): the death counted in the stats and the respawn asked for (0x001A71D2), which the level carries out at the end of the frame.
+struct Hero_DeathDone {
+    static constexpr const char* id = "rac3.player.death_done";
+    static constexpr const char* name = "Hero_DeathDone";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+namespace hooks {
+    namespace bolt {
+        using collect = rac3::Bolt_Collect;
+        using spawn_pickup = rac3::Bolt_SpawnPickup;
+        using spawn_pickups = rac3::Bolt_SpawnPickups;
+    }  // namespace bolt
+    namespace combat {
+        using post_hit = rac3::Moby_PostHit;
+    }  // namespace combat
+    namespace item {
+        using give = rac3::Item_Give;
+        using upgrade = rac3::Item_Upgrade;
+    }  // namespace item
+    namespace level {
+        using give_items = rac3::Level_GiveItems;
+        using load = rac3::Level_Load;
+    }  // namespace level
+    namespace moby {
+        using record_death = rac3::Moby_RecordDeath;
+    }  // namespace moby
+    namespace player {
+        using death_done = rac3::Hero_DeathDone;
+        using take_damage = rac3::Hero_TakeDamage;
+    }  // namespace player
+    namespace vendor {
+        using build_list = rac3::Vendor_BuildList;
+        using price = rac3::Vendor_Price;
+        using stock_add = rac3::Vendor_StockAdd;
+    }  // namespace vendor
+    namespace weapon {
+        using add_ammo = rac3::Weapon_AddAmmo;
+        using level_up = rac3::Weapon_LevelUp;
+        using take_ammo = rac3::Weapon_TakeAmmo;
+    }  // namespace weapon
+}  // namespace hooks
+
+}  // namespace openrac::rac3

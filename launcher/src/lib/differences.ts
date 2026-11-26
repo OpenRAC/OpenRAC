@@ -1,5 +1,6 @@
 // A game's differences from the original (core/src/differences.rs), grouped as its page shows
-// them: the fixes a player can switch back first, then the guards, then the PC's own differences.
+// them: the fixes first (a player can switch most back, some are always on), then the guards,
+// then the PC's own differences.
 import type { DifferenceKind, DifferenceView } from "./api";
 
 export interface DifferenceGroup {
@@ -15,7 +16,7 @@ const GROUPS: { kind: DifferenceKind; title: string; about: string }[] = [
     kind: "fix",
     title: "Game fixes",
     about:
-      "On, the port's fix; off, the game plays as on a PlayStation 2. The game's Options menu has the same switches.",
+      "On, the port's fix; off, the game plays as on a PlayStation 2. The game's Options menu has the same switches. Some are always on.",
   },
   {
     kind: "guard",
@@ -32,9 +33,13 @@ const GROUPS: { kind: DifferenceKind; title: string; about: string }[] = [
 
 /** The entries in their groups, in that order; a group with none is left out. */
 export function groupDifferences(entries: DifferenceView[]): DifferenceGroup[] {
-  return GROUPS.map((g) => ({ ...g, entries: entries.filter((e) => e.kind === g.kind) })).filter(
-    (g) => g.entries.length > 0,
-  );
+  // A fix that is always on is listed with the ones that switch.
+  const groupOf = (kind: DifferenceKind): DifferenceKind => (kind === "always" ? "fix" : kind);
+
+  return GROUPS.map((g) => ({
+    ...g,
+    entries: entries.filter((e) => groupOf(e.kind) === g.kind),
+  })).filter((g) => g.entries.length > 0);
 }
 
 /** The folded list in a line (Android's game page): "3 game fixes on · 7 more changes", with how
@@ -44,16 +49,24 @@ export function differencesSummary(entries: DifferenceView[]): string {
   const off = fixes.filter((e) => e.on === false).length;
   const others = entries.length - fixes.length;
   const parts: string[] = [];
+
   if (fixes.length) {
     const noun = fixes.length === 1 ? "game fix" : "game fixes";
-    parts.push(off ? `${fixes.length - off} of ${fixes.length} ${noun} on` : `${fixes.length} ${noun} on`);
+
+    parts.push(
+      off ? `${fixes.length - off} of ${fixes.length} ${noun} on` : `${fixes.length} ${noun} on`,
+    );
   }
-  if (others) parts.push(`${others} ${fixes.length ? "more " : ""}${others === 1 ? "change" : "changes"}`);
+
+  if (others)
+    parts.push(`${others} ${fixes.length ? "more " : ""}${others === 1 ? "change" : "changes"}`);
+
   return parts.join(" · ");
 }
 
 /** A version key's two halves: `rac1/pal` -> [`rac1`, `pal`]. */
 export function splitVersion(key: string): [string, string] {
   const at = key.indexOf("/");
+
   return at < 0 ? [key, ""] : [key.slice(0, at), key.slice(at + 1)];
 }

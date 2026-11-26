@@ -22,7 +22,7 @@ Result<graph::ImageUse> GraphExecution::read_image(
 }
 
 Result<graph::BufferUse> GraphExecution::read_buffer(
-    std::string_view name, unsigned buffer, graph::Stage stages
+    std::string_view name, unsigned buffer, graph::Stage stages, bool instanced
 ) {
     using namespace detail;
     auto* found = g && g->open ? g->buffers.find(buffer) : nullptr;
@@ -33,7 +33,7 @@ Result<graph::BufferUse> GraphExecution::read_buffer(
     }
 
     prepare_frame();
-    const BufferRef region = resolve(*found);
+    const BufferRef region = resolve(*found, !instanced || found->storage);
     constexpr auto shaders =
         graph::Stage::VertexShader | graph::Stage::FragmentShader | graph::Stage::ComputeShader;
     const bool shader_read = stages != graph::Stage::None && (stages | shaders) == shaders;
@@ -109,8 +109,7 @@ Result<void> GraphExecution::capture_sampled_reads(
     // Reflected samplers include only bindings used by the linked shader.
     for (std::size_t index = 0; index < program.compiled.uniforms.size(); ++index) {
         const auto& uniform = program.compiled.uniforms[index];
-
-        // Loose uniforms are uploaded by descriptor creation; only sampler-backed allocations are shared GPU inputs.
+        // Bindless selections declare their reads when the material is resolved.
         if (!uniform.sampler || uniform.binding < 0) {
             continue;
         }
@@ -140,14 +139,6 @@ Result<void> GraphExecution::capture_sampled_reads(
 
             pass.buffers.push_back(*use);
         } else if (texture->image) {
-            // Legacy GL draws substitute the immutable dummy when a texture is
-            // also the current attachment. Capture that same effective input.
-            if (m_recording->attachment_fallback && stages != graph::Stage::ComputeShader) {
-                const auto target = target_of(g->state.draw_framebuffer);
-                if (texture->image.get() == target.colour || texture->image.get() == target.depth) {
-                    continue;
-                }
-            }
             const auto read = m_recording->sampled_image(uniform.name, *texture, stages);
             // Sampled images must have one representable whole-image layout and defined contents.
             if (!read) {

@@ -31,7 +31,9 @@ std::vector<scene::Instance> blend_instances(const Kept& scene, float alpha) {
 
             // Newly spawned mobys have no previous transform.
             if (it != scene.prev_matrices.end()) {
-                live[n].matrix = blend_matrix(it->second, live[n].matrix, alpha);
+                live[n].matrix = blend_matrix(
+                    it->second, live[n].matrix, alpha, moby_pace(scene, scene.addresses[n])
+                );
                 const auto sphere = scene.prev_spheres.find(scene.addresses[n]);
                 live[n].world_sphere = sphere == scene.prev_spheres.end()
                                            ? std::array<float, 4>{}
@@ -49,7 +51,8 @@ std::vector<scene::Instance> blend_instances(const Kept& scene, float alpha) {
     return live;
 }
 
-// Interpolates joints only for the same moby and skeleton.
+// Interpolates joints only for the same moby and skeleton: the same address drawn as the same model
+// (pose_key), with as many joints.
 std::vector<scene::LevelScene::JointColumns> blend_palette(
     const Kept& scene, const std::vector<scene::Instance>& live, float alpha
 ) {
@@ -59,7 +62,7 @@ std::vector<scene::LevelScene::JointColumns> blend_palette(
     for (std::size_t n = 0;
          n < live.size() && n < scene.addresses.size() && n < scene.joints.size();
          ++n) {
-        const auto pose = scene.prev_poses.find(scene.addresses[n]);
+        const auto pose = scene.prev_poses.find(pose_key(scene.addresses[n], live[n].model));
         const int first = live[n].palette;
         const int count = scene.joints[n];
         const auto last = scene.prev_matrices.find(scene.addresses[n]);
@@ -67,7 +70,7 @@ std::vector<scene::LevelScene::JointColumns> blend_palette(
         // Reused moby slots and changed skeletons start a new pose without blending.
         if (pose == scene.prev_poses.end() || first < 0 || count <= 0
             || pose->second.second != count || last == scene.prev_matrices.end()
-            || !same_moby(last->second, scene.live[n].matrix)
+            || !same_moby(last->second, scene.live[n].matrix, moby_pace(scene, scene.addresses[n]))
             || static_cast<std::size_t>(first) + static_cast<std::size_t>(count) > palette.size()) {
             continue;
         }
@@ -141,12 +144,15 @@ void blend_shadow_state(const Kept& scene, float alpha, renderer::FrameInput& in
 
 }  // namespace
 
-host::GameState blend_camera(const host::GameState& from, const host::GameState& to, float t) {
+host::GameState blend_camera(
+    const host::GameState& from, const host::GameState& to, float t, const renderer::Vec3* pace
+) {
     host::GameState c = to;
     const CameraPose pose = blend_pose(
         {from.camera_position, from.forward, from.left, from.up},
         {to.camera_position, to.forward, to.left, to.up},
-        t
+        t,
+        pace
     );
     c.camera_position = pose.position;
     if (from.camera_target && to.camera_target && from.camera_target_id == to.camera_target_id) {
@@ -235,6 +241,9 @@ void upload_instances(SceneFrame& frame) {
 
     frame.owner.scene.set_variant(frame.scene.texture_variant);
     frame.owner.scene.set_instances(scene::Layer::Mobys, drawn);
+    if (!frame.scene.live_views.empty()) {
+        frame.mobys = drawn;
+    }
     frame.output.picker_level = frame.scene.level;
     if (debug_overlay::picker_snapshot_needed()) {
         frame.output.picker_live = live;
@@ -262,7 +271,8 @@ void blend_shadow_sets(SceneFrame& frame, float alpha) {
             || previous == scene.prev_matrices.end() || now == scene.addresses.end()
             || !same_moby(
                 previous->second,
-                scene.live[static_cast<std::size_t>(now - scene.addresses.begin())].matrix
+                scene.live[static_cast<std::size_t>(now - scene.addresses.begin())].matrix,
+                moby_pace(scene, set.moby)
             )) {
             continue;
         }
@@ -317,7 +327,8 @@ void blend_shadows(SceneFrame& frame) {
     if (previous == scene.prev_matrices.end() || now == scene.addresses.end()
         || !same_moby(
             previous->second,
-            scene.live[static_cast<std::size_t>(now - scene.addresses.begin())].matrix
+            scene.live[static_cast<std::size_t>(now - scene.addresses.begin())].matrix,
+            moby_pace(scene, scene.shadow_moby)
         )) {
         return;
     }

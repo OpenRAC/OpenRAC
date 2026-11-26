@@ -44,11 +44,12 @@ pub const NO_BAKER_HERE: &str =
 /// the launcher's own build that counts, as `platform.machine()` does for build_port.py.
 pub const SHIPS_BAKER: bool = !cfg!(all(target_os = "macos", target_arch = "x86_64"));
 
-/// Whether a version has the entry: the bake planner reads RAC1's levels (PAL and NTSC-U) and
-/// RAC2's (its three discs), as the baker's `bake_identity_supported` does.
+/// Whether a version has the entry: the bake planner reads RAC1's levels (PAL and NTSC-U), RAC2's
+/// (its three discs) and RAC3's (PAL and NTSC-U), as the baker's `bake_identity_supported` does.
 pub fn supported(game: &str, version: &str) -> bool {
     (game == "rac1" && matches!(version, "pal" | "ntsc"))
         || (game == "rac2" && matches!(version, "ntsc" | "pal" | "ntsc2"))
+        || (game == "rac3" && matches!(version, "pal" | "ntsc"))
 }
 
 /// Where a version's probe bakes are kept: `<data>/probes/<version>`.
@@ -72,6 +73,7 @@ fn spec(key: &str, name: &str, kind: &str, default: Value, description: &str) ->
         group: String::new(),
         multiplayer: None,
         games: Vec::new(),
+        section: String::new(),
     }
 }
 
@@ -160,11 +162,22 @@ pub fn settings() -> Vec<SettingSpec> {
         "Effects detail",
         "choice",
         "high".into(),
-        "High draws every effect in full. Medium and Low take cheaper shortcuts that change the picture a little: coarser water, simpler leaf shadows, and on Low coarser lighting.",
+        "Controls water geometry, foliage and blended lighting, and far shadow updates.",
     );
     detail.choices = vec![
         Choice { value: "low".into(), name: "Low".into() },
         Choice { value: "medium".into(), name: "Medium".into() },
+        Choice { value: "high".into(), name: "High".into() },
+    ];
+    let mut early_lighting = spec(
+        "early_lighting_quality",
+        "Early Lit cache quality",
+        "choice",
+        "normal".into(),
+        "Normal stores one lighting sample per 4x4 pixels. High stores one per 2x2 pixels.",
+    );
+    early_lighting.choices = vec![
+        Choice { value: "normal".into(), name: "Normal".into() },
         Choice { value: "high".into(), name: "High".into() },
     ];
     vec![
@@ -175,6 +188,7 @@ pub fn settings() -> Vec<SettingSpec> {
         texture_filter,
         temporal,
         detail,
+        early_lighting,
         spec(
             "agx_preview",
             "Color Correction",
@@ -429,8 +443,9 @@ mod tests {
     #[test]
     fn the_versions_the_baker_reads_have_the_entry() {
         assert!(supported("rac1", "pal") && supported("rac1", "ntsc") && supported("rac2", "ntsc"));
-        assert!(supported("rac2", "pal") && supported("rac2", "ntsc2"));
-        assert!(!supported("rac3", "ntsc") && !supported("rac1", "jp") && !supported("rac1", "pal1"));
+        assert!(supported("rac2", "pal") && supported("rac2", "ntsc2") && supported("rac3", "pal"));
+        assert!(supported("rac3", "ntsc"));
+        assert!(!supported("rac1", "jp") && !supported("rac1", "pal1"));
         // Going Commando's settings file is its own: switching it on leaves Ratchet & Clank's alone.
         let home = temp("rac2-entry");
         set_enabled(&home, "rac2", "ntsc", true).unwrap();

@@ -3,6 +3,7 @@
   // page beside it, scrolling on its own. On Android the list is a row above the page instead: the
   // navigation rail is already on the left, and two columns there leave the page too narrow.
   import type { Snippet } from "svelte";
+
   import { onAndroid } from "$lib/api";
 
   let { list, children }: { list: Snippet; children: Snippet } = $props();
@@ -41,18 +42,6 @@
 
   aside {
     overflow-y: auto;
-  }
-
-  /* Each column starts at the window's top, under a desktop's header: up over <main>'s room for it
-     (App.svelte), its first line below the header. */
-  :global(html:not([data-platform="android"])) .frame {
-    height: calc(100% + var(--nav-top));
-    margin-top: calc(-1 * var(--nav-top));
-  }
-
-  :global(html:not([data-platform="android"])) aside,
-  :global(html:not([data-platform="android"])) .content {
-    padding-top: var(--nav-top);
   }
 
   .content {

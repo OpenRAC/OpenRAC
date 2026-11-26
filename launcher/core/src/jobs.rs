@@ -1,6 +1,6 @@
 //! Running actions. A job is a child process whose output lines go to a
 //! sink as [`Event`]s (the app forwards them to the UI as `job-output` and
-//! `job-exit`); a detached launch (the game, Godot) is started and left
+//! `job-exit`); a detached launch (the game, the editor) is started and left
 //! alone.
 
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -65,7 +65,7 @@ fn stopped_by_signal(status: &std::process::ExitStatus) -> Option<String> {
     }
 }
 
-/// The start of a line on which a tool names a folder it wrote (editor/extract.py, assets.py).
+/// The start of a line on which a tool names a folder it wrote (extractor/extract.py, assets.py).
 pub const OUTPUT_LINE: &str = "openrac-output: ";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ts_rs::TS)]
@@ -397,7 +397,7 @@ pub fn launch(plan: &Plan, root: Option<&std::path::Path>) -> Result<Started, St
 /// Starts a detached plan and hands back the child, for a caller that waits for it (a game started
 /// from a shortcut, which ends the launcher with it).
 pub fn spawn_detached(plan: &Plan, root: Option<&std::path::Path>) -> Result<std::process::Child, String> {
-    // Quiet, so a console program (Godot's `_console.exe`, a Scoop shim) opens no console
+    // Quiet, so a console program (a `_console.exe`, a Scoop shim) opens no console
     // window on Windows; a window program opens its window as ever.
     let mut cmd = crate::detect::quiet(&plan.program);
     cmd.args(&plan.args).current_dir(&plan.cwd).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());

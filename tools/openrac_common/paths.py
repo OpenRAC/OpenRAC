@@ -22,7 +22,7 @@ them against the text below):
 It finds the package by the folder that holds it, not by CONTRIBUTING.md, so it works in a
 checkout and in the launcher's bundled copy alike (both carry tools/openrac_common; only a checkout
 has CONTRIBUTING.md). It puts tools/ second on the path: after the script's own folder, whose
-modules keep their names (editor/port.py beside tools/port.py), and before the installed packages,
+modules keep their names (extractor/port.py beside tools/port.py), and before the installed packages,
 so a module tools/ holds is not shadowed by one installed under the same name.
 """
 from pathlib import Path

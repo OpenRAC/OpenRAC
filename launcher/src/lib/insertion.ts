@@ -31,6 +31,7 @@ const I = INSERTION;
 /** How far `t` is through the step from `from` lasting `length`, from 0 to 1. */
 function progress(t: number, from: number, length: number): number {
   if (length <= 0) return t >= from ? 1 : 0;
+
   return Math.min(1, Math.max(0, (t - from) / length));
 }
 
@@ -38,10 +39,13 @@ const smooth = (x: number) => x * x * (3 - 2 * x);
 
 /** When the disc reaches the console and starts to turn towards the player. */
 const faceAt = () => I.intro_s;
+
 /** When the disc touches the spindle: the click, and the drive starts. */
 export const seatedAt = () => I.intro_s + I.face_s + I.grab_s + I.seat_s;
+
 /** When the light comes on: the lid is shut. */
 export const shutAt = () => seatedAt() + I.lid_after_s + I.lid_s;
+
 /** When the screen is all black: the game can start. */
 export const duration = () => shutAt() + I.black_after_s + I.black_s;
 
@@ -57,6 +61,7 @@ export function travelAt(t: number): number {
 export function liftAt(t: number): number {
   const grabbed = progress(t, faceAt() + I.face_s - I.grab_early_s, I.grab_s + I.grab_early_s);
   const pushed = progress(t, faceAt() + I.face_s + I.grab_s, I.seat_s);
+
   return I.grab_lift * smooth(grabbed) * (1 - smooth(pushed));
 }
 
@@ -66,6 +71,7 @@ export function spinAt(t: number): number {
   const spun = Math.max(0, t - seatedAt());
   const ramp = Math.min(spun, I.spin_up_s);
   const full = 360 * I.turns_per_s;
+
   return (full * ramp * ramp) / (2 * I.spin_up_s) + full * (spun - ramp);
 }
 

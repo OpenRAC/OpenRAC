@@ -37,6 +37,9 @@ set(OPENRAC_GAME_C_FLAGS -fno-strict-aliasing -fwrapv -fsigned-char -ffp-contrac
 file(GLOB openrac_game_common_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/lib/*.c"
      "${OPENRAC_GAME_DIR}/common/lib/*.cpp")
 add_library(openrac_game_common STATIC ${openrac_game_common_sources})
+# The 2D layer every game shares (port/ui, openrac/ui.h): built in, as its quads go through the
+# recorder these replacements hold.
+target_sources(openrac_game_common PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../ui/ui.cpp")
 target_include_directories(openrac_game_common PUBLIC "${OPENRAC_GAME_DIR}/common/include")
 # openrac_ps2float: the console's float arithmetic, for the functions hostgen.json "ps2_float" names
 # and the port's own C that computes as the console does (openrac/ps2float.h).
@@ -47,6 +50,8 @@ if(TARGET openrac_assets_disc)
   # program/levels.cpp reads a level's program from the player's image (load_level_program).
   target_compile_definitions(openrac_game_common PUBLIC OPENRAC_HAS_DISC=1)
 endif()
+# The native multiplayer screens behind openrac/mp_ui.h (lib/mp_ui.cpp).
+target_link_libraries(openrac_game_common PUBLIC openrac_mpui)
 # The sound engine the sound library's replacement drives (lib/sound_engine.cpp).
 target_link_libraries(openrac_game_common PUBLIC openrac_audio)
 # The moby animation code the blend snapshot runs (lib/moby_snapshot.cpp).
@@ -61,6 +66,10 @@ target_include_directories(sound_engine_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}/
 target_link_libraries(sound_engine_test PRIVATE openrac_game_common)
 openrac_warnings(sound_engine_test)
 add_test(NAME sound_engine COMMAND sound_engine_test)
+
+# The native sound client's answer/callback order, without a game or audio device.
+openrac_add_test(snd_client SOURCES tests/snd_client_test.cpp tests/snd_client_rac2.c
+                 INCLUDES game/rac2-ntsc/host LIBS openrac_game_common)
 
 # The decomps are git submodules (docs/SOURCES.md). A build folder made before that keeps its old
 # cached OPENRAC_<ID>_SOURCE; a submodule is empty until it is checked out, and upstream's own
@@ -246,6 +255,19 @@ function(openrac_add_game config)
       if(NOT no_retail AND EXISTS "${asm_source}/${retail_exe}")
         list(APPEND inputs "${asm_source}/${retail_exe}")
       endif()
+      # The disc image the decompilation's setup links ("asm" "retail" "image"): hostgen runs again
+      # when it appears or changes, so a build configured before it was linked is not left with
+      # the stubs it wrote without it.
+      string(JSON retail_image ERROR_VARIABLE no_retail GET "${json}" asm retail image)
+      if(NOT no_retail)
+        if(EXISTS "${asm_source}/${retail_image}")
+          list(APPEND inputs "${asm_source}/${retail_image}")
+        endif()
+        get_filename_component(retail_image_dir "${asm_source}/${retail_image}" DIRECTORY)
+        if(IS_DIRECTORY "${retail_image_dir}")
+          list(APPEND inputs "${retail_image_dir}")
+        endif()
+      endif()
       string(JSON retail_dump ERROR_VARIABLE no_retail GET "${json}" asm retail dump)
       if(NOT no_retail AND IS_DIRECTORY "${asm_source}/${retail_dump}")
         file(GLOB retail_manifests CONFIGURE_DEPENDS "${asm_source}/${retail_dump}/level_*/manifest.json")
@@ -259,8 +281,12 @@ function(openrac_add_game config)
   get_filename_component(hostgen_dir "${OPENRAC_HOSTGEN}" DIRECTORY)
   file(GLOB tool CONFIGURE_DEPENDS "${hostgen_dir}/*.py" "${hostgen_dir}/include/*.h")
   file(GLOB tables CONFIGURE_DEPENDS "${config_dir}/*.json" "${config_dir}/*.tsv" "${config_dir}/tables/*"
-       "${config_dir}/release/*"
+       "${config_dir}/release/*" "${config_dir}/checks/*"
        "${config_dir}/hand/*" "${OPENRAC_GAME_DIR}/common/*.tsv")
+  string(JSON query_points ERROR_VARIABLE no_query_points GET "${json}" play_queries)
+  if(NOT no_query_points)
+    list(APPEND tables "${config_dir}/${query_points}")
+  endif()
   # hostgen rewrites only the files whose text changed, so after an edit only
   # those recompile: the stamp says when it last ran, the files are byproducts
   # whose times the build looks at again.
@@ -301,7 +327,54 @@ function(openrac_add_game config)
     COMMENT "hostgen: ${id} from ${game_source}"
     JOB_POOL openrac_hostgen
     VERBATIM)
-  add_custom_target(openrac_${target_id}_hostgen DEPENDS "${gen}/hostgen.stamp")
+  # Other executables of the disc built into the same program ("executables": each a hostgen.json
+  # in a folder beside the game's, whose "prefix" starts every C name it writes): Up Your Arsenal's
+  # multiplayer game, I5BOOTN.ELF, which the boot program starts by LoadExecPS2. Each is translated
+  # into gen/<folder> and compiled into the game's library with the first.
+  set(stamps "${gen}/hostgen.stamp")
+  string(JSON exe_count ERROR_VARIABLE no_exes LENGTH "${json}" executables)
+  if(NOT no_exes AND exe_count GREATER 0)
+    math(EXPR last "${exe_count} - 1")
+    foreach(i RANGE ${last})
+      string(JSON exe_config GET "${json}" executables ${i})
+      set(exe_config "${config_dir}/${exe_config}")
+      get_filename_component(exe_dir "${exe_config}" DIRECTORY)
+      get_filename_component(exe_name "${exe_dir}" NAME)
+      set(exe_gen "${gen}/${exe_name}")
+      set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${exe_config}")
+      execute_process(
+        COMMAND "${Python3_EXECUTABLE}" "${OPENRAC_HOSTGEN}" --game "${exe_config}"
+                --source "${game_source}" --out "${exe_gen}" --list
+        OUTPUT_VARIABLE exe_listing
+        RESULT_VARIABLE status)
+      if(NOT status EQUAL 0)
+        message(FATAL_ERROR "hostgen could not list the sources of ${id}'s ${exe_name}")
+      endif()
+      string(REPLACE "\n" ";" exe_listing "${exe_listing}")
+      set(exe_outputs "")
+      foreach(file IN LISTS exe_listing)
+        if(file)
+          list(APPEND exe_outputs "${exe_gen}/${file}")
+          if(file MATCHES "\\.c$")
+            list(APPEND sources "${exe_gen}/${file}")
+          endif()
+        endif()
+      endforeach()
+      file(GLOB exe_tables CONFIGURE_DEPENDS "${exe_dir}/*.json" "${exe_dir}/*.tsv")
+      add_custom_command(
+        OUTPUT "${exe_gen}/hostgen.stamp"
+        BYPRODUCTS ${exe_outputs}
+        COMMAND "${Python3_EXECUTABLE}" "${OPENRAC_HOSTGEN}" --game "${exe_config}"
+                --source "${game_source}" --out "${exe_gen}" --quiet ${asm_args}
+        COMMAND "${CMAKE_COMMAND}" -E touch "${exe_gen}/hostgen.stamp"
+        DEPENDS ${inputs} ${tool} ${exe_tables} "${OPENRAC_GAME_DIR}/common/libraries.tsv"
+        COMMENT "hostgen: ${id}'s ${exe_name} from ${game_source}"
+        JOB_POOL openrac_hostgen
+        VERBATIM)
+      list(APPEND stamps "${exe_gen}/hostgen.stamp")
+    endforeach()
+  endif()
+  add_custom_target(openrac_${target_id}_hostgen DEPENDS ${stamps})
   # Every call through a known code address passes its arguments as the function there takes them,
   # by position (Windows x64) as well as by kind (tools/hostgen/abicheck.py), and the game's host C
   # declares the game functions it calls or replaces as game_protos.h has them.
@@ -314,6 +387,8 @@ function(openrac_add_game config)
 
   # The game: generated C, and the game's own host C if it has any.
   file(GLOB host CONFIGURE_DEPENDS "${config_dir}/host/*.c")
+  # The host C as written, for the check that each fix it reads is listed for this disc.
+  set(fix_readers ${host})
   # Host C one game shares between its versions ("host_shared": directories relative to the game's,
   # rac1's ../rac1/host): compiled into each version's program on its own, finding that version's
   # names and addresses in the version's host/ (rac1_version.h).
@@ -324,6 +399,7 @@ function(openrac_add_game config)
     foreach(i RANGE ${last})
       string(JSON shared_dir GET "${json}" host_shared ${i})
       file(GLOB shared_host CONFIGURE_DEPENDS "${config_dir}/${shared_dir}/*.c")
+      list(APPEND fix_readers ${shared_host})
       list(APPEND shared_includes "${config_dir}/${shared_dir}")
       # Another release of one decompilation (hostgen.json "release"): the shared C in the
       # release's function names, written in one pass from its table (tools/hostgen/release_host.py).
@@ -373,29 +449,29 @@ function(openrac_add_game config)
   endif()
 
   # On Android the game is the library SDL's activity loads and whose main it calls
-  # (libopenrac-<id>.so), and the same program again as an executable the launcher runs for what
-  # needs no window (--check-levels). Android runs programs only from the app's library folder,
-  # so that one is named like a library too: libopenrac-<id>-cli.so (docs/port/ANDROID.md).
+  # (libopenrac-<id>.so). The launcher runs what needs no window (--check-levels) as a program,
+  # libopenrac-<id>-cli.so below: a few lines that call the library's main.
   if(ANDROID)
     add_library(openrac-${id} SHARED "${OPENRAC_GAME_DIR}/common/main.cpp")
     target_compile_definitions(openrac-${id} PRIVATE OPENRAC_ANDROID_ACTIVITY=1)
     # Its calls to its own functions bound inside it, as in a program (cmake/Android.cmake).
     target_link_options(openrac-${id} PRIVATE LINKER:-Bsymbolic-functions)
-    add_executable(openrac-${id}-cli "${OPENRAC_GAME_DIR}/common/main.cpp")
-    # It finds libSDL3.so and libc++_shared.so beside it, in the same folder.
-    set_target_properties(openrac-${id}-cli PROPERTIES OUTPUT_NAME "libopenrac-${id}-cli.so"
-                                                     BUILD_RPATH "\$ORIGIN")
-    set(targets openrac-${id} openrac-${id}-cli)
+    set(targets openrac-${id})
   else()
     add_executable(openrac-${id} "${OPENRAC_GAME_DIR}/common/main.cpp")
     set(targets openrac-${id})
+    # openrac-<id>-states: the same program without the window (no renderer, sound output or
+    # input), for tools that only need the game's state: the editor's moby start states
+    # (--moby-states, program/moby_states.h).
+    add_executable(openrac-${id}-states "${OPENRAC_GAME_DIR}/common/main.cpp")
+    list(APPEND targets openrac-${id}-states)
   endif()
   # The game fixes of this disc (cmake/Differences.cmake), which the game's host C reads through
   # openrac_game_fix: in every program, with a window or without.
   string(JSON game GET "${json}" game)
   string(REGEX REPLACE "^${game}-" "" version "${id}")
   set(fixes_cpp "${CMAKE_BINARY_DIR}/generated/openrac_fixes_${target_id}.cpp")
-  openrac_write_fixes("${game}" "${version}" "${fixes_cpp}")
+  openrac_write_fixes("${game}" "${version}" "${fixes_cpp}" READERS ${fix_readers})
   # The host program's source folders in game/common (port/game/README.md), globbed like the
   # library replacements so that a new file there adds no line here.
   # program/: the program itself (its options, vsync, levels, sound, movies, the host side of
@@ -424,7 +500,7 @@ function(openrac_add_game config)
       target_link_libraries(${target} PRIVATE winmm)
     endif()
     # The window: the renderer draws what the game holds in memory (game/common/frontend.h).
-    if(TARGET openrac_scene_renderer AND TARGET openrac_platform)
+    if(TARGET openrac_scene_renderer AND TARGET openrac_platform AND NOT target MATCHES "-states$")
       target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/frontend.cpp"
                                        "${OPENRAC_GAME_DIR}/common/controls_store.cpp"
                                        "${OPENRAC_GAME_DIR}/common/debug_menu.cpp"
@@ -454,6 +530,7 @@ function(openrac_add_game config)
         target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/profile_none.cpp")
       endif()
       target_link_libraries(${target} PRIVATE Threads::Threads)
+      openrac_built_in_mods(${target} ${game_name})
       # The debug overlay's moby class names: the editor's table, as text.
       openrac_moby_class_names(names_cpp)
       target_sources(${target} PRIVATE "${names_cpp}")
@@ -505,6 +582,17 @@ function(openrac_add_game config)
     endif()
     openrac_warnings(${target})
   endforeach()
+  # Android runs programs only from the app's library folder, so the windowless program is named
+  # like a library too (docs/port/ANDROID.md). It holds no game code: it calls the game library's
+  # main, so the APK carries each game once. It finds that library, libSDL3.so and
+  # libc++_shared.so beside it, in the same folder.
+  if(ANDROID)
+    add_executable(openrac-${id}-cli "${PROJECT_SOURCE_DIR}/android/game_cli.c")
+    target_link_libraries(openrac-${id}-cli PRIVATE openrac-${id})
+    set_target_properties(openrac-${id}-cli PROPERTIES OUTPUT_NAME "libopenrac-${id}-cli.so"
+                                                     BUILD_RPATH "\$ORIGIN")
+    list(APPEND targets openrac-${id}-cli)
+  endif()
   # OPENRAC_PORT_GAMES_IN_ALL off: the game is built only when named (CI builds the rest of the
   # port in one job and each program in its own).
   if(NOT OPENRAC_PORT_GAMES_IN_ALL)
@@ -538,6 +626,31 @@ const unsigned char openrac_icon_png[] = {${bytes}};
 const unsigned int openrac_icon_png_size = ${size}u;
 ")
   set(${out} "${c}" PARENT_SCOPE)
+endfunction()
+
+# The mods built into a game's program (game/common/built_in_mods.h), with a window only: the
+# game's built_in_mods.cpp and its keyboard and mouse (game/<game>/keyboard_mouse), or
+# built_in_mods_none.cpp for a game with none. Ratchet & Clank and Going Commando share one
+# manifest (game/common/keyboard_mouse/openrac-mod.json), embedded as a C++ string
+# (openrac_keyboard_mouse_manifest).
+function(openrac_built_in_mods target game_name)
+  set(dir "${OPENRAC_GAME_DIR}/${game_name}")
+  if(NOT EXISTS "${dir}/built_in_mods.cpp")
+    target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/built_in_mods_none.cpp")
+    return()
+  endif()
+  set(json "${OPENRAC_GAME_DIR}/common/keyboard_mouse/openrac-mod.json")
+  set(cpp "${CMAKE_BINARY_DIR}/generated/openrac_${game_name}_built_in_manifests.cpp")
+  set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${json}")
+  file(READ "${json}" hex HEX)
+  string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," bytes "${hex}")
+  file(CONFIGURE OUTPUT "${cpp}" CONTENT "/* Generated from ${json} by cmake/Games.cmake. */
+extern const unsigned char openrac_keyboard_mouse_manifest[] = {${bytes}0};
+")
+  target_sources(${target} PRIVATE "${dir}/built_in_mods.cpp" "${dir}/keyboard_mouse/keyboard_mouse.cpp"
+                                   "${OPENRAC_GAME_DIR}/common/key_prompts.cpp"
+                                   "${cpp}")
+  target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/../sdk/include")
 endfunction()
 
 # The in-game menu's typefaces as C++ arrays (openrac_font_<name>, openrac_font_<name>_size), from
@@ -602,10 +715,10 @@ function(openrac_add_games)
   endforeach()
 endfunction()
 
-# The editor's moby class names (editor/moby_classes.tsv: class number, name, with its notice in
+# The editor's moby class names (extractor/moby_classes.tsv: class number, name, with its notice in
 # its first lines) as one string, openrac_moby_class_names, for the debug overlay's moby list.
 function(openrac_moby_class_names out)
-  set(tsv "${PROJECT_SOURCE_DIR}/../editor/moby_classes.tsv")
+  set(tsv "${PROJECT_SOURCE_DIR}/../extractor/moby_classes.tsv")
   set(cpp "${CMAKE_BINARY_DIR}/generated/openrac_moby_class_names.cpp")
   if(EXISTS "${tsv}")
     file(READ "${tsv}" text)
@@ -613,7 +726,7 @@ function(openrac_moby_class_names out)
   else()
     set(text "")
   endif()
-  file(CONFIGURE OUTPUT "${cpp}" CONTENT "// Generated from editor/moby_classes.tsv by cmake/Games.cmake.
+  file(CONFIGURE OUTPUT "${cpp}" CONTENT "// Generated from extractor/moby_classes.tsv by cmake/Games.cmake.
 extern const char *const openrac_moby_class_names;
 const char *const openrac_moby_class_names = R\"tsv(${text})tsv\";
 " @ONLY)

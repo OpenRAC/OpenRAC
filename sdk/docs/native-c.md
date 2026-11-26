@@ -146,4 +146,85 @@ find_package(OpenRACMod 1.1 REQUIRED)
 openrac_add_mod(my_mod MANIFEST openrac-mod.json SOURCES src/mod.c)
 ```
 
+You need CMake 3.20 or newer, a C compiler (Clang, GCC or MSVC) and Python 3.
+Ninja is the fastest generator, but any works. The template's
+`tools/fetch_sdk.py` downloads the SDK version it pins. To use another SDK,
+point CMake at it:
+
+```sh
+cmake -S . -B build -G Ninja -DOPENRAC_SDK=<SDK>   # or -DOpenRACMod_DIR=<SDK>/cmake
+cmake --build build
+```
+
+- **macOS**: install Xcode's command-line tools (`xcode-select --install`) and
+  `brew install cmake ninja`. The build is for your Mac's processor. Add
+  `-DCMAKE_OSX_ARCHITECTURES=x86_64` for Intel. Build one architecture at a
+  time and join the two archives afterwards.
+- **Linux**: `sudo apt install build-essential cmake ninja-build python3` (or
+  your distribution's packages). For Clang, add `-DCMAKE_C_COMPILER=clang`.
+- **Windows**: install Visual Studio 2022 with "Desktop development with C++".
+  In an "x64 Native Tools Command Prompt", run `cmake -S . -B build -G Ninja`.
+  Without `-G`, CMake uses Visual Studio's generator; then build with
+  `cmake --build build --config Release`. For Clang, use `-T ClangCL` or
+  `-DCMAKE_C_COMPILER=clang-cl`.
+- **Android**: use the NDK's toolchain file:
+  `-DCMAKE_TOOLCHAIN_FILE=<NDK>/build/cmake/android.toolchain.cmake
+  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28`.
+
+`openrac_add_mod(<target> ...)` builds `<target>.dylib`, `.so` or `.dll` (no
+`lib` prefix on any system) as C11. It puts the mod in
+`build/package/<target>/` the way the archive holds it: the manifest (its
+`plugin` names `lib/<platform>/<file>`), the library, the README and the
+LICENSE. The platforms are `macos-arm64`, `macos-x86_64`, `linux-x86_64`,
+`linux-aarch64`, `windows-x86_64`, `windows-arm64` and `android-arm64`.
+[Packaging and releases](packaging-and-releases.md) turns that folder into
+archives.
+
 The full list of the table's members is the [reference](reference/c-api.md).
+
+## RAC1 item reservations, ammo panels and custom weapons
+
+Native SDK 1.33 adds RAC1 calls for cooperative item ID reservation,
+native ammo panel positioning, and native-backed custom weapons:
+
+- Call `rac1_reserve_item_ids(mod, ids, count)` during load. Request only
+  native IDs you have verified are unused on the discs your mod supports.
+  All IDs are reserved together. A conflict refuses the batch and loading
+  should stop before you write item state. The port releases the IDs on
+  failed load or unload. This is cooperative ownership of existing IDs.
+  It leaves the game's item definitions, save format and menu entries alone.
+- Call `rac1_ammo_panel_offset(mod, handle, x, y)` on the game thread for a
+  native ammo panel your mod queued. The offsets use the game's HUD units
+  and translate the panel's caps, icon and text together. Pass zero for
+  both offsets before removing a panel. Re-register after changing the
+  queue handle. Level changes and mod unload discard the placement.
+- On RAC1 (PAL and NTSC-U), fill `openrac_rac1_weapon` and call
+  `rac1_weapon_register(mod, &definition)` during load to register a
+  weapon in native extension slot 1 or 36. The SDK reserves the slot and
+  enrols it in the paged Quick Select ring and pause Weapons grid (press
+  R1 to cycle overflow pages). Choose the native presentation weapon for
+  the stock animation, name, and default art. Optional mod-relative GLBs
+  replace the held weapon and the weapon and ammo preview models.
+  `OPENRAC_RAC1_WEAPON_NO_HELD_MODEL` hides the native held model while
+  leaving the pause preview mesh available. An icon key can select a
+  different native icon, and `hud_icon` can select a separate icon for
+  the in-play ammunition box. Set `display_name` for the page and wheel
+  labels. The pause preview can use its own scale, vertical offset, and
+  optional local X/Y/Z rotation in radians (`weapon_preview_rotation`).
+
+Set the native ammo capacity, initial amount, rounds per shot, unit
+price, cooldown, and trigger mode. The `fire` callback creates the shot
+or effect and returns nonzero on success. The SDK routes Circle to it,
+accounts for ammo and cooldown, and uses the native HUD. The vendor
+uses the same ammo and pricing data. It includes the optional weapon
+purchase when there is room in its native list. Call
+`rac1_weapon_grant(mod, id)` during play to give the weapon through a
+mission or scripted acquisition.
+
+A mod can set `OPENRAC_RAC1_WEAPON_EXTERNAL_SHOP` to keep its own
+vendor transaction and preview handling, and
+`OPENRAC_RAC1_WEAPON_EXTERNAL_AMMO` when its fire callback validates
+and spends ammo directly.
+
+This integration uses the two native extension IDs. A reservation
+conflict refuses registration.

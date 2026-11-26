@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <utility>
 
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 #include "renderer_shaders.h"
@@ -106,12 +107,20 @@ bool DebugLines::draw(
     glBlendEquation(GL_FUNC_ADD);
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
     // Reversed depth separates faint hidden edges from opaque visible edges without changing world depth.
-    glDepthFunc(GL_LESS);
-    glUniform1f(m_shader.uniform("debug_alpha"), kHiddenAlpha);
-    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(m_vertices.size()));
-    glDepthFunc(GL_GEQUAL);
-    glUniform1f(m_shader.uniform("debug_alpha"), 1);
-    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(m_vertices.size()));
+    const RasterBuffer geometry{m_buffer, m_vertices.size() * sizeof(DebugLineVertex)};
+    raster_pass(
+        "viewer debug lines",
+        state.target,
+        {{&geometry, 1}, {}, ColourAttachments::ColourDepthRead},
+        [&] {
+            glDepthFunc(GL_LESS);
+            glUniform1f(m_shader.uniform("debug_alpha"), kHiddenAlpha);
+            glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(m_vertices.size()));
+            glDepthFunc(GL_GEQUAL);
+            glUniform1f(m_shader.uniform("debug_alpha"), 1);
+            glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(m_vertices.size()));
+        }
+    );
     state.stats.draw_calls += 2;
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);

@@ -148,5 +148,20 @@
       "percent": 0.51
     },
     "note": "Functions are compared one by one with most 16-bit immediates masked (symbols, struct offsets and small constants are not checked), and nothing is linked yet, so this is a looser proof than the other games'. Overlay code identical to resident code is counted once."
+  },
+  "rac4/pal": {
+    "title": "Ratchet: Deadlocked",
+    "region": "PAL (Europe)",
+    "serial": "SCES_532.85",
+    "progress": {
+      "matched_code": 730100,
+      "total_code": 5810856,
+      "matched_functions": 7644,
+      "total_functions": 18134,
+      "fuzzy_percent": 12.99,
+      "date": "2026-11-08",
+      "percent": 12.56
+    },
+    "note": "rac4-decomp's PAL report: the same function-by-function comparison as NTSC-U's (most 16-bit immediates masked, nothing linked yet), on the PAL disc's programs."
   }
 }

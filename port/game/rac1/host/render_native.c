@@ -65,22 +65,12 @@ void func_00204340(gaddr a0, gaddr a1, gaddr a2, gaddr a3, int a4) {
 #endif
 
 /*
- * A marker in the display list, where the game's write pointer (D_00161000) is: a DMA cnt of two
- * quadwords with VIF DIRECT, a PACKED GIF tag of one A+D register, then the A+D write of `value` to
- * the NOP register, as ui2d.c's quad markers. The chip ignores it; the window reads its top 16 bits
- * (renderer::GifInterpreter's kUiQuadMarker, kMobyMarker and kWorldMarker).
+ * The frame recorder's place for what follows (openrac/frame.h, docs/port/FRAME_RECORDER.md): the
+ * display list's write pointer (D_00161000), where the game's next packet goes. Nothing is written
+ * into the list; the window finds that place among what the list still draws.
  */
-static void put_marker(uint64_t value) {
-    const gaddr at = GREF(gaddr, OPENRAC_DATA(RAC1_ADDR(0x00161000u)));
-    GREF(uint32_t, at + 0) = 0x10000002u;
-    GREF(uint32_t, at + 4) = 0;
-    GREF(uint32_t, at + 8) = 0;
-    GREF(uint32_t, at + 12) = 0x50000002u;
-    GREF(uint64_t, at + 16) = 1ull | (1ull << 15) | (1ull << 60);
-    GREF(uint64_t, at + 24) = 0xEull;
-    GREF(uint64_t, at + 32) = value;
-    GREF(uint64_t, at + 40) = 0x7Full;
-    GREF(gaddr, OPENRAC_DATA(RAC1_ADDR(0x00161000u))) = at + 48;
+static void anchor(void) {
+    openrac_frame_anchor_at(OPENRAC_DATA(RAC1_ADDR(0x00161000u)));
 }
 
 /* a moby texture DMA */
@@ -188,12 +178,10 @@ static void mark_drawn_mobys(gaddr first, int count) {
 int func_00212658(int a0, int a1, int a2, int a3) {
     mark_drawn_mobys((gaddr)a0, a2);
     openrac_game_draw(OPENRAC_DRAW_MOBYS);
-    if (openrac_game_mobys_drawn((gaddr)a0, a2)) {
-        /* A moby marker in the display list (put_marker), the count in bits 32-47 and the first
-         * moby in the low word: the mobys of a screen the game renders to a texture (the vendor's
-         * item and salesman) are drawn into it there. */
-        put_marker((0x4D42ull << 48) | ((uint64_t)(a2 & 0xFFFF) << 32) | (uint32_t)a0);
-    }
+    /* The list's mobys where the game draws them: the mobys of a screen the game renders to a
+     * texture (the vendor's item and salesman) are drawn into it there. */
+    anchor();
+    openrac_frame_mobys((gaddr)a0, a2);
     (void)a0;
     (void)a1;
     (void)a2;
@@ -222,12 +210,21 @@ void func_00218B10(void) {
     const gaddr pool = GREF(gaddr, OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0016022Cu)));
     const int high = GREF(int, OPENRAC_LDATA(0, RAC1_LADDR(00, 0x00160234u)));
     const gaddr table = OPENRAC_LDATA(0, RAC1_LADDR(00, 0x001B1C00u)) + 0x200;
-    if (pool == 0 || pool >= 0x01FE0000u) {
+    // Under the top of game memory: 32 MiB, or more for a level mounted in expanded memory, whose
+    // pool then lies past the console's 32 MiB.
+    if (pool == 0 || pool + 2048u * 0x40u > openrac_guest_ram_size) {
         return;
     }
     for (int i = 0; i <= high && i < 2048; ++i) {
         const uint8_t* r = G(pool + (gaddr)i * 0x40);
         if ((r[1] & 0x80) != 0) {
+            continue;
+        }
+        if (r[2] >= RAC1_PARTICLE_TEXTURE_FIRST) {
+            // A mod's texture (particle_texture_register, 1.33): an id past the table's 128 entries.
+            uint32_t pixels = 0, clut = 0;
+            rac1_particle_texture_at(r[2], &pixels, &clut);
+            openrac_game_particle(r, pixels, clut, 5, 0);
             continue;
         }
         uint64_t entry;
@@ -272,7 +269,8 @@ void func_002298B0(int a0, int a1) {
 /* ShrubProc, the shrub renderer */
 void func_00229F00(void) {
     /* The previous callback list draws both ice layers before the shrubs' scuff decals. */
-    put_marker((uint64_t)OPENRAC_WORLD_SHRUBS_MARKER << 48);
+    anchor();
+    openrac_frame_world_shrubs();
     openrac_game_draw(OPENRAC_DRAW_SHRUBS);
 }
 
@@ -356,8 +354,8 @@ void func_0022CEB8(void) {
 }
 
 /*
- * TfragProc, the terrain renderer. The world's marker goes into the display list here (kWorldMarker,
- * 0x574C in the top 16 bits): DrawWorld's first native pass after the sky, where the window draws
+ * TfragProc, the terrain renderer. The world goes to the frame recorder here
+ * (openrac_frame_world): DrawWorld's first native pass after the sky, where the window draws
  * the world. The 2D path before it (the frame's clear and blur, the sky's setup) is drawn before the
  * world, the rest (the draw callbacks' effects, the HUD, the fades) after it. The first VU1 program
  * a frame started stood for it before, but the port's world renderers send none, and the first is
@@ -366,7 +364,8 @@ void func_0022CEB8(void) {
  */
 void func_002352C8(void) {
     openrac_game_draw(OPENRAC_DRAW_TERRAIN);
-    put_marker(0x574Cull << 48);
+    anchor();
+    openrac_frame_world(OPENRAC_DRAW_TERRAIN);
 }
 
 /* ComputeTfragTextureUsage */

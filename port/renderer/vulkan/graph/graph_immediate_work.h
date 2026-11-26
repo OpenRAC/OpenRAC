@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Captures compatibility GPU operations as declared graph work.
+// Declares native transfers and attachment clears before recording.
 #pragma once
 
 #include "renderer/vulkan/vkgl_internal.h"
@@ -13,8 +13,8 @@ class GraphExecution;
 namespace openrac::vkgl::detail {
 class GraphImmediateWork {
 public:
-    static void draw(const std::function<void()>& record, GpuPage* page, unsigned indirect);
-    static void dispatch(const std::function<void()>& record);
+    // Declares materials selected after an ordered raster callback has begun.
+    static void prepare_material_reads(std::span<const Sampled> textures);
     static void copy_buffer(
         VkCommandBuffer command,
         BufferRef source,
@@ -62,6 +62,7 @@ public:
     );
 
 private:
+    friend class GraphFixture;
     // Captures the target's existing contents and attachment role for draws and clears.
     static void capture_attachment(
         GraphExecution& execution,
@@ -89,6 +90,7 @@ private:
         std::span<const ImageAccess> images,
         std::span<const BufferAccess> buffers,
         const std::function<void()>& record,
+        bool host_readback = false,
         std::source_location site = std::source_location::current()
     );
 };

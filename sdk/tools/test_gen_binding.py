@@ -2,6 +2,9 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Tests of gen_binding.py: python3 -m unittest discover -s sdk/tools -p test_gen_binding.py"""
 import json
+import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -87,8 +90,27 @@ class Fixture:
 
 
 class Binding(unittest.TestCase):
+    def test_rac2_hooks_cover_every_disc_with_generic_names(self):
+        binding = gen_binding.load("rac2")
+        for hook in binding["hooks"]:
+            with self.subTest(hook=hook["id"]):
+                self.assertEqual(set(hook["symbols"]), set(binding["discs"]))
+                self.assertFalse(any(alias.startswith("APRac2_") for alias in hook["aliases"]))
+        self.assertEqual(gen_binding.check_rows(binding), [])
+
+    def test_rac2_release_hooks_use_canonical_entry_symbols(self):
+        binding = gen_binding.load("rac2")
+        for disc in ("pal", "ntsc2"):
+            table = ROOT / f"port/game/rac2-{disc}/release/release_names.json"
+            if not table.is_file():
+                self.skipTest("needs the port's release tables")
+            entries = set(json.loads(table.read_text())["names"].values())
+            for hook in binding["hooks"]:
+                with self.subTest(disc=disc, hook=hook["id"]):
+                    self.assertIn(hook["symbols"][disc], entries)
+
     def test_committed_outputs_are_the_tables(self):
-        self.assertEqual(gen_binding.main(["rac1", "--check"]), 0)
+        self.assertEqual(gen_binding.main(["--check"]), 0)  # every game's table
         self.assertEqual(gen_binding.main(["--table", str(ROOT / "port/tests/script_binding_test.json"),
                                            "--c", str(ROOT / "port/tests/script_binding_test.c"), "--check"]), 0)
 
@@ -110,6 +132,60 @@ class Binding(unittest.TestCase):
         # A job both games have keeps rac1's <area>.<name> (openrac-mods docs/MULTI_GAME.md).
         rac1 = {h["id"].split(".", 1)[1] for h in gen_binding.load("rac1")["hooks"]}
         self.assertIn("player.take_damage", rac1)
+
+    def test_rac2s_bolt_hooks_cover_every_disc_and_the_level_copy(self):
+        b = gen_binding.load("rac2")
+        bolt = {h["id"]: h for h in b["hooks"] if h["id"].startswith("rac2.bolt.")}
+        self.assertEqual(sorted(bolt), ["rac2.bolt.collect", "rac2.bolt.spawn_pickup", "rac2.bolt.spawn_pickups"])
+        # The port's prototypes (game_protos.h): the splitter, one coin, the collector.
+        self.assertEqual(bolt["rac2.bolt.spawn_pickups"]["signature"], "void(u32,i32,i32,i32,i32,i32,f32)")
+        self.assertEqual(bolt["rac2.bolt.spawn_pickup"]["signature"], "u32(u32,u32,u32,u32,i32,i32)")
+        self.assertEqual(bolt["rac2.bolt.collect"]["signature"], "void(u32)")
+        for h in bolt.values():
+            self.assertEqual(set(h["symbols"]), {"ntsc", "pal", "ntsc2"}, h["id"])
+        # The splitter is the executable's and each level's copy (part_spawn_bolt_pickups, which
+        # SetDeathBits' level copy and part_spawn_scaled_bolts call): a hook row for each, one id.
+        splitter = bolt["rac2.bolt.spawn_pickups"]
+        self.assertEqual(splitter["copies"], {"ntsc": ["func_L00_00321878"], "pal": ["func_L00_00323918"],
+                                              "ntsc2": ["func_L00_00322AF0"]})
+        rows = gen_binding.hook_rows("rac2", b["discs"])
+        self.assertEqual(rows["ntsc"]["Bolt_SpawnPickups"], {"func_002ADB78", "func_L00_00321878"})
+        self.assertEqual(rows["pal"]["Bolt_SpawnPickups"], {"func_002AE6D8", "func_L00_00323918"})
+        self.assertEqual(rows["ntsc2"]["Bolt_SpawnPickups"], {"func_002AE9E0", "func_L00_00322AF0"})
+        for name in ("func_L00_00321878", "func_L00_00323918", "func_L00_00322AF0", "func_002AE6D8"):
+            self.assertEqual(b["aliases"][name], "rac2.bolt.spawn_pickups")
+        self.assertEqual(b["aliases"]["Bolt_Collect"], "rac2.bolt.collect")
+        # Anchored on NTSC-U v1.01 and kept in the lock.
+        locked = gen_binding.read_lock(ROOT / "sdk/bindings/rac2.ids.lock")
+        self.assertEqual(locked["rac2.bolt.spawn_pickups"][0], "ntsc:002ADB78")
+        self.assertEqual(locked["rac2.bolt.spawn_pickup"][0], "ntsc:00302470")
+        self.assertEqual(locked["rac2.bolt.collect"][0], "ntsc:00301D10")
+        self.assertEqual(gen_binding.check_rows(b), [])
+
+    def test_rac3s_hooks_are_its_libraries_hook_rows(self):
+        b = gen_binding.load("rac3")
+        self.assertEqual(gen_binding.check_rows(b), [])
+        self.assertEqual(b["discs"], ["pal", "ntsc"])
+        ids = {h["id"]: h for h in b["hooks"]}
+        # The core hook points a mod uses, each on both discs.
+        for i in ("rac3.player.take_damage", "rac3.item.give", "rac3.item.upgrade", "rac3.vendor.price",
+                  "rac3.vendor.build_list", "rac3.bolt.spawn_pickups", "rac3.bolt.collect", "rac3.level.load",
+                  "rac3.moby.record_death"):
+            self.assertIn(i, ids)
+            self.assertEqual(set(ids[i]["symbols"]), {"pal", "ntsc"}, i)
+        # A job Going Commando has keeps its <area>.<name> (openrac-mods docs/MULTI_GAME.md).
+        rac2 = {h["id"].split(".", 1)[1] for h in gen_binding.load("rac2")["hooks"]}
+        for i in ("player.take_damage", "item.give", "item.upgrade", "vendor.price", "vendor.build_list",
+                  "bolt.spawn_pickups", "bolt.spawn_pickup", "bolt.collect", "level.load", "moby.record_death",
+                  "combat.post_hit", "weapon.take_ammo", "weapon.level_up"):
+            self.assertIn(i, rac2)
+            self.assertIn("rac3." + i, ids)
+        # A level's function is one hook point in every level: anchored on PAL's catalogue name,
+        # NTSC-U's (release_carry_rac3.py) an alias.
+        locked = gen_binding.read_lock(ROOT / "sdk/bindings/rac3.ids.lock")
+        self.assertEqual(locked["rac3.player.take_damage"][0], "pal:L01:004DFEA0")
+        self.assertEqual(b["aliases"]["func_L01_004DC1C0"], "rac3.player.take_damage")
+        self.assertEqual(b["aliases"]["Moby_RecordDeath"], "rac3.moby.record_death")
 
     def test_the_catalogues_update_functions_are_hook_points(self):
         b = gen_binding.load("rac1")
@@ -252,6 +328,45 @@ class Binding(unittest.TestCase):
                 path.write_text(json.dumps(t))
                 with self.assertRaises(gen_binding.BindingError, msg=broken):
                     gen_binding.load("", None, path)
+
+
+GAMES = sorted(p.stem for p in (ROOT / "sdk" / "bindings").glob("*.json"))
+CXX = shutil.which("clang++") or shutil.which("g++")
+
+
+class GameHeaders(unittest.TestCase):
+    """games/<game>.h, partly written by hand, says what the binding table and <game>.hpp say."""
+
+    def test_every_signature_is_the_tables(self):
+        for game in GAMES:
+            sig = {h["name"]: h["signature"] for h in gen_binding.load(game)["hooks"]}
+            text = (ROOT / "sdk" / "include" / "openrac" / "games" / f"{game}.h").read_text()
+            up = game.upper()
+            for name in re.findall(rf"#define OPENRAC_{up}_HOOK_(\w+) ", text):
+                with self.subTest(game=game, hook=name):
+                    self.assertIn(name, sig, "a hook name the table does not have")
+            for name, s in re.findall(rf'#define OPENRAC_{up}_SIG_(\w+) "([^"]*)"', text):
+                with self.subTest(game=game, hook=name):
+                    # As the port compares them: i32 and u32 are one.
+                    self.assertEqual(s.replace("i32", "u32"), sig[name].replace("i32", "u32"))
+
+    @unittest.skipUnless(CXX, "needs a C++ compiler")
+    def test_c_and_cpp_types_agree(self):
+        for game in GAMES:
+            inc = ROOT / "sdk" / "include" / "openrac" / "games"
+            hpp, h = (inc / f"{game}.hpp").read_text(), (inc / f"{game}.h").read_text()
+            ns = re.search(r"namespace (openrac::\w+)", hpp).group(1)
+            typed = set(re.findall(rf"\(\*openrac_{game}_(\w+)\)", h))
+            names = [n for n in re.findall(r"^struct (\w+) \{\n    static constexpr const char\* id", hpp, re.M)
+                     if n in typed]
+            src = (f'#include "openrac/games/{game}.h"\n#include "openrac/games/{game}.hpp"\n#include <type_traits>\n'
+                   + "".join(f'static_assert(std::is_same<{ns}::{n}::fn, openrac_{game}_{n}>::value, "{n}");\n'
+                             for n in names))
+            with tempfile.TemporaryDirectory() as tmp, self.subTest(game=game):
+                (Path(tmp) / "t.cpp").write_text(src)
+                done = subprocess.run([CXX, "-std=c++17", "-fsyntax-only", f"-I{ROOT / 'sdk' / 'include'}",
+                                       str(Path(tmp) / "t.cpp")], capture_output=True, text=True)
+                self.assertEqual(done.returncode, 0, done.stderr[-2000:])
 
 
 if __name__ == "__main__":

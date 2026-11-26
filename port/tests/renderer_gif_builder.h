@@ -67,10 +67,12 @@ public:
         std::uint8_t dpsm,
         std::uint32_t w,
         std::uint32_t h,
-        const std::vector<std::uint8_t>& data
+        const std::vector<std::uint8_t>& data,
+        std::uint64_t transfer_flags = 0
     ) {
         ad({{gs::kBitbltbuf,
-             (std::uint64_t{dbp} << 32) | (std::uint64_t{dbw} << 48) | (std::uint64_t{dpsm} << 56)},
+             (std::uint64_t{dbp} << 32) | (std::uint64_t{dbw} << 48) | (std::uint64_t{dpsm} << 56)
+                 | transfer_flags},
             {gs::kTrxpos, 0},
             {gs::kTrxreg, std::uint64_t{w} | (std::uint64_t{h} << 32)},
             {gs::kTrxdir, 0}});

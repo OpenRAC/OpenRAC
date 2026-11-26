@@ -105,6 +105,65 @@ long long openrac_lib___moddi3(long long a, long long b) {
     return (long long)(a < 0 ? 0ull - w : w);
 }
 
+/* libgcc's soft-float double arithmetic (dp-bit.c), which the console did in software on 64-bit
+ * integer registers: the host's doubles are the same IEEE format, rounded to nearest as dp-bit's.
+ * __cmpdf2 gives -1, 0 or 1, and 1 when either is a NaN, as dp-bit's dpcmp does. */
+double openrac_lib___adddf3(double a, double b) {
+    return a + b;
+}
+
+double openrac_lib___subdf3(double a, double b) {
+    return a - b;
+}
+
+double openrac_lib___muldf3(double a, double b) {
+    return a * b;
+}
+
+double openrac_lib___divdf3(double a, double b) {
+    return a / b;
+}
+
+int openrac_lib___cmpdf2(double a, double b) {
+    if (a != a || b != b) {
+        return 1;
+    }
+    return a < b ? -1 : (a > b ? 1 : 0);
+}
+
+double openrac_lib___floatsidf(int i) {
+    return (double)i;
+}
+
+/* __fixdfsi, __fixunsdfsi: towards zero, saturated past the range (dp-bit's dptoli and dptoul
+ * give the limits there; a NaN gives 0), where the host's conversion is not defined. */
+int openrac_lib___fixdfsi(double d) {
+    if (d != d) {
+        return 0;
+    }
+    if (d >= 2147483648.0) {
+        return 0x7FFFFFFF;
+    }
+    if (d <= -2147483649.0) {
+        return (int)0x80000000u;
+    }
+    return (int)d;
+}
+
+unsigned int openrac_lib___fixunsdfsi(double d) {
+    if (!(d > 0.0)) {
+        return 0;
+    }
+    if (d >= 4294967296.0) {
+        return 0xFFFFFFFFu;
+    }
+    return (unsigned int)d;
+}
+
+float openrac_lib___truncdfsf2(double d) {
+    return (float)d;
+}
+
 /* __fixunsdfdi: a double to an unsigned 64-bit integer (libgcc's soft-float
  * one: negative gives 0). Past 2^64 the console's result is not defined; this
  * saturates rather than leaving it to the host's conversion. */

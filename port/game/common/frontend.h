@@ -7,20 +7,24 @@
 // Only built where the window libraries are (port/cmake/Window.cmake); the program runs without a
 // window otherwise. What a game's memory means (where its camera and objects are) is the game's,
 // read through its profile (game/common/profile.h): so far Ratchet & Clank's, with each level's
-// geometry from the extractor's port export (editor/port.py).
+// geometry from the extractor's port export (extractor/port.py).
 
 #pragma once
 
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
+#include <source_location>
 #include <span>
 #include <string>
 
 #include "materials/catalog.h"
 #include "openrac/game_host.h"
 #include "openrac/openrac_mod.h"
+#include "renderer/frame/frame_record.h"
+#include "renderer/frame/ui_records.h"
 
 namespace openrac::enhanced {
 struct FoliageControls;
@@ -35,6 +39,10 @@ namespace openrac::platform {
 class Input;
 }
 
+namespace openrac::renderer {
+struct CloudShadowSettings;
+}
+
 namespace openrac::frontend {
 
 // HDR output's state for the settings (docs/port/HDR.md): what the screen is sent, and what the
@@ -42,7 +50,19 @@ namespace openrac::frontend {
 std::string hdr_status();
 
 // Opens the window. `levels` holds the extracted levels (level_00, level_01, ...).
-bool open(const std::string& game_id, const std::filesystem::path& levels, std::string& error);
+bool open(
+    const std::string& game_id,
+    const std::filesystem::path& levels,
+    bool vulkan_on_game_thread,
+    std::string& error
+);
+
+// Runs graphics work to completion while the window thread retains ownership of SDL.
+void run_graphics(
+    std::function<void()> job,
+    std::int64_t frame = -1,
+    std::source_location submitted_at = std::source_location::current()
+);
 
 // Draws a frame from the game's main memory and reads the input; false once the window was closed.
 // The game's world renderers are drawing now: the camera they draw with is kept for this frame's
@@ -75,6 +95,65 @@ void sky_shell(int shell, const float* matrix);
 // A quad of the 2D layer drawn natively (openrac_game_ui_quad): its index for the marker, or -1
 // when the 2D layer is replayed from the game's packets.
 int ui_quad(const openrac_game_ui_rect& quad);
+// The record ui_quad keeps for `quad` (the mods' sprite tint applied).
+renderer::UiQuad ui_quad_record(const openrac_game_ui_rect& quad);
+
+// The frame recorder (openrac/frame.h, frontend/recorder.cpp): what the openrac_frame_* calls do
+// with a window. False / -1 where the C call returns 0 (no recording: the caller draws its way).
+namespace recorder {
+void begin();
+void end();
+// Starts the producer-announced construction at a normalized RAM root, retiring only its old build.
+void list_begin(gaddr root);
+void anchor(gaddr list_cursor);
+void world(unsigned layers);
+void world_mobys();
+bool mobys(std::span<const std::uint8_t> ram, gaddr list, int count);
+bool ui_item(std::span<const std::uint8_t> ram, const openrac_game_ui_item& item);
+bool ui_quad(const openrac_game_ui_rect& quad);
+void effect_quad(std::uint32_t marker);
+void fill(const float* rect, std::uint32_t rgba, int blend);
+// openrac_frame_fill_depth: false (nothing recorded) for a value out of range or OPENRAC_UI_REPLAY.
+bool fill_depth(
+    const float* rect,
+    std::uint32_t rgba,
+    int blend,
+    std::uint32_t depth,
+    int depth_bits,
+    int depth_test,
+    unsigned writes
+);
+void clear(std::uint32_t rgba, int what);
+void picture(std::uint32_t id, const float* rect, std::uint32_t rgba, int blend);
+void picture_image(
+    std::span<const std::uint8_t> ram,
+    const openrac_game_ui_image& image,
+    const float* rect,
+    std::uint32_t rgba,
+    int blend
+);
+void picture_set(std::uint32_t id, const std::uint8_t* rgba, int width, int height);
+void snapshot(std::uint32_t id);
+void target_begin(std::uint32_t id, int width, int height);
+void target_end();
+void scissor(const float* rect);
+// A command that only places what follows (renderer::FrameOp's transitional placements: WorldShrubs,
+// EffectParent, HudSide, Wide, PictureBand, LastFrame).
+void placement(renderer::FrameOp op, std::uint32_t index, std::uint64_t value);
+void screen(float width, float height);
+void view_begin(int view, const openrac_frame_viewport& rect);
+// With a view open: its camera, read from `ram` (the game's profile) where its world is recorded.
+void view_camera(std::span<const std::uint8_t> ram);
+// With a view open: layers the game draws in it (openrac_game_draw's).
+void view_layers(unsigned layers);
+void view_end();
+// How a game image (openrac_game_ui_image) becomes a decoded image: set by the 2D layer's image
+// cache (frontend/ui_images); until it is, items with an image are not recorded (the caller draws
+// its way) and picture_image draws nothing.
+using ImageResolver =
+    std::function<renderer::UiImage(std::span<const std::uint8_t>, const openrac_game_ui_image&)>;
+void set_image_resolver(ImageResolver resolver);
+}  // namespace recorder
 
 // How far the HUD's side-anchored elements go out past the game's picture, in its 512ths of that
 // picture's width (openrac_game_hud_side): the player's "HUD: Edges" in a wider picture, else 0.
@@ -104,7 +183,12 @@ void particle(
 
 // `draws`: the layers the game's renderers drew this frame (bit n = renderer::Bucket n; all bits
 // when the game does not report them).
-bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws);
+bool frame(
+    std::span<const std::uint8_t> ram,
+    std::uint32_t chain,
+    std::span<const std::uint32_t> earlier,
+    std::uint32_t draws
+);
 
 // Captures the next tick's owned CPU scene while an earlier Vulkan snapshot renders.
 // The game thread calls this with stable RAM before finish_render(); false on capture failure.
@@ -142,6 +226,8 @@ bool interpolating();
 std::uint32_t text(int id);
 bool wants_between();
 int between(std::chrono::steady_clock::time_point next_tick);
+// OPENRAC_MOTION_LOG: a tick's work (seconds) and the frames drawn between it and the next.
+void note_between(int frames, double work, double entered_late = 0.0, double set_late = 0.0);
 // The time the window spent writing OPENRAC_SHOT pictures since the last call, which the tick's
 // clock leaves out: a shot that takes longer than a tick would otherwise leave no frame between that
 // tick and the next (OPENRAC_SHOT_BETWEEN) and make the game catch up.
@@ -205,6 +291,11 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]);
 
 // The game's motor commands for a port's pad (openrac_game_set_motors), for the input to play.
 void set_motors(int port, bool small, std::uint8_t large);
+
+// A mod's motor values for a port's pad (openrac_api.set_motors), played with the game's: each
+// motor the stronger. `owner` is the mod; drop_mod_motors forgets its values (null: every mod's).
+void set_mod_motors(const void* owner, int port, bool small_motor, std::uint8_t large_motor);
+void drop_mod_motors(const void* owner);
 
 // With the player's responsive_controls setting, reads the pads again just before the game's next
 // tick runs (the end of program::vsync, after its wait): the tick reads the sticks and buttons as
@@ -275,12 +366,11 @@ bool keep_picture();
 bool enhanced_graphics_available();
 std::string enhanced_graphics_error();
 
+// Authored cloud settings for the level shown by the developer menu.
+renderer::CloudShadowSettings level_cloud_shadows();
+
 // Shares immutable material inspector data only while the render worker is idle.
 std::shared_ptr<const enhanced::MaterialEditor> material_editor();
-// Applies one validated batch of sparse property edits with exclusive scene ownership.
-bool patch_material(
-    std::span<const std::size_t> bindings, materials::Properties properties, std::string& error
-);
 bool assign_material(
     std::span<const std::size_t> bindings,
     const std::string& material,
@@ -292,11 +382,6 @@ bool clear_material_slots(std::span<const std::size_t> bindings, std::string& er
 // Applies one shared preset field with the same scene ownership and validation as object edits.
 bool patch_material_preset(
     const std::string& preset, std::string key, materials::Value value, std::string& error
-);
-bool delete_material_override(const std::string& id, std::string& error);
-// Removes an unsaved field on each selected slot.
-bool undo_material(
-    std::span<const std::size_t> bindings, const std::string& key, std::string& error
 );
 // Removes one unsaved shared preset field while retaining other edits.
 bool undo_material_preset(const std::string& preset, const std::string& key, std::string& error);

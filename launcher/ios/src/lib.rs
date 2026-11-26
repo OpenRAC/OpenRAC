@@ -91,7 +91,7 @@ fn command(runtime: &mut Runtime, name: &str, args: &Value) -> Result<Value, Str
                 "standalone":true,"updates":update,"updateChannels":{"stable":update,"dev":update},
                 "noCompositing":false,"safeRenderingAfterCrash":false,"capabilities":{"mods":false,"saveEditing":false,"saveTransfer":true,"openFolders":false,"folderScan":false,"updates":false}}))
         }
-        "get_config" | "adopt_godot" => value(&runtime.config),
+        "get_config" => value(&runtime.config),
         "save_config" => {
             let mut changed: config::Config =
                 serde_json::from_value(args["config"].clone()).map_err(|e| e.to_string())?;
@@ -107,7 +107,7 @@ fn command(runtime: &mut Runtime, name: &str, args: &Value) -> Result<Value, Str
             value(&runtime.config)
         }
         "library" | "sync_progress_from_web" => read_library(runtime),
-        "detect" => Ok(json!({"roots":[],"pythons":[],"godots":[],"dockers":[]})),
+        "detect" => Ok(json!({"roots":[],"pythons":[],"dockers":[]})),
         "scan_discs" => {
             let found = if let Some(folder) = &runtime.config.discs_dir {
                 discs::scan(folder, &catalog::load(runtime.config.root()?)?)
@@ -173,7 +173,7 @@ fn command(runtime: &mut Runtime, name: &str, args: &Value) -> Result<Value, Str
             runtime.config.install_dir.as_deref().unwrap(),
             text(args, "game")?,
         ))?),
-        "enhanced_view" => Ok(Value::Null),
+        "enhanced_view" | "keyboard_mouse_view" => Ok(Value::Null),
         _ => Err(format!("{name} is not available in this iOS build")),
     }
 }
@@ -356,11 +356,11 @@ mod tests {
         let preview = transfer::preview_into(&pc, serial, &archive).unwrap();
         assert_eq!(preview.slots[0].slot.bolts, Some(1234));
         let choice = transfer::SaveImportChoice { replace_all: true, slots: vec![] };
-        transfer::import_into(&pc, serial, &archive, &choice).unwrap();
+        transfer::import_into(&pc, serial, &archive, &choice, &Default::default()).unwrap();
         assert_eq!(std::fs::read(pc.join(folder).join("save0.bin")).unwrap(), bytes);
         // Export on PC, pick a private snapshot on iOS, preview without changing the card.
         let incoming = imports.join("saves.zip");
-        transfer::export_card(&pc, serial, Some(0), "desktop-test", &incoming).unwrap();
+        transfer::export_card(&pc, serial, Some(0), "desktop-test", &incoming, &Default::default()).unwrap();
         let mut old = bytes.clone();
         old[36..40].copy_from_slice(&999u32.to_le_bytes());
         std::fs::write(save_dir.join("save0.bin"), &old).unwrap();

@@ -28,6 +28,7 @@
 #include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -90,13 +91,13 @@ void draw_states(const openrac::renderer::FrameBuffer& target) {
             glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
         }
 
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     }
 }
 
 // Runs one context: builds the program of colour `colour`, waits for the pre-warm, draws the
 // kStates states and closes. Not `ran` where Vulkan is not here.
-RunCounts run(std::string_view colour, bool finish_level_load = false) {
+RunCounts run(std::string_view colour, bool finish_level_load = false, bool variant = false) {
     RunCounts counts;
     openrac::test::GlContext context;
     std::string error;
@@ -108,12 +109,22 @@ RunCounts run(std::string_view colour, bool finish_level_load = false) {
     }
 
     openrac::renderer::Shader shader;
-    const std::string fragment = std::string(
-                                     "#version 410 core\n"
-                                     "layout(location = 0) out vec4 result;\n"
-                                     "void main() { result = "
-                                 )
-                                 + std::string(colour) + "; }\n";
+    std::string fragment = std::string(
+                               "#version 410 core\n"
+                               "layout(location = 0) out vec4 result;\n"
+                               "void main() { result = "
+                           )
+                           + std::string(colour) + "; }\n";
+    // Feature variants must keep observable conditional shader work.
+    if (variant) {
+        fragment
+            .insert(fragment.find('\n') + 1, "// openrac_mode: feature\nuniform int feature;\n");
+        fragment.replace(
+            fragment.find("result = ") + std::string_view("result = ").size(), 0, "feature != 0 ? "
+        );
+        fragment.replace(fragment.find("; }"), 0, " : vec4(0.0)");
+    }
+
     CHECK(shader.build(
         "pre-warm fixture",
         "#version 410 core\n"
@@ -130,6 +141,7 @@ RunCounts run(std::string_view colour, bool finish_level_load = false) {
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
     shader.use();
+    glUniform1i(shader.uniform("feature"), 1);
     counts.made_ahead = vkgl::wait_for_pipeline_prewarm();
     if (finish_level_load) {
         vkgl::finish_pipelines();
@@ -164,6 +176,27 @@ bool test_a_run_s_pipelines_are_made_ahead_in_the_next() {
     CHECK(second.made_ahead >= static_cast<std::uint64_t>(kStates));
     CHECK(second.made_by_draws == 0);
     return true;
+}
+
+// Tests that mode shaders prewarm only observed variants, including with pipeline libraries enabled.
+void test_only_exact_variants_are_prewarmed() {
+    using openrac::renderer::render_opt::Opt;
+    openrac::renderer::render_opt::set(Opt::PipelinePrewarm, true);
+
+    // Each backend path gets a distinct program identity and an empty manifest for that program.
+    for (const bool libraries : {false, true}) {
+        openrac::renderer::render_opt::set(Opt::VkPipelineLibrary, libraries);
+        const auto colour = libraries ? kLinkedColour : kDeferredColour;
+        const RunCounts cold = run(colour, false, true);
+        const RunCounts warm = run(colour, false, true);
+        CHECK(cold.made_ahead == 0);
+        CHECK(warm.made_ahead >= static_cast<std::uint64_t>(kStates));
+        CHECK(warm.made_by_draws == 0);
+        CHECK(warm.pixels == cold.pixels);
+        CHECK(!cold.pixels.empty());
+    }
+
+    openrac::renderer::render_opt::reset();
 }
 
 // Tests that a run that builds another program finds nothing of it in the manifest.
@@ -285,7 +318,7 @@ std::vector<std::uint8_t> draw_layouts(std::uint64_t& linked) {
     for (const unsigned vao : vaos) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const std::vector<std::uint8_t> picture = target.read_rgba();
         pixels.insert(pixels.end(), picture.begin(), picture.end());
     }
@@ -361,6 +394,7 @@ int main() {
     CHECK(next_load.linked == 0);
     CHECK(next_load.made_by_draws == 0);
     CHECK(gameplay.pixels == next_load.pixels);
+    test_only_exact_variants_are_prewarmed();
     fs::remove_all(folder, ec);
     return openrac::test::result();
 }

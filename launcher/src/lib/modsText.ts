@@ -29,16 +29,21 @@ export const KIND_LABEL = {
   tool: { text: "Launcher page", tone: "ok" },
   pack: { text: "Textures and models", tone: "off" },
   builtIn: { text: "Experimental", tone: "warn" },
+  alwaysOn: { text: "Part of the game", tone: "ok" },
 } as const satisfies Record<string, Label>;
 
 /** The kinds' tooltips: what each means, for whoever wonders. */
 export const KIND_HINT = {
-  native: "A program: it runs on this computer with the game's rights. Install it only from people you trust.",
-  script: "Runs in the game's sandbox: it reaches only what the game lets scripts change, never your files.",
+  native:
+    "A program: it runs on this computer with the game's rights. Install it only from people you trust.",
+  script:
+    "Runs in the game's sandbox: it reaches only what the game lets scripts change, never your files.",
   tool: "A page of its own in the launcher, kept apart from it: it reads the game's levels and saved textures, and saves only where you choose.",
   pack: "Data only: it replaces textures, models or levels, and runs nothing.",
   builtIn: "Part of the game, off unless you turn it on. Still being worked on.",
+  alwaysOn: "Part of the game and always on: it is used the moment you play with it.",
 } as const satisfies Record<KindKey, string>;
+
 type KindKey = keyof typeof KIND_LABEL;
 
 /** Whether a mod from a link can be installed here, in its preview row. */
@@ -65,16 +70,17 @@ export const PAGE = {
   tabEditor: "Level editor",
   tabAssets: "Models and textures",
   tabAudio: "Audio",
+  toolsLabel: "Tools",
   earlyTitle: "Early access",
   earlyLine:
-    "Its levels open in Godot and you can make texture and model packs. Packing level edits and playing come later.",
+    "Its levels open in OpenRAC Editor and you can make texture and model packs. Packing level edits and playing come later.",
   packLaterLine:
-    "Its levels open in Godot and you can make texture and model packs. Packing level edits back into the game comes later.",
+    "Its levels open in OpenRAC Editor and you can make texture and model packs. Packing level edits back comes later.",
   noneTitle: "No mods for this game yet",
   noneLine: "Mods arrive once the level editor can read its levels.",
   noneLink: "Follow the progress on openrac.dev",
   makeOwn: "Want to make your own?",
-  makeOwnButton: "Edit a level in Godot",
+  makeOwnButton: "Edit a level in OpenRAC Editor",
   developerTitle: "For developers",
 } as const;
 
@@ -154,7 +160,8 @@ export const VIEW = {
   moveBottom: "Move to the bottom",
   toolsTitle: "Tools",
   builtInTitle: "Built in",
-  toolsSub: "Pages of their own in the launcher, always on: they make things, the game does not load them.",
+  toolsSub:
+    "Pages of their own in the launcher, always on: they make things, the game does not load them.",
   /** A tool's switch: on, greyed, and why. */
   toolAlwaysOn: "Always on: a tool is a page in the launcher, so it can't be turned off.",
   toolAlwaysOnShort: "Always on",
@@ -173,6 +180,19 @@ export const GROUP_TITLE = {
   controls: (name: string) => `${name} controls`,
 } as const;
 
+/** The built-in Keyboard and mouse entry (core/src/keyboard_mouse.rs; its page is ModPage.svelte's). */
+export const KEYBOARD_MOUSE = {
+  id: "keyboard-mouse",
+  alwaysOn:
+    "Always on: the game switches to the keyboard and mouse when you use them, and back to the gamepad when you press it.",
+  /** The page's two tabs, as the game's Controls tab: the gyro is a controller's, apart. */
+  tabsLabel: "Keyboard and mouse or gyro",
+  tabKeys: "Keyboard and mouse",
+  tabGyro: "Gyro",
+  about:
+    "Play with a keyboard and mouse like a PC game. The mouse turns the camera with raw input (no acceleration) and the picture follows it at your display's rate. The game starts on the gamepad and switches the moment you press a key or move the mouse, and back when you press the gamepad. Every key can be changed below.",
+} as const;
+
 /** The built-in Enhanced graphics entry (core/src/enhanced.rs; its page is ModPage.svelte's). */
 export const ENHANCED = {
   id: "enhanced-graphics",
@@ -183,11 +203,13 @@ export const ENHANCED = {
   baking: "Preparing the lighting",
   ready: (n: number) => `Ready for all ${n} levels.`,
   some: (ready: number, n: number) => `Ready for ${ready} of ${n} levels.`,
-  failed: (n: number) => (n === 1 ? "1 level could not be prepared." : `${n} levels could not be prepared.`),
+  failed: (n: number) =>
+    n === 1 ? "1 level could not be prepared." : `${n} levels could not be prepared.`,
   fallback: "A level without it keeps its original lighting.",
   noLevels: "Get the levels ready on the game's page first.",
   noBaker: "This copy of the game has no lighting baker.",
-  noBakerHere: "Intel Macs ship without the lighting baker: the enhanced graphics keep the original lighting.",
+  noBakerHere:
+    "Intel Macs ship without the lighting baker: the enhanced graphics keep the original lighting.",
   partial: (n: number) =>
     n === 1
       ? "1 level was stopped part way: preparing goes on from there."
@@ -263,9 +285,13 @@ export const KEYBIND = {
   presets: "Control presets",
   defaults: "Default",
 } as const;
+
 export const bindAria = (setting: string, bind: string) => `${setting}: ${bind}. Change`;
+
 export const addBindAria = (setting: string) => `${setting}: add a binding`;
+
 export const clearBindAria = (setting: string, bind: string) => `Remove ${bind} from ${setting}`;
+
 export const alsoBound = (names: string[]) =>
   `Also bound to ${names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`}`;
 
@@ -273,7 +299,8 @@ export const alsoBound = (names: string[]) =>
 export const PACKS = {
   title: "Graphics and sound packs",
   sub: "Textures, models, levels and sound",
-  empty: "None yet. Add one above, or make your own in the Level editor, Models and textures, or Audio.",
+  empty:
+    "None yet. Add one above, or make your own in the Level editor, Models and textures, or Audio.",
   orderHint: "Lower in the list wins",
   moveUpTitle: "Move up: the packs under it win where they change the same thing",
   moveDownTitle: "Move down: it wins over the packs above it",
@@ -294,20 +321,27 @@ export const TEXTURES = {
   badge: "Texture pack",
   badgeHint: "Pictures that replace the game's own by their name, at any size.",
   make: "Make your own",
+  import: "Import",
+  importZip: "A texture pack (.zip)…",
+  importPcsx2: "A PCSX2 texture pack (folder)…",
+  clearPcsx2: "Stop using the PCSX2 pack",
   share: "Share my pack…",
   replace: "Replace with a pack…",
   replaceYes: "Replace my pack",
   openFolder: "Open its folder",
   pickTitle: "Choose a texture pack (.zip)",
   replaced: (n: string, kept: string | null) =>
-    kept ? `Your pack is now ${n}. The old one is kept beside it, as “${kept}”.` : `Your pack is now ${n}.`,
+    kept
+      ? `Your pack is now ${n}. The old one is kept beside it, as “${kept}”.`
+      : `Your pack is now ${n}.`,
   added: (n: string, replaced: number) =>
     replaced
       ? `Added ${n} to your texture pack, ${replaced} of them in place of yours.`
       : `Added ${n} to your texture pack.`,
   makeTitle: "Make a texture pack",
   makeLead: "Save the game's pictures, repaint or upscale them, and they become your texture pack.",
-  whereItIs: "Your pack is in My mods, with the other packs, where you switch it on, share it or replace it.",
+  whereItIs:
+    "Your pack is in My mods, with the other packs, where you switch it on, share it or replace it.",
   goToMine: "Show it in My mods",
 } as const;
 
@@ -326,25 +360,22 @@ export const WITH_MODS = {
 
 /** The level editor's tab (Mods.svelte). */
 export const EDITOR = {
-  lead: "Change a level in Godot, then pack your changes and play them.",
-  leadEarly: "Look around a level in Godot.",
-  openTitle: "Open a level in Godot",
+  lead: "Change a level in OpenRAC Editor, then pack your changes and play them.",
+  leadEarly: "Look around a level in OpenRAC Editor.",
+  openTitle: "Open a level in OpenRAC Editor",
   packTitle: "Pack your changes",
   levelLabel: "Level to edit",
   noDisc: "Set the game up from your disc first.",
   setUp: "Set up the disc",
-  noGodot: "Levels open in Godot 4, a free editor: get it, then choose where it is.",
-  getGodot: "Get Godot",
-  chooseGodot: "Choose Godot…",
-  pickGodot: "Godot 4",
-  ready: "Move, turn or scale objects, then save in Godot.",
+  noEditor: "Levels open in OpenRAC Editor, OpenRAC's own level editor: download it once.",
+  getEditor: "Download OpenRAC Editor",
+  ready: "Move, turn or scale objects, then save in OpenRAC Editor.",
   readyEarly: "Look around a level's objects and textures.",
   firstTime: "The first time reads the levels from your disc: about 20 seconds.",
   firstTimeEarly: "The first time reads the levels from your disc: a few minutes.",
-  open: "Open in Godot",
+  open: "Open in OpenRAC Editor",
   prepare: "Prepare and open",
-  opening: (level: string) => `Godot is opening ${level}.`,
-  notGodot: (why: string) => `That is not a Godot 4 the editor can use: ${why}`,
+  opening: (level: string) => `OpenRAC Editor is opening ${level}.`,
   packLine: "Turns what you saved into level data the game reads.",
   packEarly: "Not yet for this game. Texture and model packs work.",
   packReading: "Reading your levels…",
@@ -363,17 +394,31 @@ export const EDITOR = {
 // ---- Sentences with a name or a number in them ----
 
 export const modsAria = (label: string) => `Mods in ${label}`;
+
 export const useAria = (name: string) => `Use ${name}`;
+
 export const settingsAria = (name: string) => `Open ${name}`;
+
 export const moreAria = (name: string) => `More for ${name}`;
+
 export const fromPublisher = (label: string, owner: string) =>
-  owner ? { before: "In ", label, after: `, published by ${owner}` } : { before: "In ", label, after: "" };
+  owner
+    ? { before: "In ", label, after: `, published by ${owner}` }
+    : { before: "In ", label, after: "" };
+
 export const installedAlready = (version: string) => `${version} installed`;
+
 export const updateTo = (version: string) => `Update to ${version}`;
+
 export const fromSource = (label: string) => `From ${label}`;
+
 export const keptAt = (version: string) => `kept at ${version}`;
+
 export const cannotSwitchOn = (why: string) => `Cannot be switched on: ${why}`;
-export const removeConfirm = (name: string) => `Remove ${name}? The launcher's copy and its settings are deleted.`;
+
+export const removeConfirm = (name: string) =>
+  `Remove ${name}? The launcher's copy and its settings are deleted.`;
+
 export const withName = (name: string, why: string) => `${name}: ${why}`;
 
 /** The prompt when the launcher starts and the day's look found newer mods (modUpdates). */
@@ -386,7 +431,8 @@ export const START_UPDATES = {
   never: "Don't ask again",
   all: (count: number) => (count === 1 ? "Update it" : "Update all"),
   working: "Updating…",
-  failed: (why: string) => `The update stopped: ${why}. Nothing was changed; the Mods tab can try again.`,
+  failed: (why: string) =>
+    `The update stopped: ${why}. Nothing was changed; the Mods tab can try again.`,
   neverHint: "The Mods tab's \u201cCheck now\u201d still looks whenever you ask.",
 };
 
@@ -406,28 +452,43 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  * The update check's answer: the updates of the mods from a link (`count`, with the sources it
  * could not read) and, when the index was looked at too, what it found for the mods it lists.
  */
-export function updatesFound(count: number, errors: string[], index: IndexFound | null = null): string {
+export function updatesFound(
+  count: number,
+  errors: string[],
+  index: IndexFound | null = null,
+): string {
   const said: string[] = [];
-  if (index?.updated) said.push(`Updated ${plural(index.updated, "mod", "mods")}; their settings are kept.`);
-  if (index?.waiting) said.push(`${plural(index.waiting, "update is", "updates are")} available below.`);
-  if (index?.held) said.push(`${plural(index.held, "update waits", "updates wait")}: see below for why.`);
+
+  if (index?.updated)
+    said.push(`Updated ${plural(index.updated, "mod", "mods")}; their settings are kept.`);
+  if (index?.waiting)
+    said.push(`${plural(index.waiting, "update is", "updates are")} available below.`);
+  if (index?.held)
+    said.push(`${plural(index.held, "update waits", "updates wait")}: see below for why.`);
   if (count > 0) said.push(`${plural(count, "update", "updates")} found.`);
-  if (said.length === 0) said.push(index ? "Every mod is up to date." : "Every mod from a link is up to date.");
+  if (said.length === 0)
+    said.push(index ? "Every mod is up to date." : "Every mod from a link is up to date.");
+
   return said.join(" ") + (errors.length ? ` Not checked: ${errors.join("; ")}` : "");
 }
 
 export function updatedAll(done: number, failed: number): string {
   const ok = `Updated ${done} ${done === 1 ? "mod" : "mods"}; their settings are kept.`;
+
   return failed ? `${ok} ${failed} could not be updated: open each for why.` : ok;
 }
-export const updated = (name: string, version: string) => `Updated ${name} to ${version}; its settings are kept.`;
+
+export const updated = (name: string, version: string) =>
+  `Updated ${name} to ${version}; its settings are kept.`;
 
 /** A mod installed from a link: replaced, on, or off (its row says why). */
 export const installedFrom = {
   replaced: (name: string, version: string, from: string) =>
     `Installed ${name} ${version} from ${from}; its settings are kept.`,
-  on: (name: string, from: string) => `Installed ${name} from ${from}. It is on from the game's next start.`,
-  off: (name: string, from: string) => `Installed ${name} from ${from}. It is off: its row says why.`,
+  on: (name: string, from: string) =>
+    `Installed ${name} from ${from}. It is on from the game's next start.`,
+  off: (name: string, from: string) =>
+    `Installed ${name} from ${from}. It is off: its row says why.`,
 };
 
 /** A mod added from a .zip or a folder (lib/addMods.ts). */
@@ -436,15 +497,22 @@ export const added = {
   on: (name: string) => `Added ${name}. It is on from the game's next start.`,
   off: (name: string) => `Added ${name}. It is off: its row says why.`,
   pack: (name: string) => `Added ${name}.`,
+  map: (name: string) => `Added the map ${name} as a new planet: board the ship and pick it.`,
+  mapNeedsEditor: (name: string) =>
+    `${name} is a map: download OpenRAC Editor (Mods, Level editor) to add it.`,
   several: (count: number) => `Added or updated ${count} mods; their settings are kept.`,
-  packHereNot: (name: string) => `${name} is a texture and model pack, which cannot be added here yet.`,
-  packFailed: (name: string, why: string) => `${name}: ${why.length > 0 ? why : "it could not be added"}`,
+  packHereNot: (name: string) =>
+    `${name} is a texture and model pack, which cannot be added here yet.`,
+  packFailed: (name: string, why: string) =>
+    `${name}: ${why.length > 0 ? why : "it could not be added"}`,
 };
 
 /** Two mods on one hook point (lib/plugins.ts, sharedWith). */
 export function sharesWith(names: string[]): string {
   if (names.length === 0) return "";
-  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+  const list =
+    names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+
   return `Changes the same part of the game as ${list}: the one lower in the list goes first.`;
 }
 
@@ -453,6 +521,7 @@ export function rangeText(min?: number, max?: number): string {
   if (min !== undefined && max !== undefined) return `${min} to ${max}`;
   if (min !== undefined) return `${min} or more`;
   if (max !== undefined) return `up to ${max}`;
+
   return "";
 }
 
@@ -486,6 +555,48 @@ export const ASSETS = {
   exportStopped: "The export stopped. The activity log has what it said.",
   readStopped: "Reading the levels stopped. The activity log has what it said.",
   exported: (level: string) => `Exported ${level}: the folder is opening.`,
+  weaponsNote:
+    "Weapons and gadgets come from whichever level has each one; the level chosen does not matter.",
+} as const;
+
+/** Interface textures (InterfaceTextures.svelte, core/src/interface_runs.rs): the HUD, the menus, the
+ *  font and the effects exported from the player's disc, from the project's run or their own. */
+export const INTERFACE = {
+  title: "Interface textures",
+  lead: "The HUD, menus, font and effects from your disc, named the way texture packs name them.",
+  font: "Font",
+  hud: "HUD and menus",
+  effects: "Effects",
+  made: (made: string, n: number) => `${made ? `${made} · ` : ""}${n}`,
+  partly: (n: number) => `Part way · ${n}`,
+  none: "None yet",
+  outOfDate: "Out of date",
+  make: "Make",
+  finish: "Finish",
+  makeMissing: (n: number) => `Make the missing (${n})`,
+  makeAgain: "Make the run again",
+  exportKind: (kind: string) => `Export ${kind}`,
+  export: "Export",
+  exporting: "Making the pictures from your disc…",
+  exportLine: "Opens a folder of them. A few seconds.",
+  exported: (written: number, skipped: number) =>
+    `Exported ${written}${skipped ? `; ${skipped} not on your disc` : ""}. Opening the folder.`,
+  exportStopped: "The export stopped. The activity log says why.",
+  notReady: "Build the game and set up your disc first.",
+  nothingYet: "Not available for this version yet.",
+  nothingYetRun: "Make one first: the game plays a few routes hidden.",
+  runAsk:
+    "The game plays the routes these textures need, hidden, and notes what it draws. A few minutes to a quarter of an hour; you can use the computer meanwhile and stop it any time.",
+  runYes: "Start",
+  starting: "Starting the game…",
+  routeOf: (done: number, of: number) => `Route ${done} of ${of}`,
+  runLong: "you can keep using the computer",
+  stop: "Stop",
+  runDone: "Done: they can be exported.",
+  runPartly: "Done, but some routes ended early.",
+  runStopped: "Stopped. The activity log says why.",
+  developer: (id: string) =>
+    `python3 port/tools/interface_runs/run.py run --game ${id} --out <file> [--kinds font,interface,effects] · openrac-${id} --interface-export <dir> --interface-runs <file>`,
 } as const;
 
 /** Mod codes (ModSetShare.svelte, ModSetReview.svelte, ModSetSaved.svelte, core/src/modset.rs): friends
@@ -494,13 +605,15 @@ export const MOD_CODES = {
   share: "Share these mods",
   shareHint: "Make a code friends can enter to get the same mods",
   shareTitle: "Share your mods",
-  shareLead: "Friends enter the code on their Mods page and get these mods, at these versions, with these settings.",
+  shareLead:
+    "Friends enter the code on their Mods page and get these mods, at these versions, with these settings.",
   nothing: "No mods are on, so there's nothing to share yet.",
   inCode: "In the code",
   suggest: "Also suggest",
   suggestHint: "Controls and looks are each player's own. Friends choose whether to take these.",
   byHand: "Friends need the file",
-  byHandHint: "These aren't in a catalogue, so the code can only name them. Send the .zip yourself.",
+  byHandHint:
+    "These aren't in a catalogue, so the code can only name them. Send the .zip yourself.",
   solo: "Can't be played in a party",
   soloHint: "A party refuses these. Turn them off before you host.",
   make: "Make code",
@@ -511,7 +624,8 @@ export const MOD_CODES = {
   copyCode: "Copy code",
   copyFull: "Copy full code",
   copied: "Copied",
-  copyRefused: "The system wouldn't let the launcher copy that. Select the text and copy it yourself.",
+  copyRefused:
+    "The system wouldn't let the launcher copy that. Select the text and copy it yourself.",
   codeLife: "It lasts 30 days from its last use. The full code never runs out and works offline.",
   offline: "The server can't be reached, so there's no short code this time.",
   offlineFull: "Send this instead. It holds everything and works without a server:",
@@ -535,9 +649,11 @@ export const MOD_CODES = {
   packsHint: "Texture and model packs can't come through a code. Ask your friend for these.",
   manualHint: "These aren't in a catalogue. Ask your friend for the .zip.",
   nearest: (version: string) => `The newest there is: ${version}. Ask your friend to update.`,
-  matches: (count: number) => (count === 1 ? "1 mod already matches." : `${count} mods already match.`),
+  matches: (count: number) =>
+    count === 1 ? "1 mod already matches." : `${count} mods already match.`,
   trustTitle: "This runs code on your computer",
-  trustLine: (label: string) => `Mods from ${label} aren't made by OpenRAC, and you haven't used them before.`,
+  trustLine: (label: string) =>
+    `Mods from ${label} aren't made by OpenRAC, and you haven't used them before.`,
   trust: (label: string) => `I trust ${label}`,
   fresh: "Published in the last two days",
   otherGame: "This code is for another game.",
@@ -562,7 +678,8 @@ export const MOD_CODES = {
   undone: "Your old mods are back.",
   savedTitle: "Earlier mods",
   savedHint: "Saved each time a code was applied. The last ten are kept.",
-  savedRow: (code: string, date: string) => (code ? `Before ${code}, ${date}` : `Before a full code, ${date}`),
+  savedRow: (code: string, date: string) =>
+    code ? `Before ${code}, ${date}` : `Before a full code, ${date}`,
   restore: "Restore",
   restoreConfirm: "Put these mods back? Mods added since stay installed, turned off.",
 } as const;
@@ -597,7 +714,8 @@ export const AUDIO = {
   imported: "Imported: your sounds are a pack in My mods.",
   importedRefused: (n: number) =>
     `Imported: your sounds are a pack in My mods. ${n} file${n === 1 ? " was" : "s were"} refused.`,
-  importRefused: (n: number) => `Nothing imported: ${n} file${n === 1 ? " was" : "s were"} refused.`,
+  importRefused: (n: number) =>
+    `Nothing imported: ${n} file${n === 1 ? " was" : "s were"} refused.`,
   openActivityLog: "Open activity log",
   nothing: "No file in that folder differs from what was exported, so no pack is left from it.",
 } as const;
@@ -609,7 +727,9 @@ export const AUDIO = {
 import type { ModError, PlanNote, Why } from "./api";
 
 const list = (names: string[]) =>
-  names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  names.length <= 1
+    ? (names[0] ?? "")
+    : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 
 export const CHANGE_SET = {
   title: "Install mods",
@@ -634,14 +754,19 @@ export const CHANGE_SET = {
 } as const;
 
 export const installCount = (n: number) => (n === 1 ? "Install 1 mod" : `Install ${n} mods`);
+
 export const alsoCount = (n: number) => (n === 1 ? "and 1 it needs" : `and ${n} they need`);
+
 export const updateFrom = (from: string, to: string) => `${from} → ${to}`;
+
 export const neededBy = (names: string[]) => `Needed by ${list(names)}`;
+
 export const offeredBy = (name: string) => `Suggested by ${name}`;
 
 /** The one native-code warning of a change set, naming the mods. */
 export function nativeWarning(names: string[]): string {
   const verb = names.length === 1 ? "runs" : "run";
+
   return `${list(names)} ${verb} code on this computer, outside the game's sandbox. Install only mods you trust.`;
 }
 
@@ -652,10 +777,16 @@ export const STEP_LABEL = {
   failed: { text: "Failed", tone: "err" },
 } as const satisfies Record<string, Label>;
 
+/** Hook points a mod version names that this launcher's game does not have yet. */
+const missingHooks = (hooks: string[]) =>
+  `${hooks.length} ${hooks.length === 1 ? "hook" : "hooks"} this launcher doesn't have`;
+
 export function noteText(n: PlanNote): string {
   switch (n.kind) {
     case "olderForApi":
       return `${n.name} ${n.newest} needs the dev build (mod API ${n.api}). Installing ${n.picked}, the latest for your release.`;
+    case "olderForHooks":
+      return `${n.name} ${n.newest} needs a newer launcher (${missingHooks(n.hooks)}). Installing ${n.picked}, the latest for yours.`;
     case "pack":
       return `${n.name} is a set: it installs ${n.mods.length} mods.`;
     case "online":
@@ -678,10 +809,15 @@ export function whyText(name: string, why: Why): string {
       return `${name} isn't built for this system yet.`;
     case "needsNewerApi":
       return `${name} needs a newer launcher (mod API ${why.api}).`;
+    case "needsHooks":
+      return `${name} needs a newer launcher (${missingHooks(why.hooks)}).`;
+
     case "clash": {
       const by = why.wants.map((w) => `${w.by || "you"} ${w.version ?? "any"}`);
+
       return `Can't install ${name}: no version fits ${list(by)}.`;
     }
+
     case "cycle":
       return `${list(why.ids)} need each other, so none can install first.`;
     case "revoked":
@@ -696,6 +832,7 @@ export const missingText = (id: string, by: string | null) =>
 
 export const conflictText = (name: string, withName: string, reason: string) =>
   `${name} can't be on with ${withName}${reason ? `: ${reason}` : ""}.`;
+
 export const replaceWith = (withName: string, name: string) => `Replace ${withName} with ${name}`;
 
 /** A mod hub error's headline, by its kind: never its detail. */
@@ -718,6 +855,7 @@ export function modErrorText(e: ModError): string {
 
 export function appliedText(done: number, total: number, failed: string | null): string {
   if (failed) return `Installed ${done} of ${total}. ${failed} failed; the others are on.`;
+
   return done === 1 ? "Installed 1 mod. It's on." : `Installed ${done} mods. They're on.`;
 }
 
@@ -726,7 +864,9 @@ export function appliedText(done: number, total: number, failed: string | null):
 import type { Hold } from "./api";
 
 export const updatedMods = (n: number) =>
-  n === 1 ? "Updated 1 mod. See what changed on the Mods tab." : `Updated ${n} mods. See what changed on the Mods tab.`;
+  n === 1
+    ? "Updated 1 mod. See what changed on the Mods tab."
+    : `Updated ${n} mods. See what changed on the Mods tab.`;
 
 /** A withdrawn version the look for updates turned off (ModUpdatesPanel). */
 export const revokedOffText = (name: string, version: string, reason: string) =>
@@ -747,6 +887,7 @@ export const UPDATES = {
 /** Why an update waits or is held, in a line. */
 export function holdText(hold: Hold | null): string {
   if (!hold) return "";
+
   switch (hold.kind) {
     case "major":
       return "A new major version: it may change how the game plays or your saves.";
@@ -758,6 +899,8 @@ export function holdText(hold: Hold | null): string {
       return `Held back: it needs ${hold.id}${hold.wants ? ` ${hold.wants}` : ""}, which can't update with it.`;
     case "needsLauncher":
       return `Needs a newer launcher (mod API ${hold.api}). It updates once the launcher does.`;
+    case "needsLauncherHooks":
+      return `Needs a newer launcher (${missingHooks(hold.hooks)}). It updates once the launcher does.`;
     case "blocked":
       return "Held back: it doesn't fit with your other mods yet.";
   }
@@ -774,17 +917,27 @@ export const DEPS = {
 } as const;
 
 export const alsoTurnedOn = (names: string[]) => `Also turned on ${list(names)}.`;
+
 export const turnOffAsk = (needers: string[], name: string) =>
   `${list(needers)} ${needers.length === 1 ? "needs" : "need"} ${name}. Turn off ${needers.length === 1 ? "it" : "them"} too?`;
+
 export const fixInstall = (id: string) => `Fix: install ${id}`;
+
 export const removeDepsAsk = (names: string[]) =>
   `Also remove ${list(names)}? Nothing else uses ${names.length === 1 ? "it" : "them"}.`;
-export const removedDeps = (n: number) => (n === 1 ? "Also removed 1 unused mod." : `Also removed ${n} unused mods.`);
+
+export const removedDeps = (n: number) =>
+  n === 1 ? "Also removed 1 unused mod." : `Also removed ${n} unused mods.`;
+
 export const pinnedShared = "kept at this version by a shared setup";
+
 export const pinnedRollback = "kept at this version after a crash";
+
 export const rollBackTo = (name: string, version: string) => `Roll back ${name} to ${version}`;
+
 export const crashAfterUpdate = (names: string[]) =>
   `This came after ${list(names)} updated. Rolling back keeps the earlier version until a fixed one is out.`;
+
 export const rolledBack = (name: string, version: string) => `${name} is back at ${version}.`;
 
 /** Settings: the launcher in Steam's library (AddToSteam.svelte). */
@@ -802,7 +955,8 @@ export const STEAM_TEXT = {
 
 /** A game's page: its own Steam entry and desktop shortcut (GameShortcuts.svelte). */
 export const SHORTCUT_TEXT = {
-  steamLine: "Add this game to your Steam library as its own entry. It starts without the launcher's window.",
+  steamLine:
+    "Add this game to your Steam library as its own entry. It starts without the launcher's window.",
   steamIn: "In your Steam library.",
   desktopTitle: "Desktop shortcut",
   desktopLine: "A shortcut on your Desktop that starts this game without the launcher's window.",

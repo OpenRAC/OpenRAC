@@ -36,6 +36,14 @@ static inline int openrac_ui_send(const openrac_game_ui_rect* q, gaddr cursor) {
     return 1;
 }
 
+/* The quad to the window through the frame recorder (openrac/frame.h), placed where the display list
+ * whose cursor is the word at `cursor` has got to: nothing is written into the list. False when the
+ * 2D layer is replayed, and the caller sends the game's own packet. */
+static inline int openrac_ui_record(const openrac_game_ui_rect* q, gaddr cursor) {
+    openrac_frame_anchor_at(cursor);
+    return openrac_frame_ui_quad(q);
+}
+
 /* An axis-aligned quad, (x0, y0) to (x1, y1) on the screen (12.4, offset as the game sends them)
  * and (u0, v0) to (u1, v1) in the texture (12.4), as a strip. */
 static inline void openrac_ui_rect(

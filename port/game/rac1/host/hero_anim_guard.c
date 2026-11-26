@@ -7,7 +7,7 @@
  * Each level loads its own set of Ratchet's sequences (his class, moby +0x24: the count at +0xC,
  * the table at +0x48). Quartu has water but no drowning sequence (0x5F): reached without the O2
  * mask, running out of air asks for it, and set_hero_animation read through the missing entry
- * (issue #39; the game on the console crashes too). A sequence the class lacks is swapped for the
+ * (the game on the console crashes too). A sequence the class lacks is swapped for the
  * swimming one (0x65) when the class has that, and otherwise the animation is left as it is; the
  * state goes on as the game set it (drowning still kills him and he respawns).
  */

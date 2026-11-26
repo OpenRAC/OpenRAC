@@ -19,13 +19,21 @@ const PREFIX = "openrac-bake-error: ";
 export function bakeFailure(job: Pick<Job, "lines" | "code">): BakeFailure {
   for (const { line } of [...job.lines].reverse()) {
     if (!line.startsWith(PREFIX)) continue;
+
     try {
       const data: unknown = JSON.parse(line.slice(PREFIX.length));
+
       if (!data || typeof data !== "object") continue;
       const record = data as Record<string, unknown>;
+
       if (record.version !== 1) continue;
-      if (!["code", "title", "explanation", "suggestion", "detail"].every((key) => typeof record[key] === "string"))
+      if (
+        !["code", "title", "explanation", "suggestion", "detail"].every(
+          (key) => typeof record[key] === "string",
+        )
+      )
         continue;
+
       return {
         version: 1,
         code: String(record.code).slice(0, 80),
@@ -42,12 +50,14 @@ export function bakeFailure(job: Pick<Job, "lines" | "code">): BakeFailure {
       // A truncated or older tool's record must not prevent the failure notice itself.
     }
   }
+
   return {
     version: 1,
     code: "unreported",
     title: "Lighting preparation could not finish",
     explanation: "The lighting tool stopped without a detailed error report.",
-    suggestion: "Open Activity for its output. Check you have the latest launcher, then retry or send us the output.",
+    suggestion:
+      "Open Activity for its output. Check you have the latest launcher, then retry or send us the output.",
     detail: `Exit status: ${job.code ?? "unavailable"}\n${job.lines
       .slice(-20)
       .map(({ line }) => line)

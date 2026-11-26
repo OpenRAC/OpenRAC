@@ -19,6 +19,7 @@
 
 #include "check.h"
 #include "game/common/particle_texture_cache.h"
+#include "renderer/frame/ui_records.h"
 #include "renderer/textures/pcsx2_pack.h"
 #include "renderer/textures/texture.h"
 #include "renderer/textures/texture_pack.h"
@@ -79,6 +80,31 @@ void pcsx2_texture_pack() {
     image = Rgba8Image(32, 16);
     CHECK(pcsx2_pack::replace_indexed8(image, indices, palette));
     CHECK(image.texel(3, 3) == rgba(255, 0, 0, 128));
+    // A native 2D image (TexturePool::ui_image) is found by the game's own indices and palette, not
+    // by where the chip kept it: with them it takes the pack's picture, without them it stays.
+    {
+        TexturePool images;
+        const Rgba8Image decoded(32, 16);
+        UiIndexed source;
+        source.indices.assign(indices.begin(), indices.end());
+        source.palette.assign(palette.begin(), palette.end());
+        const TextureHandle plain = images.ui_image(1, decoded);
+        CHECK(!images.has_pcsx2_replacement(plain) && images.image(plain).width == 32);
+        const TextureHandle packed = images.ui_image(2, decoded, &source);
+        CHECK(images.has_pcsx2_replacement(packed));
+        CHECK(images.image(packed).width == 4);
+        CHECK(images.image(packed).texel(3, 3) == rgba(255, 0, 0, 64));
+        CHECK(images.ui_image(2, decoded, &source) == packed);
+        // The same indices sent as the top byte of 32-bit words have a name of their own.
+        image = Rgba8Image(32, 16);
+        CHECK(!pcsx2_pack::replace_indexed8(image, indices, palette, AlphaScale::Gs, true));
+    }
+    fs::remove(file);
+    image = Rgba8Image(32, 16);
+    CHECK(pcsx2_pack::replace_indexed8(image, indices, palette));
+    CHECK(image.texel(3, 3) == rgba(255, 0, 0, 128));
+    std::ofstream(file, std::ios::binary)
+        .write(reinterpret_cast<const char*>(dds.data()), static_cast<std::streamsize>(dds.size()));
     // Reopening an explicitly selected external folder keeps its replacement available.
     pcsx2_pack::configure(folder, nullptr);
     image = Rgba8Image(32, 16);
@@ -141,12 +167,14 @@ void pcsx2_texture_pack() {
     pool.upload({block, 2, tex0.psm, 0, 0, 16, 16, neighbour});
     const auto first = pool.resolve(tex0, kTexa);
     CHECK(pool.has_cropped_replacement(first));
+    CHECK(pool.has_pcsx2_replacement(first));
     CHECK(pool.image(first).texel(65, 9) == rgba(255, 0, 0, 64));
     CHECK(pool.uv_scale(first)[0] == 32.0f / 33.0f);
     ++neighbour[3 * 16];
     pool.upload({block, 2, tex0.psm, 0, 0, 16, 16, std::move(neighbour)});
     const auto changed = pool.resolve(tex0, kTexa);
     CHECK(changed != first && !pool.has_cropped_replacement(changed));
+    CHECK(!pool.has_pcsx2_replacement(changed));
 
     pcsx2_pack::configure({}, nullptr);
     fs::remove(crop);
@@ -460,6 +488,17 @@ void pool() {
     CHECK(textures.name(f) == "asset");
     textures.upload(upload(0x500, gs::kPsmct32, 4, 4, pixels));
     CHECK(textures.resolve(tex0(0x500, gs::kPsmct32, 2, 2), texa) != f);
+
+    // A chain is asked for by a draw that tiles the picture (an effect strip with a mipmapped
+    // TEX1); a texture made without one gets it, and the others never do.
+    CHECK(!textures.has_mipmaps(f));
+    CHECK(textures.ensure_mipmaps(f) && textures.has_mipmaps(f));
+    CHECK(textures.ensure_mipmaps(f));
+    CHECK(!textures.ensure_mipmaps(0) && !textures.ensure_mipmaps(0x7FFFFFF));
+    CHECK(!gs::Tex1::decode(0x60).mipmapped());                      // bilinear, one level
+    CHECK(!gs::Tex1::decode(5u << 6).mipmapped());                   // MXL 0
+    CHECK(gs::Tex1::decode(0x20u | 5u << 6 | 6u << 2).mipmapped());  // linear mipmap linear, MXL 6
+    CHECK(gs::Tex1::decode(2u << 6 | 1u << 2).mipmapped());
 
     // Conversions nobody uses are dropped after a while; assets stay.
     const std::size_t before = textures.size();
@@ -929,7 +968,7 @@ void particle_pass_cache() {
 }
 
 // A font's thinnest marks (a one-texel dot, an accent, the TM sign) stay inside the glyph's shape:
-// the field's smooth filter passes through the texels instead of blurring them away (issue #380).
+// the field's smooth filter passes through the texels instead of blurring them away.
 void thin_glyph_marks() {
     TexturePool textures;
     Rgba8Image font(16, 16);

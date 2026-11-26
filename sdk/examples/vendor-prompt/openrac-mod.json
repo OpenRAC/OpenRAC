@@ -1,0 +1,12 @@
+{
+  "format": 2,
+  "id": "vendor-prompt",
+  "name": "Vendor prompt",
+  "version": "1.0.0",
+  "author": "OpenRAC contributors",
+  "description": "An example for mod authors: draws a panel with a button prompt over the Gadgetron vendor, the button shown as the player's device has it. Changes nothing in the game.",
+  "license": "MIT",
+  "homepage": "https://github.com/OpenRAC/OpenRAC/tree/master/sdk/examples/vendor-prompt",
+  "api": "1.31",
+  "games": { "rac1": ["pal", "ntsc", "pal1", "jp"], "rac2": ["ntsc", "pal", "ntsc2"] }
+}

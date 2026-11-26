@@ -6,7 +6,7 @@ from [games/rac2](../../../games/rac2/decomp). The other two discs are carried f
 
 ```sh
 python3 tools/build_port.py rac2-ntsc --disc <your disc image>
-python3 tools/extractor.py <your disc image> --game rac2 --proj-path <data> -e --boot-only
+python3 tools/extractor.py <your disc image> --game rac2 --proj-path <data> -e
 port/build/release/openrac-rac2-ntsc --data <data> --levels <its levels> --window
 ```
 

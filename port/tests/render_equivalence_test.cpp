@@ -398,9 +398,12 @@ void test_an_entry_changes_no_frame(
         CHECK(equivalent);
     }
     timing.lap(setup.enhanced ? "enhanced draw/readback" : "compatibility draw/readback");
-    // Even a borrowed driver program must compile fresh SPIR-V with the disk cache off.
+    // Packaged variants bypass the writable SPIR-V cache in either option state.
     if (entry.opt == render_opt::Opt::SpirvDiskCache && baseline_on) {
-        CHECK(openrac::vkgl::submission_counters().shader_compiles > before.shader_compiles);
+        const auto after = openrac::vkgl::submission_counters();
+        CHECK(after.shader_package_hits > before.shader_package_hits);
+        CHECK(after.shader_package_misses == before.shader_package_misses);
+        CHECK(after.shader_compiles == before.shader_compiles);
     }
     scene.release();
     render_opt::reset();
@@ -805,8 +808,8 @@ std::size_t worst_pixels_beyond(const Frames& a, const Frames& b, int channel) {
 }
 
 // --opengl-frames FILE writes the compatibility scenarios' frames as OpenGL draws them;
-// --against-opengl FILE draws them on this process's API (Metal) and requires the same bytes. Two
-// processes, since a process opens one API.
+// --against-opengl FILE compares them with frames drawn by this process's renderer. Each
+// process opens one API.
 int run_against_opengl(const std::filesystem::path& path, bool save, const char* executable_path) {
     openrac::test::GlContext context;
     std::string error;
@@ -848,9 +851,8 @@ int run_against_opengl(const std::filesystem::path& path, bool save, const char*
         return 1;
     }
     constexpr std::size_t kFrameBytes = std::size_t{kWidth} * kHeight * 4;
-    // Apple's OpenGL runs on Metal, so the two agree exactly. AMD's OpenGL (R9 M370X) filters
-    // textures in eighths of a level, moving channels by up to 5, and resolves a triangle edge
-    // through a pixel centre otherwise in up to 2 pixels a frame (tools/remote-mac.sh measures it).
+    // Compare exactly on Apple GPUs. The AMD R9 M370X OpenGL reference differed by up to
+    // 5 channel values near filtering boundaries, and by more at up to 2 pixels per frame.
     const std::string_view renderer =
         reinterpret_cast<const char*>(openrac::gl::glGetString(openrac::gl::GL_RENDERER));
     const bool apple = renderer.starts_with("Apple");

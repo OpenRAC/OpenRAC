@@ -9,9 +9,11 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "renderer/gl/gl.h"
 
@@ -37,8 +39,16 @@ std::optional<Cell> cell(std::string_view name);
 // The texture: red the white ink's coverage, green the accent's (0 before cell() made it).
 gl::GLuint texture();
 
+// The number of mip levels generated for the current atlas.
+unsigned mip_levels();
+
 // Frees the texture (the context is current); the icons stay, to be drawn again.
 void release();
+
+// `svg` drawn on the CPU, kCell square, into `out` (two bytes a pixel: the white ink's coverage,
+// the accent's). False for an SVG nanosvg cannot draw. The menu's icons are drawn with it
+// (menu_icons.h).
+bool raster(std::string_view svg, std::vector<std::uint8_t>& out);
 
 // The icon drawn on the CPU, kCell square, as cell() puts it in the texture: two bytes a pixel,
 // the white ink's coverage and the accent's. Empty for an unknown icon. For tests.

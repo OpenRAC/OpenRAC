@@ -9,14 +9,14 @@ import subprocess
 
 import bake_water
 
-from water_sources import overlay_memory
+from water_sources import ADDRESSES, overlay_memory
 
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
 
 
-def source_overlay(level, disc):
+def source_overlay(level, disc, version):
     """Older exports can recover this same immutable input from their matching disc."""
     path = level/'bake-inputs/overlay.bin'
     if path.is_file():
@@ -25,8 +25,8 @@ def source_overlay(level, disc):
         raise ValueError('missing Novalis water input; re-extract the level or pass --disc')
     from disc import Disc
     with Disc(disc) as source:
-        if source.version.key != 'ntsc':
-            raise ValueError('Novalis water requires an NTSC disc')
+        if source.version.key != version:
+            raise ValueError(f'Novalis water needs the export\'s own disc ({version})')
         info = source.survey()['levels'][1]['ranges']['data']
         data = source.sectors(info['lba'], info['sectors'])
         offset, size = struct.unpack_from('<II', data)
@@ -39,12 +39,13 @@ def source_overlay(level, disc):
 
 def prepare(level, manifest, disc=None, *, baker=None):
     """Build and cache water beside its level, before GI or reflection preparation."""
-    if (manifest.get('game'), manifest.get('version'), manifest.get('level')) != ('rac1', 'ntsc', 1):
+    version = manifest.get('version')
+    if (manifest.get('game'), manifest.get('level')) != ('rac1', 1) or version not in ADDRESSES:
         return
     tag = manifest.get('bake_inputs', {}).get('water')
     if tag not in (None, 'profile-v1'):
         raise ValueError('unsupported Novalis water input')
-    overlay = source_overlay(level, disc)
+    overlay = source_overlay(level, disc, version)
     output = level/'water.bin'
     mesh = level/'water.mesh'
     stamp = level/'water-bake.json'
@@ -65,15 +66,16 @@ def prepare(level, manifest, disc=None, *, baker=None):
             and output.is_file() and mesh.is_file()
             and previous.get('outputs') == [digest(output), digest(mesh)]):
         return
-    memory = overlay_memory(overlay.read_bytes())
+    memory = overlay_memory(overlay.read_bytes(), version)
     # Publish only after both files have been produced; their shared fingerprint rejects a torn pair.
     with tempfile.TemporaryDirectory(prefix='.water-', dir=level) as temporary:
         staged = Path(temporary)/'water.bin'
         boundaries = level/'water-boundaries.json' if (level/'water-boundaries.json').is_file() else None
         if baker is None:
-            bake_water.bake(memory, level/'collision.glb', staged, boundaries=boundaries)
+            bake_water.bake(memory, level/'collision.glb', staged, boundaries=boundaries, version=version)
         else:
-            bake_water.bake_native(memory, level/'collision.glb', staged, baker, boundaries=boundaries)
+            bake_water.bake_native(memory, level/'collision.glb', staged, baker, boundaries=boundaries,
+                                   version=version)
         staged.replace(output)
         staged.with_suffix('.mesh').replace(mesh)
     stamp.write_text(json.dumps({'version': 1, 'inputs': inputs,

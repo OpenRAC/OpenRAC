@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Going Commando's movie player entry, PlayFmvMovie (0x0034EF58, matched C in
  * the decompilation): (first sector, size, an EE buffer pool, the player's
- * state block, a mode, the volume). It starts the IPU decoder and its threads
+ * state block, the audio channel, the volume). It starts the IPU decoder and its threads
  * (InitFmvPlaybackEngine), feeds the stream from the disc (sceCdRead at the
  * sector in the stream object's +4, from the first argument) and tears it all
  * down again. Threads, the IPU and the DMA it waits on are not in the port:
@@ -9,6 +9,11 @@
  * buffers, and the game keeps its own movie transitions around the call. Its
  * result is the native player's: 1 when skipped, 0 at the end, as Deadlocked's
  * port answers its own (rac4-ntsc/host/movie.c).
+ *
+ * The audio channel is the one InitFmvPlaybackEngine registers the audio callback for
+ * (sceMpegAddStrCallback, stream type 3). The PAL release passes g_language there: its movies carry
+ * one channel per language (0, 2, 3, 4, 5), so the native player plays the same one. A movie
+ * without that channel plays channel 0 (media::Movie::open).
  *
  * The picture is drawn as the console draws it, with what goes over it: the
  * decoder's frame is uploaded to the GS at g_fmvFrameTbp (D_001A72DC, the
@@ -80,15 +85,18 @@ static void movie_overlay(const uint8_t* rgba, int width, int height) {
     func_00127220(0x10009000u, list & 0x0FFFFFFFu);
 }
 
-int func_0034EF58(int first, int second, int pool, int state, int mode, int volume) {
-    (void)pool;
+int func_0034EF58(int first, int second, int pool, int state, int channel, int volume) {
     (void)state;
-    (void)mode;
+    /* As the console does: the base is the given pool while the movie plays, and 0 after.
+     * Without it the list went to 0x1C81C0 itself, over the game's data there (Jamming
+     * Array's map, which the save after its last scene then read). */
+    FMV_GS_BASE = pool;
     s_strips_given = volume;
     movie_strips();
     const int result =
-        openrac_game_play_movie_over((uint32_t)first, (uint32_t)second, 0, 1, movie_overlay);
+        openrac_game_play_movie_over((uint32_t)first, (uint32_t)second, channel, 1, movie_overlay);
 
     openrac_game_forget_picture(FMV_FRAME_TBP >> 8);
+    FMV_GS_BASE = 0;
     return result;
 }

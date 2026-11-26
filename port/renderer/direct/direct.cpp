@@ -16,7 +16,9 @@
 #include "common/env.h"
 #include "common/log.h"
 #include "common/stats.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
+#include "renderer/textures/interface_run.h"
 #include "renderer_shaders.h"
 
 namespace openrac::renderer {
@@ -28,6 +30,34 @@ namespace {
 // A scissor this many lines tall or more covers the frame (the chip's frame is 448 lines; a game
 // may leave a few out at the edges).
 constexpr std::int64_t kFrameFillLines = 400;
+
+// Converts an exclusive native clip to bounded inclusive pixels; malformed or empty clips stay empty.
+PixelRect native_clip(
+    std::span<const float, 4> rect, float sx, float sy, float width, float height
+) {
+    // Floating-point edges from the game must be finite before any integer conversion.
+    if (!std::isfinite(sx) || !std::isfinite(sy)
+        || !std::all_of(rect.begin(), rect.end(), [](float edge) { return std::isfinite(edge); })) {
+        return {1, 0, 1, 0};
+    }
+
+    const float x0 = std::clamp(rect[0] * sx, 0.0f, width);
+    const float x1 = std::clamp(rect[2] * sx, 0.0f, width);
+    const float y0 = std::clamp(rect[1] * sy, 0.0f, height);
+    const float y1 = std::clamp(rect[3] * sy, 0.0f, height);
+
+    // A clip wholly outside the target must not become a one-pixel strip at its edge.
+    if (x1 <= x0 || y1 <= y0) {
+        return {1, 0, 1, 0};
+    }
+
+    return {
+        static_cast<std::uint32_t>(std::floor(x0)),
+        static_cast<std::uint32_t>(std::ceil(x1)) - 1,
+        static_cast<std::uint32_t>(std::floor(y0)),
+        static_cast<std::uint32_t>(std::ceil(y1)) - 1
+    };
+}
 
 // A frame buffer is read back as a texture only in a colour format; an indexed texture (PSMT8,
 // PSMT4) at the same address is a texture of its own that the game pages in there.
@@ -99,6 +129,8 @@ void GifInterpreter::clear() {
     m_hud_split = -1;
     m_whole = false;
     m_picture = false;
+    m_recorded_target = 0;
+    m_recorded_scissor_set = false;
     m_error.clear();
 }
 
@@ -269,6 +301,7 @@ bool GifInterpreter::vif(std::span<const std::uint8_t> stream) {
     while (at + 4 <= stream.size()) {
         const std::uint32_t code = read32(stream, at);
         const std::size_t code_at = at;
+        run_splices(code_at);
         at += 4;
         const std::uint32_t command = (code >> 24) & 0x7F;
         const std::uint32_t immediate = code & 0xFFFF;
@@ -359,32 +392,8 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
             } else if ((value >> 48) == kPictureMarker) {
                 m_picture = (value & 1u) != 0;
                 m_state_dirty = true;
-            } else if ((value >> 48) == kMobyMarker && offscreen_target() != 0) {
-                DirectDraw d;
-                d.state.target = offscreen_target();
-                d.first = static_cast<std::uint32_t>(m_vertices.size());
-                d.mobys = value;
-                d.centre_x = 2048.0f - static_cast<float>(context().xyoffset.ofx) / 16.0f;
-                d.centre_y = 2048.0f - static_cast<float>(context().xyoffset.ofy) / 16.0f;
-                d.clear_depth = true;
-                for (auto it = m_draws.rbegin(); it != m_draws.rend(); ++it) {
-                    if (it->state.target == d.state.target && (it->count != 0 || it->mobys != 0)) {
-                        d.clear_depth = it->mobys == 0;
-                        break;
-                    }
-                }
-                m_draws.push_back(d);
-            } else if ((value >> 48) == kMobyMarker && m_screen_mobys) {
-                // A menu's mobys on the screen over a world drawn under it: the first of the frame
-                // clear the world's depth, the others share theirs.
-                DirectDraw d;
-                d.first = static_cast<std::uint32_t>(m_vertices.size());
-                d.mobys = value;
-                d.clear_depth =
-                    std::none_of(m_draws.begin(), m_draws.end(), [](const DirectDraw& o) {
-                        return o.mobys != 0 && o.state.target == 0;
-                    });
-                m_draws.push_back(d);
+            } else if ((value >> 48) == kMobyMarker) {
+                moby_draw(value);
             }
             return;
         case gs::kPrim:
@@ -537,7 +546,8 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
                     m_trxpos.dsay,
                     m_trxreg.rrw,
                     m_trxreg.rrh,
-                    {}
+                    {},
+                    m_bitbltbuf.generated
                 };
                 m_upload_bytes = image_bytes(
                     m_bitbltbuf.dpsm, static_cast<int>(m_trxreg.rrw), static_cast<int>(m_trxreg.rrh)
@@ -790,7 +800,7 @@ void GifInterpreter::draw_frame_snapshot() {
     DirectState s;
     s.textured = true;
     s.snapshot = true;
-    s.tfx = gs::Tfx::Decal;
+    s.combine = TextureCombine::Decal;
     s.tcc = false;
     s.clamp_s = true;
     s.clamp_t = true;
@@ -858,7 +868,7 @@ void GifInterpreter::draw_frame_upload(const ImageUpload& upload) {
         t.tbp0 = 0x10000u + upload.dbp;
         s.texture = m_textures.resolve(t, m_texa);
     }
-    s.tfx = gs::Tfx::Decal;
+    s.combine = TextureCombine::Decal;
     s.tcc = false;
     s.clamp_s = true;
     s.clamp_t = true;
@@ -970,6 +980,419 @@ void GifInterpreter::native_quad(const UiQuad& quad) {
     if (m_glyph) {
         m_glyph = false;
         m_state_dirty = true;
+    }
+}
+
+void GifInterpreter::moby_draw(std::uint64_t value) {
+    const std::uint32_t target = m_recorded_target != 0 ? m_recorded_target : offscreen_target();
+    if (target != 0) {
+        DirectDraw d;
+        d.state.target = target;
+        d.first = static_cast<std::uint32_t>(m_vertices.size());
+        d.mobys = value;
+        if (m_recorded_target != 0) {
+            d.centre_x = m_recorded_centre[0];
+            d.centre_y = m_recorded_centre[1];
+        } else {
+            d.centre_x = 2048.0f - static_cast<float>(context().xyoffset.ofx) / 16.0f;
+            d.centre_y = 2048.0f - static_cast<float>(context().xyoffset.ofy) / 16.0f;
+        }
+        d.clear_depth = true;
+        for (auto it = m_draws.rbegin(); it != m_draws.rend(); ++it) {
+            if (it->state.target == d.state.target && (it->count != 0 || it->mobys != 0)) {
+                d.clear_depth = it->mobys == 0;
+                break;
+            }
+        }
+        if (std::find(m_drawn.begin(), m_drawn.end(), target) == m_drawn.end()) {
+            m_drawn.push_back(target);
+        }
+        if (std::find(m_offscreen.begin(), m_offscreen.end(), target) == m_offscreen.end()) {
+            m_offscreen.push_back(target);
+        }
+        m_draws.push_back(d);
+    } else if (m_screen_mobys) {
+        // A menu's mobys on the screen over a world drawn under it: the first of the frame
+        // clear the world's depth, the others share theirs.
+        DirectDraw d;
+        d.first = static_cast<std::uint32_t>(m_vertices.size());
+        d.mobys = value;
+        d.clear_depth = std::none_of(m_draws.begin(), m_draws.end(), [](const DirectDraw& o) {
+            return o.mobys != 0 && o.state.target == 0;
+        });
+        m_draws.push_back(d);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The frame recorder's commands (docs/port/FRAME_RECORDER.md): drawn from their own native state,
+// in the same draw list as what the stream draws, so one flush keeps their order.
+
+void GifInterpreter::run_splices(std::size_t at) {
+    while (m_recording != nullptr && m_next_splice < m_splices.size()
+           && m_splices[m_next_splice].offset <= m_splice_base + at) {
+        const std::uint32_t index = m_splices[m_next_splice++].command;
+        if (index < m_recording->commands.size()) {
+            run_command(m_recording->commands[index]);
+        }
+    }
+}
+
+void GifInterpreter::finish_commands() {
+    run_splices(SIZE_MAX - m_splice_base);
+    m_recording = nullptr;
+    m_splices = {};
+    m_next_splice = 0;
+}
+
+void GifInterpreter::run_command(const FrameCommand& c) {
+    const FrameRecording& r = *m_recording;
+    switch (c.op) {
+        case FrameOp::World:
+            // Split screen: that player's picture goes here, over what the game drew in the view
+            // before its world and under what it draws after (set_view_pictures).
+            if (c.view < r.views.size()) {
+                view_world(r.views[c.view]);
+            }
+            break;
+        case FrameOp::WorldMobys:
+        case FrameOp::WorldShrubs:
+        case FrameOp::EffectParent:
+        case FrameOp::EffectQuad:
+        case FrameOp::ViewBegin:
+        case FrameOp::ViewEnd:
+            break;  // the window's split, strips and effect quads' tests: read where recorded
+        case FrameOp::HudSide:
+            hud_side(
+                static_cast<std::int32_t>(c.index),
+                (c.value & 1u) != 0,
+                (c.value & 2u) != 0 ? static_cast<int>(c.value >> 2) : -1
+            );
+            break;
+        case FrameOp::Wide:
+            m_whole = c.index != 0;
+            break;
+        case FrameOp::PictureBand:
+            m_picture = c.index != 0;
+            break;
+        case FrameOp::LastFrame:
+            draw_frame_snapshot();
+            break;
+        case FrameOp::Mobys:
+            moby_draw(c.value);
+            break;
+        case FrameOp::UiQuad:
+            if (c.index < r.ui_quads.size()) {
+                native_quad(r.ui_quads[c.index]);
+            }
+            break;
+        case FrameOp::UiItem:
+            if (c.index < r.ui_items.size()) {
+                native_item(r.ui_items[c.index], r.images);
+            }
+            break;
+        case FrameOp::Fill: {
+            // A plain fill neither tests nor writes depth (depth_bits 0); a depth fill
+            // (openrac_frame_fill_depth) tests and writes as its producer asked, at its depth placed
+            // as a residual vertex's would be, so the two compare equal at the same value.
+            DirectState s;
+            s.blend = Blend::of(c.blend);
+            s.depth = c.depth;
+            s.depth_write = c.depth_write;
+            s.colour_writes = c.writes;
+            const bool own_depth = c.depth_bits != 0;
+            // A plain fill's depth is never compared or stored: the nearest value, as before.
+            const float depth =
+                own_depth ? depth_clip(static_cast<double>(c.depth_value), depth_max(c.depth_bits))
+                          : 1.0f;
+
+            // OPENRAC_DUMP_DRAWS lists the depth fills beside the residual draws they replace.
+            if (g_dump_draws && own_depth) {
+                log::info(
+                    "recorded fill ({},{})-({},{}) whole {} rgba {:08x} depth {:#x}/{} bits "
+                    "test {} write {} channels {:#x}",
+                    c.rect[0],
+                    c.rect[1],
+                    c.rect[2],
+                    c.rect[3],
+                    c.whole,
+                    c.rgba,
+                    c.depth_value,
+                    static_cast<int>(c.depth_bits),
+                    static_cast<int>(c.depth.compare),
+                    c.depth_write,
+                    static_cast<int>(c.writes)
+                );
+            }
+
+            native_rect(c, s, depth);
+            break;
+        }
+        case FrameOp::Clear: {
+            DirectState s;
+            s.colour_writes = (c.clear & kClearColour) != 0 ? kWriteColour : 0;
+            s.depth_write = (c.clear & kClearDepth) != 0;
+            s.depth = {s.depth_write, DepthCompare::Always};
+            FrameCommand whole = c;
+            whole.whole = true;
+            // Reversed depth is cleared to its far value 0, which the 2D pass's -1..1 clip range
+            // places at -1 (clip-space 0 stored 0.5).
+            native_rect(whole, s, depth_clip(0.0, 1.0));
+            break;
+        }
+        case FrameOp::Picture: {
+            DirectState s;
+            s.textured = true;
+            s.combine = TextureCombine::Modulate;
+            s.tcc = true;
+            s.linear_mag = true;
+            s.linear_min = true;
+            s.clamp_s = true;
+            s.clamp_t = true;
+            s.blend = Blend::of(c.blend);
+            s.depth_write = false;
+            if (c.value != 0) {
+                const std::size_t i = static_cast<std::size_t>(c.value - 1);
+                if (i >= r.images.size() || !r.images[i].image) {
+                    break;
+                }
+                s.texture = m_textures.ui_image(
+                    r.images[i].hash, *r.images[i].image, r.images[i].indexed.get()
+                );
+            } else {
+                s.snapshot_picture = c.index;
+                s.combine = TextureCombine::Decal;
+                s.tcc = false;
+            }
+            native_rect(c, s, 1.0f);
+            break;
+        }
+        case FrameOp::Snapshot: {
+            DirectDraw d;
+            d.state.target = m_recorded_target;
+            d.first = static_cast<std::uint32_t>(m_vertices.size());
+            d.snapshot = c.index;
+            m_draws.push_back(d);
+            break;
+        }
+        case FrameOp::TargetBegin:
+            m_recorded_target = c.index;
+            m_recorded_centre =
+                {static_cast<float>(c.width) * 0.5f, static_cast<float>(c.height) * 0.5f};
+            m_recorded_scissor_set = false;
+            break;
+        case FrameOp::TargetEnd:
+            m_recorded_target = 0;
+            m_recorded_scissor_set = false;
+            break;
+        case FrameOp::Scissor:
+            m_recorded_scissor_set = !c.whole;
+            if (!c.whole) {
+                const bool panel = m_recorded_target != 0;
+                const float width =
+                    static_cast<float>(panel ? kOffscreenPixels : m_config.screen_width);
+                const float height =
+                    static_cast<float>(panel ? kOffscreenPixels : m_config.screen_height);
+                // Panels keep their own pixels, as native_rect and native_item do.
+                const float sx = panel ? 1.0f : width / c.screen_width;
+                const float sy = panel ? 1.0f : height / c.screen_height;
+                m_recorded_scissor = native_clip(c.rect, sx, sy, width, height);
+            }
+            break;
+    }
+    m_state_dirty = true;  // what the stream draws next takes its own state again
+}
+
+// A rectangle of the recording (a fill, a clear, a picture) as two triangles in the target, with
+// the state given; the target, scissor and "whole" placement are the recording's.
+void GifInterpreter::native_rect(const FrameCommand& c, const DirectState& given, float depth) {
+    DirectState s = given;
+    s.target = m_recorded_target;
+    const bool panel = s.target != 0;
+    const float tw =
+        panel ? static_cast<float>(kOffscreenPixels) : static_cast<float>(m_config.screen_width);
+    const float th =
+        panel ? static_cast<float>(kOffscreenPixels) : static_cast<float>(m_config.screen_height);
+    s.scissor =
+        m_recorded_scissor_set
+            ? m_recorded_scissor
+            : PixelRect{
+                  0, static_cast<std::uint32_t>(tw) - 1, 0, static_cast<std::uint32_t>(th) - 1
+              };
+    // The whole target (a fade, a backdrop) on a target wider than the picture.
+    s.whole = c.wide;
+    if (m_draws.empty() || !(m_draws.back().state == s) || m_draws.back().mobys != 0
+        || m_draws.back().snapshot != 0) {
+        m_draws.push_back({s, static_cast<std::uint32_t>(m_vertices.size()), 0});
+    }
+    float x0 = 0.0f, y0 = 0.0f, x1 = tw, y1 = th;
+    if (!c.whole) {
+        const float kx = (panel ? 1.0f : tw / c.screen_width);
+        const float ky = (panel ? 1.0f : th / c.screen_height);
+        x0 = c.rect[0] * kx;
+        y0 = c.rect[1] * ky;
+        x1 = c.rect[2] * kx;
+        y1 = c.rect[3] * ky;
+    }
+    DirectVertex corners[4]{};
+    const float xs[2] = {x0, x1};
+    const float ys[2] = {y0, y1};
+    for (int i = 0; i < 4; ++i) {
+        DirectVertex& v = corners[i];
+        v.x = xs[i & 1] / tw * 2.0f - 1.0f;
+        v.y = 1.0f - ys[i >> 1] / th * 2.0f;
+        v.z = depth;
+        v.s = static_cast<float>(i & 1);
+        // A snapshot's texture and a view's picture have their first row at the bottom.
+        v.t = s.snapshot_picture != 0 || s.view_picture != 0 ? 1.0f - static_cast<float>(i >> 1)
+                                                             : static_cast<float>(i >> 1);
+        v.q = 1.0f;
+        std::memcpy(v.rgba, &c.rgba, 4);
+        v.fog = 1.0f;
+    }
+    const DirectVertex order[6] =
+        {corners[0], corners[1], corners[2], corners[1], corners[3], corners[2]};
+    append_vertices(order);
+}
+
+void GifInterpreter::view_world(const FrameView& view) {
+    // At most once a frame: a second World of the view must not cover what was drawn since.
+    if (!view.valid() || m_view_pictures[view.view] == 0
+        || ((m_views_drawn >> view.view) & 1u) != 0) {
+        return;
+    }
+    m_views_drawn |= 1u << view.view;
+    // The view's rectangle of the game's screen, across the target's width as the world is drawn
+    // on a target wider than the picture, not cut by the game's last scissor.
+    FrameCommand rect;
+    rect.rect = view.rect;
+    rect.whole = false;
+    rect.wide = true;
+    rect.screen_width = view.screen_width;
+    rect.screen_height = view.screen_height;
+    DirectState s;
+    s.textured = true;
+    s.combine = TextureCombine::Decal;
+    s.linear_mag = true;
+    s.linear_min = true;
+    s.clamp_s = true;
+    s.clamp_t = true;
+    s.blend = Blend::of(BlendMode::Opaque);
+    s.depth_write = false;
+    s.view_picture = m_view_pictures[view.view];
+    const bool scissor = std::exchange(m_recorded_scissor_set, false);
+    native_rect(rect, s, 1.0f);
+    m_recorded_scissor_set = scissor;
+}
+
+// A quad of the 2D layer from the game's data alone: its image's texture (or the image's distance
+// field for a glyph), the usual 2D blend, no depth, the item's clip or the whole target.
+void GifInterpreter::native_item(const UiItem& item, std::span<const UiImage> images) {
+    const bool flat = (item.flags & kUiItemFlat) != 0;
+    const bool glyph = (item.flags & kUiItemGlyph) != 0;
+    const UiImage* image = nullptr;
+    if (!flat) {
+        if (item.image >= images.size() || !images[item.image].image) {
+            return;
+        }
+        image = &images[item.image];
+    }
+    const std::uint32_t target = m_recorded_target != 0 ? m_recorded_target : offscreen_target();
+    const float sw = static_cast<float>(m_config.screen_width);
+    const float sh = static_cast<float>(m_config.screen_height);
+    DirectState s;
+    s.target = target;
+    s.whole = m_whole;
+    s.picture = m_picture;
+    s.blend = Blend::of(BlendMode::Mix);
+    s.depth_write = false;
+    s.textured = !flat;
+    if (image != nullptr) {
+        s.texture = m_textures.ui_image(image->hash, *image->image, image->indexed.get());
+        s.tcc = true;
+        s.combine = TextureCombine::Modulate;
+        s.linear_mag = (item.flags & kUiItemNearest) == 0;
+        s.linear_min = s.linear_mag;
+        s.clamp_s = true;
+        s.clamp_t = true;
+        if (glyph) {
+            s.field = m_textures.distance_field(s.texture);
+            s.distance_field = s.field != s.texture;
+            s.linear_mag = true;
+            s.linear_min = true;
+        }
+    }
+    // The item's pixels onto the frame's (or the panel's), as the packets' are.
+    const float tw = target != 0 ? static_cast<float>(kOffscreenPixels) : sw;
+    const float th = target != 0 ? static_cast<float>(kOffscreenPixels) : sh;
+    const float kx = target != 0 ? 1.0f : tw / std::max(item.screen_width, 1.0f);
+    const float ky = target != 0 ? 1.0f : th / std::max(item.screen_height, 1.0f);
+    if ((item.flags & kUiItemClip) != 0) {
+        s.scissor = native_clip(item.clip, kx, ky, tw, th);
+
+        // An item's local clip narrows the active recorder scissor rather than replacing it.
+        if (m_recorded_scissor_set) {
+            s.scissor =
+                {std::max(s.scissor.x0, m_recorded_scissor.x0),
+                 std::min(s.scissor.x1, m_recorded_scissor.x1),
+                 std::max(s.scissor.y0, m_recorded_scissor.y0),
+                 std::min(s.scissor.y1, m_recorded_scissor.y1)};
+        }
+    } else if (m_recorded_scissor_set) {
+        s.scissor = m_recorded_scissor;
+    } else {
+        s.scissor = {0, static_cast<std::uint32_t>(tw) - 1, 0, static_cast<std::uint32_t>(th) - 1};
+    }
+    if (m_draws.empty() || !(m_draws.back().state == s) || m_draws.back().mobys != 0
+        || m_draws.back().snapshot != 0) {
+        m_draws.push_back({s, static_cast<std::uint32_t>(m_vertices.size()), 0});
+    }
+    const float iw = image != nullptr ? static_cast<float>(std::max(image->image->width, 1)) : 1.0f;
+    const float ih =
+        image != nullptr ? static_cast<float>(std::max(image->image->height, 1)) : 1.0f;
+    // A glyph's top and bottom sit half a texel inside its cell (native_quad): its distance field
+    // reaches across the cell's edge into the row above and below.
+    const float top = *std::min_element(item.v, item.v + 4);
+    const float bottom = *std::max_element(item.v, item.v + 4);
+    const float inset = glyph && bottom - top > 1.0f ? 0.5f : 0.0f;
+    // A flat item over the screen's last column or line goes on to its edge, as a plain fill from
+    // the packets does (sprite()): the game's covers run from -0.5 to 511.5 and -0.5 to 447.5 (the
+    // pause menu's darkening over the world), and drawn there they left the right and bottom half
+    // pixel uncovered, a line of the undarkened world along the window's right and bottom. The
+    // chip fills a pixel from ceil(x0) to ceil(x1) - 1, so such an edge covers the last one. Edges
+    // inside the screen, and those wholly past it, stay where they are.
+    const auto to_edge = [&](float v, float most) {
+        return flat && target == 0 && most >= 1.0f && std::ceil(v) == most ? most : v;
+    };
+    DirectVertex corners[4]{};
+    for (int i = 0; i < 4; ++i) {
+        DirectVertex& v = corners[i];
+        v.x = to_edge(item.x[i], item.screen_width) * kx / tw * 2.0f - 1.0f;
+        v.y = 1.0f - to_edge(item.y[i], item.screen_height) * ky / th * 2.0f;
+        v.z = 1.0f;
+        v.s = item.u[i] / iw;
+        v.t = std::clamp(item.v[i], top + inset, bottom - inset) / ih;
+        v.q = 1.0f;
+        std::memcpy(v.rgba, &item.rgba[i], 4);
+        v.fog = 1.0f;
+    }
+    if ((item.flags & kUiItemShaded) == 0) {
+        // Unshaded, each triangle takes the colour of its last corner (2, then 3), as the game's
+        // quads are drawn.
+        DirectVertex first[3] = {corners[0], corners[1], corners[2]};
+        DirectVertex second[3] = {corners[1], corners[3], corners[2]};
+        for (DirectVertex& v : first) {
+            std::memcpy(v.rgba, corners[2].rgba, 4);
+        }
+        for (DirectVertex& v : second) {
+            std::memcpy(v.rgba, corners[3].rgba, 4);
+        }
+        append_vertices(first);
+        append_vertices(second);
+    } else {
+        const DirectVertex order[6] =
+            {corners[0], corners[1], corners[2], corners[1], corners[3], corners[2]};
+        append_vertices(order);
     }
 }
 
@@ -1099,6 +1522,9 @@ void GifInterpreter::overwritten(std::uint32_t dbp, std::uint32_t dbw, std::uint
     std::erase_if(m_frame_copies, [&](const FrameCopy& f) { return covered(f.dbp); });
     const std::size_t targets = m_offscreen.size();
     std::erase_if(m_offscreen, covered);
+    // A target the transfer only reuses part of keeps what was drawn there for the world's quads
+    // that sampled it before (take_drawn_blocks); one a texture starts at is that texture now.
+    std::erase(m_drawn, dbp);
     static log::Capped told(100);
     if (m_offscreen.size() != targets && log::verbose_on() && told()) {
         log::verbose("2D: a transfer to block {:#x} took {} off-screen target(s) back as texture memory", dbp,
@@ -1130,9 +1556,9 @@ void GifInterpreter::clut_load(const gs::Tex0& t) {
             break;
     }
     // The copy a load would keep (TexturePool::load_clut) is not taken: the 2D layer's CLUTs are
-    // read from memory at draw time, as before 520b75f4. Kept at the TEX0 write, a CLUT the game
-    // sends after it in the same frame was missed, and the copy held a stale one: the pause pages'
-    // box frames drew as noise and the Gadgetron vendor's beam as black after its menu.
+    // read from memory at draw time. Kept at the TEX0 write, a CLUT the game sends after it in the
+    // same frame would be missed and the copy would hold a stale one (the pause pages' box frames
+    // would draw as noise and the Gadgetron vendor's beam as black after its menu).
     (void)load;
 }
 
@@ -1248,8 +1674,7 @@ DirectVertex GifInterpreter::convert(const GsVertex& v) const {
     out.y = 1.0f - py / target_h * 2.0f;
     // The chip's depth, bigger nearer, straight into GL's [0, 1] window
     // depth: with the buffer cleared to 0 and GEQUAL, as on the console.
-    const double depth = std::clamp(static_cast<double>(v.z) / c.zbuf.max_z(), 0.0, 1.0);
-    out.z = static_cast<float>(depth * 2.0 - 1.0);
+    out.z = depth_clip(static_cast<double>(v.z), c.zbuf.max_z());
     int frame_x = 0;
     int frame_y = 0;
     if (attributes().tme
@@ -1271,6 +1696,15 @@ DirectVertex GifInterpreter::convert(const GsVertex& v) const {
         const float w = attributes().fst ? static_cast<float>(v.v) / 16.0f
                                          : v.t / v.q * static_cast<float>(c.tex0.height());
         out.s = (u + static_cast<float>(frame_x)) / static_cast<float>(m_config.screen_width);
+        // Copied into an off-screen target, the frame is the game's picture: on a target wider
+        // than it, the middle part the world draws the game's view in. Going Commando's frame copy
+        // (the frame shrunk to 256 x 256 at block 0x3340, which the Aranos Prison energy fields
+        // refract while they appear, sampling it where their quads lie in the game's picture) took
+        // the whole wide target, so the fields showed the scene shifted out from the middle: dark
+        // pillars where the floor was, black discs.
+        if (offscreen && m_picture_scale_x > 0.0f && m_picture_scale_x < 1.0f) {
+            out.s = 0.5f + (out.s - 0.5f) * m_picture_scale_x;
+        }
         out.t = 1.0f - (w + static_cast<float>(frame_y)) / static_cast<float>(m_config.screen_height);
         out.q = 1.0f;
     } else if (attributes().fst) {
@@ -1306,7 +1740,7 @@ void GifInterpreter::ensure_draw() {
                          && frame_source(c.tex0.tbp0, frame_x, frame_y);
         if (s.source != 0 || s.frame_source) {
             s.tcc = c.tex0.tcc;
-            s.tfx = c.tex0.tfx;
+            s.combine = static_cast<TextureCombine>(c.tex0.tfx);
             s.linear_mag = c.tex1.mmag;
             s.linear_min = c.tex1.mmin == 1 || c.tex1.mmin == 4 || c.tex1.mmin == 5;
             s.clamp_s = true;
@@ -1315,6 +1749,10 @@ void GifInterpreter::ensure_draw() {
             // Unblended draws can use RGB under zero alpha, so only active blending permits filtering.
             const gs::Alpha* dump_blend = p.abe ? &c.alpha : nullptr;
             s.texture = m_textures.resolve(c.tex0, m_texa, dump_blend);
+            // An interface texture run (interface_run.h) files a texture drawn as text as the font.
+            if (m_glyph && interface_run::recording() && s.texture != m_textures.placeholder()) {
+                interface_run::mark_font(m_textures.pack_hash(s.texture));
+            }
             // A pack's picture is drawn as its maker made it: a field of a big one would also
             // take seconds of CPU (four times its size).
             if (m_glyph && s.texture != m_textures.placeholder()
@@ -1325,7 +1763,7 @@ void GifInterpreter::ensure_draw() {
             }
             s.texture_full_alpha = m_textures.alpha_scale(s.texture) == AlphaScale::Full;
             s.tcc = c.tex0.tcc;
-            s.tfx = c.tex0.tfx;
+            s.combine = static_cast<TextureCombine>(c.tex0.tfx);
             s.linear_mag = c.tex1.mmag;
             s.linear_min = c.tex1.mmin == 1 || c.tex1.mmin == 4 || c.tex1.mmin == 5;
             if (s.distance_field) {
@@ -1337,13 +1775,19 @@ void GifInterpreter::ensure_draw() {
             s.clamp_s = c.clamp.wms != gs::Wrap::Repeat;
             s.clamp_t = c.clamp.wmt != gs::Wrap::Repeat;
         }
-        s.blend = p.abe;
-        if (s.blend) {
-            s.alpha = c.alpha;
+        if (p.abe) {
+            s.blend = blend_from_gs(c.alpha);
         }
-        s.test = c.test;
+        s.alpha_test = alpha_test_from_gs(c.test);
+        s.depth = depth_test_from_gs(c.test);
         s.depth_write = !c.zbuf.zmsk;
-        s.fbmsk = c.frame.fbmsk;
+        // FRAME.FBMSK: a channel whose bits are all masked is not written.
+        s.colour_writes = static_cast<std::uint8_t>(
+            ((c.frame.fbmsk & 0x000000FFu) != 0x000000FFu ? kWriteRed : 0)
+            | ((c.frame.fbmsk & 0x0000FF00u) != 0x0000FF00u ? kWriteGreen : 0)
+            | ((c.frame.fbmsk & 0x00FF0000u) != 0x00FF0000u ? kWriteBlue : 0)
+            | ((c.frame.fbmsk & 0xFF000000u) != 0xFF000000u ? kWriteAlpha : 0)
+        );
         // A texture nothing has been put at yet (the game draws before its upload arrives): the
         // chip would show whatever its memory held, so the draw writes nothing, rather than the
         // placeholder's magenta (OPENRAC_SHOW_MISSING shows it, for finding missing textures). A
@@ -1351,7 +1795,7 @@ void GifInterpreter::ensure_draw() {
         // the placeholder's 0) and is drawn.
         const bool show_missing = env::flag(env::Var::ShowMissing);
         if (s.textured && s.source == 0 && !s.frame_source && s.texture == m_textures.placeholder() && !show_missing) {
-            s.fbmsk = 0xFFFFFFFFu;
+            s.colour_writes = 0;
             s.depth_write = false;
         }
         if (s.textured) {
@@ -1382,13 +1826,14 @@ void GifInterpreter::ensure_draw() {
                 const float r = (fits ? edge * screen / size : edge) - (end ? 1.0f : 0.0f);
                 return static_cast<std::uint32_t>(r < 0.0f ? 0.0f : r);
             };
-            s.scissor = s.target != 0 ? c.scissor
-                                      : gs::Scissor{
-                                            scale(c.scissor.x0, fx, sw, width, false),
-                                            scale(c.scissor.x1, fx, sw, width, true),
-                                            scale(c.scissor.y0, fy, sh, height, false),
-                                            scale(c.scissor.y1, fy, sh, height, true)
-                                        };
+            s.scissor = s.target != 0
+                            ? PixelRect{c.scissor.x0, c.scissor.x1, c.scissor.y0, c.scissor.y1}
+                            : PixelRect{
+                                  scale(c.scissor.x0, fx, sw, width, false),
+                                  scale(c.scissor.x1, fx, sw, width, true),
+                                  scale(c.scissor.y0, fy, sh, height, false),
+                                  scale(c.scissor.y1, fy, sh, height, true)
+                              };
         }
         s.fog = p.fge;
         if (s.fog) {
@@ -1401,6 +1846,9 @@ void GifInterpreter::ensure_draw() {
     // the game sets FRAME to blocks it then uploads textures to (its register sets name a panel's
     // target whether or not that panel is drawn), and a block taken for a target made every texture
     // the game put there later draw as that target, blank.
+    if (m_state.target != 0 && std::find(m_drawn.begin(), m_drawn.end(), m_state.target) == m_drawn.end()) {
+        m_drawn.push_back(m_state.target);
+    }
     if (m_state.target != 0 && std::find(m_offscreen.begin(), m_offscreen.end(), m_state.target) == m_offscreen.end()) {
         m_offscreen.push_back(m_state.target);
         static log::Capped told(100);
@@ -1671,28 +2119,71 @@ void GifInterpreter::emit_point(const GsVertex& a) {
 // ---------------------------------------------------------------------------
 // DirectRenderer
 
-GlBlend translate_blend(const gs::Alpha& alpha) {
-    auto coefficient = [&](std::uint8_t which, int& k, int& m) {
-        k = (alpha.a == which ? 1 : 0) - (alpha.b == which ? 1 : 0);
+Blend blend_from_gs(const gs::Alpha& alpha) {
+    auto coefficient = [&](std::uint8_t which, std::int8_t& k, std::uint8_t& m) {
+        k = static_cast<std::int8_t>((alpha.a == which ? 1 : 0) - (alpha.b == which ? 1 : 0));
         m = alpha.d == which ? 1 : 0;
     };
-    int ks = 0;
-    int ms = 0;
-    int kd = 0;
-    int md = 0;
-    coefficient(0, ks, ms);  // Cs
-    coefficient(1, kd, md);  // Cd
+    Blend out;
+    out.enabled = true;
+    coefficient(0, out.source_k, out.source_m);  // Cs
+    coefficient(1, out.dest_k, out.dest_m);      // Cd
+    out.weight = alpha.c == 0   ? BlendWeight::SourceAlpha
+                 : alpha.c == 1 ? BlendWeight::DestinationAlpha
+                                : BlendWeight::Constant;
+    out.constant =
+        out.weight == BlendWeight::Constant ? static_cast<float>(alpha.fix) / 128.0f : 0.0f;
+    return out;
+}
+
+AlphaTest alpha_test_from_gs(const gs::Test& test) {
+    AlphaTest out;
+    if (test.ate) {
+        out.compare = static_cast<Compare>(test.atst);
+        out.reference = test.aref;
+        out.fail = static_cast<FailWrites>(test.afail);
+    }
+    return out;
+}
+
+DepthTest depth_test_from_gs(const gs::Test& test) {
+    DepthTest out;
+    out.enabled = test.zte;
+    switch (test.ztst) {
+        case gs::DepthTest::Never:
+            out.compare = DepthCompare::Never;
+            break;
+        case gs::DepthTest::Always:
+            out.compare = DepthCompare::Always;
+            break;
+        case gs::DepthTest::Gequal:
+            out.compare = DepthCompare::GreaterEqual;
+            break;
+        case gs::DepthTest::Greater:
+            out.compare = DepthCompare::Greater;
+            break;
+    }
+    return out;
+}
+
+GlBlend translate_blend(const Blend& blend) {
+    const int ks = blend.source_k;
+    const int ms = blend.source_m;
+    const int kd = blend.dest_k;
+    const int md = blend.dest_m;
+    const bool by_constant = blend.weight == BlendWeight::Constant;
+    const bool over_one = by_constant && blend.constant > 1.0f;
 
     GlBlend out;
     GLenum factor = GL_SRC_ALPHA;
     GLenum one_minus = GL_ONE_MINUS_SRC_ALPHA;
-    if (alpha.c == 1) {
+    if (blend.weight == BlendWeight::DestinationAlpha) {
         factor = GL_DST_ALPHA;
         one_minus = GL_ONE_MINUS_DST_ALPHA;
-    } else if (alpha.c == 2) {
+    } else if (by_constant) {
         factor = GL_CONSTANT_ALPHA;
         one_minus = GL_ONE_MINUS_CONSTANT_ALPHA;
-        out.constant = std::min(1.0f, static_cast<float>(alpha.fix) / 128.0f);
+        out.constant = std::min(1.0f, blend.constant);
     }
     // One term's factor and sign.
     auto term = [&](int k, int m, GLenum& f, int& sign) {
@@ -1706,35 +2197,36 @@ GlBlend translate_blend(const gs::Alpha& alpha) {
         } else if (k == -1 && m == 0) {
             f = factor;
             sign = -1;
-        } else {  // C + 1: more than GL's factors reach
+        } else {  // w + 1: more than GL's factors reach
             f = GL_ONE;
             out.exact = false;
         }
     };
-    // Cd (C + 1) with C As or FIX: Cd * C as the source factor DST_COLOR on the weight the shader
-    // writes, plus Cd.
-    if (ks == 0 && ms == 0 && kd == 1 && md == 1 && alpha.c != 1) {
+    // Cd (w + 1) with w the source alpha or a constant: Cd * w as the source factor DST_COLOR on
+    // the weight the shader writes, plus Cd.
+    if (ks == 0 && ms == 0 && kd == 1 && md == 1 && blend.weight != BlendWeight::DestinationAlpha) {
         out.src = GL_DST_COLOR;
         out.dst = GL_ONE;
         out.equation = GL_FUNC_ADD;
         out.constant = 0.0f;
-        out.source_scale = alpha.c == 0 ? SourceScale::WeightAlpha : SourceScale::WeightFix;
-        out.fix = static_cast<float>(alpha.fix) / 128.0f;
-        out.exact = alpha.c == 0 || alpha.fix <= 0x80;
+        out.source_scale = by_constant ? SourceScale::WeightFix : SourceScale::WeightAlpha;
+        out.fix = blend.constant;
+        out.exact = !by_constant || !over_one;
         return out;
     }
     int src_sign = 1;
     int dst_sign = 1;
     term(ks, ms, out.src, src_sign);
     term(kd, md, out.dst, dst_sign);
-    // Cs weighed by As or by a FIX above 1, Cd not weighed: the shader weighs Cs (SourceScale).
+    // Cs weighed by its alpha or by a constant above 1, Cd not weighed: the shader weighs Cs
+    // (SourceScale).
     if ((ks == 1 || ks == -1) && ms == 0 && kd == 0
-        && (alpha.c == 0 || (alpha.c == 2 && alpha.fix > 0x80))) {
+        && (blend.weight == BlendWeight::SourceAlpha || over_one)) {
         out.src = GL_ONE;
-        out.source_scale = alpha.c == 0 ? SourceScale::Alpha : SourceScale::Fix;
-        out.fix = static_cast<float>(alpha.fix) / 128.0f;
-    } else if (alpha.c == 2 && alpha.fix > 0x80 && (ks != 0 || kd != 0)) {
-        out.exact = false;  // a FIX above 1 that weighs Cd too: GL's constant stops at 1
+        out.source_scale = by_constant ? SourceScale::Fix : SourceScale::Alpha;
+        out.fix = blend.constant;
+    } else if (over_one && (ks != 0 || kd != 0)) {
+        out.exact = false;  // a constant above 1 that weighs Cd too: GL's constant stops at 1
     }
     if (src_sign > 0 && dst_sign > 0) {
         out.equation = GL_FUNC_ADD;
@@ -1753,15 +2245,15 @@ GlBlend translate_blend(const gs::Alpha& alpha) {
 
 namespace {
 
-GLenum depth_func(gs::DepthTest test) {
+GLenum depth_func(DepthCompare test) {
     switch (test) {
-        case gs::DepthTest::Never:
+        case DepthCompare::Never:
             return GL_NEVER;
-        case gs::DepthTest::Always:
+        case DepthCompare::Always:
             return GL_ALWAYS;
-        case gs::DepthTest::Gequal:
+        case DepthCompare::GreaterEqual:
             return GL_GEQUAL;
-        case gs::DepthTest::Greater:
+        case DepthCompare::Greater:
             return GL_GREATER;
     }
     return GL_ALWAYS;
@@ -1871,6 +2363,11 @@ void DirectRenderer::release() {
     }
     m_offscreen_targets.clear();
     g_offscreen_textures.clear();
+    for (auto& [id, p] : m_pictures) {
+        (void)id;
+        glDeleteTextures(1, &p.texture);
+    }
+    m_pictures.clear();
     if (m_samplers[0] != 0) {
         glDeleteSamplers(16, m_samplers.data());
         m_samplers.fill(0);
@@ -1897,10 +2394,14 @@ bool DirectRenderer::retain_uploads(std::span<const std::uint8_t> packets) {
     return ok;
 }
 
-void DirectRenderer::render(const FrameInput& input, RenderState& state) {
+void DirectRenderer::prepare(const FrameInput& input, RenderState& state) {
     const auto packets = input.packets[static_cast<std::size_t>(bucket())];
+    m_prepared = true;
     // Draws the part before the world held back (flush) are drawn even when nothing follows.
-    if (packets.empty() && m_interpreter->draws().empty()) {
+    const std::span<const FrameSplice> after_world =
+        input.splices.subspan(std::min(input.splices_before_world, input.splices.size()));
+    m_nothing = packets.empty() && m_interpreter->draws().empty() && after_world.empty();
+    if (m_nothing) {
         return;
     }
     m_interpreter->set_ui_quads(input.ui_quads);
@@ -1908,9 +2409,48 @@ void DirectRenderer::render(const FrameInput& input, RenderState& state) {
     m_interpreter->set_picture(state.target.picture_scale_x, state.target.wide_2d);
     m_interpreter->set_over_world(std::exchange(m_world_split, false) && input.level_drawn);
     m_frame = &input;
-    {
-        const stats::Scope decode("2d decode");
-        submit(packets);
+    const stats::Scope decode("2d decode");
+    m_interpreter->set_view_pictures(input.view_pictures);
+    m_interpreter->set_commands(input.recording, after_world, input.hud_packets_offset);
+    submit(packets);
+    m_interpreter->finish_commands();
+}
+
+bool DirectRenderer::draws_nothing() const {
+    // Only off-screen panels drawn (or nothing at all), none of them from the frame.
+    return m_prepared
+           && (m_nothing
+               || std::none_of(
+                   m_interpreter->draws().begin(),
+                   m_interpreter->draws().end(),
+                   [](const DirectDraw& d) {
+                       return (d.count != 0 || d.mobys != 0 || d.snapshot != 0)
+                              && (d.state.target == 0 || d.state.frame_source);
+                   }
+               ));
+}
+
+bool DirectRenderer::reads_frame_depth() const {
+    // A draw on the frame that tests depth against what is there, or mobys drawn on it.
+    return std::any_of(
+        m_interpreter->draws().begin(), m_interpreter->draws().end(), [](const DirectDraw& d) {
+            const DepthCompare test = d.state.depth.compare;
+            return d.state.target == 0
+                   && (d.mobys != 0
+                       || (d.state.depth.enabled
+                           && (test == DepthCompare::GreaterEqual
+                               || test == DepthCompare::Greater)));
+        }
+    );
+}
+
+void DirectRenderer::render(const FrameInput& input, RenderState& state) {
+    if (!std::exchange(m_prepared, false)) {
+        prepare(input, state);
+        m_prepared = false;
+    }
+    if (m_nothing) {
+        return;
     }
     const stats::Scope draws("2d draws");
     flush(state);
@@ -1937,7 +2477,10 @@ const DirectRenderer::Offscreen& DirectRenderer::offscreen(std::uint32_t block) 
     glBindFramebuffer(GL_FRAMEBUFFER, o.framebuffer);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, o.texture, 0);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, o.depth);
+    // A new panel's clear must cover every channel even after a masked draw.
     glDisable(GL_SCISSOR_TEST);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_TRUE);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClearDepth(0.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1951,7 +2494,8 @@ void DirectRenderer::use_program(bool masked) {
     (masked ? m_shader_masked : m_shader).use();
 }
 
-void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
+std::array<unsigned, 2> DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
+    std::array<unsigned, 2> textures{};
     // Off-screen targets have one sample a pixel; the frame has several when it has a resolve
     // target. The program first: every uniform below is set for this draw. Apple's OpenGL on AMD
     // GPUs ignores gl_SampleMask, so there, where Metal shares its pictures, a pixel is discarded.
@@ -1963,15 +2507,15 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
     if (masked != m_masked) {
         use_program(masked);
     }
+    // Allocate the draw target before binding any sampled textures.
+    const unsigned framebuffer =
+        s.target != 0 ? offscreen(s.target).framebuffer : render_state.target.framebuffer;
     // Where the draw goes: an off-screen target's square, or the frame.
     if (s.target != 0) {
-        const Offscreen& o = offscreen(s.target);
-        glBindFramebuffer(GL_FRAMEBUFFER, o.framebuffer);
         glViewport(0, 0, kOffscreenPixels * kOffscreenScale, kOffscreenPixels * kOffscreenScale);
         const float side = static_cast<float>(kOffscreenPixels * kOffscreenScale);
         glUniform2f(m_uniforms.pixel_offset, 0.5f / side, -0.5f / side);
     } else {
-        glBindFramebuffer(GL_FRAMEBUFFER, render_state.target.framebuffer);
         glViewport(0, 0, render_state.target.width, render_state.target.height);
         glUniform2f(m_uniforms.pixel_offset, 0.5f / static_cast<float>(std::max(render_state.target.width, 1)),
                     -0.5f / static_cast<float>(std::max(render_state.target.height, 1)));
@@ -1980,10 +2524,18 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
     if (s.textured) {
         glActiveTexture(GL_TEXTURE0);
         if (s.snapshot) {
-            glBindTexture(GL_TEXTURE_2D, g_frame_snapshot.texture);
+            textures[0] = g_frame_snapshot.texture;
+        } else if (s.view_picture != 0) {
+            textures[0] = s.view_picture;
+        } else if (s.snapshot_picture != 0) {
+            const auto found = m_pictures.find(s.snapshot_picture);
+            textures[0] =
+                found != m_pictures.end()
+                    ? found->second.texture
+                    : render_state.textures.gl_texture(render_state.textures.placeholder());
         } else if (s.source != 0) {
             // A panel the game rendered off-screen, as the chip would read it from its memory.
-            glBindTexture(GL_TEXTURE_2D, offscreen(s.source).texture);
+            textures[0] = offscreen(s.source).texture;
         } else if (s.frame_source) {
             // What the frame holds now, as the chip would read it from its memory.
             const int w = render_state.target.width;
@@ -1991,6 +2543,7 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
             if (m_frame_copy == 0) {
                 glGenTextures(1, &m_frame_copy);
             }
+            textures[0] = m_frame_copy;
             glBindTexture(GL_TEXTURE_2D, m_frame_copy);
             if (w != m_frame_copy_width || h != m_frame_copy_height) {
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -2000,11 +2553,10 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
             // (A multisampled frame is resolved first: readable() leaves the bindings changed.)
             glBindFramebuffer(GL_READ_FRAMEBUFFER, readable(render_state.target));
             glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, w, h);
-            glBindFramebuffer(GL_FRAMEBUFFER,
-                              s.target != 0 ? offscreen(s.target).framebuffer : render_state.target.framebuffer);
         } else {
-            glBindTexture(GL_TEXTURE_2D, render_state.textures.gl_texture(s.texture));
+            textures[0] = render_state.textures.gl_texture(s.texture);
         }
+        glBindTexture(GL_TEXTURE_2D, textures[0]);
         const unsigned sampler_idx = (s.linear_mag ? 1u : 0u) | (s.linear_min ? 2u : 0u)
                                    | (s.clamp_s ? 4u : 0u) | (s.clamp_t ? 8u : 0u);
         const unsigned sampler = m_samplers[sampler_idx];
@@ -2013,12 +2565,13 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
             m_bound_sampler = sampler;
         }
         glUniform1i(m_uniforms.tcc, s.tcc ? 1 : 0);
-        glUniform1i(m_uniforms.tfx, static_cast<GLint>(s.tfx));
+        glUniform1i(m_uniforms.tfx, static_cast<GLint>(s.combine));
         glUniform1f(m_uniforms.tex_alpha_scale, s.texture_full_alpha ? 0.5f : 1.0f);
         glUniform1i(m_uniforms.distance_field, s.distance_field ? 1 : 0);
         if (s.distance_field) {
             glActiveTexture(GL_TEXTURE0 + 1);
-            glBindTexture(GL_TEXTURE_2D, render_state.textures.gl_texture(s.field));
+            textures[1] = render_state.textures.gl_texture(s.field);
+            glBindTexture(GL_TEXTURE_2D, textures[1]);
             glBindSampler(1, m_samplers[15]);  // linear mag/min + clamp s/t
             glUniform1i(m_uniforms.tex_T1, 1);
             glActiveTexture(GL_TEXTURE0);
@@ -2030,14 +2583,18 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
     if (!s.textured || !s.distance_field) {
         const GLuint none = render_state.textures.gl_texture(render_state.textures.placeholder());
         if (!s.textured) {
+            textures[0] = none;
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, none);
         }
         glActiveTexture(GL_TEXTURE0 + 1);
+        textures[1] = none;
         glBindTexture(GL_TEXTURE_2D, none);
         glUniform1i(m_uniforms.tex_T1, 1);
         glActiveTexture(GL_TEXTURE0);
     }
+    // A sampled panel's first clear or a frame resolve can change framebuffer bindings.
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glUniform1i(m_uniforms.fog_enable, s.fog ? 1 : 0);
     glUniform3f(
         m_uniforms.fog_colour,
@@ -2046,15 +2603,17 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
         static_cast<float>((s.fog_colour >> 16) & 0xFF)
     );
 
-    if (s.blend) {
-        const GlBlend b = translate_blend(s.alpha);
+    if (s.blend.enabled) {
+        const GlBlend b = translate_blend(s.blend);
         if (!b.exact) {
             log::debug(
-                "blend mode A={} B={} C={} D={} approximated",
-                s.alpha.a,
-                s.alpha.b,
-                s.alpha.c,
-                s.alpha.d
+                "blend ({} w + {}) Cs + ({} w + {}) Cd, weight {} {}, approximated",
+                s.blend.source_k,
+                s.blend.source_m,
+                s.blend.dest_k,
+                s.blend.dest_m,
+                static_cast<int>(s.blend.weight),
+                s.blend.constant
             );
         }
         glEnable(GL_BLEND);
@@ -2069,11 +2628,9 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
         glUniform1i(m_uniforms.source_scale, 0);
     }
 
-    if (!s.test.zte) {
-        glDisable(GL_DEPTH_TEST);
-    } else {
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(depth_func(s.test.ztst));
+    // The alpha-fail policy decides whether each draw needs to enable depth testing.
+    if (s.depth.enabled) {
+        glDepthFunc(depth_func(s.depth.compare));
     }
 
     // The scissor, from the chip's pixels to the target's: the picture's 512 x 448 onto the frame,
@@ -2106,10 +2663,52 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
     const auto y1 = static_cast<GLint>(std::lround(static_cast<float>(s.scissor.y1 + 1) * sy));
     glEnable(GL_SCISSOR_TEST);
     glScissor(x0, target_height - y1, std::max(0, x1 - x0), std::max(0, y1 - y0));
+    return textures;
+}
+
+void DirectRenderer::keep_snapshot(std::uint32_t id, const RenderTarget& target) {
+    Picture& p = m_pictures[id];
+    if (p.texture == 0) {
+        glGenTextures(1, &p.texture);
+    }
+    glBindTexture(GL_TEXTURE_2D, p.texture);
+    if (p.width != target.width || p.height != target.height) {
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA8,
+            target.width,
+            target.height,
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            nullptr
+        );
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        p.width = target.width;
+        p.height = target.height;
+    }
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, readable(target));
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, target.width, target.height);
 }
 
 void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
     const DirectState& s = d.state;
+    if (d.snapshot != 0) {
+        // The target as drawn so far, kept as the recorder's picture.
+        RenderTarget target = render_state.target;
+        if (s.target != 0) {
+            const Offscreen& o = offscreen(s.target);
+            target =
+                {o.framebuffer,
+                 kOffscreenPixels * kOffscreenScale,
+                 kOffscreenPixels * kOffscreenScale};
+        }
+        keep_snapshot(d.snapshot, target);
+        glBindFramebuffer(GL_FRAMEBUFFER, render_state.target.framebuffer);
+        return;
+    }
     if (d.mobys != 0) {
         // Mobys the game drew into this target: the frontend draws them, with the target bound;
         // then this renderer's own state again. Our samplers are unbound first: they clamp, and the
@@ -2143,14 +2742,34 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
         }
         return;
     }
-    apply(s, render_state);
+    // The direct renderer has no stencil work, so a depth test of NEVER has no output.
+    if (s.depth.enabled && s.depth.compare == DepthCompare::Never) {
+        return;
+    }
+    const auto bindings = apply(s, render_state);
+    const RasterTexture textures[]{{bindings[0]}, {bindings[1] == bindings[0] ? 0 : bindings[1]}};
+    const RasterBuffer geometry{
+        m_vbo, (static_cast<std::size_t>(d.first) + d.count) * sizeof(DirectVertex)
+    };
+    RenderTarget target = render_state.target;
+    // A vendor or cockpit panel writes to its own colour and depth attachments.
+    if (s.target != 0) {
+        const auto& panel = offscreen(s.target);
+        target =
+            {panel.framebuffer,
+             kOffscreenPixels * kOffscreenScale,
+             kOffscreenPixels * kOffscreenScale};
+    }
 
-    // FRAME.FBMSK: a channel whose bits are all masked is not written.
-    const GLboolean red = (s.fbmsk & 0x000000FFu) != 0x000000FFu ? GL_TRUE : GL_FALSE;
-    const GLboolean green = (s.fbmsk & 0x0000FF00u) != 0x0000FF00u ? GL_TRUE : GL_FALSE;
-    const GLboolean blue = (s.fbmsk & 0x00FF0000u) != 0x00FF0000u ? GL_TRUE : GL_FALSE;
-    const GLboolean alpha = (s.fbmsk & 0xFF000000u) != 0xFF000000u ? GL_TRUE : GL_FALSE;
+    // The channels written.
+    const GLboolean red = (s.colour_writes & kWriteRed) != 0 ? GL_TRUE : GL_FALSE;
+    const GLboolean green = (s.colour_writes & kWriteGreen) != 0 ? GL_TRUE : GL_FALSE;
+    const GLboolean blue = (s.colour_writes & kWriteBlue) != 0 ? GL_TRUE : GL_FALSE;
+    const GLboolean alpha = (s.colour_writes & kWriteAlpha) != 0 ? GL_TRUE : GL_FALSE;
     const GLboolean depth = s.depth_write && !m_background ? GL_TRUE : GL_FALSE;
+    const bool compare_depth = s.depth.enabled
+                               && (s.depth.compare == DepthCompare::GreaterEqual
+                                   || s.depth.compare == DepthCompare::Greater);
 
     auto call = [&](int test,
                     bool keep_failing,
@@ -2158,16 +2777,26 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
                     GLboolean write_alpha,
                     GLboolean write_depth) {
         glUniform1i(m_uniforms.alpha_test, test);
-        glUniform1f(m_uniforms.alpha_ref, static_cast<float>(s.test.aref));
+        glUniform1f(m_uniforms.alpha_ref, static_cast<float>(s.alpha_test.reference));
         glUniform1i(m_uniforms.alpha_keep_failing, keep_failing ? 1 : 0);
         glColorMask(red & colour, green & colour, blue & colour, alpha & write_alpha);
-        glDepthMask(depth & write_depth);
-        glDrawArrays(GL_TRIANGLES, static_cast<GLint>(d.first), static_cast<GLsizei>(d.count));
+        const bool updates_depth = s.depth.enabled && (depth & write_depth);
+        glDepthMask(updates_depth ? GL_TRUE : GL_FALSE);
+        // ALWAYS with writes masked needs no attachment, even if the GS enabled testing.
+        if (compare_depth || updates_depth) {
+            glEnable(GL_DEPTH_TEST);
+        } else {
+            glDisable(GL_DEPTH_TEST);
+        }
+        const auto attachments = colour_with_depth(compare_depth, updates_depth);
+        raster_pass("game interface", target, {{&geometry, 1}, textures, attachments}, [&] {
+            glDrawArrays(GL_TRIANGLES, static_cast<GLint>(d.first), static_cast<GLsizei>(d.count));
+        });
         ++render_state.stats.draw_calls;
         render_state.stats.triangles += d.count / 3;
     };
 
-    const bool testing = s.test.ate && s.test.atst != gs::AlphaTest::Always;
+    const bool testing = s.alpha_test.compare != Compare::Always;
     if (!testing) {
         call(0, false, GL_TRUE, GL_TRUE, GL_TRUE);
         return;
@@ -2176,39 +2805,51 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
     GLboolean fail_colour = GL_FALSE;
     GLboolean fail_alpha = GL_FALSE;
     GLboolean fail_depth = GL_FALSE;
-    switch (s.test.afail) {
-        case gs::AlphaFail::Keep:
+    switch (s.alpha_test.fail) {
+        case FailWrites::Nothing:
             break;
-        case gs::AlphaFail::FbOnly:
+        case FailWrites::Colour:
             fail_colour = GL_TRUE;
             fail_alpha = GL_TRUE;
             break;
-        case gs::AlphaFail::ZbOnly:
+        case FailWrites::Depth:
             fail_depth = GL_TRUE;
             break;
-        case gs::AlphaFail::RgbOnly:
+        case FailWrites::Rgb:
             fail_colour = GL_TRUE;
             break;
     }
-    if (s.test.atst == gs::AlphaTest::Never) {
+    if (s.alpha_test.compare == Compare::Never) {
         // Every pixel fails: one draw with the fail mode's writes (the
         // game's quads use NEVER with FB_ONLY for colour without depth).
-        if (s.test.afail != gs::AlphaFail::Keep) {
+        if (s.alpha_test.fail != FailWrites::Nothing) {
             call(0, false, fail_colour, fail_alpha, fail_depth);
         }
         return;
     }
     // OpenGOAL's double draw: the passing pixels with every write, then, if
     // failing ones still write something, those with only that.
-    call(static_cast<int>(s.test.atst), false, GL_TRUE, GL_TRUE, GL_TRUE);
-    if (s.test.afail != gs::AlphaFail::Keep) {
-        call(static_cast<int>(s.test.atst), true, fail_colour, fail_alpha, fail_depth);
+    call(static_cast<int>(s.alpha_test.compare), false, GL_TRUE, GL_TRUE, GL_TRUE);
+    if (s.alpha_test.fail != FailWrites::Nothing) {
+        call(static_cast<int>(s.alpha_test.compare), true, fail_colour, fail_alpha, fail_depth);
     }
 }
 
 void DirectRenderer::publish_offscreen() {
     g_offscreen_textures.clear();
-    for (const std::uint32_t block : m_interpreter->offscreen_blocks()) {
+    // The targets still standing, and those drawn this frame that later transfers only reused part
+    // of: the world's effect quads sampled them where the list drew them, before those transfers.
+    // Up Your Arsenal's frame copy (effect texture -1, the frame shrunk to 256 x 256 at FBP 0x198,
+    // which the Nitro Launcher's blast and the other refraction rings draw through) is followed in
+    // the list by the frame's effect texture uploads, which go into its blocks once the quads have
+    // read it: taken back, the quads found nothing at its block and drew a black disc.
+    std::vector<std::uint32_t> blocks = m_interpreter->offscreen_blocks();
+    for (const std::uint32_t block : m_interpreter->take_drawn_blocks()) {
+        if (std::find(blocks.begin(), blocks.end(), block) == blocks.end()) {
+            blocks.push_back(block);
+        }
+    }
+    for (const std::uint32_t block : blocks) {
         for (const auto& [b, o] : m_offscreen_targets) {
             if (b == block) {
                 g_offscreen_textures.push_back({block, o.texture});
@@ -2220,7 +2861,12 @@ void DirectRenderer::publish_offscreen() {
 void DirectRenderer::flush(RenderState& state, bool background) {
     m_background = background;
     const auto& vertices = m_interpreter->vertices();
-    if (vertices.empty()) {
+    const bool snapshots = std::any_of(
+        m_interpreter->draws().begin(), m_interpreter->draws().end(), [](const DirectDraw& d) {
+            return d.snapshot != 0;
+        }
+    );
+    if (vertices.empty() && !snapshots) {
         m_interpreter->clear();
         return;
     }
@@ -2314,7 +2960,7 @@ void DirectRenderer::flush(RenderState& state, bool background) {
                 continue;
             }
             if (s.target != 0 || d.count == 0) {
-                if (d.count != 0 || d.mobys != 0) {
+                if (d.count != 0 || d.mobys != 0 || d.snapshot != 0) {
                     runs.push_back({&d, d.first, d.count, true});  // an off-screen panel's own square
                 }
                 continue;
@@ -2378,14 +3024,24 @@ void DirectRenderer::flush(RenderState& state, bool background) {
     if (k < 1.0f) {
         for (const Run& r : runs) {
             m_whole_target = r.whole;
-            draw(DirectDraw{r.draw->state, r.first, r.count, r.draw->mobys, r.draw->centre_x, r.draw->centre_y,
-                            r.draw->clear_depth},
-                 state);
+            draw(
+                DirectDraw{
+                    r.draw->state,
+                    r.first,
+                    r.count,
+                    r.draw->mobys,
+                    r.draw->centre_x,
+                    r.draw->centre_y,
+                    r.draw->clear_depth,
+                    r.draw->snapshot
+                },
+                state
+            );
         }
         m_whole_target = true;
     } else {
         for (const DirectDraw& d : m_interpreter->draws()) {
-            if ((d.count != 0 || d.mobys != 0) && !held(d)) {
+            if ((d.count != 0 || d.mobys != 0 || d.snapshot != 0) && !held(d)) {
                 draw(d, state);
             }
         }

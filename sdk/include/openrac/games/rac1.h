@@ -201,6 +201,73 @@ typedef void (*openrac_rac1_Moby_CollectBolt)(openrac_gaddr bolt);
 #define OPENRAC_RAC1_SIG_Vendor_DrawIconStrip "void()"
 typedef void (*openrac_rac1_Vendor_DrawIconStrip)(void);
 
+/* Hero_EnterMoveState (func_L00_00222B80, rac1.player.enter_move_state): puts the hero into a
+ * move state (+0x2084): HeroEnterMoveState, and the copy of it in each level with hero code of
+ * its own (one hook point). It sets the state up, starts its animation when force is non-zero,
+ * and returns 0 when it refuses the change (dying or a cutscene, unless force is 2). Every change
+ * of his state goes through it. */
+#define OPENRAC_RAC1_HOOK_Hero_EnterMoveState "Hero_EnterMoveState"
+#define OPENRAC_RAC1_SIG_Hero_EnterMoveState "i32(i32,i32)"
+typedef int32_t (*openrac_rac1_Hero_EnterMoveState)(int32_t state, int32_t force);
+
+/* Hero_ResolveGravityMode (func_L00_00233CC0, rac1.player.resolve_gravity_mode): the hero's
+ * gravity mode for the tick (+0x20B3: 0 the world's down, 1 the ground's normal), once a tick;
+ * 1 on magnetic ground with the Magneboots and in the magnet walk (state 0x3F). */
+#define OPENRAC_RAC1_HOOK_Hero_ResolveGravityMode "Hero_ResolveGravityMode"
+#define OPENRAC_RAC1_SIG_Hero_ResolveGravityMode "i32()"
+typedef int32_t (*openrac_rac1_Hero_ResolveGravityMode)(void);
+
+/* Hero_UpdateEquippedItems (func_L00_00210FE0, rac1.player.update_equipped_items): what the hero
+ * holds, once a tick: locks item selection and use (+0x20A7, +0x20AC) on magnetic ground with the
+ * Magneboots, in water or dying, then runs the item mobys and the items. */
+#define OPENRAC_RAC1_HOOK_Hero_UpdateEquippedItems "Hero_UpdateEquippedItems"
+#define OPENRAC_RAC1_SIG_Hero_UpdateEquippedItems "void()"
+typedef void (*openrac_rac1_Hero_UpdateEquippedItems)(void);
+
+/* Hero_SteerPlanarVelocity (func_L00_00214520, rac1.player.steer_planar_velocity): steers the
+ * hero's planar velocity (+0xE0) toward his target speed (+0x190) along his move yaw (+0x180), by
+ * at most step a tick (up to three times that as it turns him): steer_hero_planar_velocity, and
+ * its copy air_accel in the other levels (one hook point). The move states call it after setting
+ * the target speed and the step, the Thruster-Pack's hover (state 0x81) among them. */
+#define OPENRAC_RAC1_HOOK_Hero_SteerPlanarVelocity "Hero_SteerPlanarVelocity"
+#define OPENRAC_RAC1_SIG_Hero_SteerPlanarVelocity "void(f32)"
+typedef void (*openrac_rac1_Hero_SteerPlanarVelocity)(float step);
+
+/* Hero_UpdateMovement (func_L00_002180F8, rac1.player.update_movement): the hero's movement for
+ * the state he is in (+0x2084), once a tick from Hero_UpdateMotionInput: a case per state that
+ * sets his speeds, turn and velocity (+0xE0), the Thruster-Pack's hover (state 0x81) among them.
+ * hero_update_movement, and each other level's own build of it (one hook point). A replacement
+ * can move him itself in one state and call the original for the others. */
+#define OPENRAC_RAC1_HOOK_Hero_UpdateMovement "Hero_UpdateMovement"
+#define OPENRAC_RAC1_SIG_Hero_UpdateMovement "void()"
+typedef void (*openrac_rac1_Hero_UpdateMovement)(void);
+
+/* FX_DrawWorldQuad (func_L00_001FD1D8, rac1.fx.world_quad.draw): queues one effect quad
+ * (draw_world_quad): the record at quad holds four corners (+0x00), four RGBA words (+0x40),
+ * four ST pairs (+0x50) and the GS words CLAMP, TEX0, TEX1, ALPHA (+0x70..+0x88), its corners
+ * through matrix when it is not 0. Most effects' draws call it, many times a frame; a replacement
+ * can rewrite the record's colours before it calls the original. */
+#define OPENRAC_RAC1_HOOK_FX_DrawWorldQuad "FX_DrawWorldQuad"
+#define OPENRAC_RAC1_SIG_FX_DrawWorldQuad "void(u32,u32,i32)"
+typedef void (*openrac_rac1_FX_DrawWorldQuad)(openrac_gaddr quad, openrac_gaddr matrix, int32_t mode);
+
+/* FX_ThrusterFlame_Draw (func_L00_002B4918, rac1.fx.thruster_flame.draw): draws one of the
+ * Thruster-Pack's flames (a class 0xA7 moby; draw_joint_aligned_beam_effect), each frame it
+ * burns: two quads in 0x80808080 and a glow in 0x7F2020FF through FX_DrawWorldQuad, then a
+ * ribbon coloured from joint_beam_ribbon_colors. */
+#define OPENRAC_RAC1_HOOK_FX_ThrusterFlame_Draw "FX_ThrusterFlame_Draw"
+#define OPENRAC_RAC1_SIG_FX_ThrusterFlame_Draw "void(u32)"
+typedef void (*openrac_rac1_FX_ThrusterFlame_Draw)(openrac_gaddr flame);
+
+/* FX_SpawnBurst (func_L00_0026DA50, rac1.fx.burst.spawn): spawns a spark (spawn_burst) at pos
+ * moving by dir for ticks ticks, its colour fading from colour to fade as it shrinks from size,
+ * throwing off sparks of its colour while children is set. Returns it, or 0. The Thruster-Pack's
+ * flames spawn theirs (0x4F007FFF) from their update, rac1.moby.moby167.update. */
+#define OPENRAC_RAC1_HOOK_FX_SpawnBurst "FX_SpawnBurst"
+#define OPENRAC_RAC1_SIG_FX_SpawnBurst "u32(u32,u32,i32,i32,i32,i32,f32)"
+typedef openrac_gaddr (*openrac_rac1_FX_SpawnBurst)(openrac_gaddr pos, openrac_gaddr dir, int32_t colour, int32_t fade,
+                                                    int32_t ticks, int32_t children, float size);
+
 /* ------------------------------------------------------------------------------------------ *
  * Taking a hook point
  * ------------------------------------------------------------------------------------------ */
@@ -218,6 +285,282 @@ typedef void (*openrac_rac1_Vendor_DrawIconStrip)(void);
         (void*)(replacement),                                                                      \
         (void**)(original)                                                                         \
     )
+
+/* ---- generated by sdk/tools/gen_binding.py from sdk/bindings/rac1.json: do not edit ---- */
+/* Hook points added since this header was last written by hand, from the binding table.
+ * As the others: on a port that lacks one, openrac_api.hook returns OPENRAC_HOOK_UNKNOWN. */
+
+/* Hero_Update: The hero's whole update, once a tick from the level loop
+ * (coordinate_hero_frame_update, and its copies update_hero_frame and HeroL03_FrameUpdate in
+ * the other families of levels: one hook point): his animation's advance, the stick, his state
+ * machine and movement (Hero_UpdateMotionInput), ledges and rails, his state's transitions, his
+ * body's easing, his moby and matrices, what he holds and his drawing; it fades out when he
+ * leaves the world's bounds. A replacement that does not call the original moves him by itself
+ * and shows him with openrac_api.hero_set_pose. */
+#define OPENRAC_RAC1_HOOK_Hero_Update "Hero_Update"
+#define OPENRAC_RAC1_SIG_Hero_Update "void()"
+typedef void (*openrac_rac1_Hero_Update)(void);
+
+/* Help_Request: Queues help message message in the help window's slot (Help_Request): 1 when
+ * queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it. A mod
+ * may replace the message: call the original with the new id and the same slot, and return its
+ * result. The id must be in the level's table; one that is not shows nothing, though the result
+ * is still 1. */
+#define OPENRAC_RAC1_HOOK_Help_Request "Help_Request"
+#define OPENRAC_RAC1_SIG_Help_Request "i32(i32,i32)"
+typedef int32_t (*openrac_rac1_Help_Request)(int32_t message, int32_t slot);
+
+/* Ship_InitTransition: Puts the hero in the ship for a landing or take-off
+ * (initialize_level_transition_with_audio): the ship's records, the sound, and the chunks to
+ * load. On Orxon its choice of chunks goes by whether the O2 Mask is owned. */
+#define OPENRAC_RAC1_HOOK_Ship_InitTransition "Ship_InitTransition"
+#define OPENRAC_RAC1_SIG_Ship_InitTransition "void(i32)"
+typedef void (*openrac_rac1_Ship_InitTransition)(int32_t mode);
+
+/* Level_UpdatePlay: The level's tick in play (handle_pause_input, game mode 0): the pause,
+ * freeze and help triggers, then the mobys, the hero, the particles, the camera, the sound, the
+ * HUD's elements and the frame counters. A replacement that returns without calling the
+ * original holds the world for that tick, as the game's own change of mode does (a mod's menu
+ * over a frozen world: the freeze mode, rac1.freeze.update). */
+#define OPENRAC_RAC1_HOOK_Level_UpdatePlay "Level_UpdatePlay"
+#define OPENRAC_RAC1_SIG_Level_UpdatePlay "void()"
+typedef void (*openrac_rac1_Level_UpdatePlay)(void);
+
+/* Freeze_Update: The freeze mode's tick (update_mode_freeze, game mode 4, entered by
+ * mode_freeze_init(kind, ...)): the help, prompt and dialog screens over a frozen world, by
+ * mode_freeze_info's kind (0 to 8 are the game's). It runs the sound and, once the mode has
+ * been left, puts the sounds and the music back on. A mod's own kind runs here, before or after
+ * the original. */
+#define OPENRAC_RAC1_HOOK_Freeze_Update "Freeze_Update"
+#define OPENRAC_RAC1_SIG_Freeze_Update "void()"
+typedef void (*openrac_rac1_Freeze_Update)(void);
+
+/* Freeze_Draw: The freeze mode's picture (draw_dialog_background_and_text): the frozen world
+ * drawn again with the HUD (the draw mask 0x100FF), then the freeze dialog's dim and box
+ * (draw_freeze_message_box). A mod's own freeze kind draws its own here. */
+#define OPENRAC_RAC1_HOOK_Freeze_Draw "Freeze_Draw"
+#define OPENRAC_RAC1_SIG_Freeze_Draw "void()"
+typedef void (*openrac_rac1_Freeze_Draw)(void);
+
+/* Menu_ItemGrid_Update: Moves the pause menu item grid's focus and takes its selection
+ * (update_menu_grid_selection), each tick the grid is open. Returns the menu's action. */
+#define OPENRAC_RAC1_HOOK_Menu_ItemGrid_Update "Menu_ItemGrid_Update"
+#define OPENRAC_RAC1_SIG_Menu_ItemGrid_Update "i32(u32)"
+typedef int32_t (*openrac_rac1_Menu_ItemGrid_Update)(uint32_t grid);
+
+/* Menu_ItemGrid_Draw: Draws the pause menu item grid (draw_menu_item_grid). Returns the render-
+ * pass flags the menu passes on. */
+#define OPENRAC_RAC1_HOOK_Menu_ItemGrid_Draw "Menu_ItemGrid_Draw"
+#define OPENRAC_RAC1_SIG_Menu_ItemGrid_Draw "i32(u32)"
+typedef int32_t (*openrac_rac1_Menu_ItemGrid_Draw)(uint32_t grid);
+
+/* Menu_ItemSlots_Update: Puts the highlighted item in one of the quick select's eight slots
+ * (update_menu_item_slots), in the pause menu's quick select editor. */
+#define OPENRAC_RAC1_HOOK_Menu_ItemSlots_Update "Menu_ItemSlots_Update"
+#define OPENRAC_RAC1_SIG_Menu_ItemSlots_Update "i32(u32)"
+typedef int32_t (*openrac_rac1_Menu_ItemSlots_Update)(uint32_t list);
+
+/* Menu_QuickSelect_Draw: Draws the pause menu's quick select ring (draw_pause_ring). Returns
+ * the render-pass flags. */
+#define OPENRAC_RAC1_HOOK_Menu_QuickSelect_Draw "Menu_QuickSelect_Draw"
+#define OPENRAC_RAC1_SIG_Menu_QuickSelect_Draw "i32(u32)"
+typedef int32_t (*openrac_rac1_Menu_QuickSelect_Draw)(uint32_t screen);
+
+/* Menu_QuickSelect_Load: Copies the eight saved quick select items into the pause menu's editor
+ * (load_selection_list). */
+#define OPENRAC_RAC1_HOOK_Menu_QuickSelect_Load "Menu_QuickSelect_Load"
+#define OPENRAC_RAC1_SIG_Menu_QuickSelect_Load "i32(u32)"
+typedef int32_t (*openrac_rac1_Menu_QuickSelect_Load)(uint32_t list);
+
+/* Menu_QuickSelect_Store: Copies the editor's eight quick select items (+0x30 of screen) back
+ * to the saved quick select (pause_stage_sprite_lists). */
+#define OPENRAC_RAC1_HOOK_Menu_QuickSelect_Store "Menu_QuickSelect_Store"
+#define OPENRAC_RAC1_SIG_Menu_QuickSelect_Store "i32(u32)"
+typedef int32_t (*openrac_rac1_Menu_QuickSelect_Store)(uint32_t screen);
+
+/* Menu_ItemText_Draw: Draws a menu text label from its configuration
+ * (render_configured_text_label): the selected item's name and description among others. */
+#define OPENRAC_RAC1_HOOK_Menu_ItemText_Draw "Menu_ItemText_Draw"
+#define OPENRAC_RAC1_SIG_Menu_ItemText_Draw "i32(u32)"
+typedef int32_t (*openrac_rac1_Menu_ItemText_Draw)(uint32_t label);
+
+/* Menu_ItemAmmo_Draw: Draws the selected item's ammo panel in the pause menu
+ * (draw_selected_item_ammo). */
+#define OPENRAC_RAC1_HOOK_Menu_ItemAmmo_Draw "Menu_ItemAmmo_Draw"
+#define OPENRAC_RAC1_SIG_Menu_ItemAmmo_Draw "i32(i32)"
+typedef int32_t (*openrac_rac1_Menu_ItemAmmo_Draw)(int32_t screen);
+
+/* Menu_Preview_Bind: Binds the selected item, and what it carries, to the pause menu's preview
+ * (update_item_preview_binding). */
+#define OPENRAC_RAC1_HOOK_Menu_Preview_Bind "Menu_Preview_Bind"
+#define OPENRAC_RAC1_SIG_Menu_Preview_Bind "i32(u32)"
+typedef int32_t (*openrac_rac1_Menu_Preview_Bind)(uint32_t preview);
+
+/* Menu_Preview_Update: Makes or replaces the moby of the pause menu's item preview
+ * (update_item_preview_moby). */
+#define OPENRAC_RAC1_HOOK_Menu_Preview_Update "Menu_Preview_Update"
+#define OPENRAC_RAC1_SIG_Menu_Preview_Update "i32(u32)"
+typedef int32_t (*openrac_rac1_Menu_Preview_Update)(uint32_t screen);
+
+/* Menu_Preview_DrawAvailable: Draws the preview mobys of the owned, selected item
+ * (draw_available_item_preview_mobys). Returns the render-pass flags. */
+#define OPENRAC_RAC1_HOOK_Menu_Preview_DrawAvailable "Menu_Preview_DrawAvailable"
+#define OPENRAC_RAC1_SIG_Menu_Preview_DrawAvailable "i32(u32)"
+typedef int32_t (*openrac_rac1_Menu_Preview_DrawAvailable)(uint32_t screen);
+
+/* Menu_Preview_DrawSelected: Draws the selected item's preview, or the message for an item not
+ * owned (draw_item_preview_screen). */
+#define OPENRAC_RAC1_HOOK_Menu_Preview_DrawSelected "Menu_Preview_DrawSelected"
+#define OPENRAC_RAC1_SIG_Menu_Preview_DrawSelected "i32(u32)"
+typedef int32_t (*openrac_rac1_Menu_Preview_DrawSelected)(uint32_t screen);
+
+/* Menu_EquippedPreview_Update: Loads the preview of the gadget or weapon in hand
+ * (LoadHandGadget). */
+#define OPENRAC_RAC1_HOOK_Menu_EquippedPreview_Update "Menu_EquippedPreview_Update"
+#define OPENRAC_RAC1_SIG_Menu_EquippedPreview_Update "i32(u32)"
+typedef int32_t (*openrac_rac1_Menu_EquippedPreview_Update)(uint32_t hand);
+
+/* Menu_EquippedPreview_Draw: Draws the pause menu's preview of the hero and what he holds
+ * (draw_menu_preview_objects). */
+#define OPENRAC_RAC1_HOOK_Menu_EquippedPreview_Draw "Menu_EquippedPreview_Draw"
+#define OPENRAC_RAC1_SIG_Menu_EquippedPreview_Draw "i32(u32)"
+typedef int32_t (*openrac_rac1_Menu_EquippedPreview_Draw)(uint32_t screen);
+
+/* Hud_QuickSelect_Init: Sets up the quick select's eight-slot selector in play
+ * (initialize_eight_slot_hud_selector). */
+#define OPENRAC_RAC1_HOOK_Hud_QuickSelect_Init "Hud_QuickSelect_Init"
+#define OPENRAC_RAC1_SIG_Hud_QuickSelect_Init "void(u32)"
+typedef void (*openrac_rac1_Hud_QuickSelect_Init)(uint32_t selector);
+
+/* Hud_QuickSelect_Update: The quick select in play, each tick
+ * (update_hud_item_selector_selection_and_visibility): its focus, whether it shows, and the
+ * item chosen. */
+#define OPENRAC_RAC1_HOOK_Hud_QuickSelect_Update "Hud_QuickSelect_Update"
+#define OPENRAC_RAC1_SIG_Hud_QuickSelect_Update "void(u32)"
+typedef void (*openrac_rac1_Hud_QuickSelect_Update)(uint32_t selector);
+
+/* Hud_QuickSelect_Draw: Draws the quick select's item icons in play
+ * (draw_hud_item_selector_panel). */
+#define OPENRAC_RAC1_HOOK_Hud_QuickSelect_Draw "Hud_QuickSelect_Draw"
+#define OPENRAC_RAC1_SIG_Hud_QuickSelect_Draw "i32(u32)"
+typedef int32_t (*openrac_rac1_Hud_QuickSelect_Draw)(uint32_t panel);
+
+/* Vendor_MenuUpdate: The vendor's purchase menu, each tick it is open (update_vendor_purchase):
+ * buying items and ammo. */
+#define OPENRAC_RAC1_HOOK_Vendor_MenuUpdate "Vendor_MenuUpdate"
+#define OPENRAC_RAC1_SIG_Vendor_MenuUpdate "void()"
+typedef void (*openrac_rac1_Vendor_MenuUpdate)(void);
+
+/* Vendor_InitializeSelected: Sets up the mobys and text of the vendor's selected row
+ * (initialize_vendor_selected_item_mobys). */
+#define OPENRAC_RAC1_HOOK_Vendor_InitializeSelected "Vendor_InitializeSelected"
+#define OPENRAC_RAC1_SIG_Vendor_InitializeSelected "void()"
+typedef void (*openrac_rac1_Vendor_InitializeSelected)(void);
+
+/* Ammo_ChooseDrop: Chooses the ammo a dying moby or a broken crate drops (ChooseDropItem):
+ * writes the item to out_item and returns how many pickups. */
+#define OPENRAC_RAC1_HOOK_Ammo_ChooseDrop "Ammo_ChooseDrop"
+#define OPENRAC_RAC1_SIG_Ammo_ChooseDrop "i32(u32,u32)"
+typedef int32_t (*openrac_rac1_Ammo_ChooseDrop)(uint32_t moby, uint32_t out_item);
+
+/* Ammo_SpawnDrop: Makes an ammo pickup moby of item at pos (spawn_on_path); amount -1 takes the
+ * item's own. Returns the moby, or 0. */
+#define OPENRAC_RAC1_HOOK_Ammo_SpawnDrop "Ammo_SpawnDrop"
+#define OPENRAC_RAC1_SIG_Ammo_SpawnDrop "u32(u32,i32,i32,i32)"
+typedef uint32_t (*openrac_rac1_Ammo_SpawnDrop)(uint32_t pos, int32_t item, int32_t amount, int32_t flags);
+
+/* Save_Prepare: Writes the game's state into a save and starts a full memory card write
+ * (prepare_save_game). */
+#define OPENRAC_RAC1_HOOK_Save_Prepare "Save_Prepare"
+#define OPENRAC_RAC1_SIG_Save_Prepare "void(i32,i32)"
+typedef void (*openrac_rac1_Save_Prepare)(int32_t buffer, int32_t slot);
+
+/* Save_RequestAutosave: Writes the save's packets and asks for their memory card update
+ * (memcard_Save), as an autosave does. */
+#define OPENRAC_RAC1_HOOK_Save_RequestAutosave "Save_RequestAutosave"
+#define OPENRAC_RAC1_SIG_Save_RequestAutosave "i32(i32,i32)"
+typedef int32_t (*openrac_rac1_Save_RequestAutosave)(int32_t slot, int32_t flags);
+
+/* Save_Restore: Restores a whole save from memory (memcard_RestoreGame); a new game's default
+ * state goes through it too. The port keeps the player's options around it
+ * (rac1/host/options.c). */
+#define OPENRAC_RAC1_HOOK_Save_Restore "Save_Restore"
+#define OPENRAC_RAC1_SIG_Save_Restore "void(u32)"
+typedef void (*openrac_rac1_Save_Restore)(uint32_t save);
+
+/* Save_RestoreData: Restores one checked save packet (memcard_RestoreData); loading a file
+ * calls it directly. Returns non-zero when it took the packet. */
+#define OPENRAC_RAC1_HOOK_Save_RestoreData "Save_RestoreData"
+#define OPENRAC_RAC1_SIG_Save_RestoreData "i32(u32,i32,u32)"
+typedef int32_t (*openrac_rac1_Save_RestoreData)(uint32_t src, int32_t slot, uint32_t table);
+
+/* Save_NewGame: A new game (NewGameInit): the disc's default state, and level 0. The port's
+ * --level N runs around it (rac1/host/boot.c). */
+#define OPENRAC_RAC1_HOOK_Save_NewGame "Save_NewGame"
+#define OPENRAC_RAC1_SIG_Save_NewGame "void()"
+typedef void (*openrac_rac1_Save_NewGame)(void);
+
+/* Save_NewGamePlus: Challenge mode's start (load_level_zero_preserving_progress): the game
+ * reset to level 0 with the progress it carries kept. */
+#define OPENRAC_RAC1_HOOK_Save_NewGamePlus "Save_NewGamePlus"
+#define OPENRAC_RAC1_SIG_Save_NewGamePlus "void(i32)"
+typedef void (*openrac_rac1_Save_NewGamePlus)(int32_t slot);
+
+/* Save_Serialize: Writes the whole save into out (memcard_MakeWholeSave), with no memory card
+ * access. */
+#define OPENRAC_RAC1_HOOK_Save_Serialize "Save_Serialize"
+#define OPENRAC_RAC1_SIG_Save_Serialize "void(u32)"
+typedef void (*openrac_rac1_Save_Serialize)(uint32_t out);
+
+/* Save_UpdateState: The memory card's state machine, each tick (memcard_update_state): saves
+ * and loads go through it. */
+#define OPENRAC_RAC1_HOOK_Save_UpdateState "Save_UpdateState"
+#define OPENRAC_RAC1_SIG_Save_UpdateState "void()"
+typedef void (*openrac_rac1_Save_UpdateState)(void);
+
+/* msg_string: Resolves a game message id to its text. A mod may substitute the randomized
+ * reward name while the game's reward banner is drawn. */
+#define OPENRAC_RAC1_HOOK_msg_string "msg_string"
+#define OPENRAC_RAC1_SIG_msg_string "i32(i32)"
+typedef int32_t (*openrac_rac1_msg_string)(int32_t id);
+
+/* Vendor_OpenMenu: Opens the vendor purchase menu, including the Gadgetron PDA remote vendor
+ * when moby is zero. */
+#define OPENRAC_RAC1_HOOK_Vendor_OpenMenu "Vendor_OpenMenu"
+#define OPENRAC_RAC1_SIG_Vendor_OpenMenu "void(u32)"
+typedef void (*openrac_rac1_Vendor_OpenMenu)(uint32_t moby);
+
+/* Vendor_DrawDetails: Draws the vendor selected-item name and price panel. */
+#define OPENRAC_RAC1_HOOK_Vendor_DrawDetails "Vendor_DrawDetails"
+#define OPENRAC_RAC1_SIG_Vendor_DrawDetails "void()"
+typedef void (*openrac_rac1_Vendor_DrawDetails)(void);
+
+/* UI_IconFrame: Resolves an icon and animation frame to its HUD sprite frame. */
+#define OPENRAC_RAC1_HOOK_UI_IconFrame "UI_IconFrame"
+#define OPENRAC_RAC1_SIG_UI_IconFrame "i32(i32,i32)"
+typedef int32_t (*openrac_rac1_UI_IconFrame)(int32_t icon, int32_t frame);
+
+/* NPC_TryDialog: Tests an NPC interaction request; identifies the owner of a purchase dialogue. */
+#define OPENRAC_RAC1_HOOK_NPC_TryDialog "NPC_TryDialog"
+#define OPENRAC_RAC1_SIG_NPC_TryDialog "i32(u32,u32)"
+typedef int32_t (*openrac_rac1_NPC_TryDialog)(uint32_t moby, uint32_t request);
+
+/* UI_DrawSprite: Draws a HUD sprite as one packed GIF packet. */
+#define OPENRAC_RAC1_HOOK_UI_DrawSprite "UI_DrawSprite"
+#define OPENRAC_RAC1_SIG_UI_DrawSprite "void(i32,i32,i32,i32,i32,i32)"
+typedef void (*openrac_rac1_UI_DrawSprite)(int32_t frame, int32_t x, int32_t y, int32_t width, int32_t height, int32_t alpha);
+
+/* Pickup_StartScene: Reward acquisition presentation. */
+#define OPENRAC_RAC1_HOOK_Pickup_StartScene "Pickup_StartScene"
+#define OPENRAC_RAC1_SIG_Pickup_StartScene "void(i32)"
+typedef void (*openrac_rac1_Pickup_StartScene)(int32_t scene);
+
+/* GoldCase_StartDemo: Reward acquisition presentation. */
+#define OPENRAC_RAC1_HOOK_GoldCase_StartDemo "GoldCase_StartDemo"
+#define OPENRAC_RAC1_SIG_GoldCase_StartDemo "void(u32,i32)"
+typedef void (*openrac_rac1_GoldCase_StartDemo)(uint32_t moby, int32_t item);
+
+/* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus
 }

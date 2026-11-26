@@ -4,6 +4,7 @@
 // Main colour attachment phases and shared graphics inputs, with OpenGL compatibility recording.
 #pragma once
 
+#include <cstddef>
 #include <functional>
 #include <span>
 #include <string_view>
@@ -15,9 +16,20 @@ struct RenderTarget;
 // Sky preserves colour without depth testing; world geometry also reads and writes depth.
 enum class ColourAttachments {
     Colour,
+    ColourOverwrite,
+    ColourDepthRead,
+    ColourDepthWrite,
     ColourDepth,
     ColourDepthStencil
 };
+
+// A depth test with an unconditional result may write without reading prior samples.
+[[nodiscard]] constexpr ColourAttachments colour_with_depth(bool read, bool write) {
+    if (read) {
+        return write ? ColourAttachments::ColourDepth : ColourAttachments::ColourDepthRead;
+    }
+    return write ? ColourAttachments::ColourDepthWrite : ColourAttachments::Colour;
+}
 
 // Prepared low-level draws restore bound state; ordered bucket callbacks inherit prior bucket state.
 enum class ColourRecording {
@@ -25,11 +37,28 @@ enum class ColourRecording {
     Ordered
 };
 
+// A vertex or index allocation kept stable through recording.
+struct RasterBuffer {
+    unsigned name;           // Graphics context's buffer name.
+    std::size_t size;        // Number of initialized bytes.
+    bool instanced = false;  // Instance attributes use the frame stream.
+};
+
+// A sampled 2D texture kept stable through recording.
+struct RasterTexture {
+    unsigned name = 0;        // Zero leaves the texture unbound.
+    unsigned mip_levels = 1;  // Defined levels, beginning with base level.
+};
+
 // Borrowed read-only storage and sampled images, imported before a colour callback can execute.
 struct ColourInputs {
-    std::span<const unsigned> buffers;   // Stable allocation views through the enclosing scope.
-    std::span<const unsigned> textures;  // Complete texture images, including refraction snapshots.
+    std::span<const unsigned> buffers{};  // Stable allocation views through the enclosing scope.
+    std::span<const unsigned>
+        textures{};  // Complete texture images, including refraction snapshots.
     ColourRecording recording = ColourRecording::Prepared;  // Callback state contract.
+    std::span<const RasterBuffer> geometry{};  // Vertex and index buffers read by raster commands.
+    std::span<const RasterTexture> raster_textures{};  // Sampled images prepared by a raster pass.
+    bool bound_shader_reads = false;  // Capture descriptors of a prepared shader before recording.
 };
 
 // Returns whether Vulkan colour-phase dependency declarations are enabled.

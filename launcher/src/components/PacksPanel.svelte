@@ -10,21 +10,22 @@
     api,
     ask,
     onAndroid,
+    type PackView,
     pickFolder,
     pickZip,
-    type PackView,
     type TexturePackView,
     type VersionView,
   } from "$lib/api";
   import { app, guardShown, toast } from "$lib/app.svelte";
   import { dragSort } from "$lib/dragSort";
+  import { grouped } from "$lib/format";
+  import { keepRead, lastRead } from "$lib/lastRead";
   import { arrange, matches, steps } from "$lib/modsList";
   import { PACKS, TEXTURES, VIEW } from "$lib/modsText";
   import { forget, modsView, movable, report, searching, shows } from "$lib/modsView.svelte";
   import { isPlaying } from "$lib/player.svelte";
-  import { keepRead, lastRead } from "$lib/lastRead";
-  import { grouped } from "$lib/format";
   import { packSummary, replaceSummary, textureCount } from "$lib/texturePacks";
+
   import CommandBox from "./CommandBox.svelte";
   import Icon from "./Icon.svelte";
   import Menu from "./Menu.svelte";
@@ -78,6 +79,7 @@
       ),
       withTextures ? api.texturePacks(v.game, v.name).catch(() => null) : null,
     ]);
+
     if (list.l) packs = list.l;
     packsError = list.e;
     pack = textures;
@@ -86,7 +88,8 @@
 
   // Every change kept for the next time the page opens.
   $effect(() => {
-    if (listFor === keptKey()) keepRead(listFor, { packs: $state.snapshot(packs), pack: $state.snapshot(pack) });
+    if (listFor === keptKey())
+      keepRead(listFor, { packs: $state.snapshot(packs), pack: $state.snapshot(pack) });
   });
 
   // Read again when RELOAD is bumped, and when the game stops: it may have saved textures.
@@ -99,6 +102,7 @@
    *  a move of several places may have stopped half way. */
   async function change(work: Promise<PackView[]>) {
     const result = await guardShown(work);
+
     if (result) {
       packs = result;
       onchange?.();
@@ -109,6 +113,7 @@
 
   async function remove(pack: PackView) {
     const message = `Remove "${pack.name}"? The launcher's copy is deleted; the .zip or folder you added it from is kept.`;
+
     if (!(await ask(message, PACKS.remove))) return;
     void change(api.overridesRemove(v.game, pack.id));
   }
@@ -120,13 +125,17 @@
     if (moving || !pack || !target || target.id === pack.id) return;
     const from = packs.findIndex((p) => p.id === pack.id);
     const to = packs.findIndex((p) => p.id === target.id);
+
     if (from < 0 || to < 0) return;
     moving = true;
+
     try {
       await change(
         (async () => {
           let list = packs;
+
           for (const up of steps(from, to)) list = await api.overridesMove(v.game, pack.id, up);
+
           return list;
         })(),
       );
@@ -139,25 +148,34 @@
     if (pack.isDestination) return "Added ship destination · original planets stay available";
     if (pack.isMap) return "Standalone map · starts separately from the campaign";
     const parts = [];
+
     if (pack.textures) parts.push(`${pack.textures} texture${pack.textures === 1 ? "" : "s"}`);
     if (pack.models) parts.push(`${pack.models} model${pack.models === 1 ? "" : "s"}`);
-    if (pack.levelFiles) parts.push(`${pack.levelFiles} level edit${pack.levelFiles === 1 ? "" : "s"}`);
+    if (pack.levelFiles)
+      parts.push(`${pack.levelFiles} level edit${pack.levelFiles === 1 ? "" : "s"}`);
     const where = pack.levels === 1 ? "1 level" : `${pack.levels} levels`;
     const levels = parts.length ? [`${parts.join(", ")} in ${where}`] : [];
     const sounds = pack.sounds ? [`${pack.sounds} sound${pack.sounds === 1 ? "" : "s"}`] : [];
+
     return [...levels, ...sounds].join(", ") || "Replaces nothing the game reads";
   }
 
   /** The packs as shown: searched, in their order or by name. */
-  const shown = $derived(arrange(packs, modsView.query, modsView.sort, (p) => [p.name, p.author, p.description]));
-  const packShown = $derived(!!pack && matches(modsView.query, TEXTURES.name, TEXTURES.badge, "PCSX2", pack.pcsx2Path));
+  const shown = $derived(
+    arrange(packs, modsView.query, modsView.sort, (p) => [p.name, p.author, p.description]),
+  );
+  const packShown = $derived(
+    !!pack && matches(modsView.query, TEXTURES.name, TEXTURES.badge, "PCSX2", pack.pcsx2Path),
+  );
 
   // What the list holds, for the toolbar (counts, Mods off, a search that finds nothing).
   const found = $derived(shows("looks") ? shown.length + (packShown ? 1 : 0) : 0);
   $effect(() => {
     report("packs", {
       counts: { looks: packs.length + (pack ? 1 : 0) },
-      on: packs.filter((p) => p.enabled).length + (pack?.enabled && (pack.packCount > 0 || pack.pcsx2Path) ? 1 : 0),
+      on:
+        packs.filter((p) => p.enabled).length +
+        (pack?.enabled && (pack.packCount > 0 || pack.pcsx2Path) ? 1 : 0),
       found,
     });
   });
@@ -174,7 +192,10 @@
   const share = () =>
     guardShown(api.texturePacksExport(v.game, v.name)).then((done) => {
       if (!done?.saved) return;
-      const left = done.leftOut ? ` ${grouped(done.leftOut)} unchanged picture(s) from the game were left out.` : "";
+      const left = done.leftOut
+        ? ` ${grouped(done.leftOut)} unchanged picture(s) from the game were left out.`
+        : "";
+
       toast(`Saved ${textureCount(done.textures)} as ${done.saved}.${left}`);
     });
 
@@ -182,10 +203,13 @@
   async function selectPcsx2(clear = false) {
     if (choosingPcsx2) return;
     choosingPcsx2 = true;
+
     try {
       const source = clear ? "" : await pickFolder(`Choose a PCSX2 texture pack for ${v.serial}`);
+
       if (source === null) return;
       const next = await guardShown(api.texturePacksSet(v.game, v.name, { pcsx2: source }));
+
       if (next) {
         pack = next;
         toast(
@@ -203,10 +227,13 @@
 
   async function replace() {
     const source = await pickZip(TEXTURES.pickTitle);
+
     if (!source) return;
     const preview = await guardShown(api.texturePacksPreview(v.game, v.name, source));
+
     if (!preview || !(await ask(replaceSummary(preview), TEXTURES.replaceYes))) return;
     const done = await guardShown(api.texturePacksImport(v.game, v.name, source, "replace"));
+
     if (!done) return;
     toast(TEXTURES.replaced(textureCount(done.textures), done.kept ?? null));
     await load(textures);
@@ -219,7 +246,9 @@
       <div class="grow">
         <h2>{PACKS.title}</h2>
         <p class="dim sub">
-          {PACKS.sub}{#if packs.length > 1}<span title={PACKS.moveDownTitle}>&nbsp;· {PACKS.orderHint}</span>{/if}
+          {PACKS.sub}{#if packs.length > 1}<span title={PACKS.moveDownTitle}
+              >&nbsp;· {PACKS.orderHint}</span
+            >{/if}
         </p>
       </div>
     </div>
@@ -242,26 +271,49 @@
             >
           </div>
           <div class="dim small-text">{packSummary(pack)}</div>
-          {#if pack.pcsx2Path}<div class="dim small-text pcsx2-path">PCSX2 · {pack.pcsx2Path}</div>{/if}
+          {#if pack.pcsx2Path}<div class="dim small-text pcsx2-path">
+              PCSX2 · {pack.pcsx2Path}
+            </div>{/if}
         </div>
-        {#if onmake}
-          <button class="small" onclick={onmake}><Icon name="edit" size={14} />{TEXTURES.make}</button>
-        {/if}
+        <!-- Import first: where a pack comes from is picked in its menu (a .zip, or PCSX2's folder). -->
+        <Menu
+          text={TEXTURES.import}
+          icon="download"
+          label={`${TEXTURES.import} into ${TEXTURES.name}`}
+          items={[
+            { label: TEXTURES.importZip, icon: "download" as const, run: () => void replace() },
+            ...(!onAndroid
+              ? [
+                  {
+                    label: TEXTURES.importPcsx2,
+                    icon: "folder" as const,
+                    run: () => void selectPcsx2(),
+                  },
+                ]
+              : []),
+          ]}
+        />
         <Menu
           label={`More for ${TEXTURES.name}`}
           items={[
-            ...(!onAndroid && pack.pcsx2Path
-              ? [{ label: "Clear PCSX2 Pack", icon: "trash" as const, run: () => void selectPcsx2(true) }]
+            ...(onmake ? [{ label: TEXTURES.make, icon: "edit" as const, run: onmake }] : []),
+            ...(pack.packCount
+              ? [{ label: TEXTURES.share, icon: "upload" as const, run: () => void share() }]
               : []),
-            ...(pack.packCount ? [{ label: TEXTURES.share, icon: "upload" as const, run: () => void share() }] : []),
-            { label: TEXTURES.replace, icon: "download" as const, run: () => void replace() },
             {
               label: TEXTURES.openFolder,
               icon: "folder" as const,
               run: () => void guardShown(api.texturePacksOpen(v.game, v.name, false)),
             },
-            ...(!onAndroid
-              ? [{ label: "Choose PCSX2 Pack", icon: "folder" as const, run: () => void selectPcsx2() }]
+            ...(!onAndroid && pack.pcsx2Path
+              ? [
+                  {
+                    label: TEXTURES.clearPcsx2,
+                    icon: "trash" as const,
+                    danger: true,
+                    run: () => void selectPcsx2(true),
+                  },
+                ]
               : []),
           ]}
         />
@@ -275,7 +327,12 @@
     {:else if shown.length === 0}
       <!-- The search found only the texture pack: nothing more to say. -->
     {:else}
-      <ul use:dragSort={{ enabled: movable() && !moving, onmove: (from, to) => void moveTo(shown[from], shown[to]) }}>
+      <ul
+        use:dragSort={{
+          enabled: movable() && !moving,
+          onmove: (from, to) => void moveTo(shown[from], shown[to]),
+        }}
+      >
         {#each shown as p, i (p.id)}
           <li class="pack" class:off={!p.enabled}>
             {#if movable() && shown.length > 1}
@@ -289,7 +346,8 @@
               class="switch"
               aria-label={`Use ${p.name}`}
               checked={p.enabled}
-              onchange={(e) => void change(api.overridesSetEnabled(v.game, p.id, e.currentTarget.checked))}
+              onchange={(e) =>
+                void change(api.overridesSetEnabled(v.game, p.id, e.currentTarget.checked))}
             />
             <div class="grow">
               <div class="name">
@@ -314,7 +372,8 @@
                   aria-label={`Move ${p.name} down`}
                   title={PACKS.moveDownTitle}
                   disabled={moving || i === shown.length - 1}
-                  onclick={() => void moveTo(p, shown[i + 1])}><Icon name="down" size={14} /></button
+                  onclick={() => void moveTo(p, shown[i + 1])}
+                  ><Icon name="down" size={14} /></button
                 >
               {/if}
               <button
