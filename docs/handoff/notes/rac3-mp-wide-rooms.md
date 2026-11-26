@@ -322,3 +322,30 @@ Open, in the order they bit:
   opens from a drifted press (see ~/Projects/RAC/mp24-progress/19-host-12p-after-start.png).
 - Build costs: the mp hostgen takes about 12 minutes on box1 (python 3.14) and 35 on box2 (3.12); a binary built on
   box1 (Manjaro) does not run on box2 (Ubuntu: glibc, libstdc++, SDL3), so each box builds its own.
+
+### 2026-11-26 (later): the settings corruption found and fixed; where the 16-player match stands
+
+- **Cause of the "(null)" in GS_CLIENT / GS_STATE:** found with a gdb breakpoint on the port's sprintf
+  (`mp_func_00120048`) for buffers in the settings object past +0xC0. The writer is the host's session-add
+  handler (`func_0019A6F8`): after the name's sprintf (site 0019ABDC) it prints the joiner's clan into
+  `settings + 0x80 + 8 * slot` with a second sprintf (the call at 0x0019ABF4) that had no site. Clan slots 8-15
+  are +0xC0..+0xFF, so slot 12 wrote the text over the clients (+0xE0), 13 over +0xE8 and 14/15 over the states
+  (+0xF0..), and slots 8-11 over skins and teams. The text is "(null)" because the clan the request carries is
+  that text (clan_fix empties it in the request). Fixed: `"0019ABF4": "arg GS_CLAN r4"` in `mp/wide.json`.
+  Not slots 14 and 15 only, and not a name write.
+- With the site: a 16-player room (host + 15 joiners on box1, no-render, scripted) shows every slot's client
+  `n`, a joiner's state 6 (ready) and an empty clan in the net log (`settings (sent)` now prints each clan),
+  "PLAYER 16/16" and all sixteen names in the native staging list (mp24-progress/21), no crash, no stray write
+  into the settings (breakpoint over +0xC0..+0x17F never hit).
+- **Not done:** START. The host's staging screen has "16 ready of 16: START enabled", but the scripted `up`/`left`
+  then cross never reaches START: the stock list widget has 8 rows, `up` from the first row wraps to the eighth
+  and cross there opens the team/skin dialog (mp24-progress/22); `left` does not move to the left pane. The
+  native list also shows stale rows (j1, j2, j1, j3, j2, ...) after a scroll. A port-side START path (like
+  READY for slots 8+) or a staging screen whose cursor reaches START is the next step. So no wide match has
+  played to the scoreboard yet.
+- Scripted host: READY by Circle once, after the last joiner joined and readied (a second Circle un-readies it);
+  all joiners READY after the last join. The frame counter at no-render speed is about 50 a second.
+- Build recipe on the boxes: the decomp must be a clean pin (`git archive` of the submodule's commit over a copy
+  that keeps asm/ and baserom/): a tree with another session's edits fails hostgen with "its signature takes 0".
+  `OPENRAC_RAC3_PAL_RETAIL_IMAGE` must be a file nobody removes. `sudo gdb -batch -p PID` works for
+  `break mp_func_00120048 if buffer >= $gsp + 0xC0 ...` (do not name a gdb variable `$gs`: it is a register).
