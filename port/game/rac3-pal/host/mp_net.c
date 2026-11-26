@@ -3760,6 +3760,16 @@ int mp_func_0014B040(int status, int conn) {
 static void timer1_feed(void) {
     static int64_t start, fed;
     const int64_t now = host_ms();
+    /* Only in a running match (the host's slot is at state 8, the map loaded and its start barrier open):
+     * the staging and the map's wait for the others' loads run the game's own timeouts (5.4 s to report)
+     * on this clock, which a console loading a map slowly would trip, and the menus' timing stays what
+     * it was. */
+    const gaddr gs = GREF(gaddr, RAC3_MADDR(0x00241640u));
+    if (gs == 0 || GREF(int16_t, gs + 0xF0u) != 8) {
+        start = 0;
+        fed = 0;
+        return;
+    }
     if (start == 0) {
         start = now;
     }
