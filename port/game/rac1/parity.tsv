@@ -69,3 +69,5 @@ func_001F7E98	*	rac1-ntsc	VU0 math only the console's quad renderer calls, which
 func_0020C738	*	rac1-ntsc	WadDecompress's toSPR window: only the hand-written WadDecompress calls it, and the NTSC port answers both of its copies with host C (rac1/host/hand.c, rac1-ntsc/host/catalogue.c)
 func_002348E8	*	rac1-ntsc	the producer-owned display list wrap of the frame recorder (R1, host/frame_list_owner.c) is carried to PAL, PAL v1.00 and JP only; NTSC-U has not been wired to it yet
 func_00234948	*	rac1-ntsc	the producer-owned display list wrap of the frame recorder (R1, host/frame_list_owner.c) is carried to PAL, PAL v1.00 and JP only; NTSC-U has not been wired to it yet
+func_L12_002E8530	12	rac1-pal	the native strip record (strips.c) is carried to PAL v2.00 first: the other discs keep the game's own draw of the effect list until their addresses are carried
+func_L14_00308EB0	14	rac1-pal	the native strip record (strips.c) is carried to PAL v2.00 first: the other discs keep the game's own draw of the effect list until their addresses are carried
