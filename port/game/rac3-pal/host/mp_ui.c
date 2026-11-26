@@ -410,7 +410,11 @@ static void describe_from_file(void) {
 }
 
 /* Makes the context and gives it the vanilla description, once. Returns 0 without memory. */
+extern uint16_t (*rac3_pad_filter)(uint16_t word); /* pad.c */
+uint16_t rac3_mp_ui_pad_filter(uint16_t word);
+
 static int make_ui(void) {
+    rac3_pad_filter = rac3_mp_ui_pad_filter;
     /* The context is made once, at the first lobby frame. */
     if (g_ui == NULL) {
         g_ui = openrac_mp_ui_create();
