@@ -149,6 +149,35 @@ interleaved colour streams still need their own ownership and runtime proof.
 `openrac_frame_strip` (vertices, ST, RGBA, material, fog line) is reserved for P5 with P4's
 material; the effect strips still come from the chain until then.
 
+### 3.3 Off-screen panels
+
+`openrac_frame_target_begin(id, w, h)` and `_end()` bracket a panel: everything the recording holds
+between them goes into a native render target of that `id` (a port id from `0x10000`, never a GS
+block), not the screen. That is **every** stream, not only the frame commands (`fill`, `clear`,
+`picture`, `ui_item`, `mobys`, `screen_effect`): the game's own packets spliced between the two
+anchors, the transitional `ui_quad` records and the moby markers in them, and the chain's own
+primitives all draw into the panel. While a panel is open the back end takes it as the draw target
+whatever the game's FRAME register names (`GifInterpreter::offscreen_target`), so a game that still
+points its draw environment at a GS block for the panel needs nothing else. Coordinates: native 2D
+commands use the panel's pixels, top left; a chain quad or a marker keeps the game's own, relative
+to the offset it set. The panel's storage is a square of `kOffscreenPixels` (512) with the `w` x `h`
+area at its top left, kept across frames; the renderer's own scale applies.
+
+The panel is shown by sampling it. The game's quad that shows it reads a texture at the GS block
+its packets drew through; the back end notes that block when the first primitive inside the panel
+names one (`m_panel_alias`) and resolves a texture at it to the panel (`sampled_target`), for the
+2D layer's quads and for the world's effect quads (`publish_offscreen`). A transfer over the block
+drops the link. A picture of a panel by id (`openrac_frame_picture`) is not wired; no game needs it
+yet. Each game opens a panel where its routine points the draw environment at the area and closes it
+where the draw buffer is put back, at the list cursor of each (`openrac_frame_anchor_at`): rac1's
+`render_panel.c` (`setup_render_target` `func_001FB608`, `PutDrawBufferLarge` `func_001FB498`: the
+vendor's monitors, their background `func_001FB908` and Z clear included, and the pause menu's
+tiles), rac2's `render_panel.c` (`gfx_build_screen_sprite_packet` `func_00285030`, which
+`gfx_setup_screen_copy_draw_state` `func_00280510` (Ship Shack and pause panels) and
+`gfx_setup_offscreen_target` `func_0027B9C0` (the cockpit's 256 x 256 target) both run;
+`gfx_append_draw_list_header` `func_00284EA8`). The game's own C runs unchanged. No window or
+`OPENRAC_UI_REPLAY`: nothing recorded, the game's packets alone, as before.
+
 ## 4. The transition: anchors instead of markers
 
 While a game still sends residual 2D as GS packets (fades, clears, the loading screen's stars until
