@@ -95,6 +95,11 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* Native screen tint and the AA pass left out (screen_fade.c): checked on PAL v2.00 only. */
 #define RAC1_OMIT_func_001F55C0 1
 #define RAC1_OMIT_func_001FB848 1
+/* Native stripes of the screen colour effect and the frame copy (screen_fade.c, screen_copy.c): checked on PAL v2.00 only. */
+#define RAC1_OMIT_func_001F5368 1
+#define RAC1_OMIT_func_001F4E08 1
+#define RAC1_OMIT_func_L00_002A21A8 1
+#define RAC1_OMIT_func_L00_002A2258 1
 /* FontPrintWindow as NTSC-J's own C calls it: its font_print_window_regular (src/versions/jp/game/render/draw/func_001F7560.c) draws with func_J_001F81F8, its own routine, not PAL v2.00's func_001F7070. */
 #define RAC1_FONT_PRINT_WINDOW func_001F81F8
 
@@ -122,6 +127,9 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x001601C8u 0x001601C8u
 #define RAC1_ADDR_L00_0x001B0830u 0x001B0630u
 #define RAC1_ADDR_L00_0x001ABBC0u 0x001AB9C0u /* level_moby_groups */
+/* Hoven's and Oltanis' effect lists on the native strip record (strips.c): carried to PAL v2.00 first; its addresses are not carried to this disc, so it keeps the game's own draw. */
+#define RAC1_OMIT_func_L12_002E8530 1
+#define RAC1_OMIT_func_L14_00308EB0 1
 
 /* ---- generated below ---- */
 
