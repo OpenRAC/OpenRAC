@@ -420,3 +420,37 @@ the team dialog; whether 8 players pass this code is therefore unproven.) Open: 
 `005390B8` take entries past the first four (its caller `003FE8B8`, a0 = 0/1, a1 = player mobys, lifetime 3000), or
 whether 8 players already use five or more entries only at other times; the 5390B8 call list (6 calls at the crash:
 a0 0,0,0,1,1,1) is in `~/RACSwarm/k4-mp/out/h-t9f/gdb.out` on box1 while it lasts.
+
+### 2026-11-26 (day): the map-start crash found; item 2 of section 8 closed
+
+- **Cause of the SIGSEGV in `func_L40_0053D0A0`.** `D_0033BE40` is the hero-marker array (16 entries of
+  0x340 bytes, 0x3400 in all, `D_0033F240` follows). The 0x4DC0-byte struct the hero code writes (`this` of
+  `00504C70`, field +0xFD0 = marker 4's +0x2D0) is not that table's: it is **the remote players' struct
+  array** `D_00315040` (map 40; `D_00310900` in level 39, one per program), 8 entries of 0x4DC0 indexed by
+  slot, built by `func_L40_00538618` (`func_L39_00666518`: `D_00315040 + slot * 0x4DC0`, `addu` at +0x54).
+  Its end is `D_0033BE40`: slot 8 (the 9th player) is at 0x33BE40, so the marker table and a player share
+  memory. gdb on the host's `mp_func_L40_0050C780` (the struct's init) showed g = 0x319E00 + 0x4DC0 * k for
+  slots 1..7 and 0x33BE40 for slot 8. The marker count (`D_L39_002461F8`) and size are the map's own
+  (spawn points, not players): no change.
+- **Fix:** table `MAP_PLYS` (`value MAP_PLYS r18` at the `addu`, 15 programs), the base per program in
+  `wide_program[].prog[]` (mp_wide.c); slots 8-23 live in a 16 * 0x4DC0 port table, cleared when a program
+  loads. A new `IN_PROG` table kind takes per-program bases.
+- **Same class, found by a scan of the slot id (`lw x, 0x2544(player)`) and of every `%lo` formation of the
+  candidate tables:** `SLOT_A` (sdata, `D_002410F8`: slot 10 overwrote `D_00241120`, the local players'
+  count pointer), `SLOT_B` (`D_00249790`/L39 `0024D528`), `SLOT_C` (0x80 bytes a slot, the moby ids of a hero;
+  `D_00290178`/L39 `00293F38`), `SLOT_D` (0x1C bytes a slot, the hero state machine; `D_003AA6E0`/L39
+  `004840A0`) and `PLY_MODE` (profile struct + 0xA4, a byte a slot, core). Each is 8 entries (checked against
+  the next data label). 81 sites a map, found in map 40 and carried to the other programs by function place.
+- **Not done (leads, none touched):** the three [3][8] sensitivity tables `D_001A58D0/5930/5990` (index
+  `row * 0x20 + slot * 4`: an address alone cannot tell slot 8 of row 0 from slot 0 of row 1, needs a
+  row-aware site; a slot 8+ writes the rows of others), byte/word arrays inside one object indexed by slot
+  (map 40 `00516E08`, `004255A0`, `00431768`), the pointer-walking loops over these tables (`00470428`
+  clears `D_00290178` rows by a countdown: the port tables are zeroed on program change instead), and the
+  tables' last uses reached with a slot passed as an argument.
+- **Item 2, closed by reading:** `0x006C3670` and `0x006AF09C` test field 3 of a packed 32-bit lobby
+  attribute word (`func_006CC2A8`/`006CC268` mask and shift at net + 0x5F4) against 8: that is a flag bit
+  and an average rating, not a player count. `0x006C4568` is a CRC-32 bit loop and `0x0069AEF0`'s 7s are
+  attribute field numbers: neither touches players. The 11-entry ratings cache (`D_001FD630`, 0x28 bytes,
+  `func_006C4148`) is an LRU by account: with more than 11 distinct accounts it evicts, it does not
+  overflow; nothing in a match or its end waits on it. The results screen's own widget loops stay 8 rows
+  (the port's scoreboard replaces them).
