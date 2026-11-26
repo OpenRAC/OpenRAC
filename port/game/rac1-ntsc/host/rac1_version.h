@@ -845,16 +845,10 @@ int rac1_ntsc_ship_menu_game(gaddr menu, int unused);
 #define func_L01_00309078__game game_FUN_L01_00307ca0__game
 
 /* The recorder panels' wrappers and the data they read (render_panel.c, screen_fade.c, screen_copy.c). */
-#define RAC1_ADDR_0x0013E600u 0x0013E500u
 #define RAC1_ADDR_0x0015F538u 0x0015F438u
-#define RAC1_ADDR_L00_0x00161280u 0x001611C0u
 #define func_001FB498 game_FUN_001fb2d0
 #define func_001FB498__game game_FUN_001fb2d0__game
 #define func_001FB608 game_FUN_001fb440
 #define func_001FB608__game game_FUN_001fb440__game
-#define func_L00_002A21A8 game_FUN_L00_002a0f18
-#define func_L00_002A21A8__game game_FUN_L00_002a0f18__game
-#define func_L00_002A2258 game_FUN_L00_002a0fc8
-#define func_L00_002A2258__game game_FUN_L00_002a0fc8__game
 
 #endif /* OPENRAC_RAC1_VERSION_H */
