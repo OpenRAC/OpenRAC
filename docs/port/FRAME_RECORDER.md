@@ -54,13 +54,15 @@ the window scales them to the target's pixels.
 |---|---|
 | `openrac_frame_begin()` | starts a new recording (optional: the window also closes one at each tick it captures) |
 | `openrac_frame_anchor(gaddr list_cursor)` | transitional (§4): the game's display-list write pointer the next commands belong at; 0 for none |
+| `openrac_frame_anchor_at(gaddr cursor_word)` | reads a readable game word holding that pointer; normalizes RAM aliases, accepts active expanded RAM, and leaves invalid/null/unaligned pointers unreachable rather than unanchored |
 | `openrac_frame_world(layers)` | the world (sky, terrain, ties, shrubs: `OPENRAC_DRAW_*`) is drawn here; the 2D before it goes under the world |
 | `openrac_frame_world_mobys()` | the world's moby pass starts here; effect strips sent before it are drawn before the mobys |
 | `openrac_frame_mobys(list, count)` | a moby list drawn with a camera of its own, into the current target (a panel, or the screen over a menu's world); nonzero when the window draws it |
 | `openrac_frame_ui_item(const openrac_game_ui_item*)` | a quad of the 2D layer from the game's data alone (`openrac/ui_item.h`): corners, texels of an image named by game addresses, a colour per corner, flags, clip. No GS state |
 | `openrac_frame_ui_quad(const openrac_game_ui_rect*)` | transitional: the older UiQuad record (TEX0, CLAMP), drawn in the 2D state in effect where it lands, as before. Retired by P4 |
-| `openrac_frame_effect_quad(index)` | transitional: the world effect quad `index` (from `openrac_game_effect_quad_marker`) takes the alpha test and depth mode in effect here. Retired by P4 (materials on the record) |
+| `openrac_frame_effect_quad(index)` | transitional: the world effect quad `index` (from `openrac_game_effect_quad_marker`) takes the alpha test and depth mode in effect here. Retired by P4 (materials on the record): a quad given with `openrac_game_material_effect_quad` (TEXTURES.md, section 4) has its whole state and takes no marker |
 | `openrac_frame_fill(rect, rgba, blend)` | a flat rectangle (fades, letterbox bars, darkening); `rect` NULL for the whole target, which on a wide picture is the whole window |
+| `openrac_frame_fill_depth(rect, rgba, blend, depth, depth_bits, depth_test, writes)` | a flat rectangle as `_fill` with a depth of its own, for a cover whose depth later drawing tests: `depth` in the units of a `depth_bits`-bit buffer (16, 24 or 32, bigger nearer), tested by `OPENRAC_DEPTH_ALWAYS` / `_GEQUAL` / `_GREATER` against the target's depth; where it passes, the `OPENRAC_WRITE_*` colour channels and, with `OPENRAC_WRITE_DEPTH`, the depth are written. Into the current target, cut to the current scissor. 1 drawn; 0 (no window, `OPENRAC_UI_REPLAY`, a value out of range): the caller draws the game's way |
 | `openrac_frame_clear(rgba, what)` | clears the target's colour and/or depth (`OPENRAC_CLEAR_COLOUR`, `_DEPTH`) |
 | `openrac_frame_picture(id, rect, rgba, blend)` | draws a picture the port holds (a snapshot, or one set with `_picture_set`) over `rect`; `rect` NULL: the whole picture area, and with `OPENRAC_PICTURE_WHOLE` in `blend`'s high bits the whole target (a backdrop's sides on a wide window) |
 | `openrac_frame_picture_image(const openrac_game_ui_image*, rect, rgba, blend)` | a full-screen or large picture straight from the game's own data (menu backgrounds, loading pictures, the multiplayer menus' city pictures): decoded once per content into a normal texture, no GS image transfer |
@@ -68,14 +70,127 @@ the window scales them to the target's pixels.
 | `openrac_frame_snapshot(id)` | keeps the frame drawn so far as picture `id` (pause tiles, Holostar's frame-textured sprite) |
 | `openrac_frame_target_begin(id, w, h)` / `_end()` | draws into the off-screen panel `id` (a port id, never a GS block) until `_end` |
 | `openrac_frame_scissor(rect)` | cuts what follows to `rect` (NULL: the whole target) |
+| `openrac_frame_screen_effect(const openrac_screen_effect*)` | a native post pass over the target as drawn so far, with the game's values: `OPENRAC_SCREEN_GLOW` (the pixels whose alpha passes the threshold, tinted, blurred at a half, a quarter and an eighth of the target, added back) or `OPENRAC_SCREEN_SOFTEN` (the frame blurred and mixed back); [SCREEN_EFFECTS.md](SCREEN_EFFECTS.md) |
+| `openrac_frame_snapshot_world(id)` | keeps the last frame the window drew with its world in (the world alone, before its 2D) as picture `id`, following the world while one is drawn under a menu: the frame a menu read back as it opened |
+| `openrac_frame_screen(width, height)` | the game's 2D screen the coordinates of the commands that follow are in (512 x 448 until set; kept across recordings): a game whose 2D is drawn on another size says so, and its rectangles, scissors and views are taken as they are |
+| `openrac_frame_view_begin(view, const openrac_frame_viewport* rect)` / `_view_end()` | split screen: the world recorded between them is local player view `view`'s (0 to `OPENRAC_FRAME_VIEWS` - 1), drawn into `rect` with the camera the game holds when that view's `openrac_frame_world` is recorded (see §3.1) |
 | `openrac_frame_end()` | closes the recording (optional) |
 
 Blend modes are a fixed native set: `OPENRAC_BLEND_OPAQUE`, `_MIX` (source over, by source alpha),
 `_ADD` (source times its alpha added), `_SUBTRACT` (taken away), `_MULTIPLY` (the destination
 darkened by the source's alpha). Colours are 0xAABBGGRR with 0x80 full (the games' units).
 
-`openrac_frame_strip` (vertices, ST, RGBA, material, fog line) is reserved for P5 with P4's
-material; the effect strips still come from the chain until then.
+### 3.1 Split screen
+
+A game with local split screen draws each player's view of the world into a part of its screen with
+that player's camera, then its 2D over the whole screen. Its host C brackets each view's world with
+`openrac_frame_view_begin(view, rect)` and `openrac_frame_view_end()`; the recording keeps each view
+(`FrameRecording::views`: the view, its rectangle and the game's screen, and the camera the game held
+when the view's `World` was recorded, read through the game's profile as the tick's camera is). The
+window (`frontend/split_views.cpp`) draws each recorded view's world alone (no 2D) with its camera
+into a picture of the view's size, the vertical field of view the game's and the horizontal one
+opened to the view's shape, and keeps it. Each frame every kept view's picture goes onto the frame at
+its rectangle in place of the one world: where the 2D path reaches that view's `World` command
+(`FrameInput::view_pictures`), over what the game drew in the view before its world (its viewport's
+clear) and under what it draws after (its HUD); a kept view whose `World` the path does not reach,
+before anything that reads the world drawn and under the 2D (which still draws over the whole
+screen, the lines between the views included). So a game that
+draws one view a frame, alternating, keeps the others on screen as the console's frame buffer did,
+and one that draws every view in a frame refreshes them all. A recording with no view is a
+full-screen frame: the kept views are forgotten. Temporal reconstruction and the mods' heat haze,
+which follow one camera's history, are off while views are drawn. rac3's maps 50 to 53 (NTSC-U's 54
+and 55 too) do this from their view layout (`host/mp_maps.c`).
+
+rac3's maps send each player's view in a display list of its own with no vertical blank between
+them, then the last list (the other player's view, both HUDs, the black corners, the divider), then
+wait for the blank. A send with no blank since the last one ends a tick (`openrac_game_dma_send`),
+so they say each frame that their picture spans its sends (`openrac_game_picture_spans_sends`,
+`openrac/picture.h`): those sends still run the blank's work for the game, but the window captures
+once, at the blank the game waits for, walking every list of the picture in the order last sent
+(`program/picture_lists.h`, section 4) and closing one recording with every view. Each view still
+draws the mobys the game's MobyProc draws from that view's camera: the game's state at each view's
+world call is kept until the capture (`State::view_states`), and a moby goes in the views whose own
+camera's distance test it passes, at the strongest of their fades (`Kept::live_views`,
+`frontend/view_mobys.h`). Tested from the first view's camera alone, the second player's view lost
+every moby beyond the first player's draw distance, the second player among them.
+
+The worlds a tick draws are those of the recording closed last (`FrameRecorder::latest`, through
+`world_views`), not of the one its 2D path matched: a game whose sends end ticks can walk a list a
+send behind, built with the recording before. A tick with nothing recorded keeps the latest
+recording's views.
+
+Each view keeps its own layer mask: its `World` calls' and the layers the game says it draws
+(`openrac_game_draw`) while the view is open, so a game whose only `World` call is at its terrain
+(rac3's) still gets its sky, ties, shrubs and mobys in each view. Layout calls without a world draw
+do not replace a picture. Alternating views retain their pictures only while their screen-relative rectangles remain
+compatible: a resized player rectangle or an overlap with another player's old rectangle forgets the
+old layout before any new view is drawn. Non-finite and inverted view rectangles are rejected.
+
+### 3.2 Submitted views and isolated post effects
+
+Every command captures its owner as an index in that recording's `views`, or no owner. Ownership
+does not depend on finding a transitional `ViewBegin` tag in the submitted chain. After anchor
+placement, `resolve_views` rebuilds each view's layers from reachable `World` commands only. A cut
+list refreshes no unreachable view. A fully cut split-world recording retains the split compositor
+and old pictures rather than drawing a speculative new full-screen world.
+
+Terminal native `ScreenEffect` commands outside explicit panels are scheduled on their owning
+view's framebuffer, in order, before its picture is composited. Payloads and camera values belong
+to the immutable tick. The main 2D executor keeps those commands for diagnostics but does not run
+them a second time. Explicit-panel and unscoped effects retain their original ordered execution.
+
+The supported path is deliberately narrow: a submitted world, then its native world post effects,
+then whole-screen native 2D. An orphan effect, native 2D before a view effect, later world drawing,
+residual 2D packets without view ownership, or composite bloom/grading reports a render-worker
+error before unsafe effect execution. These are open integration blockers, not omitted effects or
+claims of multiplayer pixel parity. View snapshots, per-view moby/effect geometry and arbitrary
+interleaved colour streams still need their own ownership and runtime proof.
+
+`openrac_frame_strip(const openrac_frame_strip_desc*)` (vertices, ST, RGBA, a native
+`openrac_material`, the image as the game keeps it, the fog line) records `FrameOp::Strip`: the
+world effect strip with its whole state, taking nothing from the list around it. The record owns
+copies of the vertices and the image (`FrameRecording::strips`, `strip_vertices`, `images`). The
+window splices it at its anchor into the chain walk (`direct_packets`) and appends an
+`EffectStrip` with `native` set, in order with the chain's own strips; `OPENRAC_STRIP_LIQUID` draws
+it with the world's liquids before the shrubs and the mobys. `EffectRenderer` draws it through the
+same `apply_native` as a native quad (`OPENRAC_MATERIAL_MIPMAP` asks for a mip chain made from the
+image). 0 is returned (the caller draws the game's way) without a window, with
+`OPENRAC_UI_REPLAY`, or for a count, material or image out of range. First producer: rac3's open
+water plane (`rac3-pal/host/water_plane.c`, Florana, Marcadia, Daxx and nine more levels); the other
+strips still come from the chain, except rac2's level water and sea sheets (`rac2/host/strips.c`). rac3's strip routine (`rac3-pal/host/render.c`) records every
+hand-built strip whose state its capture proves; those pass `OPENRAC_STRIP_CHAIN_DEPTH`, which leaves the
+depth write to the window's placement (before the mobys, as the chain's strips are).
+
+### 3.3 Off-screen panels
+
+`openrac_frame_target_begin(id, w, h)` and `_end()` bracket a panel: everything the recording holds
+between them goes into a native render target of that `id` (a port id from `0x10000`, never a GS
+block), not the screen. That is **every** stream, not only the frame commands (`fill`, `clear`,
+`picture`, `ui_item`, `mobys`, `screen_effect`): the game's own packets spliced between the two
+anchors, the transitional `ui_quad` records and the moby markers in them, and the chain's own
+primitives all draw into the panel. While a panel is open the back end takes it as the draw target
+whatever the game's FRAME register names (`GifInterpreter::offscreen_target`), so a game that still
+points its draw environment at a GS block for the panel needs nothing else. Coordinates: native 2D
+commands use the panel's pixels, top left; a chain quad or a marker keeps the game's own, relative
+to the offset it set. The panel's storage is a square of `kOffscreenPixels` (512) with the `w` x `h`
+area at its top left, kept across frames; the renderer's own scale applies.
+
+The panel is shown by sampling it. The game's quad that shows it reads a texture at the GS block
+its packets drew through; the back end notes that block when the first primitive inside the panel
+names one (`m_panel_alias`) and resolves a texture at it to the panel (`sampled_target`), for the
+2D layer's quads and for the world's effect quads (`publish_offscreen`). A transfer over the block
+drops the link. A picture of a panel by id (`openrac_frame_picture`) is not wired; no game needs it
+yet. Each game opens a panel where its routine points the draw environment at the area and closes it
+where the draw buffer is put back, at the list cursor of each (`openrac_frame_anchor_at`): rac1's
+`render_panel.c` (`setup_render_target` `func_001FB608`, `PutDrawBufferLarge` `func_001FB498`: the
+vendor's monitors, their background `func_001FB908` and Z clear included, and the pause menu's
+tiles), rac2's `render_panel.c` (`gfx_build_screen_sprite_packet` `func_00285030`, which
+`gfx_setup_screen_copy_draw_state` `func_00280510` (the pause menu's panels whose flag bit 1 is clear and whose
+draw is one of four menu routines) and `gfx_setup_offscreen_target` `func_0027B9C0` (a cutscene's object
+preview, 256 x 256) both run; hidden runs of the Ship Shack, the seven pause pages and space flight
+never reached them (SCREEN_EFFECTS.md, section 5.1), so they are unproven on a screen;
+`gfx_append_draw_list_header` `func_00284EA8`). The game's own C runs unchanged. No window or
+`OPENRAC_UI_REPLAY`: nothing recorded, the game's packets alone, as before.
 
 ## 4. The transition: anchors instead of markers
 
@@ -86,7 +201,9 @@ value of the game's own list write pointer when the command was recorded (`openr
 Host C already knows it: it is the cursor the old markers were written at.
 
 When the window walks the chain the game sent (still `direct_packets`, until P7), it notes every
-DMA tag's address and where its data lands in the 2D stream. A recording **matches** the chain if
+DMA tag's address and where its data lands in the 2D stream. A picture that spans sends (3.1) is
+walked as one chain: its earlier lists, then its last, into one stream and one tag list. A
+recording **matches** the chain if
 any of its anchors is the address of a tag of that chain; the most recent non-empty recording that
 matches is used (a list drawn a tick late, or sent again by a fade, finds the recording that was
 made while it was built, which replaces the `ui_kept` generations for games on the recorder). Each
@@ -94,9 +211,16 @@ command is then **spliced** before the first tag (searching forward from the pre
 whose address equals its anchor. A command whose anchor is found nowhere is dropped: the list
 never reached that place (a list sent again and cut short, as the loading screen's while it reads the
 disc), just as a marker written there would not have been in it. A command with no anchor goes where
-the one before it went.
+the one before it went, including being dropped. A later reachable anchor can resume the recording.
 The splice is an offset into the window's own 2D stream, kept beside it (`FrameSplice`), never bytes
 in it.
+
+Tag addresses are compared in the direct RAM view. Search order is chain walk order, not address
+order: texture paging can allocate uploads after draw data and splice them before it. Several
+native commands can share one unchanged cursor, including the eventual terminating tag. An anchor
+found only before the preceding successful placement still drops its command. Diagnostics count
+actual placement drops and name the first eight commands, their anchors and the selected recording
+when reporting a partial match; they do not draw the dropped commands.
 
 The walk applies the transitional semantics at the splice points exactly where the markers applied
 them: `World` gives the split before the world, `WorldMobys` closes the early strips, `Mobys`
@@ -137,7 +261,10 @@ in the interpreter only because it shares its draw list) builds draws from comma
 recorded and residual draws merge in one ordered list and one flush. `UiItem`s are drawn by
 `native_item` from their own state (the usual 2D blend, no depth, the image's texture or its distance
 field for glyphs); fills, clears and pictures by `native_rect`; a snapshot is a draw of no vertices
-that copies the target as drawn so far into the picture's texture.
+that copies the target as drawn so far into the picture's texture. A plain fill neither tests nor
+writes depth. A depth fill's value is placed as a residual vertex's (`depth_clip`: `z / (2^bits -
+1)` in the pass's clip range), so a rectangle at the game's own Z meets the packets' depth exactly;
+a depth clear writes the far value (0, clip -1 in the 2D pass).
 
 Images: `openrac_frame_ui_item` and `openrac_frame_picture_image` resolve the game image on the game
 thread through `frontend::recorder::set_image_resolver` (the 2D layer's content-hash cache,
@@ -167,7 +294,9 @@ into drawing is shared.
   the HUD side width); the native-resolution scale is the back end's (items are in game pixels,
   drawn at the target's resolution, glyphs from the distance field).
 - **Fades and letterbox**: `openrac_frame_fill` over the whole target; the fade's level and the bars'
-  height come from the game's own counters, read by the adapter.
+  height come from the game's own counters, read by the adapter. Where later drawing tests the
+  depth the bars wrote (rac1's level 6), `openrac_frame_fill_depth` with the producer's depth, test
+  and write mask (docs/port/RAC1_COVERS.md).
 - **Pictures and frame copies**: `openrac_frame_snapshot` / `_picture` / `_picture_image` /
   `_picture_set`. **Full-screen pictures are in scope for every game**: the rac2 and rac3 menu
   backgrounds (rac3 `host/picture.c`, rac2 `host/picture.c`), the multiplayer menus' moving city
@@ -217,7 +346,7 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
 |---|---|---|
 | P1 | this note; `frame.h`; recording, anchors and splices; `DrawState`; rac3's world hand-off (terrain, world mobys, moby lists, effect quads) and its UI records on the recorder; tests | P1 |
 | P1 → native UI | `openrac_frame_ui_item` drawn natively (UiItem, UiImage); the rac3 adapter, text, HUD, menus | native-UI agent |
-| P2 | the rest of rac3's markers (picture, movie, mp) onto the recorder | P2 |
+| P2 | the rest of rac3's markers (movie, mp) onto the recorder; the game's 2D screen (`openrac_frame_screen`); split-screen views (§3.1) | P2 |
 | P3, P6 | rac3's residual 2D and frame copies as `fill`/`clear`/`picture`/`snapshot`; rac3's full-screen pictures (menu backgrounds, loading, multiplayer city backgrounds) as `picture_image`/`picture_set` (P3), frame copies as `snapshot` (P6) | P3, P6 |
 | P4 | materials on effect quads, particles, strips; `ui_quad` and `effect_quad` retired | P4 |
 | R1–R3 | rac1 and rac2 onto the recorder and the core with their adapters; their full-screen pictures (rac2 title, pause and menu backgrounds, rac1 boot and pause pictures) under R2 | R1–R3 |
@@ -227,14 +356,32 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
 
 | Game | On the recorder | Still markers in its list |
 |---|---|---|
-| rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening and the letterbox bars as colour-only quads, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6), `mp_ui.c`, `mp_maps.c`, `movie.c` (P2) |
-| rac1, rac2 | nothing yet | all (R1) |
+| rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; `host/screen.c`, `mp.c`, `mp_maps.c`: the screen glow and the second screen effect as `screen_effect`; `host/picture.c`: the pause menu's frame as `snapshot_world` + `picture` (no frame read back or written); the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening, the fade to black (boot `func_0038A618`, frontbin `func_0038A238`, the levels' `func_L01_00404D80`, as a flat fill per step) and the letterbox bars as colour-only quads, the frame's copy onto itself (`func_00392AC8`, frontbin's `func_003926E8`, the levels' `func_L01_00415728`) left out, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6), `mp_ui.c`, `mp_maps.c`, `movie.c` (P2) |
+| rac1 | `render_native.c`: world, shrubs boundary and positive-count moby lists; `ui2d.c`: transitional `ui_quad` records; `hud.c`: picture-band and whole-target placement (HUD side placement uses the game's coordinates); `letterbox.c` (PAL v2.00 only): level 6's letterbox bars as depth-writing fills; `render_panel.c` (PAL v2.00 only; the other versions omit it): the vendor's monitors and the pause menu's tiles as recorder panels (`func_001FB608` opens, `func_001FB498` closes) | water surface/UV scopes (`water_surfaces.c`, per-version `water.c`); boot-picture uploads and their residual draws; frame copies, blur, fades, clears and strips remain packet consumers |
+| rac2 | `render.c`: world, world-moby boundary, positive-count moby lists and effect-quad state placement; `ui2d.c`: transitional `ui_quad` records; `hud.c`: HUD side placement; `wide_view.c`: effect-parent scopes, including position-only scopes | `render_panel.c`: the Ship Shack and pause panels and the cockpit's target as recorder panels (`func_00285030` opens, `func_00284EA8` closes); `picture.c`: whole-target, saved-frame and credits-world markers; movie pictures/overlays, scissor and strips remain packet consumers |
+
+This is a recorder hand-off milestone, not the full R1-R3 audit scope. No rac1/rac2 adapter to the
+shared native 2D core, residual-picture conversion or native strip conversion is implied by these
+rows. `openrac_frame_effect_parent_position` keeps a strip's world-space orientation while following
+the delayed parent's move; `openrac_frame_effect_parent` follows its axes too. Both scopes end at 0.
+RAC1 PAL title: traced on 2026-11-26 (hidden run, title through "PRESS START", the first 3,300 frames,
+with the placement of every recording logged). The title's recordings are one Fill, then World,
+WorldShrubs and UiQuad commands, and every command is placed: 0 dropped. The title is pixel
+identical to `OPENRAC_UI_REPLAY=1`. The earlier report of two drops out of three predates #779's list
+ownership (`openrac_frame_list_begin`), which retires a rebuilt buffer's old recording.
 
 ## 9. Tests
 
-- `frame_record_test`: a recorded frame ordered without any DMA data; anchors matched against a
+- `frame_record_test`: a recorded frame ordered without any DMA data; the game's screen stamped on
+  the commands after it; split-screen views kept in order with their rectangles, first cameras and the layers drawn in
+  them, the staggered two-player layout kept whole, and the latest recording's views when the list
+  matches an older recording; anchors matched against a
   chain's tags and spliced in order (late list, resent list, missing anchor); recordings kept and
   chosen as the window does.
+- `frame_anchor_test`: C-contract cursor reads with synthetic addresses: direct and aliased RAM,
+  expanded RAM, null/invalid/unaligned pointers and the last complete tag.
+- Recorder placement regressions cover dropped unanchored followers, non-monotonic texture-paging
+  addresses, forward-only rejection, unchanged cursors and the terminating tag.
 - `renderer_direct_test` / `renderer_gif_test`: the native `DrawState` (blend presets and the GS
   translation give the same GL factors as before; the double draw), and the executor drawing a fill
   and a UiItem with no packets.

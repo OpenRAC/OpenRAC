@@ -175,15 +175,15 @@ std::chrono::steady_clock::time_point next_display(std::chrono::steady_clock::ti
     return shown;
 }
 
-// How far behind the kept tick the scene runs: none with the player's low-latency frames, nor with
-// the render thread, else half a tick. The render thread's jobs stop when the next tick is due
-// (between(): none is queued once the simulation resumes), so with the lag their scene only got
-// part of the way to the kept tick: it stood still for the first half tick, moved, then jumped
-// at the next one (Vulkan through MoltenVK: at most 0.34 of the way at the loading screen's 20
-// ticks a second, its approach to the planet visibly choppy; 0.47 at 50).
+// How far behind the kept tick the scene runs, as the alpha counts it: none, for every path. The
+// scene is shown one tick behind the simulation, the alpha running from 0 at the kept tick to 1 a
+// tick later. A lag of half a tick (the old synchronous path: OpenGL, or Vulkan without the render
+// thread) would need frames drawn up to half a tick past the next tick, but synchronous rendering
+// cannot overlap the simulation: its last frame stopped at the tick with the alpha at about 0.47
+// and the first one after it started again at 0, a half-tick jump back every tick. The render
+// thread's jobs stop when the next tick is due as well (between()), so they never needed it.
 double lag_ticks() {
-    return settings::get().low_latency_frames || threaded_rendering() ? kLowLatencyLagTicks
-                                                                      : kLagTicks;
+    return kLowLatencyLagTicks;
 }
 
 // How long after the next tick is due a frame held by its showing may still be shown (pacing.h,
@@ -993,6 +993,11 @@ bool finish_render() try {
 }
 
 void draw_kept(bool first, bool held) try {
+    // OPENRAC_NO_RENDER: the game ticks, but no frame is built, drawn or presented.
+    static const bool no_render = env::flag(env::Var::NoRender);
+    if (no_render) {
+        return;
+    }
     sampler::note_thread("window");  // [debug tools] sampled while a capture runs
     // One in-flight snapshot bounds both latency and ownership of the current scene (and the
     // simulated slow processor's share of the window thread is spent there).
@@ -1027,6 +1032,11 @@ void draw_kept(bool first, bool held) try {
     output->box = frame_box(output->window_width, output->window_height, output->aspect);
     debug_overlay::begin(first, g_held, output->alpha, g->kept->frame);
     pacing.last_alpha = output->alpha;
+    if (first) {
+        pacing.first_shown = std::clamp(
+            std::chrono::duration<double>(display - pacing.tick).count(), 0.0, pacing.period.count()
+        );
+    }
     frame_cost.mark = output->started;
     output->measure_cost = frame_cost.on;
     log_pacing(*output);
@@ -1143,9 +1153,16 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     // A frame only for a refresh the kept tick is still shown at (the next tick's, with the lag;
     // without it, any before the next tick's own frame).
     const auto display = next_display(now);
-    if (display >= between_limit(
-            next_tick, pacing.period, lag_ticks(), pacing.cost, pacing.interval, pacing.last_swap
-        )) {
+    const auto limit = between_limit(
+        next_tick,
+        pacing.period,
+        lag_ticks(),
+        pacing.cost,
+        pacing.interval,
+        pacing.last_swap,
+        pacing.first_shown
+    );
+    if (display >= limit) {
         if (motion_log_on()) {
             const auto ms = [](std::chrono::steady_clock::duration d) {
                 return std::chrono::duration<double, std::milli>(d).count();
@@ -1157,15 +1174,7 @@ int between(std::chrono::steady_clock::time_point next_tick) {
                 ms(now - pacing.tick),
                 ms(display - pacing.tick),
                 ms(next_tick - pacing.tick),
-                ms(between_limit(
-                       next_tick,
-                       pacing.period,
-                       lag_ticks(),
-                       pacing.cost,
-                       pacing.interval,
-                       pacing.last_swap
-                   )
-                   - pacing.tick),
+                ms(limit - pacing.tick),
                 ms(pacing.last_swap - pacing.tick),
                 pacing.interval * 1000.0
             );

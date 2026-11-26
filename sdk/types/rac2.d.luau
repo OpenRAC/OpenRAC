@@ -46,39 +46,71 @@ type HookPoint =
     | "rac2.armor_vendor.buy"
     | "rac2.vendor.preview"
     | "rac2.player.update"
+    | "rac2.collectibles.platinum_count"
+    | "rac2.hero.update_collection_progress"
+    | "rac2.save.serialize"
+    | "rac2.save.new_game"
+    | "rac2.moby.endako_rescue.update"
+    | "rac2.moby.tabora_wrench.update"
+    | "rac2.moby.prison_wrench.init"
+    | "rac2.moby.todano_trader.update"
+    | "rac2.moby.prison_plumber.update"
+    | "rac2.moby.prison_controller.update"
+    | "rac2.moby.siberius_thief.update"
+    | "rac2.moby.boldan_cutscene.update"
+    | "rac2.moby.hypnomatic_part.update"
+    | "rac2.combat.count_kill"
+    | "rac2.menu.extras"
+    | "rac2.camera.follow.read_stick"
     | "Arena_Prize"
     | "ArmorVendor_BuildList"
     | "ArmorVendor_Buy"
     | "Bolt_Collect"
     | "Bolt_SpawnPickup"
     | "Bolt_SpawnPickups"
+    | "FollowCamera_ReadStick"
     | "Hero_ApproachSpeed"
     | "Hero_NanotechSteps"
     | "Hero_TakeDamage"
     | "Hero_Update"
+    | "Hero_UpdateCollectionProgress"
     | "Item_Colors"
     | "Item_Equip"
     | "Item_Give"
     | "Item_Upgrade"
     | "Item_VersionColor"
     | "Level_Load"
+    | "Menu_Extras"
+    | "Moby_BoldanCutscene_Update"
     | "Moby_BoxBreakerPickup_Update"
     | "Moby_ChargeBootsRider_Update"
+    | "Moby_CountKill"
     | "Moby_DynamoPickup_Update"
+    | "Moby_EndakoRescue_Update"
     | "Moby_GetHitMessage"
     | "Moby_GliderPickup_Update"
     | "Moby_HypnomaticMaker_Update"
+    | "Moby_HypnomaticPart_Update"
     | "Moby_LevitatorSeller_Update"
     | "Moby_MapperReturn_Update"
     | "Moby_NanotechBall_Update"
     | "Moby_PostHit"
+    | "Moby_PrisonController_Update"
+    | "Moby_PrisonPlumber_Update"
+    | "Moby_PrisonWrench_Init"
     | "Moby_RaceController_Update"
     | "Moby_RecordDeath"
+    | "Moby_SiberiusThief_Update"
     | "Moby_SwingshotArea_Update"
+    | "Moby_TaboraWrench_Update"
     | "Moby_ThermanatorArea_Update"
     | "Moby_ThermanatorSeller_Update"
+    | "Moby_TodanoTrader_Update"
     | "Moby_TractorBeamSeller_Update"
     | "Planet_Unlock"
+    | "PlatinumBolts_CountTotal"
+    | "Save_NewGame"
+    | "Save_Serialize"
     | "Text_ById"
     | "Vendor_BuildList"
     | "Vendor_DrawList"
@@ -171,6 +203,38 @@ type ArmorVendor_BuyFn = (answer: number, unused: number) -> ()
 type Vendor_PreviewFn = () -> ()
 -- rac2.player.update (Hero_Update) void(): The hero's whole update each tick: his animation, the stick, ledges, grind rails, his state machine, his moby and what he holds. Each group of levels has its own copy; together they are one hook point. A ship or vehicle update runs in its place while one drives him (hero +0x22B4). A replacement that skips the original moves him itself and shows him with openrac_api.hero_set_pose.
 type Hero_UpdateFn = () -> ()
+-- rac2.collectibles.platinum_count (PlatinumBolts_CountTotal) i32(): Counts the platinum bolts recorded in the save. A replacement can return received currency independently of physical pickups.
+type PlatinumBolts_CountTotalFn = () -> number
+-- rac2.hero.update_collection_progress (Hero_UpdateCollectionProgress) void(): Recounts nanotech and weapon collection progress from inventory; mods can separate pickup flags from received ownership.
+type Hero_UpdateCollectionProgressFn = () -> ()
+-- rac2.save.serialize (Save_Serialize) void(u32): Serializes live game state to the save packet at output. Inventory substitutions made by a mod must be restored before calling the original.
+type Save_SerializeFn = (output: number) -> ()
+-- rac2.save.new_game (Save_NewGame) void(): Resets game data from disc defaults for a new campaign, before its starting level is entered.
+type Save_NewGameFn = () -> ()
+-- rac2.moby.endako_rescue.update (Moby_EndakoRescue_Update) void(u32): Updates the Endako rescue sequence that returns Clank and the Swingshot.
+type Moby_EndakoRescue_UpdateFn = (moby: number) -> ()
+-- rac2.moby.tabora_wrench.update (Moby_TaboraWrench_Update) void(u32): Updates the Tabora controller, including its wrench reward.
+type Moby_TaboraWrench_UpdateFn = (moby: number) -> ()
+-- rac2.moby.prison_wrench.init (Moby_PrisonWrench_Init) void(u32): Initializes the Aranos prison wrench pickup.
+type Moby_PrisonWrench_InitFn = (moby: number) -> ()
+-- rac2.moby.todano_trader.update (Moby_TodanoTrader_Update) void(u32): Updates the Todano trader and his reward exchange.
+type Moby_TodanoTrader_UpdateFn = (moby: number) -> ()
+-- rac2.moby.prison_plumber.update (Moby_PrisonPlumber_Update) void(i32): Updates the Aranos plumber and his reward. The game declaration takes a signed 32-bit moby address.
+type Moby_PrisonPlumber_UpdateFn = (moby: number) -> ()
+-- rac2.moby.prison_controller.update (Moby_PrisonController_Update) void(u32): Updates the Aranos prison controller, including inventory restoration.
+type Moby_PrisonController_UpdateFn = (moby: number) -> ()
+-- rac2.moby.siberius_thief.update (Moby_SiberiusThief_Update) void(u32): Updates the Siberius thief sequence and its progression state.
+type Moby_SiberiusThief_UpdateFn = (moby: number) -> ()
+-- rac2.moby.boldan_cutscene.update (Moby_BoldanCutscene_Update) void(u32): Updates the Boldan cutscene trigger and its temporary inventory state.
+type Moby_BoldanCutscene_UpdateFn = (moby: number) -> ()
+-- rac2.moby.hypnomatic_part.update (Moby_HypnomaticPart_Update) void(u32): Updates the Hypnomatic part pickup on Damosel.
+type Moby_HypnomaticPart_UpdateFn = (moby: number) -> ()
+-- rac2.combat.count_kill (Moby_CountKill) void(u32,i32): Records a kill or event and grants its rewards. A replacement can adjust reward state around the original call.
+type Moby_CountKillFn = (moby: number, type: number) -> ()
+-- rac2.menu.extras (Menu_Extras) i32(): Processes the extras menu and returns its menu result.
+type Menu_ExtrasFn = () -> number
+-- rac2.camera.follow.read_stick (FollowCamera_ReadStick) void(u32,u32,u32): The follow camera's read of the right stick, each tick: camera (its data at +0x70), and the guest addresses of the floats it then turns and tilts by. By then the tick's goals are set: the eye's distance and height goals (data +0x1A0 and +0x1AC), which the camera eases its distance and height (+0x18C, +0x190) towards, and the eye it wants from Ratchet (+0x160); after it the camera turns, eases and builds its view, so a mod that calls the original and then changes those moves the camera this very tick. Rac1's FollowCamera_ReadStickInput.
+type FollowCamera_ReadStickFn = (camera: number, turn: number, tilt: number) -> ()
 
 declare openrac: {
     game: string,

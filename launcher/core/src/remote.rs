@@ -598,22 +598,44 @@ fn describe(
     let text = |k: &str| raw.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
     let format = raw.get("format").and_then(Value::as_u64).unwrap_or(0);
     let folder = folder_of(path);
-    if format == 1 {
+    if format == 1 || format == 5 {
         // A data pack (extractor/MODDING.md): named after its folder, or the repository.
-        let id = if folder.is_empty() { repo.to_ascii_lowercase() } else { folder.clone() };
+        let id = if format == 5 {
+            text("id")
+        } else if folder.is_empty() {
+            repo.to_ascii_lowercase()
+        } else {
+            folder.clone()
+        };
         let pack_game = text("game");
-        let (compatible, why) = if pack_game == game {
+        let mut games = BTreeMap::new();
+        if format == 5 {
+            if !plugins::valid_id(&id) || plugins::parse_version(&text("version")).is_none() || text("type") != "data" {
+                return Err("An audio recipe needs a data-mod id and version.".into());
+            }
+            games = serde_json::from_value(raw.get("games").cloned().unwrap_or(Value::Null))
+                .map_err(|_| "An audio recipe must name its supported discs.")?;
+        } else {
+            games.insert(pack_game.clone(), vec![text("version")]);
+        }
+        let supports_disc = format != 5 || games.get(game).is_some_and(|discs| discs.iter().any(|d| d == version));
+        let (compatible, why) = if pack_game == game && supports_disc {
             (true, None)
         } else {
-            (false, Some(format!("It is a pack for {pack_game}, not this game.")))
+            (
+                false,
+                Some(if pack_game != game {
+                    format!("It is a pack for {pack_game}, not this game.")
+                } else {
+                    format!("This audio recipe is not for this disc ({version}).")
+                }),
+            )
         };
-        let mut games = BTreeMap::new();
-        games.insert(pack_game, vec![text("version")]);
         return Ok(RemoteMod {
             installed: installed.get(&id).cloned(),
             id,
             name: text("name"),
-            version: text("pack_version"),
+            version: if format == 5 { text("version") } else { text("pack_version") },
             author: text("author"),
             description: text("description"),
             homepage: String::new(),
@@ -2180,6 +2202,47 @@ mod tests {
         let err = install(&ctx(dir.path(), &fx), "https://github.com/o/r", "m").unwrap_err();
         assert!(err.contains("holds other 9.9.9"), "{err}");
         assert!(!dir.path().join("m").exists() && !dir.path().join("other").exists());
+    }
+
+    #[test]
+    fn audio_recipe_from_a_repository_has_a_version_and_no_executable() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        let recipe = r#"{"format":5,"type":"data","id":"music-recipe","name":"Music recipe",
+            "version":"1.0.0","game":"rac1","disc_version":"pal","games":{"rac1":["pal"]},
+            "audio_recipe":{"format":1,"keys":["0123456789abcdef"],"speed":1.04}}"#;
+        repo(&mut fx, &[("openrac-mod.json", recipe.to_string())], serde_json::json!([]), "c1");
+        let mut w = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        w.start_file("o-r-c1/openrac-mod.json", zip::write::SimpleFileOptions::default()).unwrap();
+        w.write_all(recipe.as_bytes()).unwrap();
+        fx.put(&format!("{WEB}/o/r/archive/c1.zip"), w.finish().unwrap().into_inner());
+        let c = ctx(dir.path(), &fx);
+        let p = preview(&c, "https://github.com/o/r").unwrap();
+        assert_eq!(
+            (p.mods[0].kind.as_str(), p.mods[0].version.as_str(), p.mods[0].compatible),
+            ("pack", "1.0.0", true)
+        );
+        let RemoteInstalled::Pack { path, .. } = install(&c, "https://github.com/o/r", "music-recipe").unwrap() else {
+            panic!("not a data recipe")
+        };
+        assert!(Path::new(&path).join(MANIFEST).is_file());
+        assert!(!Path::new(&path).join("audio").exists());
+        let next = recipe.replace("\"1.0.0\"", "\"1.1.0\"");
+        let mut newer = Fixture::default();
+        repo(&mut newer, &[("openrac-mod.json", next.clone())], serde_json::json!([]), "c2");
+        let mut archive = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        archive.start_file("o-r-c2/openrac-mod.json", zip::write::SimpleFileOptions::default()).unwrap();
+        archive.write_all(next.as_bytes()).unwrap();
+        newer.put(&format!("{WEB}/o/r/archive/c2.zip"), archive.finish().unwrap().into_inner());
+        let next_context = ctx(dir.path(), &newer);
+        let (updates, errors) = check_updates(&next_context);
+        assert!(errors.is_empty(), "{errors:?}");
+        assert_eq!(updates.len(), 1);
+        assert!(
+            matches!(update(&next_context, "music-recipe").unwrap(), RemoteInstalled::Pack { version, .. } if version == "1.1.0")
+        );
+        let wrong_disc = preview(&Context { version: "ntsc", ..c }, "https://github.com/o/r").unwrap();
+        assert!(!wrong_disc.mods[0].compatible);
     }
 
     #[test]

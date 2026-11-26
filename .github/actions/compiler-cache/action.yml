@@ -1,7 +1,8 @@
 # Restores the job's compiler cache. Saving is a separate step at the end of the job
-# (compiler-cache/save): only a push run that compiled something new writes a snapshot. Pull
-# requests and the merge queue only read: their caches would be private to their ref and push
-# develop's shared ones out of the repository's 10 GB. ccache-action does setup and statistics,
+# (compiler-cache/save): only a push run that compiled something new writes a snapshot, and
+# develop's merge queue hands it to cache-handoff.yml (.github/actions/cache-out). Pull requests
+# and master's queue only read: their caches would be private to their ref and push develop's
+# shared ones out of the repository's 10 GB. ccache-action does setup and statistics,
 # with its own archive handling off.
 name: Compiler cache
 description: Restore compiler objects (compiler-cache/save writes them)
@@ -17,6 +18,7 @@ runs:
   steps:
     # Every event restores; only .github/actions/compiler-cache/save writes, at the end of a job.
     - name: Restore the compiler cache
+      id: restore
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ env.CCACHE_DIR || format(runner.os == 'Windows' && '{0}\.ccache' || '{0}/.ccache', github.workspace) }}
@@ -30,7 +32,18 @@ runs:
       env:
         DIR: ${{ env.CCACHE_DIR || format(runner.os == 'Windows' && '{0}\.ccache' || '{0}/.ccache', github.workspace) }}
         KEY: ccache-${{ inputs.key }}-success-${{ github.run_id }}-${{ github.run_attempt }}
+        MATCHED: ${{ steps.restore.outputs.cache-matched-key }}
+        MAX_SIZE: ${{ inputs.max-size }}
       run: |
+        echo "Restored compiler cache: ${MATCHED:-none}"
+        # ccache reads these before its config file, so compiles always use the restored folder
+        # (and the one the save step writes), even when ccache-action below does not run.
+        {
+          echo "CCACHE_DIR=$DIR"
+          echo "CCACHE_MAXSIZE=$MAX_SIZE"
+          echo "CCACHE_COMPRESS=true"
+          echo "OPENRAC_CCACHE_RESTORED=${MATCHED:-none}"
+        } >> "$GITHUB_ENV"
         python=$(command -v python3 || command -v python) || exit 0
         "$python" -c 'import pathlib, sys; pathlib.Path(sys.argv[1]).touch()' "$RUNNER_TEMP/openrac-ccache-mark"
         {
@@ -54,3 +67,7 @@ runs:
         max-size: ${{ inputs.max-size }}
         restore: "false"
         save: "false"
+    # Counts from here on are this job's: the save step reports them.
+    - name: Reset the compiler cache statistics
+      shell: bash
+      run: ccache -z >/dev/null 2>&1 || true

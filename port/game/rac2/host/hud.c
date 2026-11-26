@@ -7,9 +7,9 @@
  * place into a corner by the same flags. game/common/lib/hud_edges.h says how "HUD: Edges" moves them.
  *
  * The weapon, ammunition, health and bolts are not slots here: func_0034E4F8 draws them from a tree of
- * widgets with places of their own. With "HUD: Edges" two markers around it have the window move what
- * it draws left or right of the middle out to the picture's sides (renderer::GifInterpreter::
- * kHudSideMarker). What overlaps moves as one element; one across the middle stays, and so does the
+ * widgets with places of their own. With "HUD: Edges" the frame recorder is told around it
+ * (openrac_frame_hud_side) to move what it draws left or right of the middle out to the picture's
+ * sides. What overlaps moves as one element; one across the middle stays, and so does the
  * top middle panel (func_0034AD10).
  */
 #include <stdint.h>
@@ -104,13 +104,15 @@ void func_0028E458(void) {
     openrac_hud_edges(OPENRAC_DATA(RAC2_ADDR(0x00255330u)), draw_hud);
 }
 
-enum {
-    REG_NOP = 0x7F
-};
+/* What follows goes out to `side` (0 ends it), placed where the display list has got to. */
+static void hud_side(int side, unsigned how) {
+    rac2_anchor();
+    openrac_frame_hud_side(side, how);
+}
 
 static void side_marker(int side) {
     if (side != 0) {
-        func_002FC560(REG_NOP, 0x4853ull << 48 | (uint32_t)side);
+        hud_side(side, 0);
     }
 }
 
@@ -122,7 +124,7 @@ void func_0034E4F8(gaddr object) {
     side_marker(side);
     func_0034E4F8__game(object);
     if (side != 0) {
-        func_002FC560(REG_NOP, 0x4853ull << 48);
+        hud_side(0, 0);
     }
     widgets_side = 0;
     /* After the widgets, whose textures the fonts' would replace. */
@@ -131,12 +133,12 @@ void func_0034E4F8(gaddr object) {
 
 /*
  * The panel in the top middle, drawn among those widgets: its tip overlaps the health widget's, which
- * would make them one element, left of the middle. It is kept out of what the markers move.
+ * would make them one element, left of the middle. It is kept out of what the sides move.
  */
 void func_0034AD10(gaddr panel) {
     const int side = widgets_side;
     if (side != 0) {
-        func_002FC560(REG_NOP, 0x4853ull << 48);
+        hud_side(0, 0);
     }
     func_0034AD10__game(panel);
     side_marker(side);
@@ -144,7 +146,7 @@ void func_0034AD10(gaddr panel) {
 
 /*
  * The ship levels draw a HUD of their own from a callback (func_0029B758), which is not the widgets
- * above: Feltzin, Hrugis and Gorn. The same markers move it.
+ * above: Feltzin, Hrugis and Gorn. The same sides move it.
  */
 /* The name is expanded first, so that a release's table (rac2_version.h) renames it before ## pastes. */
 #define SHIP_HUD(name) SHIP_HUD_(name)
@@ -154,7 +156,7 @@ void func_0034AD10(gaddr panel) {
         side_marker(side);                                                                         \
         const int result = name##__game();                                                         \
         if (side != 0) {                                                                           \
-            func_002FC560(REG_NOP, 0x4853ull << 48);                                               \
+            hud_side(0, 0);                                                                        \
         }                                                                                          \
         return result;                                                                             \
     }
@@ -165,20 +167,19 @@ SHIP_HUD(func_L15_0042E1B0)
 /* Giant Clank's fights draw theirs the same way: his panel and the enemy's go to the sides. */
 SHIP_HUD(func_L22_003A5018)
 SHIP_HUD(func_L23_0041DA48)
+
 /*
  * The hoverbike races (Barlow, Joba): before the start, during the race and at the end; and the
  * crane on Endako, a callback of func_0029B7C0, whose camera's frame goes round the screen. With
- * the stretch bit (renderer::GifInterpreter::kHudStretch) what crosses the middle grows out to the
- * sides with the rest.
+ * OPENRAC_HUD_STRETCH what crosses the middle grows out to the sides with the rest.
  */
-#define STRETCH (1ull << 32)
 
 /* Takes the game function's own result type: the decomp's matched C may give one (rac2-decomp's
  * func_L04_00411298 is s32) where the assembly's is void. The cleanup restores the plain HUD after
  * the call, whichever it is. */
 static inline void openrac_race_hud_end(const int* side) {
     if (*side != 0) {
-        func_002FC560(REG_NOP, 0x4853ull << 48);
+        hud_side(0, 0);
     }
 }
 
@@ -186,7 +187,7 @@ static inline void openrac_race_hud_end(const int* side) {
     __typeof__(name##__game()) name(void) {                                                        \
         const int side __attribute__((cleanup(openrac_race_hud_end))) = openrac_game_hud_side();   \
         if (side != 0) {                                                                           \
-            func_002FC560(REG_NOP, 0x4853ull << 48 | STRETCH | (uint32_t)side);                     \
+            hud_side(side, OPENRAC_HUD_STRETCH);                                                   \
         }                                                                                          \
         return name##__game();                                                                     \
     }
@@ -198,22 +199,20 @@ RACE_HUD(func_L03_003C7018)
 
 /* Tabora's own HUD while driving the Mining Vehicle, from a callback: its radar, and at the bottom
  * its health bar beside the distance to the raritanium. The two bars are drawn side by side and
- * meet right of the middle (283 of 512): with the split bit (renderer::GifInterpreter::kHudSplit)
- * what lies left of that line goes left as one block and the rest right, each out to its edge,
- * whole (stretched, or each piece by the middle, the bars grew or came apart). */
-#define SPLIT_AT(x) (1ull << 33 | (uint64_t)(x) << 34)
+ * meet right of the middle (283 of 512): with OPENRAC_HUD_SPLIT what lies left of that line goes left
+ * as one block and the rest right, each out to its edge, whole (stretched, or each piece by the middle, the bars grew or came apart). */
 #define TABORA_BARS_MEET 283
 
 static inline void openrac_tabora_hud_end(const int* side) {
     if (*side != 0) {
-        func_002FC560(REG_NOP, 0x4853ull << 48);
+        hud_side(0, 0);
     }
 }
 
 int func_L08_0041D808(void) {
     const int side __attribute__((cleanup(openrac_tabora_hud_end))) = openrac_game_hud_side();
     if (side != 0) {
-        func_002FC560(REG_NOP, 0x4853ull << 48 | SPLIT_AT(TABORA_BARS_MEET) | (uint32_t)side);
+        hud_side(side, OPENRAC_HUD_SPLIT(TABORA_BARS_MEET));
     }
     return func_L08_0041D808__game();
 }

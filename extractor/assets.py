@@ -1176,7 +1176,7 @@ def texture_names(textures: dict, index: LevelsIndex, level: int, target: int, e
 
 
 def port_glb(meshes, textures: dict, names: dict, original_doc: gltf_read.Document, stem: str) -> bytes:
-    """The replacement model as the port reads a class GLB (port.py, godot.moby_glb): game axes,
+    """The replacement model as the port reads a class GLB (port.py, and moby_glb in OpenRAC Editor's openrac/tools/godot.py): game axes,
     model units, one node per mesh, skinned to joint nodes joint_NNN in the game's numbering with
     the original's inverse bind matrices; materials name ../textures/<name>.png."""
     gltf = Gltf()

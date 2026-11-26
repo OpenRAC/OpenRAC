@@ -728,8 +728,16 @@ private:
     void relight_shrub(
         std::size_t i, const Mat4* matrix, std::uint16_t list, const std::array<float, 4>& centre
     );
-    // Writes `colours` into the light texture from texel `first`.
+    // Writes `colours` into the light texture's copy from texel `first`; flush_light_colours
+    // uploads what changed.
     void upload_light_colours(std::size_t first, std::span<const std::uint32_t> colours);
+    // Uploads the texels upload_light_colours changed, in a few runs, not one per instance: each
+    // upload is a copy with its own barriers on the GPU.
+    void flush_light_colours();
+    // The light texture's texels as the GPU has them, and the texel spans changed since the last
+    // flush.
+    std::vector<std::uint32_t> m_light_texels;
+    std::vector<std::pair<std::size_t, std::size_t>> m_light_dirty;
     // Lights tie `i` again by `matrix` and `points` (nullptr: its colours as loaded) into the
     // light texture.
     void relight_moved_tie(

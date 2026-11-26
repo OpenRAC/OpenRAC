@@ -362,8 +362,8 @@ vertical blank callback (`func_0013D208`).
 | `host/rac3_version.h` | PAL's switch for the host C, which is both discs': NTSC-U ([rac3-ntsc](../rac3-ntsc/README.md)) compiles the same files with its own names and addresses. An address of the game's memory is written `RAC3_ADDR(0x...u)` (PAL's value); after adding one, or a library row, run `release_carry_rac3.py` (rac3-ntsc's README) |
 | `host/entry.c` | the loader's unpacking, crt0, InitSystemCallTableAddress (no kernel to scan) |
 | `host/dma.c` | sceDmaSend leaving CHCR as the DMAC does (the VIF1 handler retires the frame's wait mask from it), KickVif0Chain |
-| `host/sound.c` | 989snd's command boundary (snd_Pump, snd_SendCommandSync, snd_QueueCommandToRing, the bank loads) on the ring rac2 shares (`common/lib/snd_ring.c`): the native sound engine plays the banks' sounds and the VAG streams |
-| `host/pad.c` | libpad 4.0, Deadlocked's host pad at this disc's addresses |
+| `host/sound.c`, `common/lib/snd.c` | 989snd's client API: native sound and stream requests, with answers sent to callbacks at the next snd_Pump. No shared command ring; unexpected raw sends warn once and return 0 |
+| `host/pad.c` | the pad start-up and update of the boot program, frontbin and the levels, the port's: each record's report from the port's controllers, read by the game's own reader, no libpad; the multiplayer executable's libpad 4.0 answers (host/mp.c) |
 | `host/movie.c` | the movie player entry, the boot program's, frontbin's and every level's copy (`func_L01_004D28B0`, which the levels' story movies start): the shared native player |
 | `host/program.c` | which program is loaded (the overlay hook), `OPENRAC_RAC3_NEXT` |
 | `headers/vu0.h` | the vector-library helpers of the decompilation's `include/vu0.h` (asm Clang refuses) in C, read in its place (hostgen.json `headers`) |
@@ -380,6 +380,19 @@ vertical blank callback (`func_0013D208`).
 | `host/picture.c` | the main menu's background: the picture to the window as a texture and a full-screen 2D record; in a picture wider than 4:3, its blurred edges out to the window's sides, as Going Commando's title |
 | `host/view.c` | the game's own 16:9 option kept off, so that the window's Picture setting alone shapes the view (as Going Commando's) |
 | `IDENTIFIED.tsv` | every function and global worked out on the way, for the backfill |
+
+The `rac3_pad_state` ctest compiles the real pad wrapper and shared report code with synthetic RAM
+and input. It covers one sample/mod report per ready update, quiet setup and reconnect frames,
+disconnects, unopened slots, game callback/reader ordering, and motor forwarding. It does not run
+the game or decode input through its retail reader. `rac3_pad_ntsc` carries that real host source
+and fixture to NTSC-U's names and checks its boot-only initialization and retained overlay state
+([native pad lifecycle](../../../docs/port/NATIVE_PADS.md)). The MP library path remains in use;
+full game generation and runtime behavior are unverified.
+
+`rac3_program` and `rac3_program_ntsc` test the real loader dispatch wrapper with synthetic
+records. Frontbin's program entry is release-specific metadata, not the boot front-end function's
+address ([program lifecycle](../../../docs/port/PROGRAM_LIFECYCLE.md)); the tests do not run
+LoadExec or the real function registry.
 
 `hostgen.json` also lists `from_assembly` (C that forwards registers or has VU0 inline assembly,
 translated from its instructions), `candidate_folders_left_out` (the NTSC-U drafts of boot_elf and
@@ -652,6 +665,14 @@ at its own addresses; the levels' copy of the ship's glass is wrapped too (`func
 catalogue's frontbin row `func_003A7AF8`), and their planet quads go through the levels'
 DrawWorldQuad, `func_L01_00407E28`.
 
+The loading screen is the game's table row for the trip (level_load, `func_003BD030`'s rules: the
+Phoenix to a Vid-comic level and back is row 7, `value` 6 at `0x0016C580 + 0x2E`): a full-screen
+picture and two turning sprites, with no moby pass for the world to split at. `host/tools.c`
+(`openrac_game_loading_draws_world`) says so, and the window draws that 2D over the loading world's
+clear instead of under it (it was black for the whole load). A trip no rule names (a level that is
+not the Phoenix asking for a Vid-comic one, or one asking for itself) takes the default row 8, which
+the game draws black.
+
 Between ticks the ship and the flight's camera move fast: in the approach (its ticks stretched
 2.5 times, `host/loading.c`) more than the 4 units a moby (8 for the camera) may move in a tick and
 still be drawn part way (`frontend/geometry.cpp`), so they were drawn where each tick left them,
@@ -725,7 +746,10 @@ routine (Veldin's `0x00408AAC` after its setup `0x00407588`):
   percent at +0x44 (`func_L02_00310368`), not the level's fog: the strip program's fog line (VU
   `0x3AC`..`0x3AF`) is uploaded with the water's for its strips and put back after them.
 
-The program's mipmapped surface texture is drawn without mipmaps. The levels with such water (class
+The program's mipmapped surface texture (TEX1 MMIN 5, MXL 6) gets a mip chain the window makes from the
+picture (`TexturePool::ensure_mipmaps`, asked for by the effect strip's TEX1: `Tex1::mipmapped`), so
+distant water does not shimmer; the reflection and the UI's and quads' effect textures keep one level.
+The levels with such water (class
 2871, one plane each but Tyhrranosis's two): 2, 4, 5, 9, 12, 14, 17, 18, 19, 20, 22 and 29.
 
 ### Shadows, enhanced graphics and texture packs

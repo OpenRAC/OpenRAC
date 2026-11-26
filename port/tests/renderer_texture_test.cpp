@@ -489,6 +489,17 @@ void pool() {
     textures.upload(upload(0x500, gs::kPsmct32, 4, 4, pixels));
     CHECK(textures.resolve(tex0(0x500, gs::kPsmct32, 2, 2), texa) != f);
 
+    // A chain is asked for by a draw that tiles the picture (an effect strip with a mipmapped
+    // TEX1); a texture made without one gets it, and the others never do.
+    CHECK(!textures.has_mipmaps(f));
+    CHECK(textures.ensure_mipmaps(f) && textures.has_mipmaps(f));
+    CHECK(textures.ensure_mipmaps(f));
+    CHECK(!textures.ensure_mipmaps(0) && !textures.ensure_mipmaps(0x7FFFFFF));
+    CHECK(!gs::Tex1::decode(0x60).mipmapped());                      // bilinear, one level
+    CHECK(!gs::Tex1::decode(5u << 6).mipmapped());                   // MXL 0
+    CHECK(gs::Tex1::decode(0x20u | 5u << 6 | 6u << 2).mipmapped());  // linear mipmap linear, MXL 6
+    CHECK(gs::Tex1::decode(2u << 6 | 1u << 2).mipmapped());
+
     // Conversions nobody uses are dropped after a while; assets stay.
     const std::size_t before = textures.size();
     for (std::uint32_t i = 0; i <= TexturePool::kKeepFrames; ++i) {

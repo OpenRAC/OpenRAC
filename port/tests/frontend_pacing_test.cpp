@@ -204,6 +204,30 @@ void test_low_latency_frames_without_refreshes_stop_at_the_next_tick() {
     CHECK(between_limit(next_tick, period, kLowLatencyLagTicks, kCost, kRefresh, {}) == next_tick);
 }
 
+// The render thread on Vulkan, whose swaps do not tell the refreshes, on a 120 Hz display at 60
+// ticks a second: the tick's own frame is to be shown 9.2 ms after its tick (the tick's game logic,
+// then drawing), so the next frame, a refresh later, comes 17.5 ms after it, past the next tick
+// but before the next tick's own frame (at 25.9 ms). It is drawn: held to the next tick, every
+// tick whose own frame came over half a tick late showed one frame (the Odin 3 on Maktar Nebula).
+void test_render_thread_frames_reach_the_refresh_before_the_next_tick_frame() {
+    constexpr double kFast = 1.0 / 120.0;
+    const duration<double> period(1.0 / 60.0);
+    const auto next_tick = start() + span(period.count());
+    const double first_shown = 0.0092;
+    const auto display = start() + span(first_shown + kFast);
+    CHECK(display > next_tick);
+    const auto limit =
+        between_limit(next_tick, period, kLowLatencyLagTicks, kCost, kFast, {}, first_shown);
+    CHECK(display < limit);
+    // Half a refresh before the next tick's own frame: a frame for that refresh is left out.
+    CHECK(limit == next_tick + span(first_shown - kFast / 2.0));
+    CHECK(!(next_tick + span(first_shown) < limit));
+    // Its own frame shown less than half a refresh after the tick: the next tick is the limit.
+    CHECK(
+        between_limit(next_tick, period, kLowLatencyLagTicks, kCost, kFast, {}, 0.003) == next_tick
+    );
+}
+
 // Held by its start, a frame starts at its time; held by its showing, its lead before it, the lead
 // being its cost, three times its spread and half a millisecond, no more than the cap's frame.
 void test_a_frame_held_by_its_showing_starts_its_lead_early() {
@@ -242,6 +266,7 @@ int main() {
     test_frames_between_ticks_stop_a_lag_after_the_next_tick();
     test_low_latency_frames_reach_the_refresh_before_the_next_tick_frame();
     test_low_latency_frames_without_refreshes_stop_at_the_next_tick();
+    test_render_thread_frames_reach_the_refresh_before_the_next_tick_frame();
     test_a_frame_held_by_its_showing_starts_its_lead_early();
     test_the_tick_waits_for_a_frame_no_longer_than_its_work_allows();
     return openrac::test::result();

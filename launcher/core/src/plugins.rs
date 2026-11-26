@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 /// The mod interface this launcher's port has: `OPENRAC_MOD_API_MAJOR` and `_MINOR` of
 /// `sdk/include/openrac/openrac_mod.h`. Change them with it.
 pub const API_MAJOR: u32 = 1;
-pub const API_MINOR: u32 = 39;
+pub const API_MINOR: u32 = 40;
 /// The interface a script mod needs at least: 1.1, the first with scripts (MODS.md, section 11).
 pub const SCRIPT_API_MINOR: u32 = 1;
 
@@ -1623,7 +1623,7 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
         &std::fs::read_to_string(root.join(MANIFEST)).map_err(|e| format!("{MANIFEST} cannot be read ({e})"))?,
     )
     .map_err(|e| format!("{MANIFEST} cannot be read ({e})"))?;
-    if matches!(raw.get("format").and_then(Value::as_u64), Some(1 | 3 | 4)) {
+    if matches!(raw.get("format").and_then(Value::as_u64), Some(1 | 3 | 4 | 5)) {
         return Ok(Installed::Pack);
     }
     let m = read_manifest(&root)?;
@@ -1693,6 +1693,17 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn recipe_goes_to_the_data_pack_validator() {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("recipe");
+        std::fs::create_dir(&source).unwrap();
+        std::fs::write(source.join(super::MANIFEST), r#"{"format":5,"name":"Recipe"}"#).unwrap();
+        assert!(matches!(
+            super::install(&root.path().join("plugins"), "rac1", "pal", &source).unwrap(),
+            super::Installed::Pack
+        ));
+    }
     use super::*;
     use serde_json::json;
     use std::io::Write;

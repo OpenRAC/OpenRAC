@@ -272,6 +272,7 @@ int (*openrac_game_bolts)(void) = nullptr;
 int (*openrac_game_skip_buttons)(void) = nullptr;
 void (*openrac_game_skip)(void) = nullptr;
 int (*openrac_game_flight)(void) = nullptr;
+int (*openrac_game_loading_draws_world)(void) = nullptr;
 int (*openrac_game_mode)(uint32_t* mode) = nullptr;
 int (*openrac_game_touch)(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX]) =
     nullptr;
@@ -306,6 +307,8 @@ Options g_options;
 long g_frame = 0;
 gaddr g_chain = 0;
 bool g_vsync_since_kick = true;
+PictureLists g_picture_lists;
+bool g_send_within_picture = false;
 bool g_window = false;
 std::chrono::steady_clock::time_point g_next_frame;
 unsigned g_draws = 0;

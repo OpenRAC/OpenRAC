@@ -15,18 +15,21 @@
  * shell matrix 0x0024C940 (Veldin's 0x001E0E10), the particle pool and its highest slot
  * 0x0024C188 / 0x0024C190 (0x001E0278 / 0x001E0280), the particles' texture table 0x002961C0
  * (0x00220A40), the effect textures' upload count and records 0x0024B9FC / 0x0025D9C0
- * (0x001DF97C / 0x001E7880), and the screen glow's word 0x00245BB4 (0x001DBCA4). */
+ * (0x001DF97C / 0x001E7880), the screen glow's word 0x00245BB4 (0x001DBCA4), and the view context
+ * 0x0025D6C0 (Veldin's 0x001E7580, profile.cpp's). */
 #include <stdint.h>
 
 #include "game/common/lib/wad_routine.h"
 #include "mp/game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "openrac/picture.h"
 #include "rac3_coll_line.h"
+#include "rac3_screen.h"
+#include "rac3_version.h"
 
 /* host/mp_fixes.c: the flags a map's collision line runs with (wall sniping's fix). */
 int rac3_mp_fix_coll_flags(int map, int from, int flags, int moby);
-#include "rac3_version.h"
 
 /* A global of level 39's program, in the map loaded now. */
 #define L39(a) OPENRAC_LDATA(39, (gaddr)(a))
@@ -39,6 +42,10 @@ int rac3_mp_fix_coll_flags(int map, int from, int flags, int moby);
 #define MAP_TEXTURE_UPLOADS RAC3_LADDR(39, 0x0024B9FCu)
 #define MAP_TEXTURE_RECORDS RAC3_LADDR(39, 0x0025D9C0u)
 #define MAP_LIST_POINTER RAC3_LADDR(39, 0x0024CAD0u)
+/* The view context (UpdateViewContext's block, profile.cpp's view_context): the view's scissor in
+ * the screen's pixels at +0x240 (left), +0x244 (right, included), +0x248 (top), +0x24C (bottom,
+ * included), which the view layout writes from its table. */
+#define MAP_VIEW_CONTEXT RAC3_LADDR(39, 0x0025D6C0u)
 
 /* render.c's level 39 copies and shared steps. */
 int func_L39_005F4690(void);
@@ -58,20 +65,48 @@ static inline int wad_decompress(int source, int destination) {
     return openrac_wad_routine(source, destination, "Up Your Arsenal");
 }
 
-/* The screen glow's packets are left out as the single-player levels' are (render.c); the word
- * each sets for the frame is kept. */
+/* The screen glow and the second effect, drawn natively as the single-player levels' are
+ * (screen.c), from the map's copy of level 39's globals: the glow word, the blur byte 0x24 after
+ * it, the list pointer. */
+static Rac3Glow map_glow(void) {
+    const Rac3Glow g =
+        {L39(MAP_GLOW_WORD), L39(RAC3_LADDR(39, 0x00245BD8u)), L39(MAP_LIST_POINTER)};
+    return g;
+}
+
 static inline int glow_copy(void) {
-    GREF(int32_t, L39(MAP_GLOW_WORD)) = 0x6000;
-    return 0;
+    const Rac3Glow g = map_glow();
+    return rac3_screen_glow(&g);
 }
 
 static inline int glow_add(void) {
-    GREF(int32_t, L39(MAP_GLOW_WORD)) = 0;
-    return 0;
+    const Rac3Glow g = map_glow();
+    return rac3_screen_glow_end(&g);
+}
+
+static inline int soften(void) {
+    return rac3_screen_soften(L39(MAP_LIST_POINTER));
 }
 
 static inline int moby_chain(int a0, int a1) {
     openrac_game_moby_chain((gaddr)a0, (gaddr)a1);
+    return 0;
+}
+
+/* Level 39's own copy (the menu's, which START's loading ship runs): its code writes the DMA tag chain's
+ * registers in chain mode, which the port's scratchpad copies do not model. */
+int mp_func_L39_005B0AE0(int a0, int a1) {
+    return moby_chain(a0, a1);
+}
+
+float mp_func_L39_005B24E8(int a0, int a1) {
+    (void)a0;
+    (void)a1;
+    return 0.0f;
+}
+
+int mp_func_L39_005B2238(int a0) {
+    (void)a0;
     return 0;
 }
 
@@ -94,6 +129,61 @@ static inline int world_quad(int a0, int a1) {
         L39(MAP_LIST_POINTER)
     );
     return 0;
+}
+
+/* Split screen. Each frame the maps' view loop (level 39's 0x005771D0, map 50's 0x00454AD0) draws
+ * every local player's view: RenderView (0x00576E48, map 50's 0x00454748) keeps the view's player,
+ * runs its callback, lays the view out (this routine, with the layout: 1 + the player for two
+ * players, 3 + for three, 6 + for four, from the table it reads) and runs DrawFrame with that
+ * player's camera; then the loop lays out the whole screen (layout 0) and draws the lines between
+ * the views over them. So a layout other than 0 starts a view of the frame recorder, and the next
+ * layout ends it, while the game still holds the camera the view was drawn with; the one screen's
+ * world otherwise (openrac/frame.h, frontend/split_views.cpp). The whole screen's size is the
+ * view context's scissor at layout 0. */
+static float s_screen_w = 0.0f, s_screen_h = 0.0f;
+
+static void read_scissor(float out[4]) {
+    const gaddr context = L39(MAP_VIEW_CONTEXT);
+    out[0] = (float)GREF(int32_t, context + 0x240u);
+    out[1] = (float)GREF(int32_t, context + 0x248u);
+    out[2] = (float)(GREF(int32_t, context + 0x244u) + 1);
+    out[3] = (float)(GREF(int32_t, context + 0x24Cu) + 1);
+}
+
+/* Before the game's layout: the view before ends while its camera is the game's, and the whole
+ * screen is known before a first view. */
+static void view_layout_before(int layout) {
+    openrac_frame_view_end();
+    if (s_screen_w <= 0.0f && layout > 0) {
+        float r[4];
+        read_scissor(r);
+        s_screen_w = r[2];
+        s_screen_h = r[3];
+    }
+}
+
+/* After it: layout 0 is the whole screen, any other a view of it. */
+static void view_layout_after(int layout) {
+    float r[4];
+    read_scissor(r);
+    if (layout <= 0) {
+        s_screen_w = r[2];
+        s_screen_h = r[3];
+        return;
+    }
+    /* Each RenderView but the last sends its list, and the loop sends the last after the lines,
+     * with no vertical blank between them, then waits for one: the lists are one picture
+     * (openrac/picture.h). Measured on Bakisi Isles: a header list, player 0's view in the other
+     * buffer, then the header's buffer again with player 1's view, both HUDs, the black corners
+     * and the divider. */
+    openrac_game_picture_spans_sends();
+    if (s_screen_w < 1.0f || s_screen_h < 1.0f || r[2] <= r[0] || r[3] <= r[1]) {
+        return;
+    }
+    const int view = layout - (layout >= 6 ? 6 : layout >= 3 ? 3 : 1);
+    const openrac_frame_viewport rect = {r[0], r[1], r[2], r[3]};
+    openrac_frame_screen(s_screen_w, s_screen_h);
+    openrac_frame_view_begin(view, &rect);
 }
 
 /* One map's rows, in mp/maps.py CARRIED's order. */
@@ -121,6 +211,7 @@ static inline int world_quad(int a0, int a1) {
     sky,                                                                                           \
     particles,                                                                                     \
     quad,                                                                                          \
+    layout,                                                                                        \
     coll                                                                                           \
 )                                                                                                  \
     void mp_func_L##m##_##vif0(unsigned int chain) {                                               \
@@ -136,7 +227,7 @@ static inline int world_quad(int a0, int a1) {
         return glow_add();                                                                         \
     }                                                                                              \
     int mp_func_L##m##_##effect2(void) {                                                           \
-        return 0;                                                                                  \
+        return soften();                                                                           \
     }                                                                                              \
     int mp_func_L##m##_##tfrag(void) {                                                             \
         return func_L39_005F4690();                                                                \
@@ -192,6 +283,11 @@ static inline int world_quad(int a0, int a1) {
     }                                                                                              \
     int mp_func_L##m##_##quad(int a0, int a1) {                                                    \
         return world_quad(a0, a1);                                                                 \
+    }                                                                                              \
+    void mp_func_L##m##_##layout(int a0, int a1, int a2, int a3) {                                 \
+        view_layout_before(a0);                                                                    \
+        mp_func_L##m##_##layout##__game(a0, a1, a2, a3);                                           \
+        view_layout_after(a0);                                                                     \
     }                                                                                              \
     int mp_func_L##m##_##coll##__game(int a0, int a1, int a2, int a3, int a4);                     \
     int mp_func_L##m##_##coll(int a0, int a1, int a2, int a3, int a4) {                            \

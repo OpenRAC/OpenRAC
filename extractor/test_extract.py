@@ -195,7 +195,7 @@ class PortExportTests(unittest.TestCase):
         godot = self.data / "levels" / "level_00"
         godot.mkdir(parents=True)
         (godot / "project.godot").write_text("config_version=5\n")
-        with self.assertRaisesRegex(FormatError, "Godot projects"):
+        with self.assertRaisesRegex(FormatError, "OpenRAC Editor's level projects"):
             extract.ours(godot.parent, "port")
 
 

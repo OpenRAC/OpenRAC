@@ -40,6 +40,8 @@
 
 #include "renderer/direct/draw_state.h"
 #include "renderer/direct/gs.h"
+#include "renderer/effects/screen_effect.h"
+#include "renderer/frame/frame_record.h"
 #include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
 #include "renderer/textures/texture_pool.h"
@@ -151,6 +153,9 @@ struct DirectState {
     bool picture = false;
     // Textured from the frame recorder's snapshot `id` (openrac_frame_snapshot), 0 for none.
     std::uint32_t snapshot_picture = 0;
+    // Textured from a split-screen view's picture (FrameInput::view_pictures, a GL texture), 0 for
+    // none.
+    unsigned view_picture = 0;
 
     bool operator==(const DirectState&) const = default;
 };
@@ -169,6 +174,17 @@ struct DirectDraw {
     // Not 0: no vertices, the target as drawn so far kept as the recorder's snapshot `snapshot`
     // (openrac_frame_snapshot).
     std::uint32_t snapshot = 0;
+    // Not None: no vertices, a native post pass over the target as drawn so far
+    // (openrac_frame_screen_effect, renderer/effects/screen_effect.h).
+    ScreenEffect screen{};
+
+    // Drawn with no vertices of its own: mobys, a snapshot or a screen effect.
+    bool vertexless() const {
+        return mobys != 0 || snapshot != 0 || screen.kind != ScreenEffectKind::None;
+    }
+
+    // Has something to draw.
+    bool draws() const { return count != 0 || vertexless(); }
 };
 
 // Draw diagnostics belong to the graphics owner; render jobs capture the producer's setting.
@@ -203,6 +219,8 @@ struct FrameSnapshot {
     unsigned texture = 0;                   // GL, the frame as drawn (first row at the bottom)
     int width = 0, height = 0;              // its size
     std::vector<std::uint64_t> answered;  // hash_bytes() of each block of pixels handed back
+    // The port picture id it is drawn as (openrac_frame_snapshot_world), 0 for none.
+    std::uint32_t picture = 0;
 };
 inline FrameSnapshot g_frame_snapshot;
 
@@ -229,6 +247,11 @@ public:
 
     // The off-screen targets drawn to and not since overwritten by a transfer (their GS block).
     const std::vector<std::uint32_t>& offscreen_blocks() const { return m_offscreen; }
+
+    // The GS blocks recorded panels (TargetBegin) were drawn through, with the panel's id.
+    const std::vector<std::pair<std::uint32_t, std::uint32_t>>& panel_aliases() const {
+        return m_panel_alias;
+    }
     // The off-screen targets drawn to since the last call, but those a transfer has since started at
     // (their GS block), and none from then on: what the world's effect quads drawn in between may
     // have sampled, even when a later transfer took the target back as texture memory.
@@ -261,6 +284,13 @@ public:
     void finish_commands();
     // One recorded command, drawn now (after what the stream drew so far).
     void run_command(const FrameCommand& command);
+
+    // Split screen: the views' pictures (FrameInput::view_pictures), each drawn at its view's first
+    // World command of the commands run next.
+    void set_view_pictures(const std::array<unsigned, kFrameViews>& pictures) {
+        m_view_pictures = pictures;
+        m_views_drawn = 0;
+    }
 
     // Whether the moby markers drawn into the main frame become draws (FrameInput::screen_mobys).
     void set_screen_mobys(bool on) { m_screen_mobys = on; }
@@ -368,6 +398,8 @@ private:
     void native_item(const UiItem& item, std::span<const UiImage> images);
     // A fill, clear or picture of the recording, over `command`'s rectangle.
     void native_rect(const FrameCommand& command, const DirectState& state, float depth);
+    // A split-screen view's picture over its rectangle, at its World command (set_view_pictures).
+    void view_world(const FrameView& view);
     // A draw of the mobys `value` names (count << 32 | list) in the target being drawn, as the
     // moby markers make.
     void moby_draw(std::uint64_t value);
@@ -379,6 +411,8 @@ private:
     std::size_t m_next_splice = 0;
     // The recorder's own panel and scissor (TargetBegin, Scissor), 0 / unset for none.
     std::uint32_t m_recorded_target = 0;
+    std::array<unsigned, kFrameViews> m_view_pictures{};
+    std::uint32_t m_views_drawn = 0;  // Bits of the views whose picture was drawn.
     std::array<float, 2> m_recorded_centre{256.0f, 224.0f};
     bool m_recorded_scissor_set = false;
     PixelRect m_recorded_scissor{};
@@ -412,6 +446,12 @@ private:
     bool m_hud_stretch = false;
     int m_hud_split = -1;  // the split line in the chip's pixels, -1 for none
     std::uint32_t m_hud_side_first = 0;
+    // The HUD's placement as item data (UiItem::side, ::place): the items of one placement, their
+    // first vertices, moved out together when it ends (place_items).
+    void place_items();
+    std::uint32_t m_place = 0;
+    float m_place_move = 0.0f;
+    std::vector<std::uint32_t> m_place_first;
     bool m_whole = false;    // between kWholeMarker's two markers
     bool m_picture = false;  // between kPictureMarker's two markers
     DirectVertex convert(const GsVertex& v) const;
@@ -444,6 +484,8 @@ private:
     // Off-screen targets ever drawn to (their GS block): a FRAME narrower than the screen, which the
     // game renders a panel into and then draws as a texture.
     std::vector<std::uint32_t> m_offscreen;
+    // Recorded panels the game's packets drew through a GS block: block, panel id.
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> m_panel_alias;
     // Those drawn to since take_drawn_blocks(), less those a transfer has since started at.
     std::vector<std::uint32_t> m_drawn;
     // What each block's texture was last drawn as, for the log: a texture that stops being drawn
@@ -457,6 +499,9 @@ private:
     std::uint32_t m_cbp1 = 0xFFFFFFFFu;
     // The off-screen target the current context draws into (its block), or 0.
     std::uint32_t offscreen_target() const;
+    // The target a texture at block `tbp` is: a block drawn off-screen, or a recorded panel aliased
+    // to it; 0 for neither.
+    std::uint32_t sampled_target(std::uint32_t tbp) const;
     bool is_offscreen(const gs::Frame& f) const;  // a target that is not one of the frame buffers
     // Whether a texture at `tbp` is a frame buffer or a copy of one; if so, where its texel (0, 0)
     // is in the frame.
@@ -582,6 +627,8 @@ private:
 
     std::unordered_map<std::uint32_t, Picture> m_pictures;
     void keep_snapshot(std::uint32_t id, const RenderTarget& target);
+    // The recorder's screen effects (openrac_frame_screen_effect), drawn where they come.
+    ScreenEffects m_screen_effects;
     std::size_t m_vbo_bytes = 0;
     std::string m_last_error;
     std::array<unsigned, 16> m_samplers{};
@@ -610,6 +657,7 @@ public:
             m_direct.interpreter().set_screen_mobys(static_cast<bool>(input.screen_mobys));
             m_direct.interpreter().set_over_world(false);
             m_direct.set_frame_input(&input);
+            m_direct.interpreter().set_view_pictures(input.view_pictures);
             m_direct.interpreter()
                 .set_commands(input.recording, input.splices.first(input.splices_before_world), 0);
             m_direct.submit(input.direct_before_world);

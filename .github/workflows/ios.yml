@@ -1,15 +1,24 @@
 # iPhone and iPad checks on macOS (docs/port/IOS.md). No disc or Apple signing needed.
-# Port / iOS: runtime tests, then the runtime built for iOS without a game.
-# Launcher / iOS: the Rust adapter, bundle tests, icons, and the port/ios/*.mm bridges.
-# macOS runners are few and slow to get: the macOS jobs run in the merge queue (merge_group) and
-# on pushes, never on a pull request, and the scope job picks the jobs a change can affect
-# (tools/ci_scope.py ios). On a pull request only the scope job runs, so that the required checks
-# report there too (skipped counts as passed).
+# ios_port: runtime tests, then the runtime built for iOS without a game.
+# ios_launcher: the Rust adapter, bundle tests, icons, and the port/ios/*.mm bridges.
+# macOS runners are few and slow to get: the macOS jobs run for a dev release (its pull request
+# to master and the push to master) and by hand, and the ios_plan job picks the jobs a push
+# can affect (tools/ci_scope.py ios). On other pull requests and in the merge queue only
+# ios_plan runs, so that the checks report there too (skipped counts as passed).
 name: ios
+# Each run's title: a pull request's own title; otherwise the run number, what started it and where.
+run-name: >-
+  ${{ github.event_name == 'pull_request'
+      && github.event.pull_request.title
+  || github.event_name == 'merge_group'
+      && format('ios #{0} · queue → {1}', github.run_number, endsWith(github.event.merge_group.base_ref, '/master') && 'master' || 'develop')
+  || github.event_name == 'push'
+      && format('ios #{0} · push {1}', github.run_number, github.ref_name)
+  || format('ios #{0} · manual {1} · by {2}', github.run_number, github.ref_name, github.actor) }}
 
 on:
   push:
-    branches: [master, develop]
+    branches: [master]
     paths:
       - "port/**"
       - "!port/android/**"
@@ -36,38 +45,33 @@ on:
 permissions:
   contents: read
 
-# As in checks.yml: a pull request's new push cancels its old run; pushes and queue groups finish.
+# As in checks.yml: a pull request's new push cancels its old run; the others finish.
 concurrency:
   group: ios-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  scope:
-    name: Which iOS checks run
+  ios_plan:
+    name: ios_plan
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
-      port: ${{ github.event_name == 'pull_request' && 'false' || steps.scope.outputs.ios_port }}
-      launcher: ${{ github.event_name == 'pull_request' && 'false' || steps.scope.outputs.ios_launcher }}
+      port: ${{ ((github.event_name == 'pull_request' && github.base_ref != 'master') || github.event_name == 'merge_group') && 'false' || steps.scope.outputs.ios_port }}
+      launcher: ${{ ((github.event_name == 'pull_request' && github.base_ref != 'master') || github.event_name == 'merge_group') && 'false' || steps.scope.outputs.ios_launcher }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
           persist-credentials: false
-      # A queue group uses the base branch's script (as checks.yml does). Pushes diff against the
-      # old commit. No answer means both jobs run.
+      # A push diffs against the old commit. No answer (a dev release's pull request, a manual
+      # run) means both jobs run.
       - id: scope
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
         env:
           EVENT: ${{ github.event_name }}
-          MERGE_BASE: ${{ github.event.merge_group.base_sha }}
           BEFORE: ${{ github.event.before }}
         run: |
-          if [ "$EVENT" = merge_group ]; then
-            git fetch -q --no-tags --depth=1 origin "$MERGE_BASE" || exit 0
-            script="$RUNNER_TEMP/openrac-ci-scope.py"
-            git show "$MERGE_BASE:tools/ci_scope.py" > "$script" || exit 0
-          elif [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ] \
+          if [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ] \
               && git fetch -q --no-tags --depth=1 origin "$BEFORE"; then
             script=tools/ci_scope.py
             export PUSH_BEFORE="$BEFORE"
@@ -76,10 +80,10 @@ jobs:
           fi
           python3 "$script" ios || true
 
-  port:
-    name: Port / iOS
-    needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.port != 'false' }}
+  ios_port:
+    name: ios_port
+    needs: ios_plan
+    if: ${{ !cancelled() && needs.ios_plan.outputs.port != 'false' }}
     runs-on: macos-latest
     timeout-minutes: 30
     env:
@@ -121,10 +125,10 @@ jobs:
 
       - uses: ./.github/actions/compiler-cache/save
 
-  launcher:
-    name: Launcher / iOS
-    needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.launcher != 'false' }}
+  ios_launcher:
+    name: ios_launcher
+    needs: ios_plan
+    if: ${{ !cancelled() && needs.ios_plan.outputs.launcher != 'false' }}
     runs-on: macos-latest
     timeout-minutes: 30
     env:

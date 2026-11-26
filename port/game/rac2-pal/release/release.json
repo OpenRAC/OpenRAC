@@ -25,6 +25,10 @@
  },
  "pairs": {
   "about": "Function pairs taken as they are where nothing else pairs them: the primary's name, the release's (in the release's names), the evidence.",
+  "func_002B88F0": {
+   "is": "func_002B94A8",
+   "why": "pad_decode_reading: PAL's poll_pad_device_state (func_PAL_002B91B0, src/pal/game/002B91B0-g8.c, paired with func_002B85F8) hands its report to its own reader, func_PAL_002B94A8 (src/pal/game/002B94A8.c), where v1.01's calls func_002B88F0; the port's poll (rac2/host/pad_state.c) calls the release's reader"
+  },
   "func_002A05A8": {
    "is": "game_FUN_002A0F68",
    "why": "MobyAnimAdvance's caller in the moby loop: PAL's moby_update_live_mobys (func_L00_0032F058) calls game_FUN_002A0F68 where v1.01's calls func_002A05A8 (src/pal/game/002A0F68.c, the PAL copy of the routine); func_002A0F68 itself has no C on PAL"
