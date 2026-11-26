@@ -30,4 +30,12 @@ gaddr rac3_mp_wide_results(uint32_t offset, int slot);
  * or from it; the bytes copied (0: no such array in this program). */
 int rac3_mp_wide_mode_copy(uint32_t offset, int first, int count, uint8_t* bytes, int out);
 
+/* The end of a match, in a room of more than 8: the results for slots 8 and up (the wrap of each
+ * map's end routine runs it after the game's, `profile_reset` the game's own profile reset), and
+ * the bytes of slots 8 and up of the channel 5 end message's arrays (packed by the host, unpacked by
+ * the others before the message itself; returns the bytes, 0 when the room has 8). */
+void rac3_mp_wide_end_results(int reason, int (*profile_reset)(int));
+int rac3_mp_wide_end_pack(uint8_t* out, int capacity);
+void rac3_mp_wide_end_unpack(const uint8_t* in, int length);
+
 #endif /* OPENRAC_RAC3_MP_WIDE_H */
