@@ -454,3 +454,32 @@ a0 0,0,0,1,1,1) is in `~/RACSwarm/k4-mp/out/h-t9f/gdb.out` on box1 while it last
   `func_006C4148`) is an LRU by account: with more than 11 distinct accounts it evicts, it does not
   overflow; nothing in a match or its end waits on it. The results screen's own widget loops stay 8 rows
   (the port's scoreboard replaces them).
+
+### 2026-11-26 (afternoon): the match clock, 2 and 9 players to the scoreboard, the 16-player hang
+
+- **Levels must be extracted for a match to run.** Without `data/port/pal/level_NN` (extractor `port ISO OUT
+  --anywhere --level 39 ... --level 53`) the map's world never loads and a match sits frozen at 00:00; the
+  earlier "frozen match" notes were this. ~/RACSwarm/k4-mp/data keeps them on box1 and box2.
+- **The match clock was broken in every room** (a 2-player room too): `func_L39_0066FA90` (the channel 5
+  handler, L39 `00677CB8`) copies 104 bytes from the pointer it is given and, for any command but 0x80-0x82,
+  sets the mode struct's time limit (+0) and start (+4) from it. The core's per-message notifier
+  `func_00198C18` calls that handler with the message pointer in a3 ($7 passes through from its caller);
+  hostgen declared it with three arguments, so a3 was 0 and the handler read guest address 0, where the port
+  keeps the text "OPENRACSESSION01": limit and start became text, the remaining time (limit - (now - start))
+  overflowed negative and the HUD read 00:00; nothing ended the match. Fix: `"func_00198C18": "int (int,
+  int, int, int)"` in mp/hostgen.json's signatures. Found with gdb: a breakpoint on the map's copy of the
+  handler (`mp_func_L40_0054B3D0`) printed a3=0.
+- **Results:** a 2-player and a 9-player room (host + 8 no-render joiners, box1) play the 5 minutes and end at
+  "Game Over" with the scoreboard (the native list pages 1-7 of 9). Screenshots 31 and 32 in mp24-progress.
+- **The 16-player hang** (host spinning in `func_L40_00542450` = `func_L39_0066EAA8`, the effect list's walk,
+  whose state switch has no default): the effect list's head `D_0024948C` held a moby. `func_L40_0053D958`
+  (`func_L39_0066B7C8`) creates a marker moby per player into `D_00249450[8]` with a loop bound the room's
+  count had widened but no table site for the stores: slot 15 wrote `0x249450 + 15 * 4 = 0x24948C`, the
+  head. Found with a gdb watchpoint on the head. New table `SLOT_E` (`D_00249450`, with the five lookups
+  `003EDAB8`, `003F0B28`, `003F0B90`, `003F0C68`, `003F0CB0` of the same table: `ea` on their loads and `bound`
+  on their `slti 8`s, in every map that has them; maps 39 and 45 have only the creation).
+- **Still open (found by listing every `bound` site whose function forms a table that has no site):** the
+  game mode's per-player records behind `D_00357260 + 0x20C` (a struct of 8-entry arrays at +0x40, +0x60, +0x88,
+  +0xA8, +0xC8, +0xE8, read by map 40's `00544DF0`, `004AEBF0`) and `D_0024845C`, `D_00248500`, `D_00249FC0`
+  in `003C8FF0`, `0053E1A8`: each loop's bound is widened and its tables are not; an in-object `u8 buf[8]` on
+  the stack (`004255A0`, `00431768`) is written by slot.
