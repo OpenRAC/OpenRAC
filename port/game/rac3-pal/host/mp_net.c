@@ -2337,13 +2337,18 @@ static void clan_fix(gaddr data, int len) {
         }
         fprintf(stderr, "\n");
     }
-    const uint32_t at = channel == CHANNEL_ROOM_JOIN_REQUEST ? 2u + 0x50u : 2u + 0x17u;
-    if (GREF(uint8_t, data) != 2
-        || (channel != CHANNEL_ROOM_JOIN_REQUEST && channel != CHANNEL_SLOT_UPDATE)
-        || (int)at + 8 > len || memcmp(G(data + at), "(null)", 7) != 0) {
+    if (GREF(uint8_t, data) != 2 || (channel != CHANNEL_ROOM_JOIN_REQUEST && channel != CHANNEL_SLOT_UPDATE)) {
         return;
     }
-    memset(G(data + at), 0, 8); /* a clanless player has an empty tag, not the text of a null pointer */
+    /* A clanless player's tag is the text of a null pointer, at an offset the two messages differ in
+     * (and by build): every "(null)" left in the message (the name's was replaced by name_fix) is
+     * emptied, a clanless player has an empty tag. */
+    const int name_at = channel == CHANNEL_ROOM_JOIN_REQUEST ? 2 + 0x30 : 2 + 0x07;
+    for (int at = 2; at + 6 <= len; at++) {
+        if (at != name_at && memcmp(G(data + (gaddr)at), "(null)", 6) == 0) {
+            memset(G(data + (gaddr)at), 0, at + 7 <= len ? 7 : 6);
+        }
+    }
 }
 
 static void name_fix(gaddr data, int len) {

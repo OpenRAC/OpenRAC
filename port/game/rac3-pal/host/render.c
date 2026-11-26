@@ -335,6 +335,14 @@ int func_003CA608__frontbin(int a0, int a1) {
     return 0;
 }
 
+/* Level 39's copy (the multiplayer menu's, which the maps 40 to 53 carry too: mp_maps.c): the same
+ * evaluator. Its own code writes the DMA tag chain's registers in chain mode, which the port's
+ * scratchpad copies do not model (a crash at START of a match). */
+int func_L39_005B0AE0(int a0, int a1) {
+    openrac_game_moby_chain((gaddr)a0, (gaddr)a1);
+    return 0;
+}
+
 /*
  * PartProc (func_002B9420, the same instructions): each live record of the pool (0x40 bytes, byte
  * 1 bit 7 a free one), slots 0 to the highest in use, to the window, as Going Commando's. Its
