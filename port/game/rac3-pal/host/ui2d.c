@@ -1178,6 +1178,160 @@ void func_L01_004CA8C8(void) {
     g_upgrade_frame = 0;
 }
 
+/*
+ * The fade to black the front end runs as a level starts and ends (the boot program's func_0038A618,
+ * frontbin's func_0038A238, the levels' func_L01_00404D80, each given the number of frames): a loop
+ * that, a frame at a time, sends the draw environment without a clear and then a fixed packet of
+ * sixteen 32-pixel sprites (0x00141990, the darkening's packet: black, z writes masked, blended by
+ * the RGBAQ alpha it set just before) with an alpha that climbs from 0x80 - (n - 1) * 128 / n to 0x80,
+ * and waits for the frame. The loop is the game's instructions; the packet is a flat black fill of
+ * the whole picture at that alpha, recorded at the list's place as the darkening is, and no
+ * packet of the game's is sent (the draw environment and the register writes stay). When the window
+ * does not draw it (no recording, OPENRAC_UI_REPLAY) the game's packet goes out as before.
+ */
+#define FADE_PACKET 0x00141990u
+#define FADE_TAG 0x30000014u
+#define FADE_CODE 0x50000014u
+
+static void fade_black(gaddr cursor, int alpha) {
+    if (darken(cursor, FADE_PACKET, 0, 0, 0, alpha)) {
+        return;
+    }
+    const gaddr at = GREF(gaddr, cursor);
+    GREF(uint32_t, at) = FADE_TAG;
+    GREF(uint32_t, at + 4u) = FADE_PACKET;
+    GREF(uint32_t, at + 8u) = 0;
+    GREF(uint32_t, at + 12u) = FADE_CODE;
+    GREF(gaddr, cursor) = at + 16u;
+}
+
+/* The alpha of the step `i` counts down from (the game's `0x80 - (i << 7) / (i + 1)`). */
+static int fade_alpha(int i) {
+    return 0x80 - (i << 7) / (i + 1);
+}
+
+#define FADE_COUNTER_BOOT RAC3_ADDR(0x001D9BC8u)
+
+void func_0038A618(int frames) {
+    int i = frames - 1;
+    func_003A96A8(1);
+    func_0012C908(0);
+    GREF(int32_t, FADE_COUNTER_BOOT) += 1;
+    func_003A94C0();
+    while (i >= 0) {
+        func_00392698();
+        func_00392730(1);
+        func_003927B0();
+        func_003A97F8(0x42, 0x8000000044ULL);
+        const int alpha = fade_alpha(i);
+        i--;
+        func_003A97F8(1, (unsigned long long)alpha << 24);
+        fade_black(kBoot.cursor, alpha);
+        func_003A96A8(1);
+        func_0012C908(0);
+        GREF(int32_t, FADE_COUNTER_BOOT) += 1;
+        func_003A9588();
+        func_003A9508();
+    }
+    func_003A96A8(1);
+    func_0012C908(0);
+    GREF(int32_t, FADE_COUNTER_BOOT) += 1;
+    func_003A94C0();
+    func_00392698();
+    func_00392730(1);
+}
+
+/* frontbin's copy (the same loop, its own helpers; the boot program's globals). */
+void func_0038A238__frontbin(int frames) {
+    int i = frames - 1;
+    func_003A92F0__frontbin(1);
+    func_0012C908(0);
+    GREF(int32_t, FADE_COUNTER_BOOT) += 1;
+    func_003A9108__frontbin();
+    while (i >= 0) {
+        func_003922B8__frontbin();
+        func_00392350__frontbin(1);
+        func_003923D0__frontbin();
+        func_003A9440__frontbin(0x42, 0x8000000044ULL);
+        const int alpha = fade_alpha(i);
+        i--;
+        func_003A9440__frontbin(1, (unsigned long long)alpha << 24);
+        fade_black(kBoot.cursor, alpha);
+        func_003A92F0__frontbin(1);
+        func_0012C908(0);
+        GREF(int32_t, FADE_COUNTER_BOOT) += 1;
+        func_003A91D0__frontbin();
+        func_003A9150__frontbin();
+    }
+    func_003A92F0__frontbin(1);
+    func_0012C908(0);
+    GREF(int32_t, FADE_COUNTER_BOOT) += 1;
+    func_003A9108__frontbin();
+    func_003922B8__frontbin();
+    func_00392350__frontbin(1);
+}
+
+/* The levels' copy (its frame counter D_001DF948 and display list cursor D_001E1068 are Veldin's
+ * places; each level has the copy at its own). */
+#define FADE_COUNTER_LEVEL OPENRAC_LDATA(1, RAC3_LADDR(1, 0x001DF948u))
+
+int func_L01_00404D80(int frames) {
+    int i = frames - 1;
+    func_L01_004C59F8(1);
+    func_0012C908(0);
+    GREF(int32_t, FADE_COUNTER_LEVEL) += 1;
+    func_L01_004C5810();
+    while (i >= 0) {
+        func_L01_004152F8();
+        func_L01_00415390(1);
+        func_L01_00415410();
+        func_L01_004C5B90(0x42, 0x8000000044ULL);
+        const int alpha = fade_alpha(i);
+        i--;
+        func_L01_004C5B90(1, (unsigned long long)alpha << 24);
+        fade_black(rac3_ui2d_level().cursor, alpha);
+        func_L01_004C59F8(1);
+        func_0012C908(0);
+        GREF(int32_t, FADE_COUNTER_LEVEL) += 1;
+        func_L01_004C58D8();
+        func_L01_004C5858();
+    }
+    func_L01_004C59F8(1);
+    func_0012C908(0);
+    GREF(int32_t, FADE_COUNTER_LEVEL) += 1;
+    func_L01_004C5810();
+    func_L01_004152F8();
+    func_L01_00415390(1);
+    return 0;
+}
+
+/*
+ * The frame's copy onto itself (the boot program's func_00392AC8, frontbin's func_003926E8__frontbin, the levels' func_L01_00415728): each frame, after the world and before
+ * its 2D, a ref tag to the fixed packet 0x001D0070 (thirty-eight quadwords: a register setup and
+ * sixteen 32-pixel sprites that sample the frame's own block through a plain copy, no blend). It
+ * writes what the frame already holds, back to the same place: the hand-over of the console's
+ * buffers. The window keeps no buffer of the frame's, so there is nothing to hand over: while it
+ * draws the frame from records the packet is left out and the routine sends nothing. Otherwise
+ * (no recording, OPENRAC_UI_REPLAY) the game's routine runs.
+ */
+void func_00392AC8(void) {
+    if (!openrac_frame_native()) {
+        func_00392AC8__game();
+    }
+}
+
+void func_003926E8__frontbin(void) {
+    if (!openrac_frame_native()) {
+        func_003926E8__frontbin__game();
+    }
+}
+
+void func_L01_00415728(void) {
+    if (!openrac_frame_native()) {
+        func_L01_00415728__game();
+    }
+}
+
 /* The letterbox (func_0038AD28, the levels' func_L01_004054F0): while its word is set its height
  * climbs a line a frame to 52 (down again when cleared), and it sends two black bars that tall
  * over the screen's top and bottom. The game's routine runs (it keeps the height); what it sent is
