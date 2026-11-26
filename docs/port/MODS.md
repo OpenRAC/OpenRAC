@@ -993,8 +993,9 @@ new member: a port before 1.39 refuses the bit and paint in `weapon_look`, so a 
 1.41 (SDK 1.41.0) copies of an arena's enemies (Going Commando: Maktar's 2850, 2506, 3131 and
 3134), which a 1.40 port calls scripted. The arena draws each wave from those enemies, waiting out
 of sight, and carries them in by pod. A copy is made while its original waits (as the level loads),
-joins the arena's list, and goes in with its original whenever that pod has room: it fights in the
-wave, which ends only once it is beaten too, and is no extra in the wave's counts. The arenas and
+joins the arena's list, and each time its original is sent in, goes in with the original's drop
+when a pod of it has room: it fights in the wave, which ends only once it is beaten too, and is no
+extra in the wave's counts. The arenas and
 their classes are a table in `port/game/rac2/host/enemy_copies.c` (`rac2_copy_arenas`). No new
 member: a mod checks `has_arena_copies()`.
 

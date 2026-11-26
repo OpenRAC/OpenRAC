@@ -2944,9 +2944,10 @@ typedef struct openrac_api {
      * its copy drives; one whose pvars hold a spawned moby other mobys share is not copied.
      * Since 1.41 an enemy an arena draws its waves from (Going Commando: Maktar's, classes
      * 2850, 2506, 3131 and 3134) is copied while it waits for its wave, as
-     * the level loads: the copy joins the arena's list and goes in with its original whenever the
-     * pod that carries the original in has room. It fights in that wave, which ends only once it
-     * is beaten too, and then waits again with the others; it is no extra in the wave's counts.
+     * the level loads: the copy joins the arena's list and, each time its original is sent in,
+     * goes in with the original's drop when a pod of it has room. It fights in that wave, which
+     * ends only once it is beaten too, and then waits again with the others; it is no extra in
+     * the wave's counts.
      * Returns the copy's slot, or OPENRAC_HOOK_UNKNOWN (not allowed, no clear spot, no room, a
      * shared moby named, an arena's enemy out of its wait). */
     int (*moby_copy)(openrac_mod* mod, int slot, int index);
