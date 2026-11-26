@@ -231,3 +231,5 @@ sharp_cells	visuals	1.36	experimental
 set_motors	input	1.37	experimental
 menu_option_set	menus	1.37	experimental
 on_play_query	hooks	1.40	experimental
+overlay_image_create	graphics	1.41	experimental
+overlay_image_destroy	graphics	1.41	experimental

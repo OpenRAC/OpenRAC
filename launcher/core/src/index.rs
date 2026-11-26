@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 
 use base64::Engine;
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 
 use crate::mod_error::{ModAction, ModError, ModErrorKind};
 use crate::remote::Fetch;
@@ -111,6 +112,11 @@ pub struct Require {
     /// `>=X.Y.Z`, `=X.Y.Z`, or none.
     #[serde(default)]
     pub version: Option<String>,
+    /// A pack's values for this mod's settings, by key (`{"camera": "rac2"}`): applied when the
+    /// pack is installed or updated, never over a value the player chose (index_apply.rs).
+    #[serde(default, skip_serializing_if = "Map::is_empty")]
+    #[ts(optional, type = "Record<string, unknown>")]
+    pub settings: Map<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, ts_rs::TS)]

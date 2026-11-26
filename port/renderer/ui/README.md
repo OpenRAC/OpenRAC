@@ -18,7 +18,7 @@ P2-06), which keeps no GL call of these overlays.
 | [`fps_counter.h`](fps_counter.h) | `fps_counter::frame_drawn`, `draw`, `release`: the player's `show_fps` counter, counted over the frames shown, drawn in the picture's top left corner |
 | [`canvas.h`](canvas.h) | `Canvas`, `rgba`: an RGBA8 picture drawn on the CPU, filled rectangles blended by alpha and text in a 5 by 7 font, for the debug menu's level list and the mods' menu pages (`game/common/mod_menu.cpp`, interface 1.5); plain memory, no GL |
 | [`overlay_list.h`](overlay_list.h) | `OverlayList`, `overlay_project`, `overlay_fade`: what mods draw over the game (`openrac_overlay`), a frame's rectangles and text as triangles in the 512 x 448 picture, and a point of the level found on it; no GL |
-| [`overlay_draw.h`](overlay_draw.h) | `OverlayDraw`: those triangles blended over a framebuffer with the renderer's GL, so on OpenGL and on the Vulkan renderer's alike |
+| [`overlay_draw.h`](overlay_draw.h) | `OverlayDraw`: those triangles blended over a framebuffer with the renderer's GL, so on OpenGL and on the Vulkan renderer's alike; `OverlayTextures`: the mods' pictures' textures, one set its draws share |
 | [`picture_blit.h`](picture_blit.h) | `PictureBlit`, `PictureView`, `PictureRect`: an RGBA8 picture made on the CPU, uploaded and blitted with nearest filtering into a rectangle of a framebuffer (the debug menu's level list, `game/common/debug_menu.cpp`) |
 
 ## Depends on

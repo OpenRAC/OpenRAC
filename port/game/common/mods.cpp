@@ -1104,6 +1104,8 @@ void fill_api(const Host& host) {
     g_api.sharp_cells = api_sharp_cells;
     g_api.set_motors = api_set_motors;
     g_api.menu_option_set = api_menu_option_set;
+    g_api.overlay_image_create = api_overlay_image_create;
+    g_api.overlay_image_destroy = api_overlay_image_destroy;
     g_api_without_native_vulkan = g_api;
     g_api_without_native_vulkan.graphics = api_graphics_without_native_vulkan;
 }
@@ -1887,13 +1889,22 @@ bool overlay_wanted(std::uint32_t phase) {
            });
 }
 
+bool overlay_wanted_under_hud(std::uint32_t phase) {
+    return phase != 0 && std::any_of(g_overlays.begin(), g_overlays.end(), [&](const auto& c) {
+               return (c.phases & phase) != 0 && (c.phases & OPENRAC_OVERLAY_UNDER_HUD) != 0;
+           });
+}
+
 const openrac_mod* overlay_mod() {
     return g_overlay_mod;
 }
 
 void run_overlays(const openrac_overlay& overlay) {
+    // The call under the game's 2D (interface 1.41) is only for the mods that asked for it.
+    const bool under_hud = overlay.layer == OPENRAC_OVERLAY_LAYER_UNDER_HUD;
     for (const OverlayCallback& c : g_overlays) {
-        if ((c.phases & overlay.phase) != 0) {
+        if ((c.phases & overlay.phase) != 0
+            && (!under_hud || (c.phases & OPENRAC_OVERLAY_UNDER_HUD) != 0)) {
             g_overlay_mod = c.mod;
             c.fn(c.user, &overlay);
         }

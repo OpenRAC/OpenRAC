@@ -24,4 +24,8 @@ asset: IndexAsset | null, impact: Array<string>, hooks: Array<string>,
 /**
  * Installed but off: turned on.
  */
-enable: boolean, };
+enable: boolean, 
+/**
+ * A pack's values for its mods' settings, by mod id, then by key (the index's `requires`).
+ */
+settings?: Record<string, Record<string, unknown>>, };

@@ -13,13 +13,15 @@
 //! no switch.
 //! Pre-release versions are offered only when the player allows them, or asks for one by version.
 //!
-//! A pack (`type: pack`) installs nothing itself: it is its `requires`. Conflicts are checked
+//! A pack (`type: pack`) installs nothing itself: it is its `requires`, which may give its mods'
+//! settings values (`settings`, applied by index_apply.rs). Conflicts are checked
 //! both ways, against the mods that are on and within the plan; a cycle of requires is refused.
 //! `install` comes in dependency order, so applying it in order puts every dependency first.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
+use serde_json::{Map, Value};
 
 use crate::deeplink::WantedMod;
 use crate::hook_ids;
@@ -77,6 +79,10 @@ pub struct PlannedMod {
     pub hooks: Vec<String>,
     /// Installed but off: turned on.
     pub enable: bool,
+    /// A pack's values for its mods' settings, by mod id, then by key (the index's `requires`).
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    #[ts(optional, type = "Record<string, Record<string, unknown>>")]
+    pub settings: BTreeMap<String, Map<String, Value>>,
 }
 
 /// A mod offered beside the change set: recommended (ticked) or suggested (not).
@@ -590,6 +596,17 @@ fn build(r: &Resolver, round: Round) -> InstallPlan {
             "native" => req.platform.and_then(|p| v.platforms.get(p)).cloned(),
             _ => v.platforms.get("any").cloned(),
         });
+        // A pack's values for its mods' settings: a mod's own requires carry none.
+        let settings = v
+            .filter(|_| kind == "pack")
+            .map(|v| {
+                v.requires
+                    .iter()
+                    .filter(|q| !q.settings.is_empty())
+                    .map(|q| (q.id.clone(), q.settings.clone()))
+                    .collect()
+            })
+            .unwrap_or_default();
         let planned = PlannedMod {
             id: id.clone(),
             name: name_of(id),
@@ -606,6 +623,7 @@ fn build(r: &Resolver, round: Round) -> InstallPlan {
             impact: m.map(|m| m.impact.clone()).unwrap_or_default(),
             hooks: v.map(|v| v.hooks.clone()).unwrap_or_default(),
             enable: have.is_some_and(|h| !h.enabled),
+            settings,
         };
         if planned.kind == "pack" {
             let mods: Vec<String> = v.map(|v| v.requires.iter().map(|q| q.id.clone()).collect()).unwrap_or_default();
@@ -867,7 +885,7 @@ mod tests {
             }],
             ..Default::default()
         };
-        let req = |id: &str, v: &str| Require { id: id.into(), version: Some(v.into()) };
+        let req = |id: &str, v: &str| Require { id: id.into(), version: Some(v.into()), ..Default::default() };
         index.mods.push(mk("left", vec![req("camera-base", ">=1.1.0")]));
         index.mods.push(mk("right", vec![req("camera-base", "=1.1.0")]));
         index.mods.push(mk("top", vec![req("left", ">=1.0.0"), req("right", ">=1.0.0")]));
@@ -980,10 +998,10 @@ mod tests {
         let mut a = base.clone();
         a.id = "cyc-a".into();
         a.versions.truncate(1);
-        a.versions[0].requires = vec![Require { id: "cyc-b".into(), version: None }];
+        a.versions[0].requires = vec![Require { id: "cyc-b".into(), ..Default::default() }];
         let mut b = a.clone();
         b.id = "cyc-b".into();
-        b.versions[0].requires = vec![Require { id: "cyc-a".into(), version: None }];
+        b.versions[0].requires = vec![Require { id: "cyc-a".into(), ..Default::default() }];
         index.mods.extend([a, b]);
         let plan = plan_with(&index, &[], STABLE, false, &[want("cyc-a")]);
         assert!(plan.blocked);
@@ -1128,6 +1146,26 @@ mod tests {
     }
 
     #[test]
+    fn a_pack_brings_its_values_for_its_mods_settings() {
+        let mut index = fixture();
+        let pack = index.mods.iter_mut().find(|m| m.id == "randomizer-pack").unwrap();
+        pack.versions[0].requires = serde_json::from_value(serde_json::json!([
+            {"id": "item-randomizer", "version": ">=1.4.0"},
+            {"id": "camera-tweaks", "version": ">=2.0.0", "settings": {"camera": "rac2", "speed": 3}},
+            {"id": "xbox-icons"}
+        ]))
+        .unwrap();
+        let plan = plan_with(&index, &[], DEV, false, &[want("randomizer-pack")]);
+        assert!(!plan.blocked, "{plan:#?}");
+        let settings: Value = serde_json::to_value(&plan.packs[0].settings).unwrap();
+        assert_eq!(settings, serde_json::json!({"camera-tweaks": {"camera": "rac2", "speed": 3}}));
+        // Only a pack's: the mods it brings carry none, and a require without values writes none.
+        assert!(plan.install.iter().all(|m| m.settings.is_empty()));
+        let written = serde_json::to_value(&index.get("randomizer-pack").unwrap().versions[0].requires[2]).unwrap();
+        assert_eq!(written, serde_json::json!({"id": "xbox-icons", "version": null}));
+    }
+
+    #[test]
     fn a_revoked_version_is_never_chosen() {
         let index = fixture();
         let exact = [WantedMod { id: "ammo-max".into(), version: Some("1.0.0".into()) }];
@@ -1239,6 +1277,7 @@ mod tests {
                                 1 => Some(format!(">={at}.0.0")),
                                 _ => Some(format!("={at}.0.0")),
                             },
+                            ..Default::default()
                         })
                         .collect(),
                     conflicts: v
