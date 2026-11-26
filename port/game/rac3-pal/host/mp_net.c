@@ -3751,8 +3751,29 @@ int mp_func_0014B040(int status, int conn) {
     return 0;
 }
 
+/* The EE's timer 1 count (0x10000800, 16 bits, BUSCLK/256 = 576 ticks a millisecond): the multiplayer
+ * programs read it each loop, add it to their frame clock (level 39's 0x00240200, which the match's
+ * clock and time limit run on) and write 0 back. The port has no timer page, so it read 0 for ever and
+ * a match's clock never ran (and its time limit never came). The count of the real time since the last
+ * update goes into the register here, each net update, as a counter and no more. */
+#define T1_COUNT 0x10000800u
+static void timer1_feed(void) {
+    static int64_t start, fed;
+    const int64_t now = host_ms();
+    if (start == 0) {
+        start = now;
+    }
+    const int64_t due = (now - start) * 576 - fed;
+    if (due > 0) {
+        fed += due;
+        const uint32_t sum = GREF(uint32_t, T1_COUNT) + (uint32_t)(due > 0xFFFF ? 0xFFFF : due);
+        GREF(uint32_t, T1_COUNT) = sum > 0xFFFFu ? 0xFFFFu : sum;
+    }
+}
+
 /* dme_update: the server's packets, the session's callbacks and the room's messages. */
 int mp_func_0014B118(void) {
+    timer1_feed();
     vblank_count();
     if (dme.joined && rac3_mp_wide_slots() > 8) {
         /* The room's capacity (net + 0x134, which the room join request checks a join against):
