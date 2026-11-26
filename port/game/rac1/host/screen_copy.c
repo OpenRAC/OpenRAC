@@ -26,7 +26,8 @@
 #include "openrac/host_env.h"
 #include "rac1.h"
 
-#if !RAC1_OMIT(func_L00_002A21A8) && !RAC1_OMIT(func_L00_002A2258)
+#if !RAC1_OMIT(func_L00_002A21A8)
+#if !RAC1_OMIT(func_L00_002A2258)
 /* The port picture the frame is kept as. */
 #define FRAME_COPY_PICTURE 0x52310001u
 /* The level's packet cursor the upload appends through (dma_packet_cursor, D_L00_00161280). */
@@ -75,4 +76,5 @@ void func_L00_002A2258(int from, int frame, int bytes) {
         FRAME_COPY_PICTURE, NULL, 0x80808080u, OPENRAC_BLEND_OPAQUE | OPENRAC_PICTURE_WHOLE
     );
 }
+#endif
 #endif

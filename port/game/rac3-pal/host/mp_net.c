@@ -2328,6 +2328,30 @@ static void dme_deliver(void) {
  * sprintf of a null name) in its room join request (channel 16, name at +0x30) and its slot updates
  * (channel 17, name at +0x07): the account's name goes in its place, so two such players are not
  * the same name to the staging room (which sends the second one's "leave"). */
+static void clan_fix(gaddr data, int len) {
+    const int channel = GREF(uint8_t, data + 1);
+    if (net_log() && GREF(uint8_t, data) == 2 && channel == CHANNEL_ROOM_JOIN_REQUEST) {
+        fprintf(stderr, "[info] rac3: online: join request %d bytes:", len);
+        for (int k = 0; k < len; k++) {
+            fprintf(stderr, " %02x", GREF(uint8_t, data + (gaddr)k));
+        }
+        fprintf(stderr, "\n");
+    }
+    if (GREF(uint8_t, data) != 2
+        || (channel != CHANNEL_ROOM_JOIN_REQUEST && channel != CHANNEL_SLOT_UPDATE)) {
+        return;
+    }
+    /* A clanless player's tag is the text of a null pointer, at an offset the two messages differ in
+     * (and by build): every "(null)" left in the message (the name's was replaced by name_fix) is
+     * emptied, a clanless player has an empty tag. */
+    const int name_at = channel == CHANNEL_ROOM_JOIN_REQUEST ? 2 + 0x30 : 2 + 0x07;
+    for (int at = 2; at + 6 <= len; at++) {
+        if (at != name_at && memcmp(G(data + (gaddr)at), "(null)", 6) == 0) {
+            memset(G(data + (gaddr)at), 0, at + 7 <= len ? 7 : 6);
+        }
+    }
+}
+
 static void name_fix(gaddr data, int len) {
     const int channel = GREF(uint8_t, data + 1);
     const uint32_t at = channel == CHANNEL_ROOM_JOIN_REQUEST ? 2u + 0x30u : 2u + 0x07u;
@@ -2384,6 +2408,7 @@ static int dme_relay(int dest, gaddr data, int len) {
         return 0;
     }
     name_fix(data, len);
+    clan_fix(data, len);
     /* The match's end (channel 5, command 0x82: the scores of the game's eight slots) is followed
      * by the others' in a wide room: they go first, so a console has them before the message. */
     if (len == 2 + END_MESSAGE_BYTES && GREF(uint8_t, data + 1) == CHANNEL_MATCH_STATE
@@ -3721,8 +3746,40 @@ int mp_func_0014B040(int status, int conn) {
     return 0;
 }
 
+/* The EE's timer 1 count (0x10000800, 16 bits, BUSCLK/256 = 576 ticks a millisecond): the multiplayer
+ * programs read it each loop, add it to their frame clock (level 39's 0x00240200, which the match's
+ * clock and time limit run on) and write 0 back. The port has no timer page, so it read 0 for ever and
+ * a match's clock never ran (and its time limit never came). The count of the real time since the last
+ * update goes into the register here, each net update, as a counter and no more. */
+#define T1_COUNT 0x10000800u
+
+static void timer1_feed(void) {
+    static int64_t start, fed;
+    const int64_t now = host_ms();
+    /* Only in a running match (the host's slot is at state 8, the map loaded and its start barrier open):
+     * the staging and the map's wait for the others' loads run the game's own timeouts (5.4 s to report)
+     * on this clock, which a console loading a map slowly would trip, and the menus' timing stays what
+     * it was. */
+    const gaddr gs = GREF(gaddr, RAC3_MADDR(0x00241640u));
+    if (gs == 0 || GREF(int16_t, gs + 0xF0u) != 8) {
+        start = 0;
+        fed = 0;
+        return;
+    }
+    if (start == 0) {
+        start = now;
+    }
+    const int64_t due = (now - start) * 576 - fed;
+    if (due > 0) {
+        fed += due;
+        const uint32_t sum = GREF(uint32_t, T1_COUNT) + (uint32_t)(due > 0xFFFF ? 0xFFFF : due);
+        GREF(uint32_t, T1_COUNT) = sum > 0xFFFFu ? 0xFFFFu : sum;
+    }
+}
+
 /* dme_update: the server's packets, the session's callbacks and the room's messages. */
 int mp_func_0014B118(void) {
+    timer1_feed();
     vblank_count();
     if (dme.joined && rac3_mp_wide_slots() > 8) {
         /* The room's capacity (net + 0x134, which the room join request checks a join against):

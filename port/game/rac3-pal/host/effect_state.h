@@ -23,6 +23,9 @@ extern "C" {
 #define RAC3_EFFECT_ALPHA 0x04u
 #define RAC3_EFFECT_FBA 0x08u
 #define RAC3_EFFECT_FRAME 0x10u
+#define RAC3_EFFECT_CLAMP 0x20u
+#define RAC3_EFFECT_TEX0 0x40u
+#define RAC3_EFFECT_TEX1 0x80u
 
 /* rac3_effect_state::writes when FRAME_1 masks part of a channel, or its format is not 32-bit
  * colour: no native write mask says that. */
@@ -55,6 +58,8 @@ typedef struct rac3_effect_state {
     uint8_t alpha_top;
     /* FRAME_1: the channels written (OPENRAC_MATERIAL_WRITE_*), or RAC3_EFFECT_WRITES_PARTIAL. */
     uint8_t writes;
+    /* CLAMP_1, TEX0_1 (the handle EffectTex0 gave) and TEX1_1 as set. */
+    uint64_t clamp, tex0, tex1;
 } rac3_effect_state;
 
 /* What a DrawWorldQuad record owns: its CLAMP_1, TEX0_1, TEX1_1 and ALPHA_1 (+0x70 to +0x88). */
@@ -92,6 +97,26 @@ int rac3_effect_mask_material(
     uint32_t at,
     const rac3_quad_words* words,
     openrac_material* out
+);
+
+/* The strip routine (the levels' func_003D3A24) or its setup appended `before` to `after` through
+ * `list`: neither sets a register, so what was known stays known when the append starts where the
+ * last one the capture saw ended. */
+void rac3_effect_state_advance(
+    rac3_effect_state* s, uint32_t list, uint32_t before, uint32_t after
+);
+
+/*
+ * The material of a world strip the strip routine would draw now, from the registers the caller set
+ * just before it: TEST_1, ALPHA_1, CLAMP_1, TEX0_1 and TEX1_1 must all be known with nothing
+ * appended since (`at` is the list pointer's word and must be where the last append ended). The
+ * strip is blended (the routine's GIF tag has ABE and FGE on). `texture` gets TEX0_1's handle.
+ * Depth is written only by the place in the list (OPENRAC_STRIP_CHAIN_DEPTH): `out->flags` has
+ * OPENRAC_MATERIAL_DEPTH_WRITE when the chain's rule for a strip drawn with the liquids says so.
+ * 1 when all of that holds and the words have a native form; 0 otherwise.
+ */
+int rac3_effect_strip_material(
+    const rac3_effect_state* s, uint32_t list, uint32_t at, openrac_material* out, uint64_t* texture
 );
 
 #ifdef __cplusplus

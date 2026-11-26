@@ -13,7 +13,7 @@ cmake --build port/build/release --target openrac-shader-compiler
 port/build/release/openrac-shader-compiler --output port/build/release/generated/shader_package
 ```
 
-Outputs are `shader_package_data.cpp` (embedded by the renderer), `shaders.bin`, `shaders.json`
+Outputs are `shader_package_data.cpp` (built into `libopenrac-shaders`), `shaders.bin`, `shaders.json`
 (variant names, keys and sizes), and `shader-compiler.log`. SPIR-V and reflection share LZ4-compressed
 16 KiB blocks; lookup decompresses one requested program. Artifacts and compilation caches stay in
 the build directory. `--version` prints the compiler version and package fingerprint.
@@ -48,7 +48,7 @@ no GPU backend or windowing code. Its source, recipe and package libraries also 
 ## State and threads
 
 Each invocation owns its recipes, variants, includes and report, and compiles on one thread.
-The runtime package borrows immutable executable bytes and decompresses into owned buffers;
+The runtime package borrows the shader library's immutable bytes and decompresses into owned buffers;
 native shader lookups can run concurrently.
 
 ## Errors
@@ -74,6 +74,11 @@ name. Depth-only targets cannot show colour. Compute shaders keep their compilat
   SPIR-V cache. Coverage tests use this mode. See [debugging](../../../docs/port/DEBUGGING.md).
 - `OPENRAC_SHADER_PACKAGE=OFF` builds host tools or development-only shaders without a package or
   error shader; runtime compilation must be enabled to render.
+
+- `OPENRAC_SHARED_SHADER_PACKAGE=ON` (default) builds the package as one shared library,
+  `libopenrac-shaders` (`.so`, `.dll`, `.dylib`), beside the programs. The package is the same for
+  every game and version, so each install carries it once. Programs find it by a path relative to
+  themselves. iOS, or `OFF`, builds it into each program.
 
 Cross builds create a native compiler in `shader-compiler-host`, reusing pinned dependency sources.
 macOS uses a host compiler when the selected target architectures exclude the host; universal builds

@@ -22,6 +22,7 @@
 
 #include "common/result.h"
 #include "renderer/direct/draw_state.h"
+#include "renderer/effects/effect_state.h"
 #include "renderer/frame/ui_records.h"
 #include "renderer/math.h"
 
@@ -48,11 +49,12 @@ enum class FrameOp : std::uint8_t {
     HudSide,       // what follows goes out to the HUD's side `index` (0 ends it); value bit 0
                    // stretches what crosses the middle, bit 1 parts it at value >> 2 instead
     Wide,          // `index` 1: what follows covers the whole target, as a fade does; 0 ends it
-    PictureBand,  // `index` 1: a full-width scissor stays the picture's with "HUD: Edges"; 0 ends
-    LastFrame,    // the frame the window last drew with its world in, over the whole target
-    ViewBegin,    // the world that follows is split-screen view `index`'s, into rect
-    ViewEnd,      // the open view ends (FrameRecording::views has its camera)
+    PictureBand,   // `index` 1: a full-width scissor stays the picture's with "HUD: Edges"; 0 ends
+    LastFrame,     // the frame the window last drew with its world in, over the whole target
+    ViewBegin,     // the world that follows is split-screen view `index`'s, into rect
+    ViewEnd,       // the open view ends (FrameRecording::views has its camera)
     ScreenEffect,  // screen_effects[index], a native post pass over the target as drawn so far
+    Strip,         // strips[index]: a world effect strip with its native material
 };
 
 // A screen effect (openrac_frame_screen_effect, docs/port/SCREEN_EFFECTS.md): the game's values;
@@ -74,6 +76,26 @@ struct ScreenEffect {
 };
 
 // Returns the command's contract name for recorder diagnostics, or "Unknown" for an invalid value.
+// A world effect strip as the game's host C gave it (openrac_frame_strip): `count` vertices from
+// strip_vertices[first], drawn as a triangle strip with `state` and, unless untextured, images[image].
+struct StripVertex {
+    float x, y, z;
+    float s, t;
+    std::uint32_t rgba;  // 0xAABBGGRR, 0x80 = 1.0
+};
+
+struct StripRecord {
+    std::uint32_t first = 0, count = 0;
+    EffectState state{};
+    std::uint32_t image = 0;  // index in FrameRecording::images
+    bool untextured = false;
+    bool liquid = false;       // drawn with the world's liquids, before the shrubs and the mobys
+    bool chain_depth = false;  // state.depth_write holds only where the place in the list is early
+    bool fogged = false;
+    std::array<float, 4> fog{};  // slope per unit of view depth, offset, lower and upper bound
+    std::uint32_t fog_colour = 0;
+};
+
 const char* frame_op_name(FrameOp op);
 
 // FrameCommand::clear bits.
@@ -202,6 +224,8 @@ struct FrameRecording {
     std::vector<UiQuad> ui_quads;
     std::vector<UiItem> ui_items;
     std::vector<UiImage> images;
+    std::vector<StripRecord> strips;
+    std::vector<StripVertex> strip_vertices;
     std::vector<ScreenEffect> screen_effects;
     // The split-screen views drawn in it, in the order they ended; none for a full-screen frame.
     std::vector<FrameView> views;
