@@ -32,6 +32,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# Programs find the shared libraries built here (libopenrac-shaders) by a path relative to
+# themselves, so a copied build folder (an installer's copy) still finds them.
+set(CMAKE_BUILD_RPATH_USE_ORIGIN ON)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()

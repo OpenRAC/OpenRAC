@@ -24,11 +24,15 @@ run-name: >-
 # everything: hostgen, every game in every version and Windows; launcher.yml builds the installers
 # and publishes them in the same queue run. A game that breaks there is fixed on develop. A job a
 # run does not need reports skipped, which passes a required check. A push to master runs only the
-# repository checks. develop pushes run both lint and builds and are the only runs that write the
-# caches (.github/actions/*/save), so they are never cancelled. A manual run runs everything.
+# repository checks. A push to develop starts no checks: only a run on develop can write the
+# caches every run reads, so develop's queue hands its new caches on as artifacts
+# (.github/actions/cache-out) and cache-handoff.yml saves them after the merge, with no build. A
+# manual run runs everything.
 on:
+  # develop is pushed only by its merge queue, which checked the commit already:
+  # cache-handoff.yml saves that run's caches instead.
   push:
-    branches: [master, develop]
+    branches: [master]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
@@ -46,9 +50,8 @@ env:
   # "required") build with stubs on purpose instead of stopping (port/tools/hostgen/asmc.py).
   OPENRAC_HOSTGEN_NO_DISC: "1"
 
-# A new push to a pull request supersedes its old run. Pushes finish: develop's write the caches
-# every pull request reads, and master's are a release's checks. Each merge queue group has a ref
-# of its own.
+# A new push to a pull request supersedes its old run. Pushes to master finish: they are a
+# release's checks. Each merge queue group has a ref of its own.
 concurrency:
   group: checks-${{ github.ref }}
   # A new dev release replaces release/dev: its older run goes too.
@@ -482,13 +485,15 @@ jobs:
       # library is really missing, and is cut short.
       - id: playwright
         run: echo "version=$(node -p "require('playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
-      # Written by pushes only, as every cache here (.github/actions/compiler-cache/save).
+      # Written by pushes only, as every cache here (.github/actions/compiler-cache/save); develop's
+      # queue hands it on below.
       - if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
-      - if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+      - id: browser-cache
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
@@ -506,6 +511,12 @@ jobs:
             timeout 300 yarn playwright-core install-deps chromium-headless-shell \
               || echo "::warning::install-deps failed; trying the tests anyway"
           fi
+      - name: Hand on the browser
+        if: github.event_name == 'merge_group' && steps.browser-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/cache-out
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
       - name: Android pages
         run: yarn test:android
 
@@ -626,6 +637,8 @@ jobs:
       - if: ${{ !cancelled() }}
         uses: ./.github/actions/compiler-cache/save
       - uses: ./.github/actions/port-build-cache/save
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/mesa-cache/save
 
   # One check for every part (what branch protection requires). Skipped (which passes) on a pull
   # request to develop: the merge queue runs it.
@@ -690,6 +703,12 @@ jobs:
         with:
           path: ${{ runner.temp }}/openrac-enhanced-apt/*.deb
           key: ${{ steps.enhanced-apt.outputs.cache-primary-key }}
+      - name: Hand on enhanced Vulkan packages
+        if: steps.enhanced-apt.outputs.cache-hit != 'true' && github.event_name == 'merge_group'
+        uses: ./.github/actions/cache-out
+        with:
+          path: ${{ runner.temp }}/openrac-enhanced-apt/*.deb
+          key: ${{ steps.enhanced-apt.outputs.cache-primary-key }}
       - uses: ./.github/actions/port-build-cache
         with:
           variant: ubuntu-enhanced-baker
@@ -718,10 +737,11 @@ jobs:
             -DOPENRAC_VULKAN_TEST_SEED_CACHE=ON
           cmake --build --preset enhanced
 
-      # Only a push writes it, and only when the compiler added or dropped an entry.
+      # Only a push writes it (develop's queue hands it on), and only when the compiler added or
+      # dropped an entry.
       - name: Check the shader compiler cache
         id: shader-cache-new
-        if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
+        if: github.event_name != 'pull_request'
         env:
           RESTORED: ${{ steps.shader-cache.outputs.cache-matched-key }}
         run: |
@@ -732,8 +752,14 @@ jobs:
           entries=$({ ls port/build/enhanced/generated/shader_package/.cache 2>/dev/null || true; } | wc -l)
           echo "::notice title=shader cache::$entries entries, restored ${RESTORED:-none}, save: $changed"
       - name: Save the shader compiler cache
-        if: steps.shader-cache-new.outputs.changed == 'true'
+        if: steps.shader-cache-new.outputs.changed == 'true' && github.event_name != 'merge_group'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: port/build/enhanced/generated/shader_package/.cache
+          key: ${{ steps.shader-cache.outputs.cache-primary-key }}
+      - name: Hand on the shader compiler cache
+        if: steps.shader-cache-new.outputs.changed == 'true' && github.event_name == 'merge_group'
+        uses: ./.github/actions/cache-out
         with:
           path: port/build/enhanced/generated/shader_package/.cache
           key: ${{ steps.shader-cache.outputs.cache-primary-key }}
@@ -769,6 +795,8 @@ jobs:
       - if: ${{ !cancelled() }}
         uses: ./.github/actions/compiler-cache/save
       - uses: ./.github/actions/port-build-cache/save
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/mesa-cache/save
 
   # One check for the build and its tests (what branch protection requires). Skipped (which
   # passes) on a pull request to develop: the merge queue runs it.
@@ -839,3 +867,5 @@ jobs:
       - if: ${{ !cancelled() }}
         uses: ./.github/actions/compiler-cache/save
       - uses: ./.github/actions/port-build-cache/save
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/mesa-cache/save

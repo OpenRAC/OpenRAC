@@ -168,14 +168,10 @@ no window keep the game's own):
   menu (Start) and the Gadgetron vendor (Triangle) look as before (the vendor frames differ by a mean of
   0.0 to 0.6 of 255, `r2-progress/rac1-pause-*`, `rac1-vendor-*`).
 
-Still residual on rac1: the render-to-texture routine `func_001FB608` (`setup_render_target`) and the
-centred background `func_001FB908` that the vendor's monitors use. Their panels are drawn into an
-off-screen block by game packets and shown by `DrawTexturedQuad` of the capture texture. A native version
-is a recorded panel (`openrac_frame_target_begin` where `configure_capture_target` runs, `..._end` where
-`begin_draw_frame` puts the draw environment back, the quad a picture of the panel at the same
-rectangle), but the panel's text and mobys are recorded through the 2D-quad and moby-marker streams, not
-as frame commands, so whether they land inside the panel is not settled by the recorder's contract: that
-needs window-side work first. Going Commando's Ship Shack and pause panels (`menu_draw_pause_panels`,
-`gfx_setup_screen_copy_draw_state` `func_00280510` ... `gfx_run_screen_effect_setup`, then a
-`DrawTexturedQuad` of `g_quad_texture`) and the cockpit screen's 256 x 256 target
-(`gfx_setup_offscreen_target` `func_0027B9C0`) are the same shape on `func_00285030`.
+Off-screen panels (`func_001FB608` `setup_render_target` and the monitors' background `func_001FB908` on
+rac1; `func_00280510`, `func_00285030` and the cockpit's `func_0027B9C0` on rac2) are recorded panels
+now: the recorder's contract is that every stream between `openrac_frame_target_begin` and `_end`, the
+2D-quad and moby-marker streams included, draws into the panel, which the game's own quad then samples
+(FRAME_RECORDER.md, section 3.3; `rac1/host/render_panel.c`, `rac2/host/render_panel.c`). The game's
+packets for the panel still run (transitional, with the rest of the chain). Checked in hidden runs on
+box1: the Gadgetron vendor's six monitors on Novalis look as before (`r2-progress/rt/rac1-vendor-*`).

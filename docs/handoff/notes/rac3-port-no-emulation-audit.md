@@ -292,6 +292,23 @@ to directly.
   producer: the open water plane (`water_plane.c`: Florana, Marcadia, Daxx and the other levels with
   class 2871). Still on the strip routine: class 6576's draw, level 14 `0x003B24C8` and the other
   hand-written strip builders; the UNPACK/MSCAL branch of `direct_packets` stays until they move.
+- **Status (2026-11-26, rac3 hand-built strips):** the levels' strip routine (frontbin `func_003D3A24`,
+  Veldin `func_L01_00408AAC`, and its setup `func_L01_00407588`) is wrapped in `host/render.c`: the
+  capture (`effect_state.c`) now also keeps CLAMP_1, TEX0_1 and TEX1_1, and when TEST_1, ALPHA_1, CLAMP_1,
+  TEX0_1 and TEX1_1 were set by the caller with nothing appended since, the strip is recorded with
+  `openrac_frame_strip` from the routine's own arrays (view context fog line and FOGCOL), so every caller
+  of the routine (class 6576's draw, level 14's `0x003B24C8` = `func_L02_003A2EC8`, the glints and
+  ribbons) goes native without a caller of its own changing; the game's routine runs when the state is
+  not proven, the texture is not an effect texture or the window refuses. Depth follows the chain's rule
+  through `OPENRAC_STRIP_CHAIN_DEPTH` (written only where the window places the strip with the
+  liquids). `OPENRAC_RAC3_STRIP_TRACE` counts. The UNPACK/MSCAL branch stays for rac1, rac2 and the
+  strips the proof refuses.
+  Checked 2026-11-26 on Florana (level 2) and Koros (level 14), hidden runs against `OPENRAC_UI_REPLAY=1`:
+  all strips native (5,000+ per run, none refused), Koros identical to the chain's picture, Florana identical
+  except a band at the water's edge (up to 37/255, the #931 difference): it is the water's own fog, which the
+  chain's reading never applied; with the fog off (a local test switch) the picture is bit-identical to the
+  chain's. The fog is the one the water program applies (water_plane.c header), so the band is the fix, not
+  a mismatch.
 - **Status (2026-11-25, rac1):** Oltanis' ice and Hoven's list (`draw_textured_effect_list`, one
   function with a place in L12 and L14) record `openrac_frame_strip` from `rac1/host/strips.c`
   (wrapped at the two callers, `func_L12_002E8530` and `func_L14_00308EB0`, which name the effect
