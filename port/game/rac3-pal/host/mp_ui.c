@@ -161,6 +161,8 @@ enum {
     GAME_R1
 };
 
+#define PAD_PRESSED 0x1C4u /* the pad record: pressed buttons (L39_006C20B0) */
+#define PAD_CIRCLE 0x20u
 #define SOUND_MOVE 3
 #define SOUND_SELECT 4
 #define SOUND_DENIED 5
@@ -205,6 +207,7 @@ enum {
 #define MOCK_KEY 1000u
 
 void rac3_mp_net_ui_action(const char* key, int value); /* mp_net.c: a server action */
+int rac3_mp_net_toggle_ready(void);                     /* mp_net.c: READY of a slot past eight */
 
 /* ---- State (the game's thread only) ---- */
 
@@ -214,6 +217,7 @@ static int g_bound = -1;     /* the game screen id the open native screen sits o
 static gaddr g_screen;       /* that game screen's object */
 static int g_hidden;         /* 1 while a popup covers the screen: the native one steps aside */
 static uint32_t g_frame;     /* frames drawn, for the focused colour's pulse */
+static int g_on_staging;     /* the lobby screen manager shows the staging room */
 static float g_line = 20.0f; /* the open screen's row pitch */
 static int g_text_pass;      /* 1 in the pass after the elements: text only, else the bar only */
 static int g_modal_layer;    /* 1 while the modal layer draws */
@@ -406,7 +410,11 @@ static void describe_from_file(void) {
 }
 
 /* Makes the context and gives it the vanilla description, once. Returns 0 without memory. */
+extern uint16_t (*rac3_pad_filter)(uint16_t word); /* pad.c */
+uint16_t rac3_mp_ui_pad_filter(uint16_t word);
+
 static int make_ui(void) {
+    rac3_pad_filter = rac3_mp_ui_pad_filter;
     /* The context is made once, at the first lobby frame. */
     if (g_ui == NULL) {
         g_ui = openrac_mp_ui_create();
@@ -682,10 +690,12 @@ static void open_for(int id, gaddr screen) {
     } else if (id == SCREEN_STAGING) {
         /* The eight name rows of the staging room, 0.648 + (n - 3) * 0.412 / 9 of the picture's
          * height, from the left of the names to the ready ticks (L39_006C1730). */
-        g_line = 0.412f / 9.0f * PICTURE_H;
+        const float game_line = 0.412f / 9.0f * PICTURE_H;
+        const int rows = rac3_mp_wide_slots() > 16 ? 16 : rac3_mp_wide_slots();
+        g_line = rows > GS_SLOTS ? game_line * (float)GS_SLOTS / (float)rows : game_line;
         area[0] = 50.0f, area[2] = 412.0f;
-        area[1] = (0.648f - 3.0f * 0.412f / 9.0f) * PICTURE_H - g_line * 0.5f;
-        area[3] = g_line * GS_SLOTS;
+        area[1] = (0.648f - 3.0f * 0.412f / 9.0f) * PICTURE_H - game_line * 0.5f;
+        area[3] = g_line * (float)(rows > GS_SLOTS ? rows : GS_SLOTS);
     } else {
         const gaddr list = widget(screen, LIST_WIDGET);
         int32_t shown = GREF(int32_t, list + LIST_ROWS_SHOWN);
@@ -803,9 +813,42 @@ static int game_action(const openrac_mp_ui_outcome* out) {
     return GAME_CROSS;
 }
 
+/* READY by the port (rac3_mp_net_toggle_ready): a Circle press on the staging screen that it takes
+ * (every slot with OPENRAC_RAC3_PORT_READY, else slots past the game's eight) is left out of the pad
+ * word until the button is released, so the game's own READY, which reads the pad's pressed bits
+ * each game tick, never sees it. (libpad's word is active low; Circle is bit 0x2000.) */
+uint16_t rac3_mp_ui_pad_filter(uint16_t word) {
+    static int down, taken;
+    const int circle = (word & 0x2000u) == 0;
+    if (!circle) {
+        down = taken = 0;
+    } else if (!down) {
+        down = 1;
+        taken = g_on_staging && rac3_mp_net_toggle_ready();
+        fprintf(
+            stderr, "[info] rac3: pad: Circle pressed (staging %d, taken %d)\n", g_on_staging, taken
+        );
+    }
+    return taken ? (uint16_t)(word | 0x2000u) : word;
+}
+
 /* The menu event read (L39_00686138): the native screen's, while it has the cursor. */
 int mp_func_L39_00686138(int mgr, int pad) {
     const int event = mp_func_L39_00686138__game(mgr, pad);
+    /* A player in a slot past the game's eight rows has no row to READY on: Circle on the staging
+     * screen readies it (whether or not the server's native screens are up). The game's own READY
+     * reads the pad's pressed bits (pad +0x1C4, 0x20 Circle) in its staging update: the port takes
+     * the press out of them when it handles it. */
+    if ((gaddr)pad == GREF(gaddr, ACTIVE_PAD)) {
+        const int32_t current = GREF(int32_t, (gaddr)mgr + MGR_CURRENT);
+        const gaddr pressed = (gaddr)pad + PAD_PRESSED;
+        if ((event == GAME_CIRCLE || (GREF(uint32_t, pressed) & PAD_CIRCLE) != 0) && current >= 0
+            && GREF(int32_t, (gaddr)mgr + MGR_IDS + 4u * (gaddr)current) == SCREEN_STAGING
+            && rac3_mp_net_toggle_ready()) {
+            GREF(uint32_t, pressed) &= ~(uint32_t)PAD_CIRCLE;
+            return 0;
+        }
+    }
     /* The game's own events for another pad, under a game popup, or with no native screen up. */
     if (g_ui == NULL || g_hidden || (gaddr)pad != GREF(gaddr, ACTIVE_PAD)) {
         return event;
@@ -847,8 +890,47 @@ int mp_func_L39_00686138(int mgr, int pad) {
     return 0;
 }
 
+/* The staging room's per-frame check (L39_006C30A0, which its event handler runs before it reads the
+ * START byte): the host's START is enabled when the ready players it counts, slots 1 to 7 and itself,
+ * are all the players (GameSettings +0x178). In a room of more than 8 the game's byte (screen +0x2A8)
+ * is set again from the count over every slot, right after the game set it from the first eight. */
+int mp_func_L39_006C30A0(int screen_object) {
+    const int result = mp_func_L39_006C30A0__game(screen_object);
+    const gaddr gs = GREF(gaddr, GAME_SETTINGS);
+    const gaddr screen = (gaddr)screen_object;
+    if (gs == 0 || rac3_mp_wide_slots() <= GS_SLOTS
+        || GREF(uint8_t, RAC3_MADDR(0x001A5CD0u) + 0x168u) == 0) {
+        return result;
+    }
+    int ready = 1;
+    for (int slot = 1; slot < rac3_mp_wide_slots(); slot++) {
+        if (GREF(int16_t, settings_at(gs, GS_CLIENTS, 2u, slot)) != -1
+            && GREF(int16_t, settings_at(gs, GS_STATES, 2u, slot)) == GS_READY) {
+            ready++;
+        }
+    }
+    GREF(uint8_t, screen + 0x2A8u) = ready == GREF(int32_t, gs + 0x178u);
+    static int last = -1;
+    if (ready != last) {
+        last = ready;
+        fprintf(
+            stderr,
+            "[info] rac3: online: %d ready of %d players: START %s\n",
+            ready,
+            GREF(int32_t, gs + 0x178u),
+            ready == GREF(int32_t, gs + 0x178u) ? "enabled" : "greyed"
+        );
+    }
+    return result;
+}
+
 /* The screen manager's update (L39_006862D0): afterwards, the native screen follows the game's. */
 int mp_func_L39_006862D0(int mgr) {
+    {
+        const int32_t now = GREF(int32_t, (gaddr)mgr + MGR_CURRENT);
+        g_on_staging =
+            now >= 0 && GREF(int32_t, (gaddr)mgr + MGR_IDS + 4u * (gaddr)now) == SCREEN_STAGING;
+    }
     const int result = mp_func_L39_006862D0__game(mgr);
     /* Without memory there are no native screens; the game's run as ever. */
     if (!make_ui()) {
