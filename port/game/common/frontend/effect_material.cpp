@@ -15,7 +15,8 @@ namespace {
 constexpr std::uint32_t kKnownFlags = OPENRAC_MATERIAL_BLEND | OPENRAC_MATERIAL_DEPTH_WRITE
                                       | OPENRAC_MATERIAL_TEXTURE_ALPHA | OPENRAC_MATERIAL_LINEAR_MAG
                                       | OPENRAC_MATERIAL_LINEAR_MIN | OPENRAC_MATERIAL_REPEAT_S
-                                      | OPENRAC_MATERIAL_REPEAT_T | OPENRAC_MATERIAL_UNTEXTURED;
+                                      | OPENRAC_MATERIAL_REPEAT_T | OPENRAC_MATERIAL_UNTEXTURED
+                                      | OPENRAC_MATERIAL_MIPMAP;
 
 // The games' unit of a weight: 0x80 is 1.0.
 constexpr float kUnit = 128.0f;
@@ -120,6 +121,7 @@ std::optional<renderer::EffectState> effect_state(const openrac_material& materi
     state.linear_min = (flags & OPENRAC_MATERIAL_LINEAR_MIN) != 0;
     state.repeat_s = (flags & OPENRAC_MATERIAL_REPEAT_S) != 0;
     state.repeat_t = (flags & OPENRAC_MATERIAL_REPEAT_T) != 0;
+    state.mipmap = (flags & OPENRAC_MATERIAL_MIPMAP) != 0;
     return state;
 }
 

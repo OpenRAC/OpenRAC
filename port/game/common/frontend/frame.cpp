@@ -268,7 +268,8 @@ std::vector<std::uint8_t> direct_packets(
     const renderer::FrameRecorder* recorder = nullptr,
     const renderer::FrameRecording** recorded = nullptr,
     std::vector<renderer::FrameSplice>* splices = nullptr,
-    std::span<const std::uint32_t> earlier = {}
+    std::span<const std::uint32_t> earlier = {},
+    std::vector<renderer::UiImage>* effect_images = nullptr
 ) {
     std::vector<std::uint8_t> vif;
     // The submitted root selects a producer-owned generation before any anchor is considered: the
@@ -711,6 +712,55 @@ std::vector<std::uint8_t> direct_packets(
                         );
                     }
                     break;
+                case renderer::FrameOp::Strip: {
+                    // A native strip (openrac_frame_strip): its material and vertices as recorded,
+                    // in order with the chain's own strips, its image kept with the tick's.
+                    if (strips == nullptr || strip_vertices == nullptr || effect_images == nullptr
+                        || c.index >= recording->strips.size()) {
+                        break;
+                    }
+                    const renderer::StripRecord& r = recording->strips[c.index];
+                    if (r.first > recording->strip_vertices.size()
+                        || r.count > recording->strip_vertices.size() - r.first
+                        || (!r.untextured && r.image >= recording->images.size())) {
+                        break;
+                    }
+                    renderer::EffectStrip strip;
+                    strip.first = static_cast<std::uint32_t>(strip_vertices->size());
+                    strip.count = r.count;
+                    strip.native = true;
+                    strip.untextured = r.untextured;
+                    strip.state = r.state;
+                    strip.previous_parent = previous_effect_parent;
+                    strip.previous_parent_position_only = previous_effect_parent_position_only;
+                    strip.before_mobys = r.liquid;
+                    if (r.fogged) {
+                        strip.fogged = true;
+                        strip.fog = {
+                            (1.0f / renderer::world::kNear) * r.fog[0], r.fog[1], r.fog[2], r.fog[3]
+                        };
+                        strip.fog_colour = r.fog_colour;
+                    }
+                    if (!r.untextured) {
+                        const renderer::UiImage& image = recording->images[r.image];
+                        std::size_t at = 0;
+                        while (at < effect_images->size()
+                               && !((*effect_images)[at].hash == image.hash
+                                    && (*effect_images)[at].image == image.image)) {
+                            ++at;
+                        }
+                        if (at == effect_images->size()) {
+                            effect_images->push_back(image);
+                        }
+                        strip.image = static_cast<std::uint32_t>(at + 1);
+                    }
+                    for (std::uint32_t k = 0; k < r.count; ++k) {
+                        const renderer::StripVertex& v = recording->strip_vertices[r.first + k];
+                        strip_vertices->push_back({v.x, v.y, v.z, v.s, v.t, v.rgba});
+                    }
+                    strips->push_back(strip);
+                    break;
+                }
                 case renderer::FrameOp::EffectQuad:
                     if (quad_marks != nullptr) {
                         quad_marks->push_back(
@@ -3382,7 +3432,8 @@ TickPackets capture_2d_path(
         &g->recorder,
         &recorded,
         &splices,
-        sent_chain ? earlier : std::span<const std::uint32_t>{}
+        sent_chain ? earlier : std::span<const std::uint32_t>{},
+        &g->effect_images
     );
     // The strips that sample the game's frame copy are drawn from the window's own picture.
     for (renderer::EffectStrip& strip : strips) {

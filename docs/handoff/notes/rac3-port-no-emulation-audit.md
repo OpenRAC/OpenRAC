@@ -279,6 +279,12 @@ to directly.
 - Reuse: `renderer/effects` liquids pass, `bake-inputs/liquids.json`.
 - Done when: level 14's pool, Florana's mud and Marcadia's pool draw from strip records with
   `OPENRAC_DUMP_VIF` unset and no unpacks read.
+- **Status (2026-11-25):** the shared record landed: `openrac_frame_strip` / `FrameOp::Strip`, with
+  a native material, the image, the fog line and `OPENRAC_STRIP_LIQUID` (FRAME_RECORDER.md 3.2,
+  TEXTURES.md 4); `EffectRenderer` draws it like a native quad, with a mip chain on request. First
+  producer: the open water plane (`water_plane.c`: Florana, Marcadia, Daxx and the other levels with
+  class 2871). Still on the strip routine: class 6576's draw, level 14 `0x003B24C8` and the other
+  hand-written strip builders; the UNPACK/MSCAL branch of `direct_packets` stays until they move.
 
 ### P6 — Screen effects and frame copies natively (rac3, implementation; after P1)
 

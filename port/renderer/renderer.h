@@ -173,6 +173,13 @@ struct EffectStrip {
     // Drawn from a native snapshot of the target taken before the pass's first such strip, never
     // from the chip's frame copy (EffectRenderer, frame_copy_st).
     bool frame_copy = false;
+    // Drawn with `state` (openrac_frame_strip's native material) and FrameInput::effect_images[
+    // image - 1] (0: none; untextured says whether it samples one): tex0, tex1, clamp, alpha, test,
+    // uploads and the z flags are then not read.
+    bool native = false;
+    bool untextured = false;
+    EffectState state{};
+    std::uint32_t image = 0;
 };
 
 struct RenderTarget;

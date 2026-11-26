@@ -99,6 +99,10 @@ A world effect quad can now carry a native material instead of the chip's words:
   off-screen target.
 - **NTSC-U:** `release_carry_rac3.py` carries both wraps (VU1_addGSregister's and DrawFrame's
   level copies, the same code on both discs); the shared host C does the rest.
+- **Strips:** `openrac_frame_strip` (FRAME_RECORDER.md, section 3.2) carries the same material and
+  image on a triangle strip, with the fog line. rac3's water plane is the first producer: its two
+  layers' materials come from the blend, depth and filter its own code sets, the textures from
+  `rac3_effect_image`. A plane whose textures are not effect images keeps the strip routine.
 - **Not yet:** rac3's quads that inherit their TEST or need their ZBUF (the glows, the loading
   screen's planet) keep their marker; particles, sky sprites and strips (P5) keep their words; frame
   copies (GetEffectTex -1, -2, the masks' second quads) keep their block path.

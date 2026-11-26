@@ -189,6 +189,9 @@ bool before_mobys_writes_z(const EffectStrip& strip) {
 }
 
 bool liquid_pass_strip(const EffectStrip& strip) {
+    if (strip.native) {
+        return strip.before_mobys;
+    }
     // A strip sent before the world's mobys is drawn where the game drew it, with the liquids:
     // Dobbo's water (ALPHA 0x44, TEST 0x5310B, from the draw callback list after the ties), drawn
     // after the mobys, covered the Dynamo's platforms over it.
@@ -229,6 +232,10 @@ bool uses_frame_uploads(const gs::Tex0& texture, const FrameInput& input) {
 }  // namespace
 
 bool opaque_effect_strip(const EffectStrip& strip, std::span<const EffectVertex> vertices) {
+    // A native strip is drawn in its place with its own material: never moved to the opaque pass.
+    if (strip.native) {
+        return false;
+    }
     if (strip.surface != 0 || strip.z_masked || strip.count < 3 || strip.first > vertices.size()
         || strip.count > vertices.size() - strip.first
         || (!strip.z_written && !liquid_strip(strip.alpha, strip.test))) {
@@ -609,7 +616,8 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
             // corner of the picture in it, upside down.
             // A frame-copy strip samples the pass's native snapshot of the target instead
             // (frame_copy_st), never the chip's copy the 2D path may have drawn at its block.
-            const bool target = !strip.frame_copy && offscreen_texture(strip.tex0, 0) != 0;
+            const bool target =
+                !strip.native && !strip.frame_copy && offscreen_texture(strip.tex0, 0) != 0;
             for (std::uint32_t k = 0; k + 2 < strip.count; ++k) {
                 for (std::uint32_t c = 0; c < 3; ++c) {
                     Vertex v = vertex(input.strip_vertices[strip.first + k + c]);
@@ -1122,11 +1130,20 @@ bool EffectRenderer::apply_native(
             return false;
         }
 
+        // A mipmapped material (a tiled surface seen far away) gets its chain made natively.
+        if (wanted.mipmap && !state.textures.has_mipmaps(image)) {
+            state.textures.ensure_mipmaps(image);
+        }
         state.textures.bind_upscaled_texture_colours(
             image, *m_active_shader, m_texture_filter, wanted.repeat_s, wanted.repeat_t
         );
         const auto magnify = static_cast<GLint>(wanted.mag_filter);
-        const auto minify = static_cast<GLint>(wanted.min_filter);
+        const bool chain = wanted.mipmap && state.textures.has_mipmaps(image);
+        const auto minify = static_cast<GLint>(
+            chain ? (wanted.min_filter == GL_LINEAR ? GL_LINEAR_MIPMAP_LINEAR
+                                                    : GLenum{0x2700} /* NEAREST_MIPMAP_NEAREST */)
+                  : wanted.min_filter
+        );
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magnify);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minify);
         scale = state.textures.alpha_scale(image) == AlphaScale::Full ? 0.5f : 1.0f;
