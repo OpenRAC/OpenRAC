@@ -285,6 +285,17 @@ to directly.
   producer: the open water plane (`water_plane.c`: Florana, Marcadia, Daxx and the other levels with
   class 2871). Still on the strip routine: class 6576's draw, level 14 `0x003B24C8` and the other
   hand-written strip builders; the UNPACK/MSCAL branch of `direct_packets` stays until they move.
+- **Status (2026-11-26, rac3 hand-built strips):** the levels' strip routine (frontbin `func_003D3A24`,
+  Veldin `func_L01_00408AAC`, and its setup `func_L01_00407588`) is wrapped in `host/render.c`: the
+  capture (`effect_state.c`) now also keeps CLAMP_1, TEX0_1 and TEX1_1, and when TEST_1, ALPHA_1, CLAMP_1,
+  TEX0_1 and TEX1_1 were set by the caller with nothing appended since, the strip is recorded with
+  `openrac_frame_strip` from the routine's own arrays (view context fog line and FOGCOL), so every caller
+  of the routine (class 6576's draw, level 14's `0x003B24C8` = `func_L02_003A2EC8`, the glints and
+  ribbons) goes native without a caller of its own changing; the game's routine runs when the state is
+  not proven, the texture is not an effect texture or the window refuses. Depth follows the chain's rule
+  through `OPENRAC_STRIP_CHAIN_DEPTH` (written only where the window places the strip with the
+  liquids). `OPENRAC_RAC3_STRIP_TRACE` counts. The UNPACK/MSCAL branch stays for rac1, rac2 and the
+  strips the proof refuses.
 
 ### P6 — Screen effects and frame copies natively (rac3, implementation; after P1)
 

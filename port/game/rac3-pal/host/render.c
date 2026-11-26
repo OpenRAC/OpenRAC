@@ -451,14 +451,14 @@ static float context_float(gaddr offset) {
     return v;
 }
 
-/* OPENRAC_STRIP_TRACE: how many strips went native and why the others did not, every 256 calls
+/* OPENRAC_RAC3_STRIP_TRACE: how many strips went native and why the others did not, every 256 calls
  * (docs/port/DEBUGGING.md). */
 static unsigned s_strip_count[4];
 
 static void strip_traced(int outcome) {
     static int on = -1;
     if (on < 0) {
-        on = openrac_env_string("OPENRAC_STRIP_TRACE") != NULL;
+        on = openrac_env_string("OPENRAC_RAC3_STRIP_TRACE") != NULL;
     }
     if (on && (++s_strip_count[outcome] & 0xFFu) == 0) {
         fprintf(
