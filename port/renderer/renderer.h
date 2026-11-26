@@ -114,6 +114,12 @@ struct EffectQuad {
     std::uint32_t parent = 0;
     // Physical attachment for current-tick geometry; callback ownership alone does not imply this.
     std::uint32_t attachment = 0;
+    // The quad samples the game's copy of the frame drawn so far (GameProfile::frame_copy_texture:
+    // Up Your Arsenal's refraction rings, the Nitro Launcher's implosion among them), its ST the
+    // place in the game's picture. Drawn from a native snapshot of the target taken before the
+    // pass's first such quad or strip, never from the chip's frame copy (EffectRenderer,
+    // frame_copy_st), as EffectStrip::frame_copy is.
+    bool frame_copy = false;
     // Drawn with `state` (openrac_game_material_quad's native material) and FrameInput::
     // effect_images[image - 1] (0: none; untextured says whether it samples one): clamp, tex0,
     // tex1, alpha, uploads, tbp, cbp, test, zbuf and registers are then not read.
