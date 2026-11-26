@@ -23,11 +23,23 @@ type HookPoint =
     | "rac3.level.load"
     | "rac3.level.give_items"
     | "rac3.player.death_done"
+    | "rac3.player.update"
+    | "rac3.player.update_character"
+    | "rac3.player.set_animation"
+    | "rac3.player.remap_animation"
+    | "rac3.player.switch_item"
+    | "rac3.hud.markers.draw"
     | "Bolt_Collect"
     | "Bolt_SpawnPickup"
     | "Bolt_SpawnPickups"
     | "Hero_DeathDone"
+    | "Hero_RemapAnimation"
+    | "Hero_SetAnimation"
+    | "Hero_SwitchItem"
     | "Hero_TakeDamage"
+    | "Hero_Update"
+    | "Hero_UpdateCharacter"
+    | "Hud_DrawMarkers"
     | "Item_Give"
     | "Item_Upgrade"
     | "Level_GiveItems"
@@ -79,6 +91,18 @@ type Level_LoadFn = () -> number
 type Level_GiveItemsFn = () -> ()
 -- rac3.player.death_done (Hero_DeathDone) void(): The hero's death over (hero_death_done: state 57 ended, or a fall out of the level): the death counted in the stats and the respawn asked for (0x001A71D2), which the level carries out at the end of the frame.
 type Hero_DeathDoneFn = () -> ()
+-- rac3.player.update (Hero_Update) void(): The hero's whole update each frame (hero_tick), from the level's frame in play (gameplay_update, game mode 0) after every moby's update (moby_update_all) and before the frame's draw: the pad, his state machine and movement, ledges, his collision and animation and the camera's copy of him. Florana (level 2) and levels 4, 8, 9 and 27 have copies of their own; together they are one hook point over the 34 story levels. While he is in another body (hero +0x25E4 not 0) it runs rac3.player.update_character in place of its own steps. Going Commando's rac2.player.update.
+type Hero_UpdateFn = () -> ()
+-- rac3.player.update_character (Hero_UpdateCharacter) void(): The hero's update while he is in another body (hero +0x25E4: 1 Clank, 2 Clank in Holostar Studios, 3 a disguise such as the Tyhrra-Guise, 5 Qwark in the vid-comics): rac3.player.update calls it each frame in place of its own steps, for that body's moby, state, collision and animation. Levels 2 and 9, level 23 and the vid-comics (30 to 36) have copies of their own; together they are one hook point over the 34 story levels.
+type Hero_UpdateCharacterFn = () -> ()
+-- rac3.player.set_animation (Hero_SetAnimation) void(i32,i32,f32): Starts a hero animation (hero_anim_set): sequence from keyframe start_key, blended in from the pose he is in over blend ticks (negative: a blend curve, -1 is 11 ticks, -2 is 16). In a disguise (hero +0x25E4 is 3) the sequence goes through rac3.player.remap_animation first. The hero's states call it.
+type Hero_SetAnimationFn = (sequence: number, start_key: number, blend: number) -> ()
+-- rac3.player.remap_animation (Hero_RemapAnimation) i32(i32): The body's sequence for a hero animation (hero_guise_anim_remap) on the disguise classes 0x1A4E and 0x173B (the class of the hero's moby, its +0xAA); any other class gets the animation back. rac3.player.set_animation calls it while he wears a disguise (hero +0x25E4 is 3).
+type Hero_RemapAnimationFn = (animation: number) -> number
+-- rac3.player.switch_item (Hero_SwitchItem) void(i32): What the hero holds in a hand slot (hero_item_switch; slot 0 is his hand): Square brings out the wrench, Circle (or R1 where the settings say R1 fires) the equipped gun, L2 and R2 with the wrench out the gun with its lock-on mod. The hero's states call it each frame; a replacement that does not call the original keeps what he holds.
+type Hero_SwitchItemFn = (slot: number) -> ()
+-- rac3.hud.markers.draw (Hud_DrawMarkers) void(i32): Draws a player's screen markers (reticle_markers_draw, the levels' copy of the front end's), the ones queued this frame with reticle_marker_add (func_L01_003F6F20 on PAL), from the frame's draw after the level's update; with one view (0x001D6698 is 0) it then empties the queue. The 34 story levels.
+type Hud_DrawMarkersFn = (player: number) -> ()
 
 declare openrac: {
     game: string,

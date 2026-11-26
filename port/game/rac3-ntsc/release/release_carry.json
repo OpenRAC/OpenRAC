@@ -156,6 +156,21 @@
    "status": "differs",
    "port": "hook"
   },
+  "func_L01_004E13A0": {
+   "is": "func_L01_004DD690",
+   "status": "differs",
+   "port": "hook"
+  },
+  "func_L01_004E20E8": {
+   "is": "func_L01_004DE348",
+   "status": "differs",
+   "port": "hook"
+  },
+  "func_L01_004EC600": {
+   "is": "func_L01_004E8830",
+   "status": "differs",
+   "port": "hook"
+  },
   "func_L01_004EDE10": {
    "is": "func_L01_004EA040",
    "status": "differs",
@@ -165,6 +180,31 @@
    "is": "func_L02_00310500",
    "status": "differs",
    "port": "host"
+  },
+  "func_L02_004B7370": {
+   "is": "func_L02_004B31E0",
+   "status": "differs",
+   "port": "hook"
+  },
+  "func_L02_004B8000": {
+   "is": "func_L02_004B3DE0",
+   "status": "differs",
+   "port": "hook"
+  },
+  "func_L04_004F21E8": {
+   "is": "func_L04_004EE108",
+   "status": "differs",
+   "port": "hook"
+  },
+  "func_L23_004C3330": {
+   "is": "func_L23_004BF658",
+   "status": "differs",
+   "port": "hook"
+  },
+  "func_L30_004AEF20": {
+   "is": "func_L30_004AB300",
+   "status": "differs",
+   "port": "hook"
   }
  },
  "left_out": {

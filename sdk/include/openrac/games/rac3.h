@@ -192,6 +192,58 @@ typedef void (*openrac_rac3_Hero_DeathDone)(void);
 /* Hook points added since this header was last written by hand, from the binding table.
  * As the others: on a port that lacks one, openrac_api.hook returns OPENRAC_HOOK_UNKNOWN. */
 
+/* Hero_Update: The hero's whole update each frame (hero_tick), from the level's frame in play
+ * (gameplay_update, game mode 0) after every moby's update (moby_update_all) and before the
+ * frame's draw: the pad, his state machine and movement, ledges, his collision and animation
+ * and the camera's copy of him. Florana (level 2) and levels 4, 8, 9 and 27 have copies of
+ * their own; together they are one hook point over the 34 story levels. While he is in another
+ * body (hero +0x25E4 not 0) it runs rac3.player.update_character in place of its own steps.
+ * Going Commando's rac2.player.update. */
+#define OPENRAC_RAC3_HOOK_Hero_Update "Hero_Update"
+#define OPENRAC_RAC3_SIG_Hero_Update "void()"
+typedef void (*openrac_rac3_Hero_Update)(void);
+
+/* Hero_UpdateCharacter: The hero's update while he is in another body (hero +0x25E4: 1 Clank, 2
+ * Clank in Holostar Studios, 3 a disguise such as the Tyhrra-Guise, 5 Qwark in the vid-comics):
+ * rac3.player.update calls it each frame in place of its own steps, for that body's moby,
+ * state, collision and animation. Levels 2 and 9, level 23 and the vid-comics (30 to 36) have
+ * copies of their own; together they are one hook point over the 34 story levels. */
+#define OPENRAC_RAC3_HOOK_Hero_UpdateCharacter "Hero_UpdateCharacter"
+#define OPENRAC_RAC3_SIG_Hero_UpdateCharacter "void()"
+typedef void (*openrac_rac3_Hero_UpdateCharacter)(void);
+
+/* Hero_SetAnimation: Starts a hero animation (hero_anim_set): sequence from keyframe start_key,
+ * blended in from the pose he is in over blend ticks (negative: a blend curve, -1 is 11 ticks,
+ * -2 is 16). In a disguise (hero +0x25E4 is 3) the sequence goes through
+ * rac3.player.remap_animation first. The hero's states call it. */
+#define OPENRAC_RAC3_HOOK_Hero_SetAnimation "Hero_SetAnimation"
+#define OPENRAC_RAC3_SIG_Hero_SetAnimation "void(i32,i32,f32)"
+typedef void (*openrac_rac3_Hero_SetAnimation)(int32_t sequence, int32_t start_key, float blend);
+
+/* Hero_RemapAnimation: The body's sequence for a hero animation (hero_guise_anim_remap) on the
+ * disguise classes 0x1A4E and 0x173B (the class of the hero's moby, its +0xAA); any other class
+ * gets the animation back. rac3.player.set_animation calls it while he wears a disguise (hero
+ * +0x25E4 is 3). */
+#define OPENRAC_RAC3_HOOK_Hero_RemapAnimation "Hero_RemapAnimation"
+#define OPENRAC_RAC3_SIG_Hero_RemapAnimation "i32(i32)"
+typedef int32_t (*openrac_rac3_Hero_RemapAnimation)(int32_t animation);
+
+/* Hero_SwitchItem: What the hero holds in a hand slot (hero_item_switch; slot 0 is his hand):
+ * Square brings out the wrench, Circle (or R1 where the settings say R1 fires) the equipped
+ * gun, L2 and R2 with the wrench out the gun with its lock-on mod. The hero's states call it
+ * each frame; a replacement that does not call the original keeps what he holds. */
+#define OPENRAC_RAC3_HOOK_Hero_SwitchItem "Hero_SwitchItem"
+#define OPENRAC_RAC3_SIG_Hero_SwitchItem "void(i32)"
+typedef void (*openrac_rac3_Hero_SwitchItem)(int32_t slot);
+
+/* Hud_DrawMarkers: Draws a player's screen markers (reticle_markers_draw, the levels' copy of
+ * the front end's), the ones queued this frame with reticle_marker_add (func_L01_003F6F20 on
+ * PAL), from the frame's draw after the level's update; with one view (0x001D6698 is 0) it then
+ * empties the queue. The 34 story levels. */
+#define OPENRAC_RAC3_HOOK_Hud_DrawMarkers "Hud_DrawMarkers"
+#define OPENRAC_RAC3_SIG_Hud_DrawMarkers "void(i32)"
+typedef void (*openrac_rac3_Hud_DrawMarkers)(int32_t player);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus
