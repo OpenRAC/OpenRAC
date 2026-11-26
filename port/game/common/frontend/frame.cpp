@@ -3472,6 +3472,23 @@ TickPackets capture_2d_path(
     if (const renderer::FrameRecording* last = g->recorder.latest()) {
         k.views = last->views;
     }
+    const Result<void> view_submission = k.recording.resolve_views(k.splices);
+
+    // The render worker reports unsupported scoping before any partial or whole-target effect can run.
+    if (!view_submission) {
+        k.recording.view_error = view_submission.error().message;
+    }
+
+    // The views the window draws are the latest recording's: they take the effects scheduled on the
+    // matched recording's own view of the same player.
+    for (renderer::FrameView& drawn : k.views) {
+        for (const renderer::FrameView& own : k.recording.views) {
+            if (own.view == drawn.view) {
+                drawn.screen_effects = own.screen_effects;
+            }
+        }
+    }
+
     // The effect quads the list marks (openrac_game_effect_quad_marker) take the TEST and ZBUF in
     // effect there: Going Commando's flight sparks and flames test alpha GEQUAL 0x60, and the
     // pixels that pass write Z. A list of this tick marks this tick's quads. Going Commando's list
@@ -3481,6 +3498,11 @@ TickPackets capture_2d_path(
     // state the last tick drew with two TESTs, is drawn as before: no alpha test, no Z).
     std::size_t quads_marked = 0, marks_stale = 0;
     const auto apply = [&](renderer::EffectQuad& q, std::uint64_t test, std::uint64_t zbuf) {
+        // A native quad's material is its whole state: the list's registers are not its own.
+        if (q.native) {
+            return;
+        }
+
         q.test = test;
         q.zbuf = zbuf;
         q.registers = test != 0;
@@ -3727,6 +3749,7 @@ void keep_effects(
     // stars and galaxy turn a little each pass (SkyDraw's copy, 0x003CE568).
     k.prev_sky_shells = k.sky_shells;
     k.prev_sky_shell_mask = sky_adjacent ? k.sky_shell_mask : 0u;
+    k.effect_images = std::move(g->effect_images);
     k.sky_shells = g->sky_shells;
     k.sky_shell_mask = std::exchange(g->sky_shell_mask, 0u);
     // The list's own tick's quads (above). The game's FadeToBlack (after a story card, between
@@ -3741,6 +3764,7 @@ void keep_effects(
     g->ui_quads.clear();
     g->effects.clear();
     g->effect_uploads.clear();
+    g->effect_images.clear();
     g->particles.clear();
     g->sky_sprites.clear();
 }
@@ -4066,6 +4090,7 @@ bool frame(
         ++g->effect_generation;
         g->effect_states_before.clear();
         g->effect_uploads.clear();
+        g->effect_images.clear();
         // effect_quad's notes of the cleared quads go with them: effect_textures() would read
         // them against the next tick's quads.
         g->effect_texture_ids.clear();

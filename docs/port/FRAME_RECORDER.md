@@ -60,7 +60,7 @@ the window scales them to the target's pixels.
 | `openrac_frame_mobys(list, count)` | a moby list drawn with a camera of its own, into the current target (a panel, or the screen over a menu's world); nonzero when the window draws it |
 | `openrac_frame_ui_item(const openrac_game_ui_item*)` | a quad of the 2D layer from the game's data alone (`openrac/ui_item.h`): corners, texels of an image named by game addresses, a colour per corner, flags, clip. No GS state |
 | `openrac_frame_ui_quad(const openrac_game_ui_rect*)` | transitional: the older UiQuad record (TEX0, CLAMP), drawn in the 2D state in effect where it lands, as before. Retired by P4 |
-| `openrac_frame_effect_quad(index)` | transitional: the world effect quad `index` (from `openrac_game_effect_quad_marker`) takes the alpha test and depth mode in effect here. Retired by P4 (materials on the record) |
+| `openrac_frame_effect_quad(index)` | transitional: the world effect quad `index` (from `openrac_game_effect_quad_marker`) takes the alpha test and depth mode in effect here. Retired by P4 (materials on the record): a quad given with `openrac_game_material_effect_quad` (TEXTURES.md, section 4) has its whole state and takes no marker |
 | `openrac_frame_fill(rect, rgba, blend)` | a flat rectangle (fades, letterbox bars, darkening); `rect` NULL for the whole target, which on a wide picture is the whole window |
 | `openrac_frame_fill_depth(rect, rgba, blend, depth, depth_bits, depth_test, writes)` | a flat rectangle as `_fill` with a depth of its own, for a cover whose depth later drawing tests: `depth` in the units of a `depth_bits`-bit buffer (16, 24 or 32, bigger nearer), tested by `OPENRAC_DEPTH_ALWAYS` / `_GEQUAL` / `_GREATER` against the target's depth; where it passes, the `OPENRAC_WRITE_*` colour channels and, with `OPENRAC_WRITE_DEPTH`, the depth are written. Into the current target, cut to the current scissor. 1 drawn; 0 (no window, `OPENRAC_UI_REPLAY`, a value out of range): the caller draws the game's way |
 | `openrac_frame_clear(rgba, what)` | clears the target's colour and/or depth (`OPENRAC_CLEAR_COLOUR`, `_DEPTH`) |
@@ -70,6 +70,8 @@ the window scales them to the target's pixels.
 | `openrac_frame_snapshot(id)` | keeps the frame drawn so far as picture `id` (pause tiles, Holostar's frame-textured sprite) |
 | `openrac_frame_target_begin(id, w, h)` / `_end()` | draws into the off-screen panel `id` (a port id, never a GS block) until `_end` |
 | `openrac_frame_scissor(rect)` | cuts what follows to `rect` (NULL: the whole target) |
+| `openrac_frame_screen_effect(const openrac_screen_effect*)` | a native post pass over the target as drawn so far, with the game's values: `OPENRAC_SCREEN_GLOW` (the pixels whose alpha passes the threshold, tinted, blurred at a half, a quarter and an eighth of the target, added back) or `OPENRAC_SCREEN_SOFTEN` (the frame blurred and mixed back); [SCREEN_EFFECTS.md](SCREEN_EFFECTS.md) |
+| `openrac_frame_snapshot_world(id)` | keeps the last frame the window drew with its world in (the world alone, before its 2D) as picture `id`, following the world while one is drawn under a menu: the frame a menu read back as it opened |
 | `openrac_frame_screen(width, height)` | the game's 2D screen the coordinates of the commands that follow are in (512 x 448 until set; kept across recordings): a game whose 2D is drawn on another size says so, and its rectangles, scissors and views are taken as they are |
 | `openrac_frame_view_begin(view, const openrac_frame_viewport* rect)` / `_view_end()` | split screen: the world recorded between them is local player view `view`'s (0 to `OPENRAC_FRAME_VIEWS` - 1), drawn into `rect` with the camera the game holds when that view's `openrac_frame_world` is recorded (see §3.1) |
 | `openrac_frame_end()` | closes the recording (optional) |
@@ -123,6 +125,26 @@ Each view keeps its own layer mask: its `World` calls' and the layers the game s
 do not replace a picture. Alternating views retain their pictures only while their screen-relative rectangles remain
 compatible: a resized player rectangle or an overlap with another player's old rectangle forgets the
 old layout before any new view is drawn. Non-finite and inverted view rectangles are rejected.
+
+### 3.2 Submitted views and isolated post effects
+
+Every command captures its owner as an index in that recording's `views`, or no owner. Ownership
+does not depend on finding a transitional `ViewBegin` tag in the submitted chain. After anchor
+placement, `resolve_views` rebuilds each view's layers from reachable `World` commands only. A cut
+list refreshes no unreachable view. A fully cut split-world recording retains the split compositor
+and old pictures rather than drawing a speculative new full-screen world.
+
+Terminal native `ScreenEffect` commands outside explicit panels are scheduled on their owning
+view's framebuffer, in order, before its picture is composited. Payloads and camera values belong
+to the immutable tick. The main 2D executor keeps those commands for diagnostics but does not run
+them a second time. Explicit-panel and unscoped effects retain their original ordered execution.
+
+The supported path is deliberately narrow: a submitted world, then its native world post effects,
+then whole-screen native 2D. An orphan effect, native 2D before a view effect, later world drawing,
+residual 2D packets without view ownership, or composite bloom/grading reports a render-worker
+error before unsafe effect execution. These are open integration blockers, not omitted effects or
+claims of multiplayer pixel parity. View snapshots, per-view moby/effect geometry and arbitrary
+interleaved colour streams still need their own ownership and runtime proof.
 
 `openrac_frame_strip` (vertices, ST, RGBA, material, fog line) is reserved for P5 with P4's
 material; the effect strips still come from the chain until then.
@@ -291,7 +313,7 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
 
 | Game | On the recorder | Still markers in its list |
 |---|---|---|
-| rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening and the letterbox bars as colour-only quads, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6), `mp_ui.c`, `mp_maps.c`, `movie.c` (P2) |
+| rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; `host/screen.c`, `mp.c`, `mp_maps.c`: the screen glow and the second screen effect as `screen_effect`; `host/picture.c`: the pause menu's frame as `snapshot_world` + `picture` (no frame read back or written); the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening and the letterbox bars as colour-only quads, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6), `mp_ui.c`, `mp_maps.c`, `movie.c` (P2) |
 | rac1 | `render_native.c`: world, shrubs boundary and positive-count moby lists; `ui2d.c`: transitional `ui_quad` records; `hud.c`: picture-band and whole-target placement (HUD side placement uses the game's coordinates); `letterbox.c` (PAL v2.00 only): level 6's letterbox bars as depth-writing fills | water surface/UV scopes (`water_surfaces.c`, per-version `water.c`); boot-picture uploads and their residual draws; frame copies, blur, fades, clears and strips remain packet consumers |
 | rac2 | `render.c`: world, world-moby boundary, positive-count moby lists and effect-quad state placement; `ui2d.c`: transitional `ui_quad` records; `hud.c`: HUD side placement; `wide_view.c`: effect-parent scopes, including position-only scopes | `picture.c`: whole-target, saved-frame and credits-world markers; movie pictures/overlays, scissor, off-screen targets and strips remain packet consumers |
 

@@ -31,7 +31,9 @@
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
 #include "rac3_coll_line.h"
+#include "rac3_screen.h"
 #include "rac3_version.h"
+#include "textures.h"
 #include "trig.h"
 
 void mp_openrac_game_register_functions(void);
@@ -65,10 +67,11 @@ void rac3_sound_reset(void); /* sound.c */
 #define MP_MAPS_LAST 55
 
 /* LoadExecPS2("cdrom0:\I5BOOTN.ELF;1", ...) came back to func_0013ADA8: the multiplayer
- * program's records copied over memory (exec.c), its functions in place of the boot program's,
- * and its crt0 run. */
+ * program's records copied over memory (exec.c), the images the boot program handed over let go
+ * with its memory (textures.c), its functions in place of the boot program's, and its crt0 run. */
 void rac3_mp_run(void) {
     memset(G(0x00100000u), 0, 0x02000000u - 0x00100000u);
+    rac3_textures_forget();
     openrac_guest_unregister_all();
     openrac_game_kernel_reset();
     rac3_sound_reset();
@@ -375,21 +378,20 @@ int mp_func_L39_005A9AA0(int source, int destination) {
 }
 
 /* Level 39's copies of the screen glow (the catalogue's func_L01_004DE670, func_L01_004DE6F0 and
- * func_L01_004DF310 at 39:0060DFC8, 39:0060E048 and 39:0060EC68): left out as render.c leaves the
- * boot program's levels' (their packets copy and blur the frame and add it back; replayed, they
- * covered the menus in one colour). The word each sets for the frame ($gp - 0x240C) is kept. */
-#define MP_MENUS_GLOW_WORD RAC3_LADDR(39, 0x00245BB4u)
+ * func_L01_004DF310 at 39:0060DFC8, 39:0060E048 and 39:0060EC68), drawn natively as the
+ * single-player levels' are (screen.c), from level 39's globals: the glow word at $gp - 0x240C,
+ * the blur byte 0x24 after it, the list pointer at 0x0024CAD0. */
+static const Rac3Glow kMenusGlow =
+    {RAC3_LADDR(39, 0x00245BB4u), RAC3_LADDR(39, 0x00245BD8u), RAC3_LADDR(39, 0x0024CAD0u)};
 
 int mp_func_L39_0060DFC8(void) {
-    GREF(int32_t, MP_MENUS_GLOW_WORD) = 0x6000;
-    return 0;
+    return rac3_screen_glow(&kMenusGlow);
 }
 
 int mp_func_L39_0060E048(void) {
-    GREF(int32_t, MP_MENUS_GLOW_WORD) = 0;
-    return 0;
+    return rac3_screen_glow_end(&kMenusGlow);
 }
 
 int mp_func_L39_0060EC68(void) {
-    return 0;
+    return rac3_screen_soften(kMenusGlow.list);
 }

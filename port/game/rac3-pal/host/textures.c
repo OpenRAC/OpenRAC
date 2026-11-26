@@ -16,14 +16,20 @@
  *
  * The port keeps what SendImage was given, as it was then (openrac_game_image_keep): an image the
  * 2D layer draws from that address is what the game sent. SendImage itself still runs for the
- * routines that hand the window TEX0 records, until they are native.
+ * routines that hand the window TEX0 records, until they are native. The multiplayer executable's
+ * banks are the same (the table pointers of its core's at 0x00244428, level 39's at 0x0024BD00, a
+ * map's at its own place of level 39's), sent by its own copies of SendImage. What was kept, and
+ * the handles' images below, go when another executable starts over the game's memory
+ * (rac3_textures_forget).
  */
 #include "textures.h"
 
 #include <stdint.h>
+#include <string.h>
 
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "rac3_version.h"
 
 int rac3_hud_image(gaddr tables, int n, openrac_game_ui_image* out) {
     if (tables == 0 || n < 0 || n > 0xFFFF) {
@@ -114,4 +120,355 @@ void func_00397980__frontbin(
 int func_L01_004215C0(int data, int address, int format, int log2_width, int log2_height, int now) {
     keep_sent_image(data, format, log2_width, log2_height);
     return func_L01_004215C0__game(data, address, format, log2_width, log2_height, now);
+}
+
+/* The multiplayer executable's copies of SendImage: its core's (0x00285660), level 39's
+ * (0x0059D6B0) and each map's (mp/maps.py CARRIED_HUD), func_00397D60's instructions, each called
+ * only by its program's HUD bank's group upload (the core's 0x002849D8, level 39's 0x0059C088, the
+ * maps' copies), which sends group 0 from a buffer it reuses as the boot program's does (seen in
+ * game code). */
+int mp_func_00285660__game(
+    int data, int address, int format, int log2_width, int log2_height, int now
+);
+int mp_func_L39_0059D6B0__game(
+    int data, int address, int format, int log2_width, int log2_height, int now
+);
+
+int mp_func_00285660(int data, int address, int format, int log2_width, int log2_height, int now) {
+    keep_sent_image(data, format, log2_width, log2_height);
+    return mp_func_00285660__game(data, address, format, log2_width, log2_height, now);
+}
+
+int mp_func_L39_0059D6B0(
+    int data, int address, int format, int log2_width, int log2_height, int now
+) {
+    keep_sent_image(data, format, log2_width, log2_height);
+    return mp_func_L39_0059D6B0__game(data, address, format, log2_width, log2_height, now);
+}
+
+#define MP_MAP(...)
+#define MP_MAP_UI(...)
+#define MP_MAP_HUD(m, sprite, gradient, tex0, send_image)                                          \
+    int mp_func_L##m##_##send_image##__game(                                                       \
+        int data, int address, int format, int log2_width, int log2_height, int now                \
+    );                                                                                             \
+    int mp_func_L##m##_##send_image(                                                               \
+        int data, int address, int format, int log2_width, int log2_height, int now                \
+    ) {                                                                                            \
+        keep_sent_image(data, format, log2_width, log2_height);                                    \
+        return mp_func_L##m##_##send_image##__game(                                                \
+            data, address, format, log2_width, log2_height, now                                    \
+        );                                                                                         \
+    }
+#define MP_MAP_VU0(...)
+#include "mp_maps.h"
+#undef MP_MAP
+#undef MP_MAP_UI
+#undef MP_MAP_HUD
+#undef MP_MAP_VU0
+
+/*
+ * Texture handles back to images (rac3_texture_image). The getters, per program copy (rac3-decomp
+ * src/boot_elf/text/389978.c, 396E18.c; IDENTIFIED.tsv):
+ *
+ * - HudTextureTex0 (0x00396E18, frontbin's 0x00396A38, the levels' func_L01_00420080): HUD texture n
+ *   of the HUD bank (rac3_hud_image). Its handle holds the image entry's and the palette entry's
+ *   stored places (the u16 at +4 of each), which the reverse lookup matches.
+ * - EffectTex0 (0x00389978, frontbin's 0x00389598, the levels' func_L01_00404040): effect texture n
+ *   of the scene's table (0x00226000, Veldin's 0x001E7C80: 16 bytes each, +8 the pixels' and +0xA
+ *   the palette's offsets in 64-byte units from the word at 0x001D9C04 (Veldin's 0x001DF984), +0xC
+ *   and +0xD the log2 width and height, +0xE the format: 0x13 8-bit indices with a 256-colour
+ *   palette in the stored order, 0x14 4-bit with 16 colours), the count at 0x001D9C00. Its negative
+ *   numbers are the frame buffer's, no image.
+ * - PictureTex0 (0x0039B088, frontbin's 0x0039ACA8, the levels' func_L01_0042D898): a picture by its
+ *   header (+8 width, +0xC height, +0x20 the 256-colour palette, +0x420 the 8-bit pixels).
+ *
+ * A handle is a new allocation each pass (the getters' allocator starts again at 0x00389620), so the
+ * last image kept for a handle is the one it names now. Kept by the handle's fields that place and
+ * size it (its low 34 bits but for the row width and its palette's place): what the draw routines
+ * are given back.
+ */
+#define HANDLE_KEY_MASK (0x3FFFull | (0x3Full << 20) | (0xFFull << 26) | (0x3FFFull << 37))
+#define HANDLE_LOW_MASK (0x3FFFull | (0x3Full << 20) | (0x3Full << 26))
+#define KEPT_HANDLES 512
+
+static struct {
+    unsigned long long key;
+    openrac_game_ui_image image;
+    /* 1 when EffectTex0 handed the handle out (rac3_effect_image). */
+    int effect;
+} s_handles[KEPT_HANDLES];
+
+static int s_next_handle;
+
+static void keep_handle(unsigned long long handle, const openrac_game_ui_image* image, int effect) {
+    const unsigned long long key = handle & HANDLE_KEY_MASK;
+    if (key == 0) {
+        return;
+    }
+    for (int i = 0; i < KEPT_HANDLES; ++i) {
+        if (s_handles[i].key == key) {
+            s_handles[i].image = *image;
+            s_handles[i].effect = effect;
+            return;
+        }
+    }
+    s_handles[s_next_handle].key = key;
+    s_handles[s_next_handle].image = *image;
+    s_handles[s_next_handle].effect = effect;
+    s_next_handle = (s_next_handle + 1) % KEPT_HANDLES;
+}
+
+/* The HUD bank's entry whose stored places are the handle's (the image's at its +4, the palette's
+ * at its +4): the bank's header (8 bytes before `tables`) counts its palettes at +0x24 and its images
+ * at +0x44. */
+static int hud_image_of(unsigned long long handle, gaddr tables, openrac_game_ui_image* out) {
+    if (tables == 0) {
+        return 0;
+    }
+    const gaddr header = GREF(gaddr, tables - 8u);
+    const gaddr images = GREF(gaddr, tables + 4u);
+    const gaddr palettes = GREF(gaddr, tables + 8u);
+    if (header == 0 || images == 0 || palettes == 0) {
+        return 0;
+    }
+    const unsigned image_count = GREF(uint16_t, header + 0x44u);
+    const unsigned palette_count = GREF(uint16_t, header + 0x24u);
+    const unsigned tbp = (unsigned)(handle & 0x3FFFu);
+    const unsigned cbp = (unsigned)((handle >> 37) & 0x3FFFu);
+    const int cut = (handle >> 32) == 0; /* cut to its low word: no palette's place */
+    gaddr image = 0;
+    for (unsigned i = 0; i < image_count && i < 4096u; ++i) {
+        const gaddr e = images + 8u * i;
+        if (GREF(uint16_t, e + 4u) == tbp && tbp != 0) {
+            image = e;
+            break;
+        }
+    }
+    gaddr palette = 0;
+    for (unsigned i = 0; image != 0 && !cut && i < palette_count && i < 4096u; ++i) {
+        const gaddr e = palettes + 8u * i;
+        if (GREF(uint16_t, e + 4u) == cbp) {
+            palette = e;
+            break;
+        }
+    }
+    if (image == 0 || palette == 0) {
+        return 0;
+    }
+    const unsigned log2_width = GREF(uint8_t, image + 6u);
+    const unsigned log2_height = GREF(uint8_t, image + 7u);
+    if (GREF(gaddr, image) == 0 || GREF(gaddr, palette) == 0 || log2_width > 10
+        || log2_height > 10) {
+        return 0;
+    }
+    out->pixels = GREF(gaddr, image);
+    out->palette = GREF(gaddr, palette);
+    out->width = (uint16_t)(1u << log2_width);
+    out->height = (uint16_t)(1u << log2_height);
+    out->bits = 8;
+    out->swizzled = 1;
+    out->reserved[0] = out->reserved[1] = 0;
+    return 1;
+}
+
+int rac3_texture_image(unsigned long long handle, gaddr hud_tables, openrac_game_ui_image* out) {
+    const unsigned long long key = handle & HANDLE_KEY_MASK;
+    if (key != 0) {
+        for (int i = 0; i < KEPT_HANDLES; ++i) {
+            if (s_handles[i].key == key) {
+                *out = s_handles[i].image;
+                return 1;
+            }
+        }
+        if ((handle >> 32) == 0) {
+            /* Cut to its low word: matched by that, when one image alone has it. */
+            int found = -1;
+            for (int i = 0; i < KEPT_HANDLES; ++i) {
+                if (s_handles[i].key != 0
+                    && (s_handles[i].key & HANDLE_LOW_MASK) == (key & HANDLE_LOW_MASK)) {
+                    if (found >= 0) {
+                        found = -2;
+                        break;
+                    }
+                    found = i;
+                }
+            }
+            if (found >= 0) {
+                *out = s_handles[found].image;
+                return 1;
+            }
+        }
+    }
+    return hud_image_of(handle, hud_tables, out);
+}
+
+int rac3_effect_image(unsigned long long handle, openrac_game_ui_image* out) {
+    const unsigned long long key = handle & HANDLE_KEY_MASK;
+    for (int i = 0; key != 0 && i < KEPT_HANDLES; ++i) {
+        if (s_handles[i].key == key) {
+            if (!s_handles[i].effect) {
+                return 0;
+            }
+            *out = s_handles[i].image;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Effect texture n of the table at `table`, its count and base at `count` and `count + 4`. */
+static int effect_image(gaddr table, gaddr count, int n, openrac_game_ui_image* out) {
+    const int32_t entries = GREF(int32_t, count);
+    if (n < 0 || (entries > 0 && n >= entries) || n > 4095) {
+        return 0;
+    }
+    const gaddr e = table + 16u * (gaddr)n;
+    const gaddr base = GREF(gaddr, count + 4u);
+    const unsigned log2_width = GREF(uint8_t, e + 0xCu);
+    const unsigned log2_height = GREF(uint8_t, e + 0xDu);
+    const int format = GREF(int16_t, e + 0xEu);
+    if (base == 0 || log2_width > 10 || log2_height > 10 || (format != 0x13 && format != 0x14)) {
+        return 0;
+    }
+    out->pixels = base + 64u * (gaddr)GREF(uint16_t, e + 8u);
+    out->palette = base + 64u * (gaddr)GREF(uint16_t, e + 0xAu);
+    out->width = (uint16_t)(1u << log2_width);
+    out->height = (uint16_t)(1u << log2_height);
+    out->bits = format == 0x14 ? 4 : 8;
+    out->swizzled = format == 0x14 ? 0 : 1;
+    out->reserved[0] = out->reserved[1] = 0;
+    return 1;
+}
+
+/* A picture by its header, its sides powers of two (as the getter's sizes are). */
+static int picture_image(gaddr header, openrac_game_ui_image* out) {
+    if (header == 0 || header >= 0x02000000u) {
+        return 0;
+    }
+    const uint32_t width = GREF(uint32_t, header + 8u);
+    const uint32_t height = GREF(uint32_t, header + 0xCu);
+    if (width == 0 || height == 0 || width > 1024 || height > 1024 || (width & (width - 1)) != 0
+        || (height & (height - 1)) != 0) {
+        return 0;
+    }
+    out->pixels = header + 0x420u;
+    out->palette = header + 0x20u;
+    out->width = (uint16_t)width;
+    out->height = (uint16_t)height;
+    out->bits = 8;
+    out->swizzled = 1;
+    out->reserved[0] = out->reserved[1] = 0;
+    return 1;
+}
+
+static void keep_hud(unsigned long long handle, gaddr tables, int n) {
+    openrac_game_ui_image image;
+    if (rac3_hud_image(tables, n, &image)) {
+        keep_handle(handle, &image, 0);
+    }
+}
+
+/* A handle EffectTex0 gives for no image (the frame buffer's numbers) is a new allocation too: an
+ * effect image kept for the same fields before is not what it names now (rac3_effect_image). */
+static void forget_effect(unsigned long long handle) {
+    const unsigned long long key = handle & HANDLE_KEY_MASK;
+    for (int i = 0; key != 0 && i < KEPT_HANDLES; ++i) {
+        if (s_handles[i].key == key) {
+            s_handles[i].effect = 0;
+        }
+    }
+}
+
+static void keep_effect(unsigned long long handle, gaddr table, gaddr count, int n) {
+    openrac_game_ui_image image;
+    if (effect_image(table, count, n, &image)) {
+        keep_handle(handle, &image, 1);
+    } else {
+        forget_effect(handle);
+    }
+}
+
+static void keep_picture(unsigned long long handle, gaddr header) {
+    openrac_game_ui_image image;
+    if (picture_image(header, &image)) {
+        keep_handle(handle, &image, 0);
+    }
+}
+
+#define BOOT_HUD_TABLES RAC3_ADDR(0x001D9EA8u)
+#define BOOT_EFFECTS RAC3_ADDR(0x00226000u)
+#define BOOT_EFFECT_COUNT RAC3_ADDR(0x001D9C00u)
+#define LEVEL_HUD_TABLES OPENRAC_LDATA(1, RAC3_LADDR(1, 0x001DFD20u))
+#define LEVEL_EFFECTS OPENRAC_LDATA(1, RAC3_LADDR(1, 0x001E7C80u))
+#define LEVEL_EFFECT_COUNT OPENRAC_LDATA(1, RAC3_LADDR(1, 0x001DF980u))
+
+unsigned long long func_00396E18__game(int n);
+unsigned long long func_00396A38__frontbin__game(int n);
+unsigned long long func_L01_00420080__game(int n);
+long long func_00389978__game(int n);
+long long func_00389598__frontbin__game(int n);
+long long func_L01_00404040__game(int n);
+unsigned long long func_0039B088__game(int header);
+long long func_0039ACA8__frontbin__game(gaddr header);
+unsigned long long func_L01_0042D898__game(int header);
+
+unsigned long long func_00396E18(int n) {
+    const unsigned long long handle = func_00396E18__game(n);
+    keep_hud(handle, BOOT_HUD_TABLES, n);
+    return handle;
+}
+
+unsigned long long func_00396A38__frontbin(int n) {
+    const unsigned long long handle = func_00396A38__frontbin__game(n);
+    keep_hud(handle, BOOT_HUD_TABLES, n);
+    return handle;
+}
+
+unsigned long long func_L01_00420080(int n) {
+    const unsigned long long handle = func_L01_00420080__game(n);
+    keep_hud(handle, LEVEL_HUD_TABLES, n);
+    return handle;
+}
+
+long long func_00389978(int n) {
+    const long long handle = func_00389978__game(n);
+    keep_effect((unsigned long long)handle, BOOT_EFFECTS, BOOT_EFFECT_COUNT, n);
+    return handle;
+}
+
+long long func_00389598__frontbin(int n) {
+    const long long handle = func_00389598__frontbin__game(n);
+    keep_effect((unsigned long long)handle, BOOT_EFFECTS, BOOT_EFFECT_COUNT, n);
+    return handle;
+}
+
+long long func_L01_00404040(int n) {
+    const long long handle = func_L01_00404040__game(n);
+    keep_effect((unsigned long long)handle, LEVEL_EFFECTS, LEVEL_EFFECT_COUNT, n);
+    return handle;
+}
+
+unsigned long long func_0039B088(int header) {
+    const unsigned long long handle = func_0039B088__game(header);
+    keep_picture(handle, (gaddr)header);
+    return handle;
+}
+
+long long func_0039ACA8__frontbin(gaddr header) {
+    const long long handle = func_0039ACA8__frontbin__game(header);
+    keep_picture((unsigned long long)handle, header);
+    return handle;
+}
+
+unsigned long long func_L01_0042D898(int header) {
+    const unsigned long long handle = func_L01_0042D898__game(header);
+    keep_picture(handle, (gaddr)header);
+    return handle;
+}
+
+void rac3_textures_forget(void) {
+    memset(s_handles, 0, sizeof s_handles);
+    s_next_handle = 0;
+    openrac_game_images_forget();
 }
