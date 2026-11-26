@@ -150,40 +150,45 @@ NTSC-U widening stays off (`rac3_mp_wide_available()`); `release_carry_rac3.py` 
 `mp_fixes.h` and rows carry the new wrap.
 
 
-## 6. Match test, 2026-11-25 evening: what ran and what blocks a real match
+## 6. Match test, 2026-11-25 evening: READY and START in rooms past 8
 
-Binary: PAL release build on box2 (this branch's step 2b plus `name_fix`, built from the tree before the
-merge of develop and the other agent's push), copied to box1; Server master `--mode all` on the Mac with
-`FAMILY_PARTY_SIZES=rac3-pal-1:24 MAX_CONNECTIONS_PER_ADDRESS=64`; clients hidden, muted, llvmpipe,
-scripted by `OPENRAC_PRESS` (host: CREATE with PLAYERS right x(N-8) and TIMED 5 Minutes, READY, up + cross
-for START; joiners: QUICK PLAY, join, READY). `OPENRAC_RAC3_NET_LOG=1` now also logs each console's view
-of the settings' slot client/state, the channel 17 slot updates it delivers (first 10 payload bytes),
-and the wide end message and results.
+Binary: PAL release build on box2 (this branch), copied to box1; Server master `--mode all` on the Mac with
+`FAMILY_PARTY_SIZES=rac3-pal-1:24 MAX_CONNECTIONS_PER_ADDRESS=64`; clients hidden, muted, llvmpipe, all on
+box1 (started 8 s apart), scripted by `OPENRAC_PRESS` (host: CREATE with PLAYERS right x(N-8) and TIMED 5
+Minutes, READY, up + cross for START; joiners: QUICK PLAY, join, READY). The scripts are
+`~/RACSwarm/k3-wide.sh` (orchestrator) and `k3-mp24-run.sh` (one client) on the Mac. `OPENRAC_RAC3_NET_LOG=1`
+logs each console's view of the slots' client/state, the channel 17 slot updates it delivers, the wide
+end message and results, and `N ready of M players: START ...`.
 
-Proven: rooms of 10 (host + 9 joiners) fill and every console shows the same 10 slots (`settings (sent)`
-on the host, `(received)` on the joiners, slots 8 and 9 included); 2-3 player rooms ready and START as before.
+Proven (screenshots in `~/Projects/RAC/mp24-progress/`): a room of 10 (host + 9 joiners) fills, every console
+shows the same 10 slots (8 and 9 included), every slot reaches READY (6) and the host's START enables
+with 10 of 10 ready.
 
-Findings:
-- Box2's software-GL clients run far below 50 fps (about 190% CPU each), box1's use about 6% each; the
-  presses are by frame, so a script that spreads clients over both boxes drifts by minutes. Run all
-  hidden clients of one room on box1 (10 clients, host included, fit with room to spare) and start them
-  8-10 s apart.
-- A joiner that joins with no name in the game's net block sent "(null)" as its name and an
-  uninitialised skin (staging rows "(null)" / "Paradox ERR"); `name_fix` (mp_net.c `dme_relay`) puts the
-  account's name into the join request and slot updates. With it the rows show `j1`, `j2` ... and the skins
-  are valid. This did not change the ready problem below.
-- **READY does not hold with more than 2-3 joiners, in a room of 8 as well as of 10** (so not a
-  widening effect): every joiner's READY (channel 17, state 6) reaches the host and is applied, then the
-  same joiner sends channel 17 state 1 ("leave", L39_006C4308), which the host applies as state 0, once
-  for every joiner that readies after it (client 1 sends six, client 2 five, ... client 6 one, client 7
-  none: the last stays ready). Cause not found. Not yet compared with a build from before step 1
-  (box1 `~/RACSwarm/mp-ui-run/bin` is such a build but has no settings logging and needs a disc image
-  in its data dir). Start there next: whichever of the stock staging update (L39_006C20B0) or the
-  port's object update path (`obj_receive` calls the type's on_update with the whole object, field -1)
-  makes an already-ready joiner leave when another slot's state changes.
-- Joiners in slots 8 and up send no READY at all (their Circle press produces no channel 17 message):
-  the staging screen's own widget loop (L39_006C30A0) stays 8 rows, so there is no row for them to
-  have the cursor on. Needs a port-side READY for slots 8+ (a native handler for Circle in the
-  staging screen that sends the slot update from the wide settings), in `mp_ui.c`.
-- So no room of more than 8 could be started: the host's START stays greyed. The end message
-  (0x82), the wide results and the scoreboard are written and built but have not run in a match.
+What was wrong, and what fixes it:
+- **Box2's software-GL clients** run far below 50 fps (about 190% CPU each; box1's use 6%), so the scripted
+  presses, which are by frame, drift by minutes. All hidden clients of a room run on box1.
+- **Joiners with no name in the game's net block** sent "(null)" and an uninitialised skin in the join request
+  and slot updates; `name_fix` (mp_net.c `dme_relay`) puts the account's name and skin 0 in. (A pre-widening
+  build, box1 `~/RACSwarm/mp-ui-run/bin`, shows the right names and skins, so this is a regression from the
+  widened or merged code, cause not found; the rows read "j1", "j2" ... now.)
+- **READY past 3 joiners reset itself.** The staging update (L39_006C20B0) reads the pad's pressed bits each
+  game tick; a client too slow to draw runs several ticks in the window frame of one press, so it sends
+  ready (state 6), then unready (state 1) once per extra tick (client 1 six times, client 7 none: the count
+  depended on how far each console lagged). Rooms of 8 do the same on such clients; a real GPU client does
+  not tick more than once a frame. With `OPENRAC_RAC3_PORT_READY=1` the port takes every slot's Circle press
+  (`rac3_mp_ui_pad_filter` in pad.c's scePadRead: the press is left out of the pad word, so the game never
+  sees it, and `rac3_mp_net_toggle_ready` sends the slot update, or for the host writes its own state).
+- **Slots 8 and up** have no row in the game's staging widgets, so their Circle never reached a READY handler;
+  the same function takes their press without the variable.
+- **START stayed greyed** with all 10 ready: the host's per-frame check (L39_006C30A0) counts the ready among
+  slots 1-7 and itself and compares with GameSettings +0x178 (the players), and the START handler reads its
+  byte right after that check in the same call. `mp_func_L39_006C30A0` (a new wrap, mp/libraries.tsv) sets
+  the byte again from every slot when the room is wider than 8.
+- The staging header reads `PLAYER n/m` from net+0x130 and net+0x134: `m` is the room's maximum
+  (`rac3_mp_wide_set_slots`), so 10/10 is a full room of 10 (screenshots show 2/8, 5/10, 3/10 on the way).
+
+Still open: the match itself (host START press landed before START was enabled in the runs so far; the run
+with the START wrap is the next), the end message and results in a match, the staging list shows 8 rows
+(the native staging table is not up in these runs: the server serves no UI description, so rows 9+ are
+not drawn; `mp_ui.c` sizes the native table's pitch for up to 16 rows when it is), a scroll bar, channel 9
+for clients 16-23, the NTSC-U carry of the new wraps' places (release_carry_rac3.py was rerun).
