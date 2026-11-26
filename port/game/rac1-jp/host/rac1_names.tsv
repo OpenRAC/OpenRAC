@@ -2,8 +2,10 @@
 # port/tools/hostgen/release_rac1.py (release_carry.json says how each rests); do not edit.
 func_001E97C8	func_001E9B48
 func_001E9800	func_001E9B80
+func_001E99D8	func_001E9D58
 func_001E9E70	func_001EA320
 func_001E9E70__game	func_001EA320__game
+func_001EBB48	func_001EC0E8
 func_001EC210	func_001EC770
 func_001EC270	func_001EC7D0
 func_001EFD70	func_001F02D0
@@ -66,6 +68,8 @@ func_001FB608	func_001FC730
 func_001FB608__game	func_001FC730__game
 func_001FB848	func_001FC970
 func_001FB848__game	func_001FC970__game
+func_001FB8A8	func_001FC9D0
+func_001FB8A8__game	func_001FC9D0__game
 func_001FB908	func_001FCA30
 func_001FB908__game	func_001FCA30__game
 func_001FD3E8	func_001FE568
@@ -187,6 +191,7 @@ func_0022ED80	func_0022FAE8
 func_0022F4A0	func_00230208
 func_00230A90	func_002317F8
 func_00230A90__game	func_002317F8__game
+func_00233308	func_00234050
 func_00234620	func_00235348
 func_002347F0	func_00235518
 func_002348E8	func_00235610
@@ -196,6 +201,7 @@ func_00234948__game	func_00235670__game
 func_002349B8	func_002356E0
 func_00234AC8	func_002357F0
 func_00234C98	func_002359C0
+func_00234F40	func_00235C68
 func_00235118	func_00235E40
 func_002352C8	func_00235FF0
 func_00235EF0	func_00236C18

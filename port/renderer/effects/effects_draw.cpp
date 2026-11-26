@@ -584,6 +584,7 @@ void EffectRenderer::draw_prepared(
 
             State wanted{q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp, 0};
             wanted.untextured = q.untextured;
+            wanted.frame_copy = q.frame_copy;
             // A quad of a pair run: the run's state, whichever of its two textures it samples.
             if (const std::size_t i = static_cast<std::size_t>(&q - input.effects.data());
                 !prepared.quad_pairs.empty() && prepared.quad_pairs[i].second != 0) {
@@ -650,6 +651,13 @@ void EffectRenderer::draw_prepared(
                 if (const TextureHandle handle = draws(quad, input) ? native_image(quad) : 0) {
                     const auto [texture, mips] = state.textures.prepare_draw_texture(handle);
                     textures.push_back({texture, mips});
+                }
+                continue;
+            }
+            // A frame-copy quad samples the pass's native snapshot, declared as a texture read.
+            if (quad.frame_copy) {
+                if (m_frame_copy_texture != 0 && draws(quad, input)) {
+                    textures.push_back({m_frame_copy_texture});
                 }
                 continue;
             }

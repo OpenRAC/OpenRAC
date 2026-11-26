@@ -2611,10 +2611,11 @@ static void gs_log(const char* who) {
         n += (size_t)snprintf(
             line + n,
             sizeof line - n,
-            " %d:%d/%d",
+            " %d:%d/%d[%.8s]",
             slot,
             GREF(int16_t, client),
-            GREF(int16_t, state)
+            GREF(int16_t, state),
+            (const char*)G(rac3_mp_wide_settings(0x080u, slot))
         );
     }
     line[n] = 0;

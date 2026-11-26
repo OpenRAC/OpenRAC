@@ -257,6 +257,35 @@ OPENRAC_TELEPORT=30:120:85:40 OPENRAC_SKIP_SCENES=1 OPENRAC_STATE_DUMP=state.jso
 ranks what they met: what stopped a run first, then stubs, zero-filled calls, unknown calls and
 unmapped accesses by routes and hits, each by function: the list for the backfill.
 
+## Real rendered frames on a Linux machine with a GPU, no screen
+
+A hidden run (`OPENRAC_HIDDEN=1`) draws real frames on a Linux box with an NVIDIA GPU, through the
+logged-in desktop session's SDL Wayland (or Xwayland) driver: the log says `graphics: hardware
+context through SDL's wayland driver` and `OpenGL 4.1.0 NVIDIA`. What makes the pictures show the
+level, and not only the background, is **`--levels <levels>`** (the extracted levels, `Get the
+levels ready`, or `python3 extractor/extract.py port <disc> assets/port/<game>/<ver>`): without it
+the level is "no scenery for this game yet" and only the 2D path and the clear colour are drawn.
+Measured on a GTX 1070 (2026-11-26, box1): a Veldin run to a quick-select ring takes about a minute.
+
+```sh
+env -i HOME=$HOME PATH=/usr/bin:/bin XDG_RUNTIME_DIR=/run/user/$(id -u) WAYLAND_DISPLAY=wayland-0 \
+  DISPLAY=:1 XAUTHORITY=$(ls /run/user/$(id -u)/xauth_* | head -1) \
+  OPENRAC_HIDDEN=1 SDL_AUDIODRIVER=dummy OPENRAC_SHOT=20:shots/s OPENRAC_SHOT_FROM=1500 \
+  openrac-rac3-pal --data <data> --levels <levels> --skip-movies --window \
+  --settings <scratch>.ini --cards <scratch card dir> --frames 2000
+```
+
+- A second X server (Xorg with the nvidia driver and a dummy screen) does **not** start while the
+  desktop session holds the GPU: `Failed to acquire modesetting permission`. Use the session's
+  display as above; the window is never shown.
+- A card folder copied from a real save goes in as `<scratch>/BESCES-52456RATCHET/` (the folder
+  the game makes), writable; the game writes to it.
+- Up Your Arsenal: `OPENRAC_PRESS=420:40:4,450:4000:4,570:1000:4,660:4000:4` starts a New Game
+  without a save from the boot screens (PAL, 50 ticks a second); `430:4000:4,560:4000:4` loads
+  slot 1, and a Down (`540:40:4`) first loads slot 2. `OPENRAC_RAC3_HERO=FILE` also writes a
+  `scene` line whenever the first flight's scene picker changes (see its row below).
+- `montage` (ImageMagick) turns a run's shots into one contact sheet to read at a glance.
+
 ## Pause, single step, slow motion
 
 The game calls the port once a tick, at its vertical blank. Paused, the
@@ -546,8 +575,9 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_PVS_OFF` | any (set) | Profiling reference: no baked camera visibility (rooms the game hides then show); the F3 overlay has the switch too. See [Baked camera PVS](#baked-camera-pvs). | `port/scene/level_renderer.cpp` |
 | `OPENRAC_RAC3_CHAINS` | N | Up Your Arsenal: the VIF codes of the first N display lists sent to VIF1, and the front end's state words, on stderr. | `port/game/rac3-pal/host/chain_census.c` |
 | `OPENRAC_RAC3_NEXT` | `FRAME:LEVEL` | Up Your Arsenal, a development probe until its menus can be read: at the boot program's FRAME-th display list, writes what a menu's choice does (the front end's exit word and the level to go to), so the game loads that level's program itself, or frontbin for a LEVEL below zero. | `port/game/rac3-pal/host/program.c` |
-| `OPENRAC_RAC3_HERO` | path | Up Your Arsenal: in a level, a line for each frame the hero's state words changed (and every 60th): level mode, state and its type, health, the combo's swing, the held item and gun with their ammunition, bolts, area, deaths, the last checkpoint, the level's progress flags, then the frames in the state, frames off the ground, position and the pad; `-` writes to stderr. | `port/game/rac3-pal/host/hero_log.c` |
+| `OPENRAC_RAC3_HERO` | path | Up Your Arsenal: in a level, a line for each frame the hero's state words changed (and every 60th): level mode, state and its type, health, the combo's swing, the held item and gun with their ammunition, bolts, area, deaths, the last checkpoint, the level's progress flags, then the frames in the state, frames off the ground, position and the pad; `-` writes to stderr. The same file gets a `scene` line whenever the first flight's scene picker changes (`count`, `excl`, `playing`, the table and its used flags), outside levels too. | `port/game/rac3-pal/host/hero_log.c` |
 | `OPENRAC_RAC3_FLIGHT_LOG` | any but empty or 0 | Up Your Arsenal: a line on stderr for each pass of the boot program's loading flight (`0x003BCE00`): the pass, whether the files count as read, the loader's state, the scene playing and its tick against its last, the approach flag, the tick stretch, the scene pack's parts (`0x001D8CD4`) and the flight's way (`0x001D8CE8` to `0x001D8CEC`). | `port/game/rac3-pal/host/loading.c` |
+| `OPENRAC_RAC3_LOAD_SECONDS` | seconds, `0` for instant | Up Your Arsenal: how long the boot program's loading flight treats the files as still being read (default 10, about a retail disc load), so the flight plays its laps and then the approach at normal speed. | `port/game/rac3-pal/host/loading.c` |
 | `OPENRAC_RAC3_MAX_PLAYERS` | `9`-`24` | Up Your Arsenal online play (PAL): the players a game this console hosts takes, past the CREATE page's 8 (the room's per-player tables grow to it, `mp_wide.c`). | `port/game/rac3-pal/host/mp_net.c` |
 | `OPENRAC_RAC3_MENU_LOG` | path | Up Your Arsenal: one line a frame of the front end's state words (mode, boot state, boot screen, the pad's held and pressed buttons) and every string the font printed, with its place; read by the scripted menu walk (`port/game/rac3-pal/menus.py`). | `port/game/rac3-pal/host/menu_log.c` |
 | `OPENRAC_RAC3_MOBYS` | `FRAME,...` | Up Your Arsenal, with `OPENRAC_RAC3_HERO`: at those frames, a line for each live moby within 500 units of the hero, in its log. | `port/game/rac3-pal/host/hero_log.c` |

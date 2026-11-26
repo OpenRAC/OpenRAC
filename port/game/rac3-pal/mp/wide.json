@@ -195,6 +195,7 @@
    "0019ABB8": "ea GS_CLIENT",
    "0019ABD4": "ea GS_CLIENT",
    "0019ABDC": "arg GS_NAME r4",
+   "0019ABF4": "arg GS_CLAN r4",
    "0019AC0C": "ea GS_STATE",
    "0019AC34": "ea GS_TEAM",
    "0019AC40": "ea GS_SKIN",

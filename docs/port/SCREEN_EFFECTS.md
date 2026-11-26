@@ -185,6 +185,17 @@ vendor's monitors and the pause menu look as with the packets (`native2d-progres
 frame-buffer plumbing sprites (`append_palette_transfer_packet`'s copy into the small buffer). Checked in hidden runs on
 box1: the Gadgetron vendor's six monitors on Novalis look as before (`r2-progress/rt/rac1-vendor-*`).
 
+The small-buffer copy (`append_palette_transfer_packet` `func_001FB8A8`, the DMA call of
+`fs_aa_transfer_packet`: 16 textured sprites from the large buffer's block into the small one the display
+reads, then two points at block 0) is not sent with a window either (`screen_fade.c`; PAL v2.00 only, the
+other releases omit it; `OPENRAC_UI_SKIP=func_001FB8A8` or `OPENRAC_UI_REPLAY` keep it). Its callers are
+the boot's loading loop and picture, the space transition's wait and the transition loop; none of the
+level's own frame loop (it calls `AA_BlurPass`). In a hidden level-1 run on box1 (`OPENRAC_UI_RESIDUAL`)
+these sprites were the residual 16-sprite groups of the first draws only, and 0 in play. Frames with and
+without the packet (400 frames, a shot every 4th, `native2d-progress/round2/rac1-palcopy-*`) differ only in
+the phase of the "Planet Novalis" caption's fade (a mean of at most 0.3 of 255), which the runs' timing
+decides, not the copy.
+
 Going Commando (NTSC-U, hidden runs on box1, gdb call counts and `OPENRAC_UI_LOG`): the rac2 panel
 wrappers do not run on the screens one expects. `func_00285030` was called 0 times in the Ship Shack
 vendor (level 24: monitor, Triangle; its pages are not the pause panels, `menu_draw_pause_panels`
@@ -200,3 +211,36 @@ the game's packets (`OPENRAC_UI_RESIDUAL=1`, kinds seen once per run): untexture
 tints) and a textured sprite at block 0x1E80 from the start of a level, a line, a textured triangle
 strip at block 0x3FFB (in play and menus), another at block 0x2F31 (8-bit palette) in the Ship Shack
 vendor, and an untextured strip in flight.
+
+## 5.2 Going Commando: the end-of-frame fades and the letterbox bars
+
+`port/game/rac2/host/screen_fade.c` wraps `gfx_set_clear_color_packet` (`func_0027DDC0`, a register write of
+RGBAQ and the DMA call of `g_gfx_clear_packet_a`: TEST 0x30000 = depth ALWAYS, no alpha test, PRIM 0x146 = an
+alpha-blended sprite, then 16 strips of the 512 x h picture; the same header words on NTSC-U v1.01, v2.00 and
+PAL, read from each program) and `DoGifPaging` (`func_0027C660`). RenderFrame's tail writes ALPHA 0x44 (source
+over) right after its last DoGifPaging and then the clear colour, the black fade and the white flash. A call
+whose list is exactly { that ALPHA write at the end of the last paging, the RGBAQ write, the DMA call of the
+packet read above } is taken back and recorded as a whole-picture source-over fill (`OPENRAC_UI_LOG`:
+`screen_fade: tint`). A second shape is proved from the list itself: `gfx_write_clear_color_packets` (`func_0027B7E0`) right
+before the RGBAQ write (calls of `g_gfx_clear_color_packet`, whose ALPHA_1 is 0x44 and TEST/PRIM are the packet's own,
+and of `g_gs_draw_env_regs`: FBMSK 0, ZBUF 24-bit written; the same bytes in all three programs, and register 0x3D).
+That is the pause dimming and the splash fade; there the sprites' depth (0, ALWAYS, written) is recorded as a
+depth fill, since later 2D is tested against it. The other callers (wipes, the hud's letterbox `func_00290670`, the
+levels' own) keep their packets: their blend is not proved (`OPENRAC_UI_LOG`: `tint ... kept`). Checked in hidden runs on box1 (NTSC-U, level 4, 1,500 frames, a shot every 10th): 114 of 114
+frames are pixel-identical to `OPENRAC_UI_REPLAY=1`, including the fade-ins (`native2d-progress/round2/rac2-*`).
+The sprites' depth write (Z 0) is not kept: nothing in the list reads it after the tail.
+
+`port/game/rac2/host/letterbox.c` wraps `DrawLetterboxBars` (`func_0027D900`). RenderFrame calls it right after
+`VU1_addGSregister(0x47, 0x33001)`: alpha test NEVER with AFAIL RGB_ONLY, so each bar is opaque black written to the
+colour channels only. When the list ends in that TEST write and the 128-byte packet, with the vertices as read from
+the C, the two bars are recorded as `openrac_frame_fill_depth` (depth ALWAYS, RGB written). **Not exercised:** the bars
+in cutscenes (levels 6 and 8, game mode 2, hidden runs) come from the other caller, the level's frame loop
+(`func_L00_002A3B88` case 2, after `gfx_render_frame_all_layers`), which follows an ALPHA write and no TEST. That caller's
+state is not provable from the code before it, and keeps its packets: `gfx_render_frame_all_layers` runs RenderFrame
+with mask 0x7F (no bars of its own), whose list is already sent when the bars are appended, so the GS state at them is
+whatever that list's tail left, which depends on the fade, flash and tint that frame. No run reached the RenderFrame
+caller.
+
+Left on the game's packets (rac1): the letterbox outside level 6 and the freeze dialog (the callback list of each
+level was not read, `func_001F5148`), the debug and draw-overlay rectangles. (rac2): the textured sprite at block
+0x1E80, the line, and every other caller of `func_0027DDC0`.

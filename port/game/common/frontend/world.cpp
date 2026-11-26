@@ -1023,7 +1023,9 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
     } else {
         // No paging record: a texture the game put in the GS itself (the flight's planet picture,
         // loaded with the transition's data), resolved from the pool at TEX0's blocks; the
-        // renderer leaves the quad out when nothing is there.
+        // renderer leaves the quad out when nothing is there. A frame copy (GetEffectTex -1) is the
+        // exception: no image is ever sent to its block, the window's own snapshot stands in.
+        q.frame_copy = g->render.profile->frame_copy_texture(q.tex0);
         g->effects.push_back(q);
     }
 }
