@@ -35,13 +35,15 @@ steady_clock::time_point between_limit(
     double lag,
     double cost,
     double interval,
-    steady_clock::time_point last_swap
+    steady_clock::time_point last_swap,
+    double first_shown
 ) {
     if (lag > 0.0) {
         return next_tick + duration_cast<steady_clock::duration>(period * lag);
     }
     if (interval <= 0.0 || last_swap.time_since_epoch().count() == 0) {
-        return next_tick;
+        const double after = std::max(0.0, first_shown - std::max(interval, 0.0) / 2.0);
+        return next_tick + duration_cast<steady_clock::duration>(duration<double>(after));
     }
     return std::max(next_tick, shown_at(next_tick, cost, interval, last_swap));
 }
