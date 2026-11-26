@@ -92,7 +92,8 @@ static void make_backdrop(int lines) {
         for (int x = 0; x < BACKDROP_WIDTH; ++x) {
             int r = 0, g = 0, b = 0, n = 0;
             for (int py = y * BACKDROP_SHRINK; py < (y + 1) * BACKDROP_SHRINK && py < lines; ++py) {
-                const uint8_t* p = from + ((size_t)py * PICTURE_WIDTH + (size_t)x * BACKDROP_SHRINK) * 4;
+                const uint8_t* p =
+                    from + ((size_t)py * PICTURE_WIDTH + (size_t)x * BACKDROP_SHRINK) * 4;
                 for (int px = 0; px < BACKDROP_SHRINK; ++px, p += 4, ++n) {
                     r += p[0];
                     g += p[1];
@@ -172,8 +173,9 @@ static void make_sides(void) {
                     + ((size_t)y * SIDE_COLUMNS + (size_t)(side == 0 ? SIDE_COLUMNS - 1 - x : x))
                           * 4;
                 for (int c = 0; c < 3; ++c) {
-                    const float v = (float)from[((size_t)y * BACKDROP_WIDTH + (size_t)a) * 4 + c] * (1.0f - f)
-                                    + (float)from[((size_t)y * BACKDROP_WIDTH + (size_t)b) * 4 + c] * f;
+                    const float v =
+                        (float)from[((size_t)y * BACKDROP_WIDTH + (size_t)a) * 4 + c] * (1.0f - f)
+                        + (float)from[((size_t)y * BACKDROP_WIDTH + (size_t)b) * 4 + c] * f;
                     to[c] = (uint8_t)(v * (float)light / (float)SIDE_LIT);
                 }
                 to[3] = 0x80;
@@ -263,8 +265,9 @@ void func_002FC8D0(gaddr a0, int a1, int a2) {
 /* One side of the backdrop, a band of the whole window from `outer` to `seam` (its 16ths of the
  * chip's pixels): the picture's blurred edge drawn out to the window's side and darkening there, its
  * texels from `edge` (at the seam) to `far` (at the window's side), 16ths of a texel. */
-static void draw_side(uint64_t outer, uint64_t seam, uint64_t edge, uint64_t far, uint64_t top,
-                      uint64_t bottom) {
+static void draw_side(
+    uint64_t outer, uint64_t seam, uint64_t edge, uint64_t far, uint64_t top, uint64_t bottom
+) {
     const uint64_t rows = (uint64_t)backdrop_lines << 4;
     const uint64_t dim = 0x80383838u, lit = 0x80808080u;
     func_002FC560(REG_RGBAQ, dim);
@@ -289,8 +292,9 @@ static void draw_sides(float wider, uint64_t top, uint64_t bottom) {
     /* The picture's sides in the whole window, in 16ths of the chip's pixels. */
     const uint64_t band = (uint64_t)((float)(PICTURE_WIDTH << 3) * (1.0f - 1.0f / wider));
     const uint64_t texels = (uint64_t)BACKDROP_WIDTH << 4;
-    const uint64_t tex0 = (uint64_t)(BACKDROP_BLOCK) | (uint64_t)(BACKDROP_WIDTH / 64) << 14 | 6ull << 26
-                          | 6ull << 30;  /* modulated (TFX 0): the vertex colours darken it outwards */
+    const uint64_t tex0 =
+        (uint64_t)(BACKDROP_BLOCK) | (uint64_t)(BACKDROP_WIDTH / 64) << 14 | 6ull << 26
+        | 6ull << 30; /* modulated (TFX 0): the vertex colours darken it outwards */
     func_002FC560(REG_NOP, WHOLE_MARKER | 1);
     func_002FC560(REG_TEX0_1, tex0);
     func_002FC560(REG_TEX1_1, 0x60);
@@ -320,7 +324,14 @@ void func_002FC990(int a0, int a1, int a2) {
             make_backdrop(picture_lines);
             make_sides();
             const openrac_game_image under =
-                {BACKDROP_BLOCK, BACKDROP_WIDTH / 64, 0, 0, 0, BACKDROP_WIDTH, backdrop_lines, backdrop};
+                {BACKDROP_BLOCK,
+                 BACKDROP_WIDTH / 64,
+                 0,
+                 0,
+                 0,
+                 BACKDROP_WIDTH,
+                 backdrop_lines,
+                 backdrop};
             openrac_game_load_image(&under);
         }
         /* It reaches the texture pool after this frame's list: drawn now, the frame shows the pool's
