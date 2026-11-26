@@ -374,7 +374,12 @@ std::vector<std::uint8_t> direct_packets(
                         if (std::find(noted_refs.begin(), noted_refs.end(), key) == noted_refs.end()
                             && noted_refs.size() < 600) {
                             noted_refs.push_back(key);
-                            log::info("ui residual ref: tag at {:#x} sends {:#x} ({} quadwords)", tag_at, addr, qwc);
+                            log::info(
+                                "ui residual ref: tag at {:#x} sends {:#x} ({} quadwords)",
+                                tag_at,
+                                addr,
+                                qwc
+                            );
                         }
                     }
                     from_spr ? append_scratchpad(addr, qwc * 16) : append(addr, qwc * 16);
