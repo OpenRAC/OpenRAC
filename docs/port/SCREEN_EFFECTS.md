@@ -185,6 +185,17 @@ vendor's monitors and the pause menu look as with the packets (`native2d-progres
 frame-buffer plumbing sprites (`append_palette_transfer_packet`'s copy into the small buffer). Checked in hidden runs on
 box1: the Gadgetron vendor's six monitors on Novalis look as before (`r2-progress/rt/rac1-vendor-*`).
 
+The small-buffer copy (`append_palette_transfer_packet` `func_001FB8A8`, the DMA call of
+`fs_aa_transfer_packet`: 16 textured sprites from the large buffer's block into the small one the display
+reads, then two points at block 0) is not sent with a window either (`screen_fade.c`; PAL v2.00 only, the
+other releases omit it; `OPENRAC_UI_SKIP=func_001FB8A8` or `OPENRAC_UI_REPLAY` keep it). Its callers are
+the boot's loading loop and picture, the space transition's wait and the transition loop; none of the
+level's own frame loop (it calls `AA_BlurPass`). In a hidden level-1 run on box1 (`OPENRAC_UI_RESIDUAL`)
+these sprites were the residual 16-sprite groups of the first draws only, and 0 in play. Frames with and
+without the packet (400 frames, a shot every 4th, `native2d-progress/round2/rac1-palcopy-*`) differ only in
+the phase of the "Planet Novalis" caption's fade (a mean of at most 0.3 of 255), which the runs' timing
+decides, not the copy.
+
 Going Commando (NTSC-U, hidden runs on box1, gdb call counts and `OPENRAC_UI_LOG`): the rac2 panel
 wrappers do not run on the screens one expects. `func_00285030` was called 0 times in the Ship Shack
 vendor (level 24: monitor, Triangle; its pages are not the pause panels, `menu_draw_pause_panels`

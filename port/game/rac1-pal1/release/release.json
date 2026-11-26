@@ -18,6 +18,7 @@
     "func_001F5148": "Native letterbox bars (letterbox.c): their caller state is proved on PAL v2.00's level 6 only.",
     "func_001F55C0": "Native screen tint (screen_fade.c): checked on PAL v2.00 only.",
     "func_001FB848": "The AA pass left out natively (screen_fade.c): checked on PAL v2.00 only.",
+    "func_001FB8A8": "The small-buffer copy left out natively (screen_fade.c): checked on PAL v2.00 only.",
     "func_001F4E08": "Native fade to black (screen_fade.c): checked on PAL v2.00 only.",
     "func_001F5368": "Native stripes of the screen colour effect (screen_fade.c): checked on PAL v2.00 only.",
     "func_L00_002A21A8": "The frame copy's read as a port picture (screen_copy.c): checked on PAL v2.00 only.",
