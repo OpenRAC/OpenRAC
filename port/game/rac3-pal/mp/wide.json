@@ -180,7 +180,6 @@
    "0019A5FC": "ea GS_STATE",
    "0019A600": "arg GS_NAME r4",
    "0019A620": "ea GS_NAME",
-   "0019A628": "arg GS_CLAN r4",
    "0019A63C": "ea GS_CLAN",
    "0019A660": "ea GS_TEAM",
    "0019A670": "ea GS_SKIN",
