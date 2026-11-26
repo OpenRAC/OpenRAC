@@ -609,6 +609,8 @@ static void fill_scores(void) {
 static void fill_players(void) {
     const gaddr gs = GREF(gaddr, GAME_SETTINGS);
     openrac_mp_ui_table_begin(g_ui, "players");
+    /* The room's player limit, so the list shows joined/MAX. */
+    openrac_mp_ui_table_capacity(g_ui, rac3_mp_wide_slots());
     /* The slots in order; an empty one has client id -1. */
     for (int slot = 0; gs != 0 && slot < rac3_mp_wide_slots(); slot++) {
         const int16_t client = GREF(int16_t, settings_at(gs, GS_CLIENTS, 2u, slot));
@@ -832,9 +834,50 @@ uint16_t rac3_mp_ui_pad_filter(uint16_t word) {
     return taken ? (uint16_t)(word | 0x2000u) : word;
 }
 
+/* Whether this console is the host of a room of more than eight players, on the staging screen
+ * with the room's flag the game's own START check reads (L39_006C30A0, mp_func_L39_006C30A0). */
+static int wide_host(void) {
+    return rac3_mp_wide_slots() > GS_SLOTS && GREF(gaddr, GAME_SETTINGS) != 0
+           && GREF(uint8_t, RAC3_MADDR(0x001A5CD0u) + 0x168u) != 0;
+}
+
+/* START in a room past eight rows: the game's list widget stops at eight rows, so its cursor
+ * (wrapping from the first row to the eighth) never reaches the host's START widget. The pad's
+ * Start button, and Up from the first row of the native list, go to START instead: the game's
+ * cursor moves to the widget and Cross is the event it sees, which the game answers as it does
+ * for START (a greyed START refuses with the denied sound). Returns 1 when the event was taken;
+ * `event` is then replaced by the one the game gets. */
+static int wide_start(int mgr, int* event) {
+    const int32_t current = GREF(int32_t, (gaddr)mgr + MGR_CURRENT);
+    if (!g_on_staging || current < 0 || !wide_host() || g_screen == 0) {
+        return 0;
+    }
+    const int32_t focus = GREF(int32_t, g_screen + SCREEN_FOCUS);
+    const int up_from_top = *event == GAME_UP && g_ui != NULL && g_bound == SCREEN_STAGING
+                            && !openrac_mp_ui_modal(g_ui) && focus == STAGING_NAME_WIDGET
+                            && openrac_mp_ui_cursor(g_ui) == 0;
+    if (*event != GAME_START && !up_from_top) {
+        return 0;
+    }
+    const int enabled = GREF(uint8_t, g_screen + 0x2A8u) != 0;
+    fprintf(stderr, "[info] rac3: online: START (port path): %s\n", enabled ? "enabled" : "greyed");
+    mp_func_L39_0068B2F8((int)g_screen, STAGING_START_WIDGET, 0);
+    if (up_from_top || !enabled) {
+        /* Only the cursor goes there (or START refuses); Cross is pressed on a Start button alone. */
+        mp_func_L39_00688340(enabled || up_from_top ? SOUND_MOVE : SOUND_DENIED, 0, 0);
+        *event = 0;
+        return 1;
+    }
+    *event = GAME_CROSS;
+    return 1;
+}
+
 /* The menu event read (L39_00686138): the native screen's, while it has the cursor. */
 int mp_func_L39_00686138(int mgr, int pad) {
-    const int event = mp_func_L39_00686138__game(mgr, pad);
+    int event = mp_func_L39_00686138__game(mgr, pad);
+    if ((gaddr)pad == GREF(gaddr, ACTIVE_PAD) && wide_start(mgr, &event)) {
+        return event;
+    }
     /* A player in a slot past the game's eight rows has no row to READY on: Circle on the staging
      * screen readies it (whether or not the server's native screens are up). The game's own READY
      * reads the pad's pressed bits (pad +0x1C4, 0x20 Circle) in its staging update: the port takes

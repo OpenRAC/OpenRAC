@@ -29,6 +29,7 @@ constexpr const char* NOTICE_BUTTON = "\x10 OK";
 
 // A modal screen's panel edge, in the picture's pixels, as the games frame their dialog boxes.
 constexpr float PANEL_EDGE = 1.0f;
+constexpr float SCROLL_BAR_W = 3.0f;  // The scroll bar of a table longer than its page.
 
 // The space between a modal screen's panel edge and its items, in the picture's pixels.
 constexpr float MODAL_MARGIN = 8.0f;
@@ -622,16 +623,38 @@ void ScreenView::draw_table(Skin& skin, const Table* table, const Placed& placed
         m_first = count > placed.shown_rows ? count - placed.shown_rows : 0;
     }
 
-    // The rows a page above or below the ones shown are marked, with "first-last / count".
-    if (count > placed.shown_rows) {
+    // The rows a page above or below the ones shown are marked, with "first-last / count", and the
+    // room's count with its limit ("joined/MAX") when the table knows one.
+    const std::size_t capacity = table == nullptr ? 0 : table->capacity();
+    if (count > placed.shown_rows || capacity > 0) {
         const std::size_t last = std::min(m_first + placed.shown_rows, count);
-        const std::string where = std::format("{}-{} / {}", m_first + 1, last, count);
+        std::string where = capacity > 0 ? std::format("{}/{}", count, capacity) : std::string();
+
+        // A list longer than its page also says which rows are on it.
+        if (count > placed.shown_rows) {
+            where = std::format("{}-{} / {}", m_first + 1, last, count)
+                    + (capacity > 0 ? std::format("  {}/{}", count, capacity) : std::string());
+        }
+
         const float width = skin.text_width(where, TextStyle::HEADING);
         const float rows_end = y + line * static_cast<float>(placed.shown_rows);
         const float count_y = has_headings(m_spec) ? rect.y : rows_end;
 
         // On the headings line when there is one, else on the line the layout gave under the rows.
         skin.text(rect.x + rect.w - width, count_y, where, TextStyle::HEADING);
+    }
+
+    // A list longer than its page has a scroll bar on its right: a track, and a thumb the size of the
+    // page's share, at the page's place.
+    if (count > placed.shown_rows) {
+        const float track = line * static_cast<float>(placed.shown_rows);
+        const float share = static_cast<float>(placed.shown_rows) / static_cast<float>(count);
+        const float thumb = std::max(track * share, line * 0.5f);
+        const std::size_t span = count - placed.shown_rows;
+        const float at = (track - thumb) * static_cast<float>(m_first) / static_cast<float>(span);
+        const float bar_x = rect.x + rect.w - SCROLL_BAR_W;
+        skin.rect(Rect{bar_x, y, SCROLL_BAR_W, track}, skin.colour(PanelPart::FILL));
+        skin.rect(Rect{bar_x, y + at, SCROLL_BAR_W, thumb}, skin.colour(PanelPart::EDGE));
     }
 
     // Only the page of rows shown is drawn.
