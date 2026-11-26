@@ -23,6 +23,7 @@
 
 #include "check.h"
 #include "common/log.h"
+#include "mod_scripts.h"
 #include "mods.h"
 #include "openrac/game_host.h"
 #include "openrac/memory.h"
@@ -194,6 +195,8 @@ void test_a_throwing_call_is_reported(const fs::path& plugins) {
 
 int main() {
     runtime::Memory::create();
+    // The test is about the boundary, not speed: a loaded runner must not trip the 2 ms default.
+    mods::scripts::set_budget_ms(2000.0);
     const fs::path dir = fs::temp_directory_path()
                          / ("openrac_mod_boundary_test_" + std::to_string(std::random_device{}()));
     fs::remove_all(dir);
