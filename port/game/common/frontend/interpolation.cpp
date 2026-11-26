@@ -993,6 +993,11 @@ bool finish_render() try {
 }
 
 void draw_kept(bool first, bool held) try {
+    // OPENRAC_NO_RENDER: the game ticks, but no frame is built, drawn or presented.
+    static const bool no_render = env::flag(env::Var::NoRender);
+    if (no_render) {
+        return;
+    }
     sampler::note_thread("window");  // [debug tools] sampled while a capture runs
     // One in-flight snapshot bounds both latency and ownership of the current scene (and the
     // simulated slow processor's share of the window thread is spent there).

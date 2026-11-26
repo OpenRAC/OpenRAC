@@ -2328,6 +2328,17 @@ static void dme_deliver(void) {
  * sprintf of a null name) in its room join request (channel 16, name at +0x30) and its slot updates
  * (channel 17, name at +0x07): the account's name goes in its place, so two such players are not
  * the same name to the staging room (which sends the second one's "leave"). */
+static void clan_fix(gaddr data, int len) {
+    const int channel = GREF(uint8_t, data + 1);
+    const uint32_t at = channel == CHANNEL_ROOM_JOIN_REQUEST ? 2u + 0x50u : 2u + 0x17u;
+    if (GREF(uint8_t, data) != 2
+        || (channel != CHANNEL_ROOM_JOIN_REQUEST && channel != CHANNEL_SLOT_UPDATE)
+        || (int)at + 8 > len || memcmp(G(data + at), "(null)", 7) != 0) {
+        return;
+    }
+    memset(G(data + at), 0, 8); /* a clanless player has an empty tag, not the text of a null pointer */
+}
+
 static void name_fix(gaddr data, int len) {
     const int channel = GREF(uint8_t, data + 1);
     const uint32_t at = channel == CHANNEL_ROOM_JOIN_REQUEST ? 2u + 0x30u : 2u + 0x07u;
@@ -2384,6 +2395,7 @@ static int dme_relay(int dest, gaddr data, int len) {
         return 0;
     }
     name_fix(data, len);
+    clan_fix(data, len);
     /* The match's end (channel 5, command 0x82: the scores of the game's eight slots) is followed
      * by the others' in a wide room: they go first, so a console has them before the message. */
     if (len == 2 + END_MESSAGE_BYTES && GREF(uint8_t, data + 1) == CHANNEL_MATCH_STATE
