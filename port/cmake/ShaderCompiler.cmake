@@ -198,15 +198,34 @@ if(OPENRAC_SHADER_PACKAGE)
 else()
   set(package_source renderer/vulkan/pipelines/empty_shader_package.cpp)
 endif()
-add_library(openrac_builtin_shaders STATIC
-  renderer/vulkan/pipelines/builtin_shader_package.cpp
-  renderer/vulkan/pipelines/error_shader.cpp "${package_source}")
-target_link_libraries(openrac_builtin_shaders PUBLIC openrac_shader_data)
-openrac_warnings(openrac_builtin_shaders)
+# The package is the same for every game and version of a build, so it is one shared library,
+# libopenrac-shaders, beside the programs (on Android in the APK's library folder), not a copy in
+# each program. iOS builds one game into its app, so the package stays built in there.
+option(OPENRAC_SHARED_SHADER_PACKAGE "Shaders as one shared library beside the programs" ON)
+if(OPENRAC_SHADER_PACKAGE AND OPENRAC_SHARED_SHADER_PACKAGE AND NOT OPENRAC_IOS)
+  add_library(openrac_shader_package SHARED "${package_source}")
+  # Only bytes and one C function, compiled as C: it needs no C++ runtime.
+  set_source_files_properties("${package_source}" PROPERTIES LANGUAGE C)
+  set_target_properties(openrac_shader_package PROPERTIES OUTPUT_NAME openrac-shaders)
+  if(WIN32)
+    target_compile_definitions(openrac_shader_package PRIVATE "OPENRAC_SHADER_PACKAGE_API=__declspec(dllexport)")
+  else()
+    target_compile_definitions(openrac_shader_package PRIVATE
+      "OPENRAC_SHADER_PACKAGE_API=__attribute__((visibility(\"default\")))")
+  endif()
+else()
+  add_library(openrac_shader_package STATIC "${package_source}")
+endif()
+openrac_warnings(openrac_shader_package)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   # The generated archive is one contiguous literal, beyond the standard's minimum supported size.
-  target_compile_options(openrac_builtin_shaders PRIVATE -Wno-overlength-strings)
+  target_compile_options(openrac_shader_package PRIVATE -Wno-overlength-strings)
 endif()
+add_library(openrac_builtin_shaders STATIC
+  renderer/vulkan/pipelines/builtin_shader_package.cpp
+  renderer/vulkan/pipelines/error_shader.cpp)
+target_link_libraries(openrac_builtin_shaders PUBLIC openrac_shader_data openrac_shader_package)
+openrac_warnings(openrac_builtin_shaders)
 target_link_libraries(openrac_renderer_vulkan PRIVATE openrac_builtin_shaders)
 if(OPENRAC_SHADER_PACKAGE)
   openrac_add_test(shader_package LIBS openrac_builtin_shaders openrac_shader_backend)
