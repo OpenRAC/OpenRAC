@@ -115,3 +115,20 @@ They do not prove residual-packet ordering, composite bloom/grading order or mul
 Runtime and visual behavior remain unverified. In particular, the soften pass is the whole-frame
 approximation described above, not the game's depth-weighted effect. These passes do not finish
 native effect textures/materials or liquid strips, and do not permit retiring the residual chain.
+
+## 5. Ratchet & Clank (PAL v2.00): the tint and the AA pass
+
+`port/game/rac1/host/screen_fade.c` wraps `emit_rgba_draw_packet` (`func_001F55C0`), the routine behind
+every screen-wide tint (the death and white fades, the underwater tint, FadeToBlack's black, the
+dimmed pause and freeze dialogs). Its own C runs and appends its 64-byte packet; with a window the
+same tint is then recorded as a whole-target source-over fill at the cursor the packet began at
+(`rac1_cover_fill`, picture-whole so a wide window is covered) and the packet is taken back. The
+console's depth write of the sprite (Z 0, test always) is not kept. `AA_BlurPass` (`func_001FB848`)
+is not sent with a window: the window draws at its own resolution and keeps no small buffer.
+`OPENRAC_UI_SKIP=func_001F55C0,func_001FB848` and `OPENRAC_UI_REPLAY` keep the packets;
+`OPENRAC_UI_LOG` logs each distinct tint. Other releases omit both (`RAC1_OMIT_*`).
+
+Checked on PAL v2.00, level 1, hidden: the level-start fade-in frames have the same mean brightness
+with the packet and with the fill (0, 48, 97, 141), and the pause dimming brightens and darkens the
+same (101 to 57). Runs of the whole game are not frame-deterministic, so the rest of each run is
+compared by looking at it, not by pixel difference.

@@ -1197,3 +1197,5 @@ func_00200468	mods	UI_DrawSprite	hook	Draws one HUD sprite packet.	void (int, in
 func_L00_0029A300	cutscene	Pickup_InfobotSceneUpdate	wrap	relocates an item acquisition capture scene around the actual pickup	void (void)
 func_L00_00299B68	cutscene	Pickup_StartScene	hook	scene start intercepted only while a randomized world pickup update is running	void (int)
 func_L01_002AFD00	cutscene	GoldCase_StartDemo	hook	Gold weapon case purchase presentation.	void (unsigned int, int)
+func_001F55C0	draw	emit_rgba_draw_packet	wrap	the screen-wide tint (the fades, the dimmed pause and freeze dialogs, the underwater tint): its own C appends the packet, then a native source-over fill of the whole target is recorded at the cursor it began at and the packet is taken back (rac1/host/screen_fade.c, docs/port/SCREEN_EFFECTS.md); the packet stays with no window or OPENRAC_UI_REPLAY	void (int, int, int, int)
+func_001FB848	draw	AA_BlurPass	wrap	the console's anti-aliasing blur pass over its small buffer: the window draws at its own resolution and has no such buffer, so the packet is not sent with a window (rac1/host/screen_fade.c); sent with none or OPENRAC_UI_REPLAY	void (void)

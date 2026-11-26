@@ -23,6 +23,8 @@ func_001F4B68	func_001F50C8
 func_001F4BB8	func_001F5118
 func_001F5148	func_001F56A8
 func_001F5148__game	func_001F56A8__game
+func_001F55C0	func_001F5B20
+func_001F55C0__game	func_001F5B20__game
 func_001F5800	func_001F5D60
 func_001F5800__game	func_001F5D60__game
 func_001F6668	func_001F6C68
@@ -54,6 +56,7 @@ func_001FA480	func_001FB5A8
 func_001FA898	func_001FB9C0
 func_001FA8A8	func_001FB9D0
 func_001FB848	func_001FC970
+func_001FB848__game	func_001FC970__game
 func_001FD3E8	func_001FE568
 func_001FD3E8__hooked	func_001FE568__hooked
 func_001FE540	func_001FF6C0

@@ -34,6 +34,7 @@
  * The ports' first slots are the port's controllers 0 and 1; the other slots have no controller
  * (no multitap), and answer as the console's library answered a slot it never opened (99).
  */
+#include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -309,6 +310,10 @@ int func_0012EF10(void) {
  * at once, no multitaps, and SetActAlign maps each SetActDirect byte to motor 0 (small, on/off) or
  * 1 (large, speed). */
 
+/* The multiplayer program's filter of the first pad's button word (active low): the presses the port takes
+ * (mp_ui.c) are left out. The single-player program has none. */
+uint16_t (*rac3_pad_filter)(uint16_t word);
+
 static struct {
     unsigned char open, analog, pressure;
     unsigned char align[6]; /* each SetActDirect byte's motor, 0xFF none */
@@ -357,6 +362,15 @@ int rac3_mp_pad_read(int port, int slot, int data) { /* scePadRead */
     memset(out, 0, 32);
     out[1] = pads[port].analog ? (pads[port].pressure ? 0x79 : 0x73) : 0x41;
     openrac_pad_report(port, out + 2);
+    if (port == 0) {
+        /* Up Your Arsenal's staging screen: a READY the port takes (mp_ui.c). The word is active low. */
+        uint16_t word;
+        memcpy(&word, out + 2, sizeof word);
+        if (rac3_pad_filter != NULL) {
+            word = rac3_pad_filter(word);
+        }
+        memcpy(out + 2, &word, sizeof word);
+    }
     if (!pads[port].analog) {
         memset(out + 4, 0, 16);
     } else if (!pads[port].pressure) {

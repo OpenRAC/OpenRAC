@@ -179,6 +179,7 @@ enum class Var : std::uint16_t {
     Rac3MpUiMock,
     Rac3NetLog,
     Rac3Next,
+    Rac3PortReady,
     Rac3Profile,
     Reach,
     Record,
