@@ -168,7 +168,7 @@ func_L39_0058F8D0	vu0	rac3SineMenus	host	level 39's copy of the boot program's f
 func_L39_0058FB28	vu0	rac3EulerRowsMenus	host	level 39's copy of the boot program's func_0038D6E8 (host/trig.c)	void (unsigned int, unsigned int)
 func_L39_0058FB48	vu0	rac3EulerRows2Menus	host	level 39's copy of the boot program's func_0038D708 (host/trig.c)	void (unsigned int, unsigned int)
 func_L39_005AEBE0	render	rac3MobyChainMenus	host	level 39's copy of moby_anim_eval_chain (func_L01_00440090), which the menu's loading ship runs: the port's evaluator (host/mp_maps.c)	int (int, int)
-func_L39_005B05E8	render	rac3MobyDrawSideMenus	host	level 39's copy of MobyAnimProc's draw side (func_L01_00441A98): replaced as the maps' (its code runs the scratchpad's DMA chain; host/mp_maps.c)	int (int, int)
+func_L39_005B05E8	render	rac3MobyDrawSideMenus	host	level 39's copy of MobyAnimProc's draw side (func_L01_00441A98): replaced as the maps' (its code runs the scratchpad's DMA chain; host/mp_maps.c)	float (int, int)
 func_L39_005B0338	render	rac3MobyTexturesMenus	host	level 39's copy of the moby textures' DMA (func_L01_004417E8): nothing to send (host/mp_maps.c)	int (int)
 func_L39_00590070	vu0	rac3QuaternionRowsMenus	host	level 39's copy of the boot program's func_0038DBF0 (host/trig.c)	void (unsigned int, unsigned int)
 func_L39_00590090	vu0	rac3QuaternionMatrixMenus	host	level 39's copy of the boot program's func_0038DC10 (host/trig.c)	void (unsigned int, unsigned int)
