@@ -10,8 +10,13 @@ Long CPU work (a build, the lighting bake) that leaves the computer usable while
 A build of the port or a bake of every level otherwise takes every thread at normal priority, and
 on a 16-core desktop that left the mouse, the music and the launcher's window stalling for minutes
 (and at full power for as long). Below normal priority, anything the player does comes first and the
-work still has all the CPU nobody else wants, so it is no slower on an idle machine. Windows passes a
-below-normal priority class on to the programs a process starts; POSIX passes on its niceness.
+work still has all the CPU nobody else wants. Windows passes a below-normal priority class on to the
+programs a process starts; POSIX passes on its niceness.
+
+OPENRAC_PRIORITY=normal keeps the priority the work was started with, for someone who waits on it
+and wants it done first. On a CPU with performance and efficiency cores, Windows can keep
+below-normal work on the efficiency cores even with nothing else running, so idle does not mean as
+fast there. With OPENRAC_BUILD_JOBS=all or OPENRAC_EXTRACT_JOBS=all, no thread is kept back either.
 """
 import os
 import sys
@@ -23,7 +28,10 @@ _RESERVE_MIN = 2
 
 def lower_priority() -> bool:
     """Puts this process (and so the programs it starts) below normal priority. False when the
-    system did not allow it; the work then runs as before."""
+    system did not allow it, or when OPENRAC_PRIORITY is "normal" (any case); the work then runs as
+    before. Any other value of OPENRAC_PRIORITY lowers it, as when it is unset."""
+    if os.environ.get("OPENRAC_PRIORITY", "").strip().lower() == "normal":
+        return False
     try:
         if sys.platform == "win32":
             import ctypes
