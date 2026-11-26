@@ -1,4 +1,7 @@
-name: macOS MoltenVK smoke
+name: macos_moltenvk
+# A unique title for each run: the run number, what started it, where, and what.
+run-name: >-
+  ${{ format('macos_moltenvk #{0} · manual {1} · by {2}', github.run_number, github.ref_name, github.actor) }}
 
 on:
   workflow_dispatch:
@@ -7,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  moltenvk:
-    name: Vulkan presentation on Metal
+  moltenvk_present:
+    name: moltenvk_present
     runs-on: macos-15
     timeout-minutes: 45
     steps:
