@@ -29,6 +29,7 @@
 
 #include "common/result.h"
 #include "renderer/effects/ambient_occlusion.h"
+#include "renderer/effects/effect_state.h"
 #include "renderer/effects/shadow_volume.h"
 #include "renderer/effects/water_impulse.h"
 #include "renderer/frame/frame_record.h"
@@ -113,6 +114,12 @@ struct EffectQuad {
     std::uint32_t parent = 0;
     // Physical attachment for current-tick geometry; callback ownership alone does not imply this.
     std::uint32_t attachment = 0;
+    // Drawn with `state` (openrac_game_material_quad's native material) and FrameInput::
+    // effect_images[image - 1] (0: none; untextured says whether it samples one): clamp, tex0,
+    // tex1, alpha, uploads, tbp, cbp, test, zbuf and registers are then not read.
+    bool native = false;
+    EffectState state{};
+    std::uint32_t image = 0;
 };
 
 // A strip the game sent to its VU1 strip program (rac1: func_L00_001FDE48's packets: the seas,
@@ -220,6 +227,9 @@ struct FrameInput {
     // The frame's world effect quads, in the order the game drew them.
     std::span<const EffectQuad> effects{};
     std::span<const ImageUpload> effect_uploads{};
+    // The images the native effect quads sample (EffectQuad::image), decoded on the game's thread
+    // and owned by the tick's capture: never game memory.
+    std::span<const UiImage> effect_images{};
     // The sky shells' matrices as the game drew them (bit k of sky_shell_mask: shell k has one),
     // in the sky's own units; a shell without one is drawn as it is stored.
     std::array<Mat4, 8> sky_shells{};

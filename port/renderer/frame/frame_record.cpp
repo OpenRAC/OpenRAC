@@ -5,8 +5,191 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
+#include <string_view>
 
 namespace openrac::renderer {
+namespace {
+
+// Temporary submission state; committed only after every submitted command satisfies view ordering.
+struct ViewSubmission {
+    std::vector<FrameView> views;  // Value-owned cameras and payload indices for this tick.
+    std::vector<bool> prepared;  // Commands executed on their view framebuffer before composition.
+    std::vector<bool> colour;    // Native 2D preceded a post effect in this view.
+    std::vector<bool> effects;   // A terminal post effect has begun in this view.
+    std::uint32_t target = 0;    // Submitted explicit panel scope, independent of view ownership.
+};
+
+// Identifies the command whose ordering cannot be represented by an isolated world post pass.
+Unexpected view_failure(std::uint32_t at, std::string_view reason) {
+    return unexpected(
+        Error{"frame recorder: " + std::string(reason) + " at command " + std::to_string(at)}
+    );
+}
+
+// Schedules one terminal effect only when its submitted world and payload are available in isolation.
+Result<void> schedule_view_effect(
+    const FrameRecording& recording, std::uint32_t at, ViewSubmission& plan
+) {
+    const FrameCommand& command = recording.commands[at];
+    const std::size_t owner = command.view;
+
+    // A reachable effect does not prove that an earlier truncated world was submitted.
+    if (!plan.views[owner].has_world) {
+        return view_failure(at, "view effect has no submitted world");
+    }
+
+    // Native 2D still executes once after composition and cannot feed an earlier view post pass.
+    if (plan.colour[owner]) {
+        return view_failure(at, "view effect follows native 2D drawing");
+    }
+
+    // A missing payload must not become a no-op or an unrelated effect.
+    if (command.index >= recording.screen_effects.size()) {
+        return view_failure(at, "view effect payload is absent");
+    }
+
+    plan.views[owner].screen_effects.push_back(command.index);
+    plan.prepared[at] = true;
+    plan.effects[owner] = true;
+
+    return {};
+}
+
+// Checks a submitted native command without changing the immutable recording or any GPU state.
+Result<void> schedule_view_command(
+    const FrameRecording& recording, std::uint32_t at, ViewSubmission& plan
+) {
+    const FrameCommand& command = recording.commands[at];
+
+    // Explicit panel effects remain at their recorded position in the main native command stream.
+    if (command.op == FrameOp::TargetBegin || command.op == FrameOp::TargetEnd) {
+        plan.target = command.op == FrameOp::TargetBegin ? command.index : 0;
+    }
+
+    // World-in-panel rendering has no split compositor implementation; it cannot refresh the screen view.
+    if (command.op == FrameOp::World && command.view != kNoFrameView && plan.target != 0) {
+        return unexpected(Error{"frame recorder: split world inside an explicit panel target"});
+    }
+
+    // Unscoped commands and panel commands do not read or modify a local player's world picture.
+    if (command.view == kNoFrameView || plan.target != 0) {
+        return {};
+    }
+
+    // A missing owner is a broken recording, not permission to apply an effect to the whole frame.
+    if (command.view >= plan.views.size()) {
+        return view_failure(at, "invalid view owner");
+    }
+
+    const std::size_t owner = command.view;
+
+    // World drawing after a post effect cannot be moved ahead of it without changing the picture.
+    if (plan.effects[owner]
+        && (command.op == FrameOp::World || command.op == FrameOp::WorldMobys
+            || command.op == FrameOp::WorldShrubs || command.op == FrameOp::EffectQuad)) {
+        return view_failure(at, "world drawing after view post effect");
+    }
+
+    // Only terminal world post passes can move into the owner's framebuffer without replaying its UI.
+    if (command.op == FrameOp::ScreenEffect) {
+        return schedule_view_effect(recording, at, plan);
+    }
+
+    // These operations remain in the main native 2D stream rather than the isolated world pass.
+    if (command.op == FrameOp::UiItem || command.op == FrameOp::UiQuad
+        || command.op == FrameOp::Fill || command.op == FrameOp::Clear
+        || command.op == FrameOp::Picture || command.op == FrameOp::Mobys
+        || command.op == FrameOp::Snapshot || command.op == FrameOp::LastFrame) {
+        plan.colour[owner] = true;
+    }
+
+    return {};
+}
+
+// Validates splice order and collects only the world layers that the submitted chain reaches.
+Result<void> collect_view_worlds(
+    const FrameRecording& recording, std::span<const FrameSplice> submitted, ViewSubmission& plan
+) {
+    std::uint32_t previous = 0;
+    bool first = true;
+
+    // Splices are in call order, without duplicates, after unreachable anchors have been removed.
+    for (const FrameSplice& splice : submitted) {
+        // Invalid or repeated indices could read outside the recording or execute an effect twice.
+        if (splice.command >= recording.commands.size() || (!first && splice.command <= previous)) {
+            return unexpected(Error{"frame recorder: invalid submitted command order"});
+        }
+
+        previous = splice.command;
+        first = false;
+        const FrameCommand& command = recording.commands[splice.command];
+
+        // The command's captured owner survives even when its transitional ViewBegin tag is absent.
+        if (command.op == FrameOp::World && command.view != kNoFrameView) {
+            // A submitted world needs a valid retained rectangle rather than an invented viewport.
+            if (command.view >= plan.views.size() || !plan.views[command.view].valid()) {
+                return unexpected(Error{"frame recorder: invalid submitted world view"});
+            }
+
+            plan.views[command.view].has_world = true;
+            plan.views[command.view].layers |= command.index;
+        }
+    }
+
+    return {};
+}
+
+}  // namespace
+
+Result<void> FrameRecording::resolve_views(std::span<const FrameSplice> submitted) {
+    // Single-view/unscoped recording semantics do not change.
+    if (views.empty()) {
+        return {};
+    }
+
+    ViewSubmission plan{
+        views,
+        std::vector<bool>(commands.size()),
+        std::vector<bool>(views.size()),
+        std::vector<bool>(views.size())
+    };
+
+    // Recorded intent is not proof that the submitted chain reached any of this player's world.
+    for (FrameView& view : plan.views) {
+        view.layers = 0;
+        view.has_world = false;
+        view.screen_effects.clear();
+    }
+
+    const Result<void> worlds = collect_view_worlds(*this, submitted, plan);
+
+    // Malformed submission indices cannot be used to schedule payloads.
+    if (!worlds) {
+        return unexpected(worlds.error());
+    }
+
+    // Scheduling is atomic: an unsupported ordering never publishes partially consumed effects.
+    for (const FrameSplice& splice : submitted) {
+        const Result<void> result = schedule_view_command(*this, splice.command, plan);
+
+        // A failure must not consume even the earlier valid effects in this submission.
+        if (!result) {
+            return unexpected(result.error());
+        }
+    }
+
+    views = std::move(plan.views);
+
+    // The command remains diagnostic evidence, but the compositor now owns its one execution.
+    for (std::size_t n = 0; n < commands.size(); ++n) {
+        commands[n].view_effect_prepared = plan.prepared[n];
+    }
+
+    view_error.clear();
+
+    return {};
+}
 
 const char* frame_op_name(FrameOp op) {
     // Names follow the native command vocabulary, not the residual packet encoding.
@@ -53,6 +236,8 @@ const char* frame_op_name(FrameOp op) {
             return "ViewBegin";
         case FrameOp::ViewEnd:
             return "ViewEnd";
+        case FrameOp::ScreenEffect:
+            return "ScreenEffect";
     }
 
     return "Unknown";
@@ -116,6 +301,38 @@ bool FrameView::valid() const {
            && rect[2] > rect[0] && rect[3] > rect[1];
 }
 
+Result<void> FrameRecording::validate_view_effect_context(FrameViewContext context) const {
+    const bool effects = std::any_of(views.begin(), views.end(), [](const FrameView& view) {
+        return !view.screen_effects.empty();
+    });
+
+    // Ordinary split-screen frames and unscoped/panel effects keep their existing renderer policy.
+    if (!effects) {
+        return {};
+    }
+
+    // A camera failure cannot silently discard an already scheduled effect.
+    if (!context.has_camera) {
+        return unexpected(Error{"frame recorder: view post effect requires a usable world camera"});
+    }
+
+    // Residual packets lack native view ownership; their colour order must not be guessed.
+    if (context.residual_2d) {
+        return unexpected(
+            Error{"frame recorder: view post effect with residual 2D needs scoped ordering"}
+        );
+    }
+
+    // Moving composite finishing before each view effect needs separate integration and pixel proof.
+    if (context.composite_colour) {
+        return unexpected(
+            Error{"frame recorder: view post effect with composite colour finishing is unsupported"}
+        );
+    }
+
+    return {};
+}
+
 std::array<float, 4> FrameView::relative_rect() const {
     return {
         rect[0] / screen_width,
@@ -149,6 +366,12 @@ bool FrameRecording::anchored() const {
     });
 }
 
+bool FrameRecording::has_split_world() const {
+    return std::any_of(commands.begin(), commands.end(), [this](const FrameCommand& command) {
+        return command.op == FrameOp::World && command.view < views.size();
+    });
+}
+
 void FrameRecording::clear() {
     serial = 0;
     list_root = 0;
@@ -157,7 +380,9 @@ void FrameRecording::clear() {
     ui_quads.clear();
     ui_items.clear();
     images.clear();
+    screen_effects.clear();
     views.clear();
+    view_error.clear();
 }
 
 std::uint32_t FrameRecorder::push(FrameCommand command) {
@@ -166,11 +391,31 @@ std::uint32_t FrameRecorder::push(FrameCommand command) {
     if (m_open.commands.size() >= kMostCommands) {
         const std::uint32_t root = m_open.list_root;
         const std::uint64_t generation = m_open.list_generation;
+        const bool was_open = m_view_open;
+        FrameView active;
+
+        // A bounded recording rollover must not turn a view-owned effect into a global effect.
+        if (was_open) {
+            active = m_open.views.back();
+            active.layers = 0;
+            active.has_world = false;
+            active.screen_effects.clear();
+        }
+
+        const std::uint32_t anchor = m_anchor;
+        m_view_open = false;
         close();
+        m_anchor = anchor;
         // The existing command bound starts a new payload; ownership still belongs to this build.
         m_open.clear();
         m_open.list_root = root;
         m_open.list_generation = generation;
+
+        // Owner metadata crosses the boundary by value; payload storage still follows push().
+        if (was_open) {
+            m_open.views.push_back(std::move(active));
+            m_view_open = true;
+        }
     }
     command.anchor = m_anchor;
     command.screen_width = m_screen[0];
@@ -178,6 +423,11 @@ std::uint32_t FrameRecorder::push(FrameCommand command) {
     command.view = m_view_open && !m_open.views.empty()
                        ? static_cast<std::uint32_t>(m_open.views.size() - 1)
                        : kNoFrameView;
+
+    // View identity is captured on every command, not inferred from reachable begin/end markers.
+    if (m_view_open) {
+        command.view = static_cast<std::uint32_t>(m_open.views.size() - 1);
+    }
 
     // Each player's world layers stay with that view, not the frame-wide union.
     if (m_view_open && command.op == FrameOp::World && !m_open.views.empty()) {
@@ -236,7 +486,8 @@ void FrameRecorder::view_begin(std::uint32_t view, const std::array<float, 4>& r
     c.index = view;
     c.rect = rect;
     c.whole = false;
-    push(c);
+    const std::uint32_t at = push(c);
+    m_open.commands[at].view = static_cast<std::uint32_t>(m_open.views.size());
     m_open.views.push_back(v);
     m_view_open = true;
 }
@@ -266,13 +517,23 @@ void FrameRecorder::view_end() {
     push(c);
 }
 
+void FrameRecorder::push_screen_effect(const ScreenEffect& effect) {
+    FrameCommand command;
+    command.op = FrameOp::ScreenEffect;
+    const std::uint32_t at = push(command);
+
+    // push() can close the full recording, so payload storage is selected after it returns.
+    m_open.commands[at].index = static_cast<std::uint32_t>(m_open.screen_effects.size());
+    m_open.screen_effects.push_back(effect);
+}
+
 void FrameRecorder::close() {
     m_anchor = 0;
     // A view still open when the frame closes ends with it.
-    if (m_view_open) {
+    if (m_view_open && m_open.commands.size() < kMostCommands) {
         view_end();
     }
-
+    m_view_open = false;
     // A residual-only owned build is meaningful: its predecessor was retired by begin_list.
     if (m_open.empty()) {
         // Legacy capture still releases payloads that have no command; owned builds keep their identity.

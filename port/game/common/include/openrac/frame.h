@@ -41,6 +41,24 @@ extern "C" {
 /* The first port id of an off-screen panel. */
 #define OPENRAC_FRAME_TARGETS 0x10000u
 
+/* openrac_frame_screen_effect's kinds: native post passes over the target as drawn so far
+ * (docs/port/SCREEN_EFFECTS.md). */
+#define OPENRAC_SCREEN_GLOW 1   /* the frame's glowing pixels copied, tinted, blurred, added back */
+#define OPENRAC_SCREEN_SOFTEN 2 /* the frame blurred and mixed back over itself */
+
+/* A screen effect's parameters, the game's own values (colours 0xAABBGGRR, 0x80 = 1.0). */
+typedef struct openrac_screen_effect {
+    int kind; /* OPENRAC_SCREEN_* */
+    /* The copy's colour: each channel of the frame times it; its alpha times the frame's alpha. */
+    uint32_t tint;
+    /* GLOW: a pixel glows when the frame's alpha times the tint's alpha is above this (0x80 = 1.0,
+     * the game's units); the rest of the copy is black. SOFTEN: not read. */
+    uint32_t threshold;
+    /* How much of the blurred copy goes back, 0x80 = all of it: added (GLOW) or mixed (SOFTEN). */
+    uint32_t strength;
+    /* Extra blur passes at the copy's largest size (0 to 2). */
+    uint32_t blur;
+} openrac_screen_effect;
 /* A view's rectangle in the game's 2D screen pixels (openrac_frame_screen's), from the top left. */
 typedef struct openrac_frame_viewport {
     float x0, y0, x1, y1;
@@ -73,6 +91,11 @@ void openrac_frame_screen(float width, float height);
  * the views are forgotten. view_begin while a view is open ends it first. */
 void openrac_frame_view_begin(int view, const openrac_frame_viewport* rect);
 void openrac_frame_view_end(void);
+
+/* A screen effect inside a view, outside an explicit panel, is a terminal world post pass on that
+ * view's picture before composition. Native 2D before it, world drawing after it, unowned residual
+ * packets and composite bloom/grading need richer ordering and are reported as unsupported, never
+ * replayed over every view or silently omitted. Unscoped and explicit-panel effects are unchanged. */
 
 /* Transitional, while the game still sends residual 2D as packets in its own display list: the
  * list's write pointer (its value, a game address) the commands that follow belong at. The window
@@ -135,6 +158,10 @@ int openrac_frame_ui_quad(const struct openrac_game_ui_rect* quad);
  * depth mode in effect here among the residual packets. Retired by P4. */
 void openrac_frame_effect_quad(uint32_t marker);
 
+/* 1 when the window draws what is recorded natively; 0 without a window or under OPENRAC_UI_REPLAY,
+ * where the caller draws the game's way: for the calls below that return nothing. */
+int openrac_frame_native(void);
+
 /* A flat rectangle (x0, y0, x1, y1; NULL: the whole target) in colour `rgba`, blended. */
 void openrac_frame_fill(const float* rect, uint32_t rgba, int blend);
 
@@ -189,6 +216,42 @@ void openrac_frame_target_end(void);
 
 /* What follows is cut to `rect` (x0, y0, x1, y1; NULL: the whole target). */
 void openrac_frame_scissor(const float* rect);
+/* A screen effect over the target as drawn so far (a native post pass: the frame copied, shrunk,
+ * blurred and put back), at this point of the frame. */
+void openrac_frame_screen_effect(const openrac_screen_effect* effect);
+/* Keeps the last frame the window drew with its world in (the world alone, before its 2D) as port
+ * picture `id`: what a menu that read its frame back as it opened draws under itself. The picture
+ * follows the world while the game draws one under the menu. */
+void openrac_frame_snapshot_world(uint32_t id);
+
+/*
+ * Transitional placements, while a game still draws part of its 2D or its effect strips as its own
+ * packets (Ratchet & Clank and Going Commando, until R2 and R3): each says where something starts
+ * among them, as the markers host C once wrote into the list did. Nothing is written into the list.
+ */
+/* The world's shrub pass starts here: the effect strips sent before it are drawn before it. */
+void openrac_frame_world_shrubs(void);
+/* The effect strips that follow move with attachment `attachment`'s parent of the tick before (the
+ * scope game_host.h's OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER named); 0 ends it. */
+void openrac_frame_effect_parent(uint32_t attachment);
+/* The same scope following only the parent's position, preserving world-space orientation. */
+void openrac_frame_effect_parent_position(uint32_t attachment);
+/* With "HUD: Edges": what follows goes out to the HUD's side, `side` (openrac_game_hud_side) past
+ * the picture's; 0 ends it. OPENRAC_HUD_STRETCH: an element across the middle stretches out with the
+ * rest; OPENRAC_HUD_SPLIT(x): what follows parts at x (the game's 2D pixels) instead, each side as
+ * one block. */
+#define OPENRAC_HUD_STRETCH 1u
+#define OPENRAC_HUD_SPLIT(x) (2u | (unsigned)(x) << 2)
+void openrac_frame_hud_side(int side, unsigned how);
+/* `on`: what follows covers the whole target on a window wider than the picture (as a fade does),
+ * rather than keeping its shape in the picture's middle; 0 ends it. */
+void openrac_frame_wide(int on);
+/* `on`: a scissor of the screen's whole width stays the picture's, even with "HUD: Edges" (a menu
+ * parks its hidden panels past the screen's sides); 0 ends it. */
+void openrac_frame_picture_band(int on);
+/* The frame the window last drew with its world in (kept when the game read its frame back,
+ * openrac_game_store_image), over the whole target. */
+void openrac_frame_last_frame(void);
 
 /*
  * Transitional placements, while a game still draws part of its 2D or its effect strips as its own
