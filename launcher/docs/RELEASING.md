@@ -121,9 +121,10 @@ git push origin launcher-vX.Y.Z
    (`.github/workflows/dev-release.yml`). It opens a pull request from a snapshot of `develop`
    (branch `release/dev`, with `master` merged in by `-s ours`, so it never conflicts) to `master`
    listing what changed, and builds everything on it: hostgen, every game in every version,
-   Windows, and every system's installers. Merge it with "Create a merge commit"; the push to
-   `master` publishes those installers on `launcher-dev-develop` (the Development channel below)
-   at once, without building again. Another branch builds by hand (Run workflow). The `dev-release` job replaces the pre-release `launcher-dev-<branch>` with every
+   Windows, and every system's installers. Once every system's installers are built and every check is green, they go on
+   `launcher-dev-develop` (the Development channel below), without waiting for the merge.
+   Closing the pull request does not take them back off; the next dev release replaces them.
+   Merge it with "Create a merge commit" once every check is green. Another branch builds by hand (Run workflow). The `dev-release` job replaces the pre-release `launcher-dev-<branch>` with every
    system's installers, their signatures and a `latest.json` of version `X.Y.Z-dev.<run>`. The
    launchers built from a branch read that pre-release; one built from a tag reads the
    repository's latest release. Either way the updater asks the repository that built it
