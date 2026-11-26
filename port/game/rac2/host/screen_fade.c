@@ -23,9 +23,17 @@
  * gfx_set_clear_color_packet. Here the game's own C runs, and when the list ends in exactly
  * { ALPHA = 0x44 register packet, RGBAQ register packet, the DMA call } with the ALPHA packet at
  * the end of that last DoGifPaging, the three are taken back and a whole-picture source-over fill
- * in the colour is recorded at the cursor they began at. Every other caller (the pause menu's
- * dimming, the wipes, the splash, the letterbox of the hud, the levels' own) draws in a state this
- * file does not prove and keeps its packets.
+ * in the colour is recorded at the cursor they began at.
+ *
+ * The second proved shape is local to the call: gfx_write_clear_color_packets (func_0027B7E0)
+ * right before the RGBAQ write, its list { call of g_gfx_clear_color_packet, call of
+ * g_gs_draw_env_regs, register 0x3D } read back from the list and the two packets' own words
+ * (ALPHA_1 = 0x44 source over, FBMSK 0, ZBUF 24-bit written; the same bytes on NTSC-U v1.00, v2.00
+ * and PAL). That is the pause menu's dimming, the splash's fade and the other callers that put the
+ * clear packets down first. Here the sprites' own depth (0, test ALWAYS, written) is recorded too,
+ * as a depth fill, since later 2D of the same list is tested against it. Every other caller (the
+ * wipes, the hud's letterbox, the levels' own) draws in a state this file does not prove and keeps
+ * its packets (OPENRAC_UI_LOG: `tint ... kept`).
  *
  * OPENRAC_UI_SKIP naming gfx_set_clear_color_packet, OPENRAC_UI_REPLAY and no window keep the
  * game's own. OPENRAC_UI_LOG logs each distinct fade once.
@@ -83,6 +91,59 @@ static int register_packet(gaddr at, uint64_t* value, uint32_t* reg) {
     return 1;
 }
 
+/* The state the game's clear packets leave. gfx_write_clear_color_packets (func_0027B7E0) appends
+ * { a call of g_gfx_clear_color_packet (19 quadwords: ALPHA_1 and ALPHA_2 = 0x8000000044, TEST,
+ * ...), a call of g_gs_draw_env_regs (FRAME, ZBUF, XYOFFSET, SCISSOR as the frame's) and the
+ * register write 0x3D } and nothing else; a tint whose RGBAQ write follows at once draws with
+ * source-over alpha, the draw environment's masks (FRAME's FBMSK 0, ZBUF 24-bit and written) and
+ * the clear packet's own TEST, PRIM. Read from each program's data, not assumed. `at` is where
+ * the RGBAQ write starts. */
+static int clear_packets_state(gaddr at) {
+    const gaddr reg = at - REGISTER_PACKET;
+    const gaddr env_tag = reg - CALL_PACKET;
+    const gaddr clear_tag = env_tag - CALL_PACKET;
+    uint64_t value;
+    uint32_t id;
+    if (at < 3u * 16u + REGISTER_PACKET || !register_packet(reg, &value, &id) || id != 0x3Du
+        || GREF(uint32_t, env_tag) != 0x3000000Bu || GREF(uint32_t, env_tag + 12u) != 0x5000000Bu
+        || GREF(uint32_t, clear_tag) != 0x30000013u
+        || GREF(uint32_t, clear_tag + 12u) != 0x50000013u) {
+        return 0;
+    }
+    const gaddr clear = GREF(gaddr, clear_tag + 4u);
+    const gaddr env = GREF(gaddr, env_tag + 4u);
+    /* ALPHA_1 (0x42) = source over: the second quadword of the packet. */
+    if (GREF(uint64_t, clear + 16u) != ALPHA_SOURCE_OVER || GREF(uint64_t, clear + 24u) != 0x42u) {
+        return 0;
+    }
+    /* FRAME_1 with FBMSK 0 (qword 1), ZBUF_1 24-bit and written (qword 3). */
+    if (GREF(uint64_t, env + 24u) != 0x4Cu || (GREF(uint64_t, env + 16u) >> 32) != 0u
+        || GREF(uint64_t, env + 56u) != 0x4Eu) {
+        return 0;
+    }
+    const uint64_t zbuf = GREF(uint64_t, env + 48u);
+    return ((zbuf >> 24) & 0xFu) == 1u && (zbuf >> 32) == 0u;
+}
+
+static void log_kept(const char* why, int r, int g, int b, int a) {
+    if (openrac_env_string("OPENRAC_UI_LOG") == NULL) {
+        return;
+    }
+    static uint32_t seen[16];
+    static int count;
+    const uint32_t key =
+        ((uint32_t)r << 24) ^ ((uint32_t)g << 16) ^ ((uint32_t)b << 8) ^ (uint32_t)a;
+    for (int i = 0; i < count; ++i) {
+        if (seen[i] == key) {
+            return;
+        }
+    }
+    if (count < 16) {
+        seen[count++] = key;
+        fprintf(stderr, "screen_fade: tint %d %d %d %d kept (%s)\n", r, g, b, a, why);
+    }
+}
+
 void func_0027DDC0__game(int r, int g, int b, int a);
 
 void func_0027DDC0(int r, int g, int b, int a) {
@@ -95,17 +156,11 @@ void func_0027DDC0(int r, int g, int b, int a) {
     }
     const gaddr after = GREF(gaddr, cursor);
     const gaddr anchor = openrac_frame_ram_cursor(before);
-    /* Nothing but the ALPHA write of this tail's between the frame's last paging and the fade. */
-    if (anchor == UINT32_MAX || paged == UINT32_MAX || before != paged + REGISTER_PACKET
-        || after != before + REGISTER_PACKET + CALL_PACKET) {
+    if (anchor == UINT32_MAX || after != before + REGISTER_PACKET + CALL_PACKET) {
         return;
     }
     uint64_t value;
     uint32_t reg;
-    if (!register_packet(paged, &value, &reg) || reg != ALPHA_REGISTER
-        || value != ALPHA_SOURCE_OVER) {
-        return;
-    }
     if (!register_packet(before, &value, &reg) || reg != RGBAQ_REGISTER) {
         return;
     }
@@ -120,13 +175,44 @@ void func_0027DDC0(int r, int g, int b, int a) {
         || GREF(uint64_t, packet + 40u) != REG_PRIM) {
         return;
     }
+    /* The blend: either the frame tail's ALPHA write right after its last paging (the sprites'
+     * depth is read by nothing after it), or the clear packets right before the RGBAQ write,
+     * which put ALPHA_1 = 0x44 and the frame's draw environment back (clear_packets_state). */
+    int depth_write = 0;
+    if (paged != UINT32_MAX && before == paged + REGISTER_PACKET) {
+        if (!register_packet(paged, &value, &reg) || reg != ALPHA_REGISTER
+            || value != ALPHA_SOURCE_OVER) {
+            return;
+        }
+    } else if (clear_packets_state(before)) {
+        depth_write = 1;
+    } else {
+        log_kept("no proved blend", r, g, b, a);
+        return;
+    }
     /* The colour is the four values the game packed, each a byte. */
     if (((unsigned)r | (unsigned)g | (unsigned)b | (unsigned)a) > 0xFFu) {
         return;
     }
     const uint32_t rgba = (uint32_t)r | (uint32_t)g << 8 | (uint32_t)b << 16 | (uint32_t)a << 24;
     openrac_frame_anchor(anchor);
-    openrac_frame_fill(NULL, rgba, OPENRAC_BLEND_MIX | OPENRAC_PICTURE_WHOLE);
+    if (depth_write) {
+        /* The sprites' own depth, 0 written over the whole picture whatever was there. */
+        const float all[4] = {0.0f, 0.0f, 512.0f, 448.0f};
+        if (!openrac_frame_fill_depth(
+                all,
+                rgba,
+                OPENRAC_BLEND_MIX | OPENRAC_PICTURE_WHOLE,
+                0,
+                24,
+                OPENRAC_DEPTH_ALWAYS,
+                OPENRAC_WRITE_RED | OPENRAC_WRITE_GREEN | OPENRAC_WRITE_BLUE | OPENRAC_WRITE_DEPTH
+            )) {
+            return;
+        }
+    } else {
+        openrac_frame_fill(NULL, rgba, OPENRAC_BLEND_MIX | OPENRAC_PICTURE_WHOLE);
+    }
     GREF(gaddr, cursor) = before;
     if (openrac_env_string("OPENRAC_UI_LOG") != NULL) {
         static uint32_t seen[16];

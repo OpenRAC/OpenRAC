@@ -210,8 +210,12 @@ PAL, read from each program) and `DoGifPaging` (`func_0027C660`). RenderFrame's 
 over) right after its last DoGifPaging and then the clear colour, the black fade and the white flash. A call
 whose list is exactly { that ALPHA write at the end of the last paging, the RGBAQ write, the DMA call of the
 packet read above } is taken back and recorded as a whole-picture source-over fill (`OPENRAC_UI_LOG`:
-`screen_fade: tint`). Every other caller (pause dimming, wipes, splash, the levels' own) keeps its packets: their
-blend is not proved. Checked in hidden runs on box1 (NTSC-U, level 4, 1,500 frames, a shot every 10th): 114 of 114
+`screen_fade: tint`). A second shape is proved from the list itself: `gfx_write_clear_color_packets` (`func_0027B7E0`) right
+before the RGBAQ write (calls of `g_gfx_clear_color_packet`, whose ALPHA_1 is 0x44 and TEST/PRIM are the packet's own,
+and of `g_gs_draw_env_regs`: FBMSK 0, ZBUF 24-bit written; the same bytes in all three programs, and register 0x3D).
+That is the pause dimming and the splash fade; there the sprites' depth (0, ALWAYS, written) is recorded as a
+depth fill, since later 2D is tested against it. The other callers (wipes, the hud's letterbox `func_00290670`, the
+levels' own) keep their packets: their blend is not proved (`OPENRAC_UI_LOG`: `tint ... kept`). Checked in hidden runs on box1 (NTSC-U, level 4, 1,500 frames, a shot every 10th): 114 of 114
 frames are pixel-identical to `OPENRAC_UI_REPLAY=1`, including the fade-ins (`native2d-progress/round2/rac2-*`).
 The sprites' depth write (Z 0) is not kept: nothing in the list reads it after the tail.
 
@@ -221,7 +225,10 @@ colour channels only. When the list ends in that TEST write and the 128-byte pac
 the C, the two bars are recorded as `openrac_frame_fill_depth` (depth ALWAYS, RGB written). **Not exercised:** the bars
 in cutscenes (levels 6 and 8, game mode 2, hidden runs) come from the other caller, the level's frame loop
 (`func_L00_002A3B88` case 2, after `gfx_render_frame_all_layers`), which follows an ALPHA write and no TEST. That caller's
-state is not proved and keeps its packets. No run reached the RenderFrame caller.
+state is not provable from the code before it, and keeps its packets: `gfx_render_frame_all_layers` runs RenderFrame
+with mask 0x7F (no bars of its own), whose list is already sent when the bars are appended, so the GS state at them is
+whatever that list's tail left, which depends on the fade, flash and tint that frame. No run reached the RenderFrame
+caller.
 
 Left on the game's packets (rac1): the letterbox outside level 6 and the freeze dialog (the callback list of each
 level was not read, `func_001F5148`), the debug and draw-overlay rectangles. (rac2): the textured sprite at block
