@@ -248,6 +248,7 @@ add_library(openrac_renderer STATIC
   renderer/debug/debug_lines.cpp
   renderer/debug/debug_geometry.cpp
   renderer/direct/direct.cpp
+  renderer/effects/effect_state.cpp
   renderer/effects/effects.cpp
   renderer/effects/effects_colour.cpp renderer/effects/effects_draw.cpp
   renderer/gl/framebuffer.cpp
@@ -261,6 +262,7 @@ add_library(openrac_renderer STATIC
   renderer/gl/gl.cpp
   renderer/gl/gl_stats.cpp
   renderer/effects/haze.cpp
+  renderer/effects/screen_effect.cpp
   renderer/renderer.cpp
   renderer/frame/colour_graph.cpp
   renderer/frame/frame_record.cpp
@@ -316,6 +318,8 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/haze.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/haze.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/screen_effect.vert"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/screen_effect.frag"
 )
 target_link_libraries(openrac_renderer PUBLIC openrac_common openrac_sharp_cells
                       PRIVATE openrac_renderer_graph)
@@ -980,11 +984,31 @@ openrac_add_test(rac1_letterbox SOURCES tests/rac1_letterbox_test.cpp
                  game/rac1/host/letterbox.c game/rac1/host/screen_cover.c
                  renderer/frame/frame_record.cpp
                  INCLUDES . tests/rac1_letterbox game/rac1-pal/host game/common/include runtime/include)
+
+# Screen pass scheduling with fake GL resources, without a GPU context.
+openrac_add_test(screen_effect SOURCES tests/screen_effect_test.cpp renderer/effects/screen_effect.cpp
+  INCLUDES . "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_common)
 openrac_add_test(game_image_sources SOURCES tests/game_image_sources_test.cpp
                  game/common/frontend/game_image_sources.cpp INCLUDES . game/common/include runtime/include)
+# A world quad's native material (openrac/material.h): checked and captured on the game's thread
+# with its image, then the renderer's state for it (renderer/effects/effect_state.h).
+openrac_add_test(native_material SOURCES tests/native_material_test.cpp
+                 game/common/frontend/effect_material.cpp game/common/frontend/ui_images.cpp
+                 game/common/frontend/game_image_sources.cpp
+                 INCLUDES . game/common/include runtime/include LIBS openrac_renderer)
+# Up Your Arsenal's draw state capture (game/rac3-pal/host/effect_state.h): the registers its C
+# sets, the alpha-fail masks' material, the frontend's capture of it and the renderer's plan.
+openrac_add_test(rac3_effect_state SOURCES tests/rac3_effect_state_test.cpp
+                 game/rac3-pal/host/effect_state.c game/common/frontend/effect_material.cpp
+                 game/common/frontend/ui_images.cpp game/common/frontend/game_image_sources.cpp
+                 INCLUDES . game/common/include runtime/include LIBS openrac_renderer)
 
 openrac_add_test(renderer_direct LIBS openrac_renderer openrac_platform)
 set_tests_properties(renderer_direct PROPERTIES SKIP_RETURN_CODE 77)
+# Native effect quads on a real GPU context: the same pixels as their GS-word twins, and
+# blends weighed by the target's alpha (renderer/effects/effect_state.h).
+openrac_add_test(native_material_gpu LIBS openrac_renderer openrac_platform)
+set_tests_properties(native_material_gpu PROPERTIES SKIP_RETURN_CODE 77)
 
 openrac_add_test(program_cache LIBS openrac_renderer openrac_platform)
 set_tests_properties(program_cache PROPERTIES SKIP_RETURN_CODE 77)

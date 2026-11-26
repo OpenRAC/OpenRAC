@@ -10,8 +10,8 @@
  * the level to go to (0x001D9D04); on its way out (0x003A7CB8, 0x003BD870) it reads frontbin, the
  * front end's own program in the MISC wad, when that level is below zero (0x003BD160, 0x0039A530),
  * else the level's program, whose number it keeps in 0x001D545C. Both are read into a buffer at
- * the top of memory (*0x001D4B50) that 0x0013AFF8 copies from. frontbin's entry is the front end's
- * own address, 0x00381250; a level's is its own.
+ * the top of memory (*0x001D4B50) that 0x0013AFF8 copies from. frontbin's record entry is
+ * RAC3_FRONTBIN_ENTRY, not the boot front-end function's address: they differ on NTSC-U.
  *
  * The code addresses of the program loaded are that program's functions: hostgen's overlay 100
  * for frontbin (hostgen.json "groups"), the level's number for a level. */
@@ -25,7 +25,6 @@
 #include "openrac/host_env.h"
 #include "rac3_version.h"
 
-#define FRONTEND_ENTRY RAC3_ADDR(0x00381250u)
 #define FRONTBIN_OVERLAY 100
 #define CURRENT_LEVEL                                                                              \
     RAC3_ADDR(0x001D545Cu) /* the level whose program is loaded, or is being loaded */
@@ -106,6 +105,7 @@ void rac3_program_set_range(gaddr gp, gaddr low, gaddr high) {
     }
 }
 
+/* Copies the pending program, then selects its registered overlay using this release's entry. */
 gaddr func_0013AFF8(void) {
     if (!range_set) {
         range_set = 1;
@@ -124,7 +124,8 @@ gaddr func_0013AFF8(void) {
     }
     const gaddr entry = func_0013AFF8__game();
     ++program_loads;
-    if (entry == FRONTEND_ENTRY) {
+    /* Program identity comes from the record entry, not a boot-program function's address. */
+    if (entry == RAC3_FRONTBIN_ENTRY) {
         loaded_overlay = FRONTBIN_OVERLAY;
     } else if (level >= 0 && level < LEVELS) {
         loaded_overlay = level;

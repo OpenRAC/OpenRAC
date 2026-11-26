@@ -104,6 +104,73 @@ void forget_picture(std::uint32_t base) {
     }
 }
 
+namespace {
+
+// The draw buffer as the game left it: the last frame with its world in, or null.
+const renderer::FrameBuffer* world_source() {
+    const renderer::FrameBuffer* source = g && g->render.last_world.id() != 0
+                                              ? &g->render.last_world
+                                          : g ? &g->render.frame
+                                              : nullptr;
+    return source != nullptr && source->id() != 0 && source->width() > 0 ? source : nullptr;
+}
+
+// Copies `source` into the frame snapshot (renderer::g_frame_snapshot), at its full resolution, on
+// the graphics thread; `rgba`, when given, its pixels too (rows top first).
+void keep_world(const renderer::FrameBuffer& source, std::vector<std::uint8_t>* rgba) {
+    run_graphics([&] {
+        using namespace openrac::gl;
+        renderer::FrameSnapshot& snap = renderer::g_frame_snapshot;
+        snap.answered.clear();
+        if (snap.texture == 0) {
+            glGenTextures(1, &snap.texture);
+        }
+        glBindTexture(GL_TEXTURE_2D, snap.texture);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, source.resolved());
+        if (snap.width != source.width() || snap.height != source.height()) {
+            snap.width = source.width();
+            snap.height = source.height();
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                GL_RGBA8,
+                snap.width,
+                snap.height,
+                0,
+                GL_RGBA,
+                GL_UNSIGNED_BYTE,
+                nullptr
+            );
+        }
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, snap.width, snap.height);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        if (rgba != nullptr) {
+            *rgba = source.read_rgba();
+        }
+    });
+}
+
+}  // namespace
+
+namespace recorder {
+
+void snapshot_world(std::uint32_t id) {
+    // The picture must be the completed frame's, with its retained world image.
+    if (!g || id == 0 || !finish_render()) {
+        return;
+    }
+    const renderer::FrameBuffer* source = world_source();
+    if (source == nullptr) {
+        return;
+    }
+    keep_world(*source, nullptr);
+    renderer::g_frame_snapshot.picture = id;
+}
+
+}  // namespace recorder
+
 bool store_image(
     std::uint32_t base,
     std::uint32_t width_units,
@@ -120,13 +187,8 @@ bool store_image(
     }
     int fx = 0;
     int fy = 0;
-    // The draw buffer as the game left it: the last frame with its world in.
-    const renderer::FrameBuffer* source = g && g->render.last_world.id() != 0
-                                              ? &g->render.last_world
-                                          : g ? &g->render.frame
-                                              : nullptr;
-    if (source == nullptr || psm != 0 || source->id() == 0 || source->width() <= 0
-        || !renderer::frame_pixel(base, width_units, x, y, fx, fy)) {
+    const renderer::FrameBuffer* source = world_source();
+    if (source == nullptr || psm != 0 || !renderer::frame_pixel(base, width_units, x, y, fx, fy)) {
         return false;
     }
     // The last frame drawn, read once per frame however many strips the game reads: kept at full
@@ -137,40 +199,8 @@ bool store_image(
     const int lines = renderer::g_draw_buffer_lines;
     if (read_at != g->index) {
         std::vector<std::uint8_t> full;
-        run_graphics([&] {
-            using namespace openrac::gl;
-            renderer::FrameSnapshot& snap = renderer::g_frame_snapshot;
-            snap.answered.clear();
-            if (snap.texture == 0) {
-                glGenTextures(1, &snap.texture);
-            }
-            glBindTexture(GL_TEXTURE_2D, snap.texture);
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, source->resolved());
-            static int snap_w = 0;
-            static int snap_h = 0;
-            if (snap_w != source->width() || snap_h != source->height()) {
-                snap_w = source->width();
-                snap_h = source->height();
-                glTexImage2D(
-                    GL_TEXTURE_2D,
-                    0,
-                    GL_RGBA8,
-                    snap_w,
-                    snap_h,
-                    0,
-                    GL_RGBA,
-                    GL_UNSIGNED_BYTE,
-                    nullptr
-                );
-                snap.width = snap_w;
-                snap.height = snap_h;
-            }
-            glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, snap_w, snap_h);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-            full = source->read_rgba();
-        });
+        keep_world(*source, &full);
+        renderer::g_frame_snapshot.picture = 0;
         read_at = g->index;
         const int fw = source->width();
         const int fh = source->height();

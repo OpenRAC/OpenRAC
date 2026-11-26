@@ -405,6 +405,47 @@ openrac_add_c_test(rac4_io
           game/common/lib/pad.c
   INCLUDES runtime/include game/common/include)
 openrac_add_c_test(graph_dma INCLUDES runtime/include game/common/include)
+# Program-table selection at the real rac3 loader boundary, using synthetic records.
+openrac_add_test(rac3_program
+  SOURCES tests/rac3_program_test.cpp game/rac3-pal/host/program.c
+  INCLUDES . runtime/include game/common/include game/rac3-pal/host)
+if(Python3_FOUND)
+  set(program_ntsc_dir "${CMAKE_CURRENT_BINARY_DIR}/tests/rac3_program_ntsc")
+  add_custom_command(
+    OUTPUT "${program_ntsc_dir}/program.c" "${program_ntsc_dir}/rac3_program_test.cpp"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/hostgen/release_host.py"
+      --names "${CMAKE_CURRENT_SOURCE_DIR}/game/rac3-ntsc/host/rac3_names.tsv"
+      --out "${program_ntsc_dir}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/game/rac3-pal/host/program.c"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/rac3_program_test.cpp"
+    DEPENDS tools/hostgen/release_host.py game/rac3-ntsc/host/rac3_names.tsv
+      game/rac3-pal/host/program.c tests/rac3_program_test.cpp
+    VERBATIM)
+  openrac_add_test(rac3_program_ntsc
+    SOURCES "${program_ntsc_dir}/rac3_program_test.cpp" "${program_ntsc_dir}/program.c"
+    INCLUDES . tests runtime/include game/common/include game/rac3-ntsc/host game/rac3-pal/host)
+endif()
+# Native rac3 pad updates and shared report mods with synthetic RAM, no game or platform library.
+openrac_add_test(rac3_pad_state
+  SOURCES tests/rac3_pad_state_test.cpp game/rac3-pal/host/pad.c game/common/lib/pad.c
+  INCLUDES . runtime/include game/common/include game/rac3-pal/host)
+if(Python3_FOUND)
+  # Carry only the port's own fixture and host source; this does not run hostgen or read game data.
+  set(pad_ntsc_dir "${CMAKE_CURRENT_BINARY_DIR}/tests/rac3_pad_ntsc")
+  add_custom_command(
+    OUTPUT "${pad_ntsc_dir}/pad.c" "${pad_ntsc_dir}/rac3_pad_state_test.cpp"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/hostgen/release_host.py"
+      --names "${CMAKE_CURRENT_SOURCE_DIR}/game/rac3-ntsc/host/rac3_names.tsv"
+      --out "${pad_ntsc_dir}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/game/rac3-pal/host/pad.c"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/rac3_pad_state_test.cpp"
+    DEPENDS tools/hostgen/release_host.py game/rac3-ntsc/host/rac3_names.tsv
+      game/rac3-pal/host/pad.c tests/rac3_pad_state_test.cpp
+    VERBATIM)
+  openrac_add_test(rac3_pad_ntsc
+    SOURCES "${pad_ntsc_dir}/rac3_pad_state_test.cpp" "${pad_ntsc_dir}/pad.c" game/common/lib/pad.c
+    INCLUDES . tests runtime/include game/common/include game/rac3-ntsc/host game/rac3-pal/host)
+endif()
 openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)
 openrac_add_c_test(guest_format INCLUDES . runtime/include game/common/include LIBS openrac_runtime)
 # The other games' saves on the first card: read, never written (the Barlow vendor's free weapons).
@@ -551,6 +592,17 @@ openrac_add_c_test(rac2_save INCLUDES game/rac2/host
 # Up Your Arsenal's saves as the play calls read them, on a slot the game wrote.
 openrac_add_c_test(rac3_save INCLUDES game/rac3-pal/host
   DEFINITIONS "RAC3_SAVE_FIXTURE=\"${PROJECT_SOURCE_DIR}/../launcher/core/tests/fixtures/rac3/save-empty.bin\"")
+# Up Your Arsenal's multiplayer images as each copy of SendImage hands them over, let go with the
+# executable, and its 2D screen from the frame block a split-screen view does not move.
+openrac_add_c_test(rac3_mp_images NO_STRICT_ALIASING
+  INCLUDES game/common/include runtime/include game/rac3-pal/host)
+# Up Your Arsenal's alpha-fail masks through the levels' host C (render.c, textures.c,
+# effect_state.c) on a synthetic level: native, or the older call when OPENRAC_UI_SKIP names
+# rac3_effect_masks.
+openrac_add_c_test(rac3_effect_masks NO_STRICT_ALIASING MATH
+  SOURCES tests/rac3_effect_masks_test.c game/rac3-pal/host/render.c game/rac3-pal/host/textures.c
+          game/rac3-pal/host/effect_state.c
+  INCLUDES tests/rac3_host game/rac3-pal/host . game/common/include runtime/include)
 # The card filter against the game's calls on a real folder: a party never writes a player's saves.
 openrac_add_c_test(mc_filter SOURCES tests/mc_filter_test.c game/common/lib/mc.c
                    INCLUDES game/common/include runtime/include)
