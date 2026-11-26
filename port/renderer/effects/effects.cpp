@@ -670,10 +670,9 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
         // The strip's two triangles, 0-1-2 and 1-2-3 (the faces are not culled).
         for (const int k : order) {
             const auto [s, t] =
-                q.frame_copy
-                    ? frame_copy_st(q.st[k][0], q.st[k][1], state.target.picture_scale_x)
-                : target ? offscreen_target_st(q.tex0, q.st[k][0], q.st[k][1])
-                         : std::array<float, 2>{q.st[k][0], q.st[k][1]};
+                q.frame_copy ? frame_copy_st(q.st[k][0], q.st[k][1], state.target.picture_scale_x)
+                : target     ? offscreen_target_st(q.tex0, q.st[k][0], q.st[k][1])
+                             : std::array<float, 2>{q.st[k][0], q.st[k][1]};
             m_vertices.push_back(
                 {q.corner[k][0],
                  q.corner[k][1],
