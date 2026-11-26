@@ -82,6 +82,11 @@ include(Warnings)
 include(Tests)
 include(FastBuild)
 include(Optimize)
+# Windows: version resources on the shipped programs and libraries.
+if(WIN32)
+  enable_language(RC)
+endif()
+include(WindowsVersionInfo)
 # Android (the android-arm64 preset, the NDK's toolchain file): docs/port/ANDROID.md.
 if(ANDROID)
   include(Android)
