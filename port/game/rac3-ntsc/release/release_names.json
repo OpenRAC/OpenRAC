@@ -1,7 +1,7 @@
 {
  "about": "The NTSC-U view of rac3-decomp: each PAL address name and NTSC-U's name for it, the PAL definitions NTSC-U has other code for, and the values of the names with no address of their own. Written by port/tools/hostgen/release_rac3.py from config/us/map.tsv and config/us/names.tsv; do not edit.",
  "source": {
-  "commit": "f2e6fc51661fca4e102b6c042ba02c87610dbfca",
+  "commit": "ca6d5e7736c023a9abf47f5995c3a9ed502b3a7f",
   "version": "us",
   "table": "config/us/map.tsv, config/us/names.tsv"
  },
