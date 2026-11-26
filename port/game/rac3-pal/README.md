@@ -363,7 +363,7 @@ vertical blank callback (`func_0013D208`).
 | `host/entry.c` | the loader's unpacking, crt0, InitSystemCallTableAddress (no kernel to scan) |
 | `host/dma.c` | sceDmaSend leaving CHCR as the DMAC does (the VIF1 handler retires the frame's wait mask from it), KickVif0Chain |
 | `host/sound.c`, `common/lib/snd.c` | 989snd's client API: native sound and stream requests, with answers sent to callbacks at the next snd_Pump. No shared command ring; unexpected raw sends warn once and return 0 |
-| `host/pad.c` | libpad 4.0, Deadlocked's host pad at this disc's addresses |
+| `host/pad.c` | the pad start-up and update of the boot program, frontbin and the levels, the port's: each record's report from the port's controllers, read by the game's own reader, no libpad; the multiplayer executable's libpad 4.0 answers (host/mp.c) |
 | `host/movie.c` | the movie player entry, the boot program's, frontbin's and every level's copy (`func_L01_004D28B0`, which the levels' story movies start): the shared native player |
 | `host/program.c` | which program is loaded (the overlay hook), `OPENRAC_RAC3_NEXT` |
 | `headers/vu0.h` | the vector-library helpers of the decompilation's `include/vu0.h` (asm Clang refuses) in C, read in its place (hostgen.json `headers`) |
@@ -380,6 +380,19 @@ vertical blank callback (`func_0013D208`).
 | `host/picture.c` | the main menu's background: the picture to the window as a texture and a full-screen 2D record; in a picture wider than 4:3, its blurred edges out to the window's sides, as Going Commando's title |
 | `host/view.c` | the game's own 16:9 option kept off, so that the window's Picture setting alone shapes the view (as Going Commando's) |
 | `IDENTIFIED.tsv` | every function and global worked out on the way, for the backfill |
+
+The `rac3_pad_state` ctest compiles the real pad wrapper and shared report code with synthetic RAM
+and input. It covers one sample/mod report per ready update, quiet setup and reconnect frames,
+disconnects, unopened slots, game callback/reader ordering, and motor forwarding. It does not run
+the game or decode input through its retail reader. `rac3_pad_ntsc` carries that real host source
+and fixture to NTSC-U's names and checks its boot-only initialization and retained overlay state
+([native pad lifecycle](../../../docs/port/NATIVE_PADS.md)). The MP library path remains in use;
+full game generation and runtime behavior are unverified.
+
+`rac3_program` and `rac3_program_ntsc` test the real loader dispatch wrapper with synthetic
+records. Frontbin's program entry is release-specific metadata, not the boot front-end function's
+address ([program lifecycle](../../../docs/port/PROGRAM_LIFECYCLE.md)); the tests do not run
+LoadExec or the real function registry.
 
 `hostgen.json` also lists `from_assembly` (C that forwards registers or has VU0 inline assembly,
 translated from its instructions), `candidate_folders_left_out` (the NTSC-U drafts of boot_elf and

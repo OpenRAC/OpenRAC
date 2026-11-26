@@ -121,6 +121,10 @@ pub struct Action {
     /// refused.
     #[serde(default)]
     pub options: Vec<String>,
+    /// Pass a structured, tool-validated value as one argument instead of an enumerated choice.
+    /// The command still runs directly, without a shell.
+    #[serde(default)]
+    pub free_option: bool,
     /// For developers only: the launcher lists and runs it only with Developer tools on
     /// (Settings), for a step not fit for players yet (a game that reaches only its menus).
     #[serde(default)]
@@ -406,7 +410,7 @@ impl ActionFile {
                     }
                 }
                 let uses_option = action.args.iter().any(|a| placeholders(a).iter().any(|n| n == "option"));
-                if uses_option && action.options.is_empty() {
+                if uses_option && action.options.is_empty() && !action.free_option {
                     problems.push(format!("{at}: uses {{option}} but lists no options"));
                 }
                 if action.warning.as_deref().is_some_and(|w| w.trim().is_empty()) {
@@ -560,13 +564,18 @@ impl Action {
         }
         let program = self.program.as_deref().ok_or_else(|| format!("{} has no program", self.label))?;
         if let Some(option) = ctx.option {
-            if !self.options.iter().any(|o| o == option) {
+            if !self.free_option && !self.options.iter().any(|o| o == option) {
                 return Err(format!("{}: {option:?} is not one of {}", self.label, self.options.join(", ")));
             }
         }
         let fill = |text: &str| fill(text, ctx, self.artifact_path(ctx).ok().as_deref());
         let program = PathBuf::from(fill(program)?);
         let mut args = self.args.iter().map(|a| fill(a)).collect::<Result<Vec<_>, _>>()?;
+        if self.id == "overrides-stack" && !args.iter().any(|a| a == "--disc") {
+            if let Some(disc) = ctx.status.and_then(|s| s.disc.path.as_ref()) {
+                args.extend(["--disc".to_string(), disc.display().to_string()]);
+            }
+        }
         // The Mods switch under Play: off (the default), the game loads none of the native
         // mods the Mods tab switched on (docs/port/MODS.md). On, the game is told where the launcher
         // keeps the list, in the game's set-up folder in the per-user install folder, so that the
@@ -877,6 +886,31 @@ mod tests {
                 assert!(!text.contains("not playable"), "{key} {}", a.id);
             }
         }
+    }
+
+    #[test]
+    fn structured_options_stay_one_argument_and_require_opt_in() {
+        let config = Config::default();
+        let payload = r#"{"name":"Music +4%","speed":1.04}"#;
+        let ctx = Context {
+            root: Path::new("."),
+            config: &config,
+            version: None,
+            status: None,
+            toolchains: false,
+            platform: Platform::Linux,
+            level: None,
+            path: None,
+            option: Some(payload),
+        };
+        let mut action: Action = serde_json::from_str(
+            r#"{"id":"recipe","label":"Recipe","kind":"edit","state":"connected","program":"python",
+            "args":["--settings","{option}"],"freeOption":true}"#,
+        )
+        .unwrap();
+        assert_eq!(action.plan(&ctx).unwrap().args, ["--settings", payload]);
+        action.free_option = false;
+        assert!(action.plan(&ctx).unwrap_err().contains("not one of"));
     }
 
     #[test]
