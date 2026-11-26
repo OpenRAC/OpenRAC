@@ -3613,9 +3613,9 @@ TickPackets capture_2d_path(
     // pass's marker, has the world over all of it.
     // A loading screen of 2D alone (Up Your Arsenal's Vid-comic transition) has no moby pass to split
     // at: its 2D goes over the world's clear.
-    const bool loading = g->render.profile->loading_world() >= 0 && world_to_draw(ram, level) == -2
-                         && (openrac_game_loading_draws_world == nullptr
-                             || openrac_game_loading_draws_world() != 0);
+    const bool loading =
+        g->render.profile->loading_world() >= 0 && world_to_draw(ram, level) == -2
+        && (openrac_game_loading_draws_world == nullptr || openrac_game_loading_draws_world() != 0);
     if (loading && world_marker == SIZE_MAX) {
         before_world = k.packets.size();
     }
