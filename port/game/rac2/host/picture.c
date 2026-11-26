@@ -172,8 +172,9 @@ static void make_sides(void) {
                     + ((size_t)y * SIDE_COLUMNS + (size_t)(side == 0 ? SIDE_COLUMNS - 1 - x : x))
                           * 4;
                 for (int c = 0; c < 3; ++c) {
-                    const float v = (float)from[((size_t)y * BACKDROP_WIDTH + (size_t)a) * 4 + c] * (1.0f - f)
-                                    + (float)from[((size_t)y * BACKDROP_WIDTH + (size_t)b) * 4 + c] * f;
+                    const float v =
+                        (float)from[((size_t)y * BACKDROP_WIDTH + (size_t)a) * 4 + c] * (1.0f - f)
+                        + (float)from[((size_t)y * BACKDROP_WIDTH + (size_t)b) * 4 + c] * f;
                     to[c] = (uint8_t)(v * (float)light / (float)SIDE_LIT);
                 }
                 to[3] = 0x80;

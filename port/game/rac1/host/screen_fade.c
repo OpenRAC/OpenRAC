@@ -31,9 +31,6 @@ static int skipped(const char* name) {
 }
 
 #define LIST_CURSOR RAC1_ADDR(0x00161000u)
-#define SCREEN_EXTENT RAC1_ADDR(0x0013E600u)
-/* The game's vertical-sync counter (game_frame_counter): one step a displayed frame. */
-#define FRAME_COUNTER RAC1_ADDR(0x0015F538u)
 
 /* The list cursor the last screen-wide tint left (taken back or kept) and the frame it was in:
  * draw_screen_effect tells from them whether a tint ran right before it (screen_effect below). */
@@ -41,6 +38,9 @@ static gaddr s_tint_end __attribute__((unused));
 static int s_tint_frame __attribute__((unused)) = -1;
 
 #if !RAC1_OMIT(func_001F55C0)
+#define SCREEN_EXTENT RAC1_ADDR(0x0013E600u)
+/* The game's vertical-sync counter (game_frame_counter): one step a displayed frame. */
+#define FRAME_COUNTER RAC1_ADDR(0x0015F538u)
 /* The most one tint appends: a register write and the sprite's DMA call. */
 #define TINT_PACKET_MAX 0x80u
 
@@ -95,6 +95,9 @@ void func_001F55C0(int r, int g, int b, int a) {
         }
     }
 }
+
+#undef SCREEN_EXTENT
+#undef FRAME_COUNTER
 #endif
 
 #if !RAC1_OMIT(func_001FB848)
@@ -107,6 +110,9 @@ void func_001FB848(void) {
 #endif
 
 #if !RAC1_OMIT(func_001F5368)
+#define SCREEN_EXTENT RAC1_ADDR(0x0013E600u)
+/* The game's vertical-sync counter (game_frame_counter): one step a displayed frame. */
+#define FRAME_COUNTER RAC1_ADDR(0x0015F538u)
 /* draw_screen_effect (func_001F5368): the tail of the frame fills the screen in vertical stripes
  * from the table the pointer at 0x0015F450 names (a colour for the whole screen, then stripes of
  * two widths and colours, each with an optional ALPHA word). Its own C runs, then the rectangles
@@ -239,9 +245,16 @@ void func_001F5368(void) {
     }
     GREF(gaddr, cursor) = before;
 }
+
+#undef SCREEN_EXTENT
+#undef FRAME_COUNTER
 #endif
 
 #if !RAC1_OMIT(func_001F4E08)
+#define SCREEN_EXTENT RAC1_ADDR(0x0013E600u)
+/* The game's vertical-sync counter (game_frame_counter): one step a displayed frame. */
+#define FRAME_COUNTER RAC1_ADDR(0x0015F538u)
+
 /* FadeToBlack (func_001F4E08), the `frames`-step fade of the picture the console is showing. On
  * the console each step darkens the small buffer the display reads (the blend of the black sprite
  * second_clear_packet draws with the alpha 0x80 - (n << 7) / (n + 1), n counting down from
@@ -285,4 +298,7 @@ void func_001F4E08(int frames) {
     func_001FB498();
     func_001FB530();
 }
+
+#undef SCREEN_EXTENT
+#undef FRAME_COUNTER
 #endif
