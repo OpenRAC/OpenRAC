@@ -121,7 +121,13 @@ void func_001FB848(void) {
  * the cover helper has (source over, 0x44, and the colour taken as it is, 0x64) are native: a
  * table with any other word keeps the packets. */
 #define STRIPES_POINTER RAC1_ADDR(0x0015F450u)
-enum { STRIPE_DEPTH = 0xFFFFF0, STRIPE_DEPTH_BITS = 24, ALPHA_MIX = 0x44, ALPHA_COPY = 0x64 };
+
+enum {
+    STRIPE_DEPTH = 0xFFFFF0,
+    STRIPE_DEPTH_BITS = 24,
+    ALPHA_MIX = 0x44,
+    ALPHA_COPY = 0x64
+};
 
 /* The blend of an ALPHA word (low byte and FIX byte masked as the game does), or -1. */
 static int stripe_blend(uint64_t word) {
@@ -137,10 +143,17 @@ static int stripe_blend(uint64_t word) {
 }
 
 /* One fill of the stripe table; 0 when the helper would not take it. */
-static int stripe_fill(const rac1_cover_view* view, const int* rect, uint32_t colour, int blend,
-                       int test) {
+static int stripe_fill(
+    const rac1_cover_view* view, const int* rect, uint32_t colour, int blend, int test
+) {
     return rac1_cover_fill_depth(
-        view, rect, colour, blend, STRIPE_DEPTH, STRIPE_DEPTH_BITS, test,
+        view,
+        rect,
+        colour,
+        blend,
+        STRIPE_DEPTH,
+        STRIPE_DEPTH_BITS,
+        test,
         OPENRAC_WRITE_COLOUR | OPENRAC_WRITE_DEPTH
     );
 }
@@ -148,8 +161,21 @@ static int stripe_fill(const rac1_cover_view* view, const int* rect, uint32_t co
 void func_001F5368(void) {
     const gaddr cursor = OPENRAC_DATA(LIST_CURSOR);
     const gaddr before = GREF(gaddr, cursor);
-    const int tinted = s_tint_frame == GREF(int, OPENRAC_DATA(FRAME_COUNTER)) && s_tint_end == before;
+    const int tinted =
+        s_tint_frame == GREF(int, OPENRAC_DATA(FRAME_COUNTER)) && s_tint_end == before;
     func_001F5368__game();
+    if (openrac_env_string("OPENRAC_UI_LOG") != NULL) {
+        static int logged;
+        if (logged++ < 3) {
+            fprintf(
+                stderr,
+                "screen_fade: stripes table %#x, %u bytes of packets, %s\n",
+                (unsigned)GREF(gaddr, OPENRAC_DATA(STRIPES_POINTER)),
+                (unsigned)(GREF(gaddr, cursor) - before),
+                tinted ? "after a tint" : "no tint"
+            );
+        }
+    }
     if (!openrac_frame_native() || skipped(RAC1_NAME(func_001F5368))) {
         return;
     }
@@ -204,7 +230,8 @@ void func_001F5368(void) {
             }
             const int x1 = x + widths[k] < w - 1 ? x + widths[k] : w - 1;
             const int rect[4] = {x, 0, x1, h};
-            if ((colours[k] & 0xFF000000u) != 0 && !stripe_fill(&picture, rect, colours[k], blend, test)) {
+            if ((colours[k] & 0xFF000000u) != 0
+                && !stripe_fill(&picture, rect, colours[k], blend, test)) {
                 return;
             }
             x += widths[k];

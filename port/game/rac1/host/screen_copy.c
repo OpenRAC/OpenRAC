@@ -19,6 +19,7 @@
  *
  * OPENRAC_UI_SKIP naming either function, OPENRAC_UI_REPLAY and no window keep the game's own.
  */
+#include <stdio.h>
 #include <string.h>
 
 #include "openrac/frame.h"
@@ -48,12 +49,26 @@ void func_L00_002A21A8(int to, int frame, int bytes) {
     }
     s_native_copy = 1;
     openrac_frame_snapshot_world(FRAME_COPY_PICTURE);
+    if (openrac_env_string("OPENRAC_UI_LOG") != NULL) {
+        fprintf(stderr, "screen_copy: frame read kept as a picture\n");
+    }
 }
 
 void func_L00_002A2258(int from, int frame, int bytes) {
     if (!s_native_copy || !openrac_frame_native() || copy_skipped(RAC1_NAME(func_L00_002A2258))) {
         func_L00_002A2258__game(from, frame, bytes);
         return;
+    }
+    if (openrac_env_string("OPENRAC_UI_LOG") != NULL) {
+        static int logged;
+        if (logged++ < 3) {
+            fprintf(
+                stderr,
+                "screen_copy: frame written as a picture, cursor %#x (list cursor %#x)\n",
+                (unsigned)GREF(gaddr, COPY_CURSOR),
+                (unsigned)GREF(gaddr, OPENRAC_DATA(RAC1_ADDR(0x00161000u)))
+            );
+        }
     }
     openrac_frame_anchor_at(COPY_CURSOR);
     openrac_frame_picture(
