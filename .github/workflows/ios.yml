@@ -11,9 +11,9 @@ run-name: >-
   ${{ github.event_name == 'pull_request'
       && format('ios #{0} · pr #{1} → {2} · {3}', github.run_number, github.event.pull_request.number, github.base_ref, github.event.pull_request.title)
   || github.event_name == 'merge_group'
-      && format('ios #{0} · queue → {1} · {2}', github.run_number, endsWith(github.event.merge_group.base_ref, '/master') && 'master' || 'develop', github.event.merge_group.head_commit.message)
+      && format('ios #{0} · queue → {1}', github.run_number, endsWith(github.event.merge_group.base_ref, '/master') && 'master' || 'develop')
   || github.event_name == 'push'
-      && format('ios #{0} · push {1} · {2}', github.run_number, github.ref_name, github.event.head_commit.message)
+      && format('ios #{0} · push {1}', github.run_number, github.ref_name)
   || format('ios #{0} · manual {1} · by {2}', github.run_number, github.ref_name, github.actor) }}
 
 on:

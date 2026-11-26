@@ -35,7 +35,7 @@ run-name: >-
   ${{ github.ref_type == 'tag'
       && format('launcher #{0} · tag {1}', github.run_number, github.ref_name)
   || github.event_name == 'push'
-      && format('launcher #{0} · push {1} · {2}', github.run_number, github.ref_name, github.event.head_commit.message)
+      && format('launcher #{0} · push {1}', github.run_number, github.ref_name)
   || format('launcher #{0} · manual {1} · by {2}', github.run_number, github.ref_name, github.actor) }}
 
 on:
