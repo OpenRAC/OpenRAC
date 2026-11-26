@@ -717,6 +717,7 @@
       "func_00198748": "int (int)",
       "func_001987A0": "int (int)",
       "func_L39_00689630": "int (int, int)",
+      "func_L39_00697028": "int (int)",
       "func_00193058": "unsigned int (void)",
       "func_00281280": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_0027F7E0": "int (int, int, int, int, long long, long long, int, float, float, float, float)",
