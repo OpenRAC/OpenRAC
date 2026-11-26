@@ -26,6 +26,8 @@
  * the place of the call; anything else goes the game's way.
  */
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "draw_owner.h"
@@ -272,15 +274,56 @@ static int image_of_state(openrac_game_ui_image* image) {
     return 1;
 }
 
+/* OPENRAC_STRIP_TRACE: every 500 strips the counts of those drawn natively and those that went the
+ * game's way, by the first thing missing (stderr, `[strips]` lines). */
+enum { kWhyList, kWhyState, kWhyFog, kWhyShape, kWhyMaterial, kWhyImage, kWhyRefused, kWhyCount };
+static unsigned s_native, s_why[kWhyCount];
+
+static void trace(int why) {
+    static int on = -1;
+    if (on < 0) {
+        on = getenv("OPENRAC_STRIP_TRACE") != NULL;
+    }
+    if (!on) {
+        return;
+    }
+    if (why < 0) {
+        ++s_native;
+    } else {
+        ++s_why[why];
+    }
+    unsigned total = s_native;
+    for (int i = 0; i < kWhyCount; ++i) {
+        total += s_why[i];
+    }
+    if (total % 500 == 0) {
+        fprintf(
+            stderr,
+            "[strips] native %u; game's way: not before the mobys %u, state unknown %u, no fog %u, "
+            "count %u, material %u, image %u, refused %u\n",
+            s_native, s_why[kWhyList], s_why[kWhyState], s_why[kWhyFog], s_why[kWhyShape],
+            s_why[kWhyMaterial], s_why[kWhyImage], s_why[kWhyRefused]
+        );
+    }
+}
+
 /* part_draw_glint_effect: the strip's vertices, drawn with the state the callback set. */
 void func_00281810(int count, int positions, int colours, gaddr uvs, int flag) {
     const gaddr before = cursor();
     saw(before);
     openrac_material material;
     openrac_game_ui_image image;
-    if (LIST_BEFORE_MOBYS(rac2_draw_list) && s.known == kKnownAll && s.fog_known && count >= 3
-        && count <= (int)OPENRAC_STRIP_MOST_VERTICES && openrac_frame_native()
-        && material_of_state(&material) && image_of_state(&image)) {
+    int why = kWhyList;
+    if (LIST_BEFORE_MOBYS(rac2_draw_list)) {
+        why = s.known != kKnownAll ? kWhyState
+              : !s.fog_known       ? kWhyFog
+              : count < 3 || count > (int)OPENRAC_STRIP_MOST_VERTICES || !openrac_frame_native()
+                  ? kWhyShape
+              : !material_of_state(&material) ? kWhyMaterial
+              : !image_of_state(&image)       ? kWhyImage
+                                              : -1;
+    }
+    if (why < 0) {
         openrac_frame_strip_desc desc;
         memset(&desc, 0, sizeof desc);
         desc.count = (uint32_t)count;
@@ -294,9 +337,12 @@ void func_00281810(int count, int positions, int colours, gaddr uvs, int flag) {
         desc.fog_colour = s.fog_colour;
         rac2_anchor();
         if (openrac_frame_strip(&desc) != 0) {
+            trace(-1);
             return; /* nothing was appended to the list: the capture's end stays */
         }
+        why = kWhyRefused;
     }
+    trace(why);
     func_00281810__game(count, positions, colours, uvs, flag);
     s.end = cursor();
 }
