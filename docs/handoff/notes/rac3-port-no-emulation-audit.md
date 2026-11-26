@@ -296,6 +296,12 @@ to directly.
   through `OPENRAC_STRIP_CHAIN_DEPTH` (written only where the window places the strip with the
   liquids). `OPENRAC_RAC3_STRIP_TRACE` counts. The UNPACK/MSCAL branch stays for rac1, rac2 and the
   strips the proof refuses.
+  Checked 2026-11-26 on Florana (level 2) and Koros (level 14), hidden runs against `OPENRAC_UI_REPLAY=1`:
+  all strips native (5,000+ per run, none refused), Koros identical to the chain's picture, Florana identical
+  except a band at the water's edge (up to 37/255, the #931 difference): it is the water's own fog, which the
+  chain's reading never applied; with the fog off (a local test switch) the picture is bit-identical to the
+  chain's. The fog is the one the water program applies (water_plane.c header), so the band is the fix, not
+  a mismatch.
 
 ### P6 — Screen effects and frame copies natively (rac3, implementation; after P1)
 
