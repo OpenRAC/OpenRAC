@@ -86,7 +86,7 @@ std::vector<char> encode_native_shader(const NativeComputeShader& shader);
 // Validates native descriptors before replacing the caller's program.
 [[nodiscard]] bool decode_native_shader(std::span<const char> bytes, NativeComputeShader& shader);
 
-// Generated package, embedded once in the Vulkan library.
+// Generated package: one shared library for every program (libopenrac-shaders), built in on iOS.
 std::span<const char> embedded_shader_package();
 // Returns the process-lifetime archive; a corrupt executable package throws during initialization.
 const ShaderPackage& builtin_shader_package();

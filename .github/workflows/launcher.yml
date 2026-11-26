@@ -379,6 +379,9 @@ jobs:
           "$baker" --help > /dev/null || { echo "openrac-enhanced-baker does not start"; exit 1; }
           "$baker" --print-interior-profile > /dev/null || { echo "interior inference does not start"; exit 1; }
           "$baker" --print-water-profile > /dev/null || { echo "water baking does not start"; exit 1; }
+          # The Vulkan shaders, one library beside the programs that every game loads.
+          shaders=$(ls "$COPY"/port/build/release/*openrac-shaders.* 2>/dev/null | head -1)
+          [ -n "$shaders" ] || { echo "the copy carries no openrac-shaders library"; exit 1; }
           # On Windows each program has Microsoft's C++ runtime beside it: a new Windows has none.
           if [ "$NAME" = windows ]; then
             for dll in msvcp140.dll msvcp140_2.dll vcruntime140.dll vcruntime140_1.dll; do
@@ -406,6 +409,7 @@ jobs:
             need=$(objdump -T "$game" | grep -oE 'GLIBC_2\.[0-9]+' | sort -t. -k2 -n | tail -1)
             echo "needs $need"
             if readelf -d "$game" | grep -q 'libstdc++'; then echo "the game needs the system's libstdc++"; exit 1; fi
+            if readelf -d "$shaders" | grep -q 'libstdc++'; then echo "$shaders needs the system's libstdc++"; exit 1; fi
           esac
           if [ "$NAME" = linux ]; then
             case "$need" in GLIBC_2.3[6-9]|GLIBC_2.[4-9]*) echo "the game needs a newer glibc than 2.35"; exit 1;; esac
@@ -427,7 +431,7 @@ jobs:
                      libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
                      libopenrac-rac2-pal.so libopenrac-rac2-pal-cli.so \
                      libopenrac-rac2-ntsc2.so libopenrac-rac2-ntsc2-cli.so \
-                     libopenrac-python.so; do
+                     libopenrac-shaders.so libopenrac-python.so; do
             echo "$lib:"; "$llvm/llvm-readelf" -d "launcher/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/$lib" | grep NEEDED
           done
           echo "::endgroup::"
@@ -563,7 +567,7 @@ jobs:
                    libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
                    libopenrac-rac2-pal.so libopenrac-rac2-pal-cli.so \
                    libopenrac-rac2-ntsc2.so libopenrac-rac2-ntsc2-cli.so \
-                   libSDL3.so libc++_shared.so libopenrac-python.so \
+                   libopenrac-shaders.so libSDL3.so libc++_shared.so libopenrac-python.so \
                    libpython3.13.so libhook_impl.so libmain_hook.so libfile_redirect_hook.so \
                    libgsl_alloc_hook.so libopenrac_launcher_lib.so; do
           unzip -l "$apk" "lib/arm64-v8a/$lib" > /dev/null || { echo "the APK has no $lib"; exit 1; }
