@@ -237,6 +237,11 @@ struct FrameInput {
     // Where the HUD bucket's packets start in the 2D path (the bytes before the world come first):
     // the base of the splices after the world.
     std::size_t hud_packets_offset = 0;
+    // Split screen: each local player's view picture (a GL texture, 0 for none,
+    // frontend/split_views.cpp), drawn where `recording` reaches that view's World command: over
+    // what the game drew in the view before its world (its viewport's clear) and under what it
+    // draws after (its HUD), as the console's lists drew one view after another.
+    std::array<unsigned, kFrameViews> view_pictures{};
     // Mobys the game draws into a texture (the vendor's item and salesman screens, the page menus'
     // widgets): at their marker in the 2D path (GifInterpreter::kMobyMarker), called with the
     // marker's value and the off-screen target bound (its framebuffer, its side in GL pixels, and

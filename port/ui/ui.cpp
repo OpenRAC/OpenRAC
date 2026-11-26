@@ -96,15 +96,13 @@ void openrac_ui_scissor(const float* rect) {
         openrac_frame_scissor(nullptr);
         return;
     }
-    // The recorder's rectangles are in a 512 x 448 screen (openrac/frame.h); the game's own screen
-    // may be another size (Up Your Arsenal's 2D after the picture's copy: 512 x 512).
+    // In the game's own screen (Up Your Arsenal's 2D after the picture's copy is 512 x 512): the
+    // recorder takes its size and the rectangle as they are.
     float width = 512.0f;
     float height = 448.0f;
     openrac_ui_screen(&width, &height);
-    const float kx = 512.0f / width;
-    const float ky = 448.0f / height;
-    const float scaled[4] = {rect[0] * kx, rect[1] * ky, rect[2] * kx, rect[3] * ky};
-    openrac_frame_scissor(scaled);
+    openrac_frame_screen(width, height);
+    openrac_frame_scissor(rect);
 }
 
 int openrac_ui_image(int table, int index, openrac_game_ui_image* out) {

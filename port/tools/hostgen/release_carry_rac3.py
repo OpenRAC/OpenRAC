@@ -72,7 +72,7 @@ class Names:
         self.front: dict[str, str] = {}
         self.levels: dict[str, str] = {}
         self.status: dict[tuple[str, str], str] = {}
-        for line in (source / "config/us/map.tsv").read_text().splitlines():
+        for line in (source / "config/us/map.tsv").read_text(encoding="utf-8").splitlines():
             cols = line.split("\t")
             if line.startswith("#") or len(cols) < 7:
                 continue
@@ -90,7 +90,7 @@ class Names:
             out = {}
             if not path.is_file():
                 return out
-            for line in path.read_text().splitlines():
+            for line in path.read_text(encoding="utf-8").splitlines():
                 cols = line.split("\t")
                 if line.startswith("#") or len(cols) < 7 or cols[1] != "frontbin":
                     continue
@@ -104,7 +104,7 @@ class Names:
         self.us_level_names = set(us_first.values())
         us_catalogue = source / "config/us/levels/functions.tsv"
         if us_catalogue.is_file():
-            self.us_level_names |= {line.split("\t")[0] for line in us_catalogue.read_text().splitlines()
+            self.us_level_names |= {line.split("\t")[0] for line in us_catalogue.read_text(encoding="utf-8").splitlines()
                                     if not line.startswith("#")}
         for row, first in first_places(source / "config/levels/functions.tsv").items():
             twin = self.front.get(row)
@@ -164,7 +164,7 @@ class Names:
             if m:
                 named["frontbin" if pal.endswith("__frontbin") else "boot_elf"].add(int(m.group(3), 16))
         out = []
-        for line in path.read_text().splitlines():
+        for line in path.read_text(encoding="utf-8").splitlines():
             cols = line.split("\t")
             if line.startswith("#") or len(cols) < 5 or cols[0] not in named or cols[4] != "function":
                 continue
@@ -204,12 +204,12 @@ class MpNames:
 
     def __init__(self, source: Path, names: Names):
         path = RELEASE / "release/mp_pairs.json"
-        self.pairs = json.loads(path.read_text()) if path.is_file() else {"functions": {}, "addresses": {}}
+        self.pairs = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {"functions": {}, "addresses": {}}
         self.functions = {k: v["is"] for k, v in self.pairs["functions"].items() if v["is"]}
 
         def rows(path: Path) -> dict[str, tuple[str, dict[int, int]]]:
             out = {}
-            for line in path.read_text().splitlines() if path.is_file() else []:
+            for line in path.read_text(encoding="utf-8").splitlines() if path.is_file() else []:
                 cols = line.split("\t")
                 if line.startswith("#") or len(cols) < 7:
                     continue
@@ -374,19 +374,19 @@ def main(argv: list[str] | None = None) -> int:
         if not args.check:
             path.parent.mkdir(parents=True, exist_ok=True)
         if args.check:
-            if not path.is_file() or path.read_text() != text:
+            if not path.is_file() or path.read_text(encoding="utf-8") != text:
                 stale.append(name)
             return
-        path.write_text(text)
-    hand = json.loads((RELEASE / "release/release.json").read_text())
-    table = json.loads((RELEASE / "release/release_names.json").read_text())
+        path.write_text(text, encoding="utf-8", newline="\n")
+    hand = json.loads((RELEASE / "release/release.json").read_text(encoding="utf-8"))
+    table = json.loads((RELEASE / "release/release_names.json").read_text(encoding="utf-8"))
     names = Names(source, table, hand)
     report: dict = {"about": "What rac3-ntsc's carried tables rest on besides the same code, written by "
                              "port/tools/hostgen/release_carry_rac3.py; do not edit.",
                     "differs": {}, "left_out": {}, "addresses_not_found": [], "hand_addresses": {}}
 
     # hostgen.json: PAL's, renamed, then the release's own keys.
-    primary = json.loads((PRIMARY / "hostgen.json").read_text())
+    primary = json.loads((PRIMARY / "hostgen.json").read_text(encoding="utf-8"))
     carried = rename_json(copy.deepcopy(primary), names)
     # The candidates left out are named as the release view names the candidates' files: a PAL
     # name with no map row keeps its spelling there.
@@ -429,12 +429,12 @@ def main(argv: list[str] | None = None) -> int:
     # (Not the libraries' host rows: hostgen takes no assembly signature for a function the port
     # answers itself.)
     host_rows = {names.function(c[0])[0] for c in (line.split("\t") for line in
-                 (PRIMARY / "libraries.tsv").read_text().splitlines())
+                 (PRIMARY / "libraries.tsv").read_text(encoding="utf-8").splitlines())
                  if not c[0].startswith("#") and len(c) > 3 and c[3] == "host"}
     for path in host_files():
         if path.suffix != ".c":
             continue
-        for m in HOST_DEF.finditer(strip_comments(path.read_text())):
+        for m in HOST_DEF.finditer(strip_comments(path.read_text(encoding="utf-8"))):
             ret, name, params = m.group(1), m.group(2), m.group(3)
             new, _status = names.function(name)
             if absent(new, names) or new in signatures or new in host_rows:
@@ -448,7 +448,7 @@ def main(argv: list[str] | None = None) -> int:
     if primary.get("result_allow"):
         allow = ["# Written by port/tools/hostgen/release_carry_rac3.py from rac3-pal's table, in NTSC-U's names;",
                  "# do not edit."]
-        for line in (PRIMARY / primary["result_allow"]).read_text().splitlines():
+        for line in (PRIMARY / primary["result_allow"]).read_text(encoding="utf-8").splitlines():
             cols = line.split("\t")
             if line.startswith("#") or len(cols) < 3:
                 if line.startswith("#"):
@@ -461,7 +461,7 @@ def main(argv: list[str] | None = None) -> int:
         put(primary["result_allow"], "\n".join(allow) + "\n")
 
     # libraries.tsv: the rows renamed.
-    lines = (PRIMARY / "libraries.tsv").read_text().splitlines()
+    lines = (PRIMARY / "libraries.tsv").read_text(encoding="utf-8").splitlines()
     rows = ["# Written by port/tools/hostgen/release_carry_rac3.py from port/game/rac3-pal/libraries.tsv in",
             "# NTSC-U's names (config/us/map.tsv); do not edit. The notes are PAL's, its addresses as PAL has them.",
             "# Rows of a function NTSC-U does not have are left out (release/release_carry.json)."]
@@ -490,7 +490,7 @@ def main(argv: list[str] | None = None) -> int:
     for path in host_files():
         if path.suffix == ".cpp":
             continue
-        text = strip_comments(path.read_text())
+        text = strip_comments(path.read_text(encoding="utf-8"))
         # A per-caller spelling (func_003CB798_003C3C18, a function's place of its own in the
         # catalogue) is no NAME token: renamed as names.function renames it (ALIAS).
         tokens = [m.group(0) for m in NAME.finditer(text) if m.group(1) == "func"]
@@ -505,7 +505,7 @@ def main(argv: list[str] | None = None) -> int:
     for path in host_files():
         if path.suffix == ".cpp":
             continue
-        for m in MP_TOKEN.finditer(strip_comments(path.read_text())):
+        for m in MP_TOKEN.finditer(strip_comments(path.read_text(encoding="utf-8"))):
             new = mp.function(m.group(0)[3:])
             if new is None:
                 report["mp_not_paired"] = sorted({*report.get("mp_not_paired", []), m.group(0)})
@@ -522,7 +522,7 @@ def main(argv: list[str] | None = None) -> int:
     addresses = {}
     hand_addresses = {k: v for k, v in hand.get("addresses", {}).items() if not k.startswith("about")}
     for path in host_files():
-        for m in ADDR.finditer(strip_comments(path.read_text())):
+        for m in ADDR.finditer(strip_comments(path.read_text(encoding="utf-8"))):
             pal = int(m.group(1), 16)
             key = f"0x{pal:08X}u"
             if key in addresses:
@@ -554,7 +554,7 @@ def main(argv: list[str] | None = None) -> int:
     level_rows = {k: v for k, v in hand.get("level_addresses", {}).items() if not k.startswith("about")}
     level_addresses = {}
     for path in host_files():
-        for m in LADDR.finditer(strip_comments(path.read_text())):
+        for m in LADDR.finditer(strip_comments(path.read_text(encoding="utf-8"))):
             level, pal = int(m.group(1)), int(m.group(2), 16)
             row = level_rows.get(f"L{level:02d}:{pal:08X}")
             key = f"{level}_0x{pal:08X}u"
@@ -576,7 +576,7 @@ def main(argv: list[str] | None = None) -> int:
                    for k, v in sorted(addresses.items()))
     maddr = {}
     for path in host_files():
-        for m in MADDR.finditer(strip_comments(path.read_text())):
+        for m in MADDR.finditer(strip_comments(path.read_text(encoding="utf-8"))):
             pal = int(m.group(1), 16)
             row = mp.pairs["addresses"].get(f"0x{pal:08X}") or {}
             fn = mp.functions.get(f"func_{pal:08X}")
@@ -605,7 +605,7 @@ def main(argv: list[str] | None = None) -> int:
     for path in host_files():
         if path.suffix == ".cpp":
             continue  # the profile holds each disc's table (kPal, kUs)
-        text = ADDR.sub("", re.sub(r'"(?:[^"\\\n]|\\.)*"', '""', strip_comments(path.read_text())))
+        text = ADDR.sub("", re.sub(r'"(?:[^"\\\n]|\\.)*"', '""', strip_comments(path.read_text(encoding="utf-8"))))
         for m in LITERAL.finditer(text):
             pal = int(m.group(1), 16)
             new = names.data.get(f"D_{pal:08X}")
@@ -624,7 +624,7 @@ def main(argv: list[str] | None = None) -> int:
             if isinstance(value, str) and NAME.fullmatch(value):
                 return mp.function(value) or value
             return value
-        pal_mp = json.loads((PRIMARY / "mp/hostgen.json").read_text())
+        pal_mp = json.loads((PRIMARY / "mp/hostgen.json").read_text(encoding="utf-8"))
         mp_cfg = mp_json(pal_mp)
         # NTSC-U's own maps (MP_OWN_MAPS): what PAL's hostgen.json says for the map each is a build
         # of, in that map's spelling.
@@ -665,7 +665,7 @@ def main(argv: list[str] | None = None) -> int:
                       "/* clang-format off */"]
         maps_left = set()
         own_lines: list[str] = []
-        for line in (PRIMARY / "host/mp_maps.h").read_text().splitlines() if (PRIMARY / "host/mp_maps.h").is_file() else []:
+        for line in (PRIMARY / "host/mp_maps.h").read_text(encoding="utf-8").splitlines() if (PRIMARY / "host/mp_maps.h").is_file() else []:
             m = re.fullmatch(r"(MP_MAP\w*)\((\d+), (.*)\)", line)
             if not m:
                 continue
@@ -693,7 +693,7 @@ def main(argv: list[str] | None = None) -> int:
         # or that mp_maps.h left out, loses its MP_FIX line and the fixes' rows.
         fixes_left = set(maps_left)
         fixes_found: list[tuple[int, str]] = []
-        for line in (PRIMARY / "host/mp_fixes.h").read_text().splitlines() if (PRIMARY / "host/mp_fixes.h").is_file() else []:
+        for line in (PRIMARY / "host/mp_fixes.h").read_text(encoding="utf-8").splitlines() if (PRIMARY / "host/mp_fixes.h").is_file() else []:
             m = re.fullmatch(r"(MP_FIX)\((\d+), (.*)\)", line)
             if not m:
                 continue
@@ -728,7 +728,7 @@ def main(argv: list[str] | None = None) -> int:
 
         mp_rows = ["# Written by port/tools/hostgen/release_carry_rac3.py from port/game/rac3-pal/mp/libraries.tsv in",
                    "# NTSC-U's names (release/mp_pairs.json); do not edit. The notes are PAL's."]
-        for line in (PRIMARY / "mp/libraries.tsv").read_text().splitlines():
+        for line in (PRIMARY / "mp/libraries.tsv").read_text(encoding="utf-8").splitlines():
             if line.startswith("#") or not line.strip():
                 if line.startswith("# symbol"):
                     mp_rows.append(line)
@@ -747,7 +747,7 @@ def main(argv: list[str] | None = None) -> int:
         for us_level, pal_level in MP_OWN_MAPS.items():
             if us_level in maps_left:
                 continue
-            for line in (PRIMARY / "mp/libraries.tsv").read_text().splitlines():
+            for line in (PRIMARY / "mp/libraries.tsv").read_text(encoding="utf-8").splitlines():
                 cols = line.split("\t")
                 if line.startswith("#") or not cols[0].startswith(f"func_L{pal_level}_"):
                     continue

@@ -223,11 +223,18 @@ void shares_going_commandos_moby_fields() {
     const host::GameProfile& profile = host::game_profile("rac3-pal");
     CHECK(profile.moby_anim_fields() == 0x40);
     CHECK(profile.moby_glow_word() == 0x78);
+    // The moby inspector reads these: Going Commando's places, not Ratchet & Clank's (0x74, 0x78,
+    // 0x40).
+    CHECK(profile.moby_update() == 0x64);
+    CHECK(profile.moby_pvars() == 0x68);
+    CHECK(profile.moby_rotation() == 0xF0);
     CHECK(profile.stick_dead_zone() == (std::array<int, 2>{0x30, 0x4C}));
     CHECK(profile.hero_state() == 0x001A4BE0u);
     CHECK(profile.hero_air_frames() == 0x36E);
     CHECK(profile.cutscene_mode() == std::optional<std::uint32_t>{2});
     CHECK(profile.pause_mode() == std::optional<std::uint32_t>{4});
+    // Ratchet & Clank's freeze screens (its mode 4) keep the gameplay lens; this game has none known.
+    CHECK(!profile.freeze_mode().has_value());
     CHECK(profile.sends_display_list());
 }
 

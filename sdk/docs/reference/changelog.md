@@ -4,6 +4,12 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.40
+
+Synchronous gameplay decision queries (on_play_query).
+
+Members: `on_play_query`.
+
 ## 1.39
 
 Paint that draws the effects a moby makes in its colour, and paint in weapon_look (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS).

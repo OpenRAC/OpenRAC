@@ -140,6 +140,7 @@ if(ANDROID)
 endif()
 openrac_warnings(openrac_common)
 
+openrac_add_test(mod_play_queries INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/../sdk/include")
 openrac_add_test(log LIBS openrac_common)
 if(WIN32 AND CMAKE_BUILD_TYPE MATCHES "^(Debug|RelWithDebInfo)$")
   openrac_add_test(crash_symbols LIBS openrac_common)
@@ -211,6 +212,11 @@ openrac_add_test(exit_words INCLUDES .)
 openrac_add_test(menu_fit INCLUDES .)
 # Which undrawn ticks keep the window's last picture (game/common/program/undrawn_ticks.h).
 openrac_add_test(undrawn_ticks INCLUDES .)
+# Which display lists one picture draws when the game's picture spans its sends
+# (game/common/program/picture_lists.h).
+openrac_add_test(picture_lists INCLUDES .)
+# The split-screen views each moby is drawn in (game/common/frontend/view_mobys.h).
+openrac_add_test(view_mobys INCLUDES .)
 # The mobys' colour passes and their depth writes (scene/moby_passes.h).
 openrac_add_test(moby_passes INCLUDES .)
 # How each tick's frames start: cleared, the last picture, or under the tick's 2D
@@ -399,6 +405,47 @@ openrac_add_c_test(rac4_io
           game/common/lib/pad.c
   INCLUDES runtime/include game/common/include)
 openrac_add_c_test(graph_dma INCLUDES runtime/include game/common/include)
+# Program-table selection at the real rac3 loader boundary, using synthetic records.
+openrac_add_test(rac3_program
+  SOURCES tests/rac3_program_test.cpp game/rac3-pal/host/program.c
+  INCLUDES . runtime/include game/common/include game/rac3-pal/host)
+if(Python3_FOUND)
+  set(program_ntsc_dir "${CMAKE_CURRENT_BINARY_DIR}/tests/rac3_program_ntsc")
+  add_custom_command(
+    OUTPUT "${program_ntsc_dir}/program.c" "${program_ntsc_dir}/rac3_program_test.cpp"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/hostgen/release_host.py"
+      --names "${CMAKE_CURRENT_SOURCE_DIR}/game/rac3-ntsc/host/rac3_names.tsv"
+      --out "${program_ntsc_dir}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/game/rac3-pal/host/program.c"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/rac3_program_test.cpp"
+    DEPENDS tools/hostgen/release_host.py game/rac3-ntsc/host/rac3_names.tsv
+      game/rac3-pal/host/program.c tests/rac3_program_test.cpp
+    VERBATIM)
+  openrac_add_test(rac3_program_ntsc
+    SOURCES "${program_ntsc_dir}/rac3_program_test.cpp" "${program_ntsc_dir}/program.c"
+    INCLUDES . tests runtime/include game/common/include game/rac3-ntsc/host game/rac3-pal/host)
+endif()
+# Native rac3 pad updates and shared report mods with synthetic RAM, no game or platform library.
+openrac_add_test(rac3_pad_state
+  SOURCES tests/rac3_pad_state_test.cpp game/rac3-pal/host/pad.c game/common/lib/pad.c
+  INCLUDES . runtime/include game/common/include game/rac3-pal/host)
+if(Python3_FOUND)
+  # Carry only the port's own fixture and host source; this does not run hostgen or read game data.
+  set(pad_ntsc_dir "${CMAKE_CURRENT_BINARY_DIR}/tests/rac3_pad_ntsc")
+  add_custom_command(
+    OUTPUT "${pad_ntsc_dir}/pad.c" "${pad_ntsc_dir}/rac3_pad_state_test.cpp"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/hostgen/release_host.py"
+      --names "${CMAKE_CURRENT_SOURCE_DIR}/game/rac3-ntsc/host/rac3_names.tsv"
+      --out "${pad_ntsc_dir}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/game/rac3-pal/host/pad.c"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/rac3_pad_state_test.cpp"
+    DEPENDS tools/hostgen/release_host.py game/rac3-ntsc/host/rac3_names.tsv
+      game/rac3-pal/host/pad.c tests/rac3_pad_state_test.cpp
+    VERBATIM)
+  openrac_add_test(rac3_pad_ntsc
+    SOURCES "${pad_ntsc_dir}/rac3_pad_state_test.cpp" "${pad_ntsc_dir}/pad.c" game/common/lib/pad.c
+    INCLUDES . tests runtime/include game/common/include game/rac3-ntsc/host game/rac3-pal/host)
+endif()
 openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)
 openrac_add_c_test(guest_format INCLUDES . runtime/include game/common/include LIBS openrac_runtime)
 # The other games' saves on the first card: read, never written (the Barlow vendor's free weapons).

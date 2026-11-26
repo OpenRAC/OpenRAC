@@ -29,6 +29,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 }
 
 /* What this version leaves out of the shared C (rac1.h, RAC1_OMIT), and why. */
+/* List ownership: the NTSC decomp's wrapper ABI/carry has not been validated here; retain its path. */
+#define RAC1_OMIT_frame_list_ownership 1
+/* Native letterbox bars (letterbox.c): the caller state is proved on PAL v2.00 level 6 only. */
+#define RAC1_OMIT_func_001F5148 1
 /* The game's particle routines (particles.c, openrac_api.particle_spawn_ex) are checked at PAL's addresses only. */
 #define RAC1_OMIT_particle_spawn_ex 1
 /* Level 0's 0x2EC6B8: the NTSC decomp's catalogue places its func_001E9448 there, which returns 0. */
@@ -321,7 +325,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_00277A88 game_FUN_L00_00276bd0
 #define func_L00_00277A88__game game_FUN_L00_00276bd0__game
 #define func_001FD3E8 game_FUN_001fce28
-#define func_001FD3E8__game game_FUN_001fce28__game
+#define func_001FD3E8__hooked game_FUN_001fce28__hooked
 #define RAC1_ADDR_L00_0x0015F808u 0x0015F728u
 #define RAC1_ADDR_L00_0x0015F8D0u 0x0015F7F0u
 #define RAC1_ADDR_L00_0x0015F8E8u 0x0015F808u
@@ -445,6 +449,10 @@ int rac1_ntsc_ship_menu_game(gaddr menu, int unused);
 #define func_001FFFB8__game game_FUN_001ff780__game
 #define func_L00_0023B140 game_FUN_L00_0023a7a8
 #define func_L00_0023B140__game game_FUN_L00_0023a7a8__game
+#define func_00217EE8 game_FUN_00217048
+#define func_00217F68 game_FUN_002170c8
+#define func_00218188 game_FUN_002172c0
+#define func_002181F0 game_FUN_00217328
 #define func_0021A610 game_FUN_002196b8
 #define func_0021A610__game game_FUN_002196b8__game
 #define func_L00_002781D8 game_FUN_L00_002772c0

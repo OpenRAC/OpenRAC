@@ -567,5 +567,6 @@
   "release": {
     "version": "pal",
     "table": "release/release_names.json"
-  }
+  },
+  "play_queries": "../rac2/play_queries.json"
 }

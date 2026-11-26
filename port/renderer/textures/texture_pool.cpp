@@ -169,6 +169,29 @@ TextureHandle TexturePool::add(Rgba8Image image, AlphaScale scale, std::string n
     return h;
 }
 
+bool TexturePool::has_mipmaps(TextureHandle texture) const {
+    return texture != 0 && texture <= m_entries.size() && m_entries[texture - 1].live
+           && m_entries[texture - 1].mipmaps;
+}
+
+bool TexturePool::ensure_mipmaps(TextureHandle texture) {
+    if (texture == 0 || texture > m_entries.size() || !m_entries[texture - 1].live) {
+        return false;
+    }
+    Entry& e = m_entries[texture - 1];
+    if (e.mipmaps) {
+        return true;
+    }
+    if (e.blocks != nullptr || e.field) {
+        return false;
+    }
+    e.mipmaps = true;
+    if (e.gl != 0 || !e.frame_gl.empty()) {
+        delete_gl(e);  // made again with its chain at the next use
+    }
+    return true;
+}
+
 TextureHandle TexturePool::ui_image(
     std::uint64_t hash, const Rgba8Image& image, const UiIndexed* indexed
 ) {
