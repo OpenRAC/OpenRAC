@@ -1182,6 +1182,60 @@ void recorded_splices_in_a_stream() {
     }
 }
 
+// A recorded panel takes the game's own packets between its begin and end (the draw environment
+// they name is only a GS block), and a texture at that block samples the panel afterwards.
+void recorded_panel_takes_the_streams() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    const auto direct = [](const GifBuilder& b) {
+        std::vector<std::uint8_t> v(12, 0);
+        const std::uint32_t code = 0x50000000u | static_cast<std::uint32_t>(b.bytes.size() / 16);
+        for (int i = 0; i < 4; ++i) {
+            v.push_back(static_cast<std::uint8_t>(code >> (8 * i)));
+        }
+        v.insert(v.end(), b.bytes.begin(), b.bytes.end());
+        return v;
+    };
+    constexpr std::uint32_t kBlock = 0x2000;
+    GifBuilder inside;
+    inside.ad({{gs::kFrame1, std::uint64_t{kBlock / 32} | (std::uint64_t{4} << 16)},
+               {gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+               {gs::kRgbaq, rgbaq(0xFF, 0, 0, 0x80)},
+               {gs::kXyz2, xyz2(0, 0, 0)},
+               {gs::kXyz2, xyz2(16, 16, 0)}});
+    GifBuilder after;
+    after.ad({{gs::kFrame1, std::uint64_t{0}},
+              {gs::kTex0_1, openrac::test::tex0(kBlock, 4, gs::kPsmct32, 8, 8, true)},
+              {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+              {gs::kUv, openrac::test::uv(0, 0)},
+              {gs::kXyz2, xyz2(0, 0, 0)},
+              {gs::kUv, openrac::test::uv(16, 16)},
+              {gs::kXyz2, xyz2(8, 8, 0)}});
+    std::vector<std::uint8_t> stream = direct(inside);
+    const std::size_t second = stream.size();
+    const std::vector<std::uint8_t> two = direct(after);
+    stream.insert(stream.end(), two.begin(), two.end());
+    FrameRecording r;
+    FrameCommand begin;
+    begin.op = FrameOp::TargetBegin;
+    begin.index = kRecordedTargets;
+    begin.width = 256;
+    begin.height = 256;
+    FrameCommand end;
+    end.op = FrameOp::TargetEnd;
+    r.commands = {begin, end};
+    const std::vector<FrameSplice> splices{{0, 0}, {second, 1}};
+    gif.set_commands(&r, splices, 0);
+    CHECK(gif.vif(stream));
+    gif.finish_commands();
+    CHECK(gif.draws().size() == 2);
+    if (gif.draws().size() == 2) {
+        CHECK(gif.draws()[0].state.target == kRecordedTargets);
+        CHECK(gif.draws()[1].state.source == kRecordedTargets);
+        CHECK(gif.draws()[1].state.target == 0);
+    }
+}
+
 namespace {
 
 // A synthetic flat HUD element needs neither an image nor a graphics packet to be recorded.
@@ -1469,6 +1523,7 @@ int main() {
     recorded_frame_without_packets();
     flat_item_to_the_edges();
     recorded_splices_in_a_stream();
+    recorded_panel_takes_the_streams();
     recorded_native_hud_placement();
     recorded_depth_fill_takes_the_residual_depth();
     test_recorded_panel_scissor();

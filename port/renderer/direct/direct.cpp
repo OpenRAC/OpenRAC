@@ -1594,6 +1594,19 @@ void GifInterpreter::kick(bool draw) {
     }
 }
 
+std::uint32_t GifInterpreter::sampled_target(std::uint32_t tbp) const {
+    if (std::find(m_offscreen.begin(), m_offscreen.end(), tbp) != m_offscreen.end()) {
+        return tbp;
+    }
+    // A texture at the GS block a recorded panel was drawn through is that panel.
+    for (const auto& [block, id] : m_panel_alias) {
+        if (block == tbp) {
+            return id;
+        }
+    }
+    return 0;
+}
+
 bool GifInterpreter::is_offscreen(const gs::Frame& f) const {
     const std::uint32_t block = f.fbp * 32;
     return static_cast<int>(f.fbw) * 64 < m_config.screen_width
@@ -1601,6 +1614,11 @@ bool GifInterpreter::is_offscreen(const gs::Frame& f) const {
 }
 
 std::uint32_t GifInterpreter::offscreen_target() const {
+    // Everything drawn while a recorded panel is open goes into it, the game's own packets and the
+    // 2D-quad and moby-marker streams included (FRAME_RECORDER.md, section 3.3).
+    if (m_recorded_target != 0) {
+        return m_recorded_target;
+    }
     const gs::Frame& f = context().frame;
     return is_offscreen(f) ? f.fbp * 32 : 0;
 }
@@ -1623,6 +1641,7 @@ void GifInterpreter::overwritten(std::uint32_t dbp, std::uint32_t dbw, std::uint
     std::erase_if(m_frame_copies, [&](const FrameCopy& f) { return covered(f.dbp); });
     const std::size_t targets = m_offscreen.size();
     std::erase_if(m_offscreen, covered);
+    std::erase_if(m_panel_alias, [&](const auto& a) { return covered(a.first); });
     // A target the transfer only reuses part of keeps what was drawn there for the world's quads
     // that sampled it before (take_drawn_blocks); one a texture starts at is that texture now.
     std::erase(m_drawn, dbp);
@@ -1778,8 +1797,7 @@ DirectVertex GifInterpreter::convert(const GsVertex& v) const {
     out.z = depth_clip(static_cast<double>(v.z), c.zbuf.max_z());
     int frame_x = 0;
     int frame_y = 0;
-    if (attributes().tme
-        && std::find(m_offscreen.begin(), m_offscreen.end(), c.tex0.tbp0) != m_offscreen.end()) {
+    if (attributes().tme && sampled_target(c.tex0.tbp0) != 0) {
         // A texel of an off-screen target: its pixel, over the target's square (first row on top,
         // as it was drawn).
         const float u = attributes().fst ? static_cast<float>(v.u) / 16.0f
@@ -1834,9 +1852,22 @@ void GifInterpreter::ensure_draw() {
         int frame_x = 0;
         int frame_y = 0;
         s.target = offscreen_target();
-        s.source = s.textured && std::find(m_offscreen.begin(), m_offscreen.end(), c.tex0.tbp0) != m_offscreen.end()
-                       ? c.tex0.tbp0
-                       : 0;
+        s.source = s.textured ? sampled_target(c.tex0.tbp0) : 0;
+        // A recorded panel the game's packets name by a GS block (its FRAME) is sampled by that
+        // block's TEXs from here on, in place of any block target drawn there before.
+        if (m_recorded_target != 0 && is_offscreen(c.frame)) {
+            const std::uint32_t block = c.frame.fbp * 32;
+            const auto at = std::find_if(m_panel_alias.begin(), m_panel_alias.end(), [&](const auto& a) {
+                return a.first == block;
+            });
+            if (at == m_panel_alias.end()) {
+                m_panel_alias.emplace_back(block, m_recorded_target);
+            } else {
+                at->second = m_recorded_target;
+            }
+            std::erase(m_offscreen, block);
+            std::erase(m_drawn, block);
+        }
         s.frame_source = s.source == 0 && s.textured && is_colour_format(c.tex0.psm)
                          && frame_source(c.tex0.tbp0, frame_x, frame_y);
         if (s.source != 0 || s.frame_source) {
@@ -2976,6 +3007,14 @@ void DirectRenderer::publish_offscreen() {
     for (const std::uint32_t block : blocks) {
         for (const auto& [b, o] : m_offscreen_targets) {
             if (b == block) {
+                g_offscreen_textures.push_back({block, o.texture});
+            }
+        }
+    }
+    // The GS blocks recorded panels were drawn through: the world's quads sample them by block.
+    for (const auto& [block, id] : m_interpreter->panel_aliases()) {
+        for (const auto& [b, o] : m_offscreen_targets) {
+            if (b == id) {
                 g_offscreen_textures.push_back({block, o.texture});
             }
         }

@@ -59,6 +59,10 @@ func_00283CF0	func_002846A0
 func_00283DB8	func_00284768
 func_00283DB8__game	func_00284768__game
 func_00284088	func_00284A38
+func_00284EA8	func_00285858
+func_00284EA8__game	func_00285858__game
+func_00285030	func_002859E0
+func_00285030__game	func_002859E0__game
 func_00288CB0	func_002896D8
 func_00288FB8	func_002899F8
 func_00288FB8__hooked	func_002899F8__hooked

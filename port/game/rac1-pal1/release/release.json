@@ -19,7 +19,9 @@
     "func_001F4E08": "Native fade to black (screen_fade.c): checked on PAL v2.00 only.",
     "func_001F5368": "Native stripes of the screen colour effect (screen_fade.c): checked on PAL v2.00 only.",
     "func_L00_002A21A8": "The frame copy's read as a port picture (screen_copy.c): checked on PAL v2.00 only.",
-    "func_L00_002A2258": "The frame copy's write as a port picture (screen_copy.c): checked on PAL v2.00 only."
+    "func_L00_002A2258": "The frame copy's write as a port picture (screen_copy.c): checked on PAL v2.00 only.",
+    "func_001FB608": "The vendor and pause panels as recorder panels (render_panel.c): checked on PAL v2.00 only.",
+    "func_001FB498": "The vendor and pause panels as recorder panels (render_panel.c): checked on PAL v2.00 only."
   },
   "libraries": {
     "func_E1_001240C0": [
