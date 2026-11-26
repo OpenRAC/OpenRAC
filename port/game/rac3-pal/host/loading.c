@@ -10,21 +10,13 @@
  * draws its globe and 0x003C1890 prints the level's name, fading in over the lap's last 75 ticks.
  * When the approach's lap ends with the files read, 0x003BCE00 returns 1 and the level starts.
  *
- * On the console the files take long to read: the PAL game shows about 8 s of stars with the ship
- * as a point, then the approach with the globe and the name (retail footage, Veldin's loading). The
- * port reads them in a moment, and the approach began after the first lap. Here the files count as
- * read only once the stars have played HOLD_STARS passes (the lap playing then ends there), so the
- * approach comes after the console's 8 s of stars.
- *
- * The approach is a lap of about 120 passes, 2.4 s at 50 a second, but the console shows the globe
- * and the name about 6 s (retail footage): while it plays the level's files are unpacked in the
- * same loop, and a pass takes about two and a half vertical blanks. The scene's tick is the pass
- * count (0x003BDFB0: +0x34 goes up by one a pass), so the port stretches the ticks instead
- * (openrac_game_tick_stretch, APPROACH_STRETCH) while the approach plays: each pass is the same
- * pass, and the frames between ticks move the ship and the globe smoothly between them. Holding
- * the scene's tick back for some passes instead made the ship's parts look up joints the port does
- * not keep (0x003C3278 through the hand-written 0x003CA858), and waiting for more vertical blanks
- * inside the pass held the window's frames back.
+ * On the console the files take long to read, and the flight plays random laps of its scene
+ * meanwhile (retail footage of a New Game's first load: three laps, then the approach). The port
+ * reads them in a moment, so the files count as read here only once LOAD_SECONDS of the game's
+ * passes (a pass is a tick, 50 a second: 0x003BDFB0 adds one to the scene's +0x34 a pass) have
+ * gone by. The game's own code then plays its laps, ends the one playing, and plays the approach
+ * (a lap of 122 ticks) at its normal speed; nothing is stretched or forced. OPENRAC_LOAD_SECONDS
+ * sets the duration (0 loads at once: the approach follows the first lap).
  *
  * Start skips the flight while Skip cutscenes is on, as Going Commando's port skips its flights
  * (rac2/host/tools.c flight_skip): the hold is dropped, and once the level's files are read the lap
@@ -40,6 +32,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "game_protos.h"
 #include "openrac/game_host.h"
@@ -56,11 +49,25 @@
 #define LOADER_STATE RAC3_ADDR(0x001D4B48u)
 #define LOADER_READ 2
 
-/* 8 s of stars at the game's 50 passes a second. */
-#define HOLD_STARS 400
+/* How long the console takes to read a level's files, in seconds of the game's 50 passes a second.
+ * Calibrated on retail's New Game load: three random laps (about 200 to 250 ticks each) play
+ * before the approach, so the files are read after the second lap ends and before the third's. */
+#define LOAD_SECONDS 10.0
+#define PASSES_PER_SECOND 50
 
-/* The console's approach, about 6 s, over its 2.4 s of passes. */
-#define APPROACH_STRETCH 2.5f
+/* The passes the files take to read: OPENRAC_LOAD_SECONDS, else LOAD_SECONDS. */
+static int load_passes(void) {
+    static int passes = -1;
+    if (passes < 0) {
+        double seconds = LOAD_SECONDS;
+        const char* v = openrac_env_string("OPENRAC_LOAD_SECONDS");
+        if (v != NULL && *v != 0) {
+            seconds = atof(v);
+        }
+        passes = seconds > 0.0 ? (int)(seconds * PASSES_PER_SECOND) : 0;
+    }
+    return passes;
+}
 
 int func_003BCE00__game(int loaded);
 int rac3_level_flight(void); /* tools.c */
@@ -78,7 +85,7 @@ static int s_active;
 
 /* OPENRAC_RAC3_FLIGHT_LOG: one line a pass of the boot program's flight, on stderr: the pass, the
  * files' state, the scene playing (0x0016C580 +0x64) and its tick against its last, the approach,
- * the stretch, the scene pack's parts (0x001D8CD4) and the flight's way (0x001D8CE8 to 0x001D8CEC). */
+ * the scene pack's parts (0x001D8CD4) and the flight's way (0x001D8CE8 to 0x001D8CEC). */
 static void flight_log(int loaded, int over) {
     static int on = -1;
     if (on < 0) {
@@ -90,7 +97,7 @@ static void flight_log(int loaded, int over) {
     }
     fprintf(
         stderr,
-        "flight pass %d loaded %d loader %d scene %d tick %d/%d approach %d stretch %.2f parts %#x "
+        "flight pass %d loaded %d loader %d scene %d tick %d/%d approach %d parts %#x "
         "from %d to %d over %d\n",
         s_passes,
         loaded,
@@ -99,7 +106,6 @@ static void flight_log(int loaded, int over) {
         GREF(int32_t, FLIGHT_TICK),
         GREF(int16_t, FLIGHT_LAST),
         GREF(uint8_t, FLIGHT_STATE + FLIGHT_APPROACH),
-        (double)openrac_game_tick_stretch,
         GREF(uint32_t, RAC3_ADDR(0x001D8CD4u)),
         GREF(int32_t, RAC3_ADDR(0x001D8CE8u)),
         GREF(int32_t, RAC3_ADDR(0x001D8CECu)),
@@ -124,8 +130,6 @@ static int flight_pass(int loaded) {
     if (hide && GREF(int32_t, LOADER_STATE) == LOADER_READ - 1) {
         GREF(int32_t, LOADER_STATE) = state;
     }
-    const int approach = !over && !s_skipping && GREF(uint8_t, FLIGHT_STATE + FLIGHT_APPROACH) != 0;
-    openrac_game_tick_stretch = approach ? APPROACH_STRETCH : 1.0f;
     flight_log(loaded, over);
     if (over) {
         s_active = 0;
@@ -153,13 +157,7 @@ int func_003BCE00(int loaded) {
     if (s_skipping || GREF(uint8_t, FLIGHT_STATE + FLIGHT_APPROACH) != 0) {
         return flight_pass(loaded);
     }
-    if (loaded && s_passes >= HOLD_STARS) {
-        /* The files are read and the stars have played: the lap playing ends now, so the approach
-         * is next. */
-        GREF(int32_t, FLIGHT_TICK) = GREF(int16_t, FLIGHT_LAST);
-        return flight_pass(1);
-    }
-    return flight_pass(loaded && s_passes >= HOLD_STARS);
+    return flight_pass(loaded && s_passes >= load_passes());
 }
 
 /* The address the first lui and the first addiu from its register form in the loaded level's copy
@@ -205,7 +203,6 @@ void rac3_loading_skip(void) {
         s_level_skipping = 1;
     } else if (s_active) {
         s_skipping = 1;
-        openrac_game_tick_stretch = 1.0f;
     }
 }
 

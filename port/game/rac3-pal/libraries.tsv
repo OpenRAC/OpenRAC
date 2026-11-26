@@ -328,7 +328,7 @@ func_003D9618	render	rac3ScreenEffect2Boot	host	the boot program's second screen
 func_003D85C0__frontbin	render	rac3ScreenGlowFrontbin	host	frontbin's screen glow (the catalogue's row of the levels' 0x004DE670): as the boot program's (host/screen.c)	int (void)
 func_003D8640__frontbin	render	rac3ScreenGlowEndFrontbin	host	frontbin's glow's second half (the levels' 0x004DE6F0): the glow word cleared (host/screen.c)	int (void)
 func_003D9260__frontbin	render	rac3ScreenEffect2Frontbin	host	frontbin's second screen effect (the levels' 0x004DF310): the native soften pass (host/screen.c)	int (void)
-func_003BCE00	render	rac3LoadingFlight	wrap	the loading screen's flight update, run each pass of the level load's loop (0x003BD870): held for the console.s 8 s of stars before the approach to the planet and its name; Start skips the hold with Skip cutscenes on (host/loading.c)	int (int)
+func_003BCE00	render	rac3LoadingFlight	wrap	the loading screen's flight update, run each pass of the level load's loop (0x003BD870): held for the console's file-read time (OPENRAC_LOAD_SECONDS, default 10 s) before the approach to the planet and its name; Start skips the hold with Skip cutscenes on (host/loading.c)	int (int)
 func_L01_004B1728	render	rac3DrawTfrag	host	DrawTfrag, every single-player level's copy (Going Commando's func_002EF3B0, the same instructions): the terrain drawn natively from the extracted level, the world's marker in the list (host/render.c)	int (void)
 func_L01_004B3238	render	rac3DrawTies	host	DrawFrame's tie pass (func_002F0EF8): the ties drawn natively (host/render.c)	int (void)
 func_L01_004A59F8	render	rac3DrawShrubs	host	DrawFrame's shrub pass (func_002E11C0): the shrubs drawn natively (host/render.c)	int (void)
