@@ -138,6 +138,7 @@ enum class Var : std::uint16_t {
     NativeLibraryDir,
     NoBlend,
     NoPumpFiber,
+    NoRender,
     OpaqueColourBatchOff,
     OpaqueEffectsOff,
     OpaqueSpecialiseOff,

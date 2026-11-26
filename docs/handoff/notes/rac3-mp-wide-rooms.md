@@ -245,3 +245,60 @@ Findings:
   staging screen that sends the slot update from the wide settings), in `mp_ui.c`.
 - So no room of more than 8 could be started: the host's START stays greyed. The end message
   (0x82), the wide results and the scoreboard are written and built but have not run in a match.
+
+## 7. The map's start barrier past 8 players, 2026-11-25 night
+
+What held the match at 00:00 (all found by reading the retail assembly of the map's main loop, the generated C and
+the net log of a 10-player run; every site is in `mp/wide.json`, for level 39 and the maps 40-53, whose copies of the
+code are the same instructions at other addresses):
+
+- **The map's main loop** (`func_L39_00575CC8`, L40 0x004425C8, state 17) counts the players that exist
+  (`D_players[0..7]`) against the room's player count (GameSettings +0x178) before it sends its map-loaded slot update
+  (state 8), the host counts the joiners' state 8 over slots 1-7, and the host sets its own slots' state. Its loops are
+  pointer walks with a counter (`li rN,7 ... bgez`), so the dataflow had not found them: `bound` sites on the counters,
+  `ea` sites on the walked loads (players array, slot clients, slot states), and the walk over the remote players
+  (stride 0xC70: `span` at its end pointer, `ea` on its field loads, `arg` on the call of 0x00199878 handing the
+  element: **an `arg` site is the address of the call, not of its delay slot**; that mistake left slots 8 and 9
+  without a hero and the barrier at 8 of 10 players).
+- **The per-frame player update** (L39 0x0066AFA0) ends with a loop over the players array: widened the same way.
+- **The host's slot update handler** (core 0x0019A4D0) stores the new state of a slot in its in-game branch with a
+  `sh` at 0x0019A5FC that had no site: slots 8 and up never got state 8 on the host, so the barrier of the host
+  (`n == players - own`) stayed shut. Its clan copy (the call at 0x0019A628) had no `arg` site either: a clan tag of a
+  slot past 8 was written over the next table.
+- **The match clock never ran in any multiplayer match**: the programs add the EE's timer 1 count (0x10000800) to
+  their frame clock and write 0 back; the port has no timer page, so it read 0 (a 2-player run showed the same frozen
+  00:00 with the bots moving). `timer1_feed` (mp_net.c) puts the real time since the last net update there, as a
+  16-bit counter at 576 ticks a millisecond.
+
+Run tooling: `OPENRAC_NO_RENDER=1` (docs/port/DEBUGGING.md) skips the whole frame (built, drawn, presented) and keeps
+the tick, the net and the scripted pad at full speed: a no-render client uses about 8% of a core against 190% for a
+software-GL one, and its window-frame counter (`OPENRAC_PRESS`) is the same, so scripts written for rendering clients
+run unchanged. A room's fleet: host and one joiner render (box1, levels extracted with
+`extractor/extract.py port DISC assets/port/rac3/pal`, `--levels`), the rest do not (box1 up to 10, the Mac, box2).
+`HOSTGEN_JOBS` sets hostgen's default worker count (a box's memory).
+
+### Where the 16/24-player match stands (end of the 2026-11-25/26 session)
+
+Proven: a 10-player room (host + 9 joiners, spread over box1 and the Mac) loads map 40, every console passes the start
+barrier (all ten slots at state 8, the host's included), draws the world with the other heroes, and plays (a 2-player
+run on the same build shows bots moving and shooting). Not yet seen: the match clock running (the timer 1 feed is in,
+untested in a full match), the 0x82 end message and the scoreboard for a wide room (the host's end path did run once
+in a corrupted 16-player run: "the end message's slots 8+ sent", "results for slots 8-15").
+
+Open, in the order they bit:
+- **The server's keep-alive** (`KEEP_ALIVE_IDLE_SECONDS`, 30 s, "covers a map load") dropped a host whose map load
+  took longer than that on a loaded box: "Session (host) stopped sending, dropping it", then the joiners' "the party
+  is gone". The test Server runs with 240.
+- **A fatal error at START in a 12-player run** (host, level 39, frame 22051): `func_L39_005B0AE0 at 005B0BD0 reached
+  the scratchpad DMA register 1000D400`, with the host's own slot at state 0 (not ready) when START was pressed: the
+  scripted host READY had been undone (a drifted press), so this may be the greyed-START path, not the wide code.
+  Not diagnosed.
+- **The map's clock**: see above; whether the 5-minute limit now ends a match is the next thing to run.
+- **Clan tags** still print "[(nul]" in the HUD name tags: the slot update's clan copy now goes through the wide
+  table (0x0019A628), but the "(null)" text itself (the game's sprintf of a null clan) comes from the senders'
+  messages; `clan_fix` (dme_relay) did not catch it in the join request (the request is logged under
+  OPENRAC_RAC3_NET_LOG=1 to find the bytes).
+- **The staging list** keeps the game's 8 rows: a server description with a `staging` screen
+  (`~/RACSwarm/k3-ui/rac3-pal-1.json` in the test Server's UI_DIRECTORY, columns name/clan/team/skin/ready on the
+  `players` table) makes it native with the scroll marks; not yet looked at.
+- NTSC-U carry of the new sites (release_carry_rac3.py) not run.
