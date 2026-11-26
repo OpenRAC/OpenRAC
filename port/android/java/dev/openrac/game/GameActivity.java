@@ -3,9 +3,11 @@
 
 package dev.openrac.game;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
+import android.graphics.Insets;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -34,6 +36,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.libsdl.app.SDLActivity;
+import org.libsdl.app.SDLSurface;
 
 /**
  * The game on Android: SDL's activity around libopenrac-&lt;id&gt;.so, whose SDL_main is the
@@ -190,6 +193,27 @@ public class GameActivity extends SDLActivity {
     }
 
     /**
+     * SDL's surface, with a safe area of only what covers the picture: the camera's notch or hole
+     * and any bar on screen. SDL also counts the edges kept for the system's swipe gestures, which
+     * every phone and handheld with gesture navigation has, so the drawer and the on-screen pad
+     * kept an empty band at the side even without a camera there.
+     */
+    @Override
+    protected SDLSurface createSDLSurface(Context context) {
+        return new SDLSurface(context) {
+            @Override
+            public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    Insets covered = insets.getInsets(WindowInsets.Type.systemBars()
+                            | WindowInsets.Type.tappableElement() | WindowInsets.Type.displayCutout());
+                    SDLActivity.onNativeInsetsChanged(covered.left, covered.right, covered.top, covered.bottom);
+                }
+                return insets;
+            }
+        };
+    }
+
+    /**
      * The game over the whole screen, without the status and navigation bars (a swipe from the edge
      * shows them for a moment). SDL shows the bars when its activity starts and hides them only
      * once the game's fullscreen window exists, with the old system UI flags, which the system
@@ -218,6 +242,8 @@ public class GameActivity extends SDLActivity {
         }
         // SDL's own re-hiding after a swipe (onSystemUiVisibilityChange) follows this.
         mFullscreenModeActive = true;
+        // SDL clears the safe area on a style change: the notch's insets again (createSDLSurface).
+        decor.requestApplyInsets();
     }
 
     @Override
