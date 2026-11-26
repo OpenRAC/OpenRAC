@@ -302,3 +302,50 @@ Open, in the order they bit:
   (`~/RACSwarm/k3-ui/rac3-pal-1.json` in the test Server's UI_DIRECTORY, columns name/clan/team/skin/ready on the
   `players` table) makes it native with the scroll marks; not yet looked at.
 - NTSC-U carry of the new sites (release_carry_rac3.py) not run.
+
+### 2026-11-26: the START crash, and what the 12- and 16-player runs showed
+
+- **START crash (fixed, #959):** not the greyed-START path. The menu program (level 39) carries its own copies of
+  the moby evaluator (0x005B0AE0), draw side (0x005B24E8) and texture upload (0x005B2238); the maps' copies are
+  replaced by the port's, level 39's were translated from assembly and wrote the DMA chain-mode registers. They now
+  have `mp/libraries.tsv` rows (`rac3MobyChainMenus`, `rac3MobyDrawSideMenus`, `rac3MobyTexturesMenus`, host C in
+  `mp_maps.c`). A 12-player run passes START with them (no crash; the host script then missed its START press).
+- **16 players corrupt the settings tables:** with joiners in slots 14 and 15 the host's GS_CLIENT / GS_STATE
+  words at slots 0-6 hold the text "(null)" (two copies, 14 bytes each from +0xE0 and +0xF0 = slot 14 and 15 of
+  the names table at stride 16), and the joiners then die at a SIGSEGV at game address 0x70056420 when the host's
+  next settings broadcast arrives. A writer of the name (or clan) of slots 14 and 15 bypasses the wide table
+  (an unlisted copy site); rooms up to 13 are fine.
+- **Clan:** the join request's clan text is at +0x40 of the payload (+0x30 is the name); `clan_fix` now empties every
+  "(null)" in the join request and slot updates instead of looking at one offset.
+- **Scripted fleet:** a new join clears the others' ready, so every joiner must press READY after the last join
+  (join.sh computes it), and the host's START press must come after that; the staging screen's team/skin dialog
+  opens from a drifted press (see ~/Projects/RAC/mp24-progress/19-host-12p-after-start.png).
+- Build costs: the mp hostgen takes about 12 minutes on box1 (python 3.14) and 35 on box2 (3.12); a binary built on
+  box1 (Manjaro) does not run on box2 (Ubuntu: glibc, libstdc++, SDL3), so each box builds its own.
+
+### 2026-11-26 (later): the settings corruption found and fixed; where the 16-player match stands
+
+- **Cause of the "(null)" in GS_CLIENT / GS_STATE:** found with a gdb breakpoint on the port's sprintf
+  (`mp_func_00120048`) for buffers in the settings object past +0xC0. The writer is the host's session-add
+  handler (`func_0019A6F8`): after the name's sprintf (site 0019ABDC) it prints the joiner's clan into
+  `settings + 0x80 + 8 * slot` with a second sprintf (the call at 0x0019ABF4) that had no site. Clan slots 8-15
+  are +0xC0..+0xFF, so slot 12 wrote the text over the clients (+0xE0), 13 over +0xE8 and 14/15 over the states
+  (+0xF0..), and slots 8-11 over skins and teams. The text is "(null)" because the clan the request carries is
+  that text (clan_fix empties it in the request). Fixed: `"0019ABF4": "arg GS_CLAN r4"` in `mp/wide.json`.
+  Not slots 14 and 15 only, and not a name write.
+- With the site: a 16-player room (host + 15 joiners on box1, no-render, scripted) shows every slot's client
+  `n`, a joiner's state 6 (ready) and an empty clan in the net log (`settings (sent)` now prints each clan),
+  "PLAYER 16/16" and all sixteen names in the native staging list (mp24-progress/21), no crash, no stray write
+  into the settings (breakpoint over +0xC0..+0x17F never hit).
+- **Not done:** START. The host's staging screen has "16 ready of 16: START enabled", but the scripted `up`/`left`
+  then cross never reaches START: the stock list widget has 8 rows, `up` from the first row wraps to the eighth
+  and cross there opens the team/skin dialog (mp24-progress/22); `left` does not move to the left pane. The
+  native list also shows stale rows (j1, j2, j1, j3, j2, ...) after a scroll. A port-side START path (like
+  READY for slots 8+) or a staging screen whose cursor reaches START is the next step. So no wide match has
+  played to the scoreboard yet.
+- Scripted host: READY by Circle once, after the last joiner joined and readied (a second Circle un-readies it);
+  all joiners READY after the last join. The frame counter at no-render speed is about 50 a second.
+- Build recipe on the boxes: the decomp must be a clean pin (`git archive` of the submodule's commit over a copy
+  that keeps asm/ and baserom/): a tree with another session's edits fails hostgen with "its signature takes 0".
+  `OPENRAC_RAC3_PAL_RETAIL_IMAGE` must be a file nobody removes. `sudo gdb -batch -p PID` works for
+  `break mp_func_00120048 if buffer >= $gsp + 0xC0 ...` (do not name a gdb variable `$gs`: it is a register).

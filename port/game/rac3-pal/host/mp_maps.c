@@ -99,6 +99,17 @@ int mp_func_L39_005B0AE0(int a0, int a1) {
     return moby_chain(a0, a1);
 }
 
+float mp_func_L39_005B24E8(int a0, int a1) {
+    (void)a0;
+    (void)a1;
+    return 0.0f;
+}
+
+int mp_func_L39_005B2238(int a0) {
+    (void)a0;
+    return 0;
+}
+
 static inline int sky_draw_shell(int shell) {
     return rac3_sky_draw_shell(shell, L39(MAP_SKY_MATRIX));
 }
