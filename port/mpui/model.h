@@ -36,11 +36,18 @@ public:
     // Returns the rows in order.
     const std::vector<Row>& rows() const { return m_rows; }
 
+    // Sets the most rows the table can ever hold (a room's player limit), 0 for no limit known.
+    void set_capacity(std::size_t capacity) { m_capacity = capacity; }
+
+    // Returns the most rows the table can hold, 0 when none is known.
+    std::size_t capacity() const { return m_capacity; }
+
     // Returns the index of the row with `key`, or rows().size() when there is none.
     std::size_t find(std::uint32_t key) const;
 
 private:
-    std::vector<Row> m_rows;  // The rows, in the order the screen shows them.
+    std::vector<Row> m_rows;     // The rows, in the order the screen shows them.
+    std::size_t m_capacity = 0;  // The most rows it can hold, 0 when unknown.
 };
 
 // The tables of every screen, by name (`games`, `players`, `scores`, a server's own).

@@ -137,6 +137,8 @@ void openrac_mp_ui_table_begin(openrac_mp_ui* ui, const char* name);
 void openrac_mp_ui_table_row(openrac_mp_ui* ui, uint32_t key, int enabled);
 void openrac_mp_ui_table_cell(openrac_mp_ui* ui, const char* field, const char* text);
 void openrac_mp_ui_table_end(openrac_mp_ui* ui);
+/* Between begin and end: the most rows the table can hold (a room's player limit), shown as joined/MAX. */
+void openrac_mp_ui_table_capacity(openrac_mp_ui* ui, int capacity);
 
 /* Hands the screen open one OPENRAC_MP_UI_* event, the modal one first; `out` says what it did
  * (consumed 0 when no screen is open). Back on a modal screen closes it and an `open:` action opens

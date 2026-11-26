@@ -349,3 +349,74 @@ Open, in the order they bit:
   that keeps asm/ and baserom/): a tree with another session's edits fails hostgen with "its signature takes 0".
   `OPENRAC_RAC3_PAL_RETAIL_IMAGE` must be a file nobody removes. `sudo gdb -batch -p PID` works for
   `break mp_func_00120048 if buffer >= $gsp + 0xC0 ...` (do not name a gdb variable `$gs`: it is a register).
+
+## 8. Static sweep for the remaining 8-player assumptions, 2026-11-26
+
+Method (no fleet): the retail assembly of the core (`I5BOOTN`, 0x190000-0x1A8000), level 39 and map 40 (the other
+maps are copies of the same code, so every map site below is found in all 14 by matching the instruction window)
+was scanned for (a) `slti`/`sltiu` 7/8/9 and `li 7`/`li 8` + `bgez` loop bounds that are not in `mp/wide.json`,
+(b) a register holding the settings object (`lw 0x241640` / `-0x6980($gp)`) or the net block (`0x1A5CD0`) that
+forms an element address (`addiu`/`addu`) with no site within 16 instructions, and (c) loop bounds beside sited
+loads. Raw lists: 523 unsited bound-looking instructions in the three programs (most are jump-table range checks
+and state constants), 176 in functions that touch the settings or net tables, 51 of them beside sited loads, plus
+16 + 12 unsited element addresses in levels 39 and 40 and 13 in the core. Reviewed by hand, the real ones:
+
+Fixed (sites added, 125 in all; `mp/wide.json`):
+- **core 0x0019A868..0x0019A8F0** (5 `ea GS_RESERVED`): the session-add handler's walk over the slots' reservation
+  words (settings + 0x100, 2 bytes a slot, up to `net+0x134` slots) had no sites, so for slots 8 and up it read and
+  wrote the next table (GS_VALUE_A, per-mode values from the join request). Its account walk (0x0019A7A0) was sited.
+- **level 39, five "which slot is mine" searches** (`bound` at 0x0068D724, 0x006A0404, 0x006A5D34, 0x006CBE44,
+  0x006D4F64): loops over `GS_CLIENT` whose loads were sited but whose limit was still `slti 8`, so a console in
+  slot 8 or up never found its own slot (found = -1) in the staging, name and skin handlers.
+- **name and clan formatting, 7 sites in level 39 and in each of the 14 maps (105)**: the in-game HUD name tag
+  (clan `value GS_CLAN` and name `value GS_NAME` handed to the tag's sprintf and strcpy; 39 0x00635D04/08/24, 40
+  0x00507BFC/C00/C1C), the kill messages (39 0x0066FD74, 0x0066FDA0, 0x0066FE4C) and the score caption's name
+  copy (39 0x0066690C): the element pointers into the settings' 16-byte names and 8-byte clans were formed from
+  the slot index with no site, so slots 8 and up printed whatever lies at settings + 0x80 + 8 * slot: the `[(nul]`
+  of the HUD tags. The earlier clan-sprintf miss (0x0019ABF4) was the same class.
+
+Port side (same PR): a START path for rooms past 8 (the pad's Start button, or Up from the first row of the native
+list, `wide_start` in `host/mp_ui.c`: the game's cursor moves to its START widget, and Start presses it when the
+game's own START byte is set; a greyed START plays the refusal), a scroll bar on a table longer than its page, and
+the list's `joined/MAX` count (`openrac_mp_ui_table_capacity`).
+
+Left at 8 on purpose or not reachable (still listed, none touched):
+- level 39's staging widget loops (0x006C30A0 row widgets, 0x006C1730 draw, 0x006C20B0 update: their rows are the
+  native list), the results screen loops (0x006A6938, 0x006A74F8, 0x006A83B8, 0x00670D90: widened by the end-results
+  wrap), bit-mask loops over a byte (0x006C4568, 0x0069AEF0), the ratings table of 11 entries (0x006C4148: 0x28-byte
+  entries indexed by account, an 11-entry table that 24 distinct accounts would overflow), the voice countdowns.
+- Per-frame scans over the players array that count down from 7 (`li 7 ... bgez`) with the body's loads sited: the
+  one that was missed (map 40 0x00426B88, the same function in maps 41-45 and 50-53) now has a `bound` (10 sites); the
+  other `li 7`/`li 8` hits are return codes, not loops.
+- 0x006C3670/0x006AF09C compare a count from `func_006CC238` (the lobby's player count) with 8; left.
+
+### 2026-11-26 (night): the first 9-player tests, and the map-start crash that stops them
+
+Harness (kept on box1/box2 under `~/RACSwarm/k4-mp`, moving to `~/RACSwarm/build/OpenRAC`): `fleet.sh N TAG` starts a host
+on box1 (GPU, one screenshot every 300 frames) and N-1 no-render joiners, scripted by `press.py` (login; CREATE with
+PLAYERS right x(N-8) and TIMED once; joiners QUICK PLAY and READY with `OPENRAC_RAC3_PORT_READY=1`; the host READY, then
+the Start button). The Server ran on the Mac (`KEEP_ALIVE_IDLE_SECONDS=240`, `FAMILY_PARTY_SIZES=rac3-pal-1:24`).
+Disc data: the extracted `iso_data/rac3` (with `sectors.tsv`) is needed, not just the boot file.
+
+Proven with 9 players (host + 8 joiners, all on box1, build of this branch):
+- the room fills, every console reaches READY ("9 ready of 9 players: START enabled", header "PLAYER 9/9");
+- the native staging list (vanilla description, now bound past 8 players) lines up under the game's headings, shows
+  the count `9/9` and a scroll bar; the host's **Start button reaches START** (`START (port path): enabled`), the
+  match starts and every console loads map 40. (The first try found that the game's START byte is set after the event
+  is read; the port now counts the room's readiness itself.)
+
+Not proven: the match. All 9 consoles die together at the map's first ticks (frame ~13150) with `SIGSEGV at game
+address 0x4014EB4C`, a store in `func_L40_0053D0A0` (`sw 0x787878, 0x78(r3)`, called by `004EEB68`, `003DB0E8`,
+`00493A20`, `004CE660`): that function walks the 0x340-byte entries of `D_0033BE40` (a 16-entry array, count at
+`-0x1DC8($gp)`) and takes the player pointer at entry + 0x2D0; for entry 4 that word holds the float bits
+0x4014EAD4. A watchpoint on that word (gdb, `$b = openrac_guest_base`, `watch *(unsigned*)($b+0x33CE10)`) saw four
+writes: the marker's own init (`func_L40_005390B8`, a valid pointer), a clear (`func_L40_0045D4C0`, a 0x4DC0-byte
+memset of a0 = 0x33BE40 from `00534D30`/`0050C780`), then two float stores by `func_L40_00504C70` (this = 0x33BE40,
+fields +0x110/+0x114 are sticks). So `D_0033BE40` is used as one big object (0x4DC0 bytes) by the pad/hero code and as an
+array of 0x340-byte marker entries by `005390B8`/`0053D0A0`: the marker array's entry 4 overlaps what the hero code
+writes. **It reproduces on the build from before this branch (baseline `04ae121f`, 9 players), so it is not from the sites
+above.** (An 8-player control did not start a match in this harness: the stock START path, up + cross, drifted into
+the team dialog; whether 8 players pass this code is therefore unproven.) Open: find why a 9th player makes
+`005390B8` take entries past the first four (its caller `003FE8B8`, a0 = 0/1, a1 = player mobys, lifetime 3000), or
+whether 8 players already use five or more entries only at other times; the 5390B8 call list (6 calls at the crash:
+a0 0,0,0,1,1,1) is in `~/RACSwarm/k4-mp/out/h-t9f/gdb.out` on box1 while it lasts.

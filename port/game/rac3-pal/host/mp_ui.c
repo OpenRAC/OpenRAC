@@ -213,6 +213,7 @@ int rac3_mp_net_toggle_ready(void);                     /* mp_net.c: READY of a 
 
 static openrac_mp_ui* g_ui;  /* the native screens' context, made at the first lobby frame */
 static int g_described;      /* 1 once a description (the vanilla one at least) is in force */
+static int g_vanilla = 1;    /* 1 while the vanilla description is the one in force */
 static int g_bound = -1;     /* the game screen id the open native screen sits on, -1 none */
 static gaddr g_screen;       /* that game screen's object */
 static int g_hidden;         /* 1 while a popup covers the screen: the native one steps aside */
@@ -223,11 +224,23 @@ static int g_text_pass;      /* 1 in the pass after the elements: text only, els
 static int g_modal_layer;    /* 1 while the modal layer draws */
 
 /* The vanilla description: the game's own lists, a column of names, as many rows as the game's
- * list widget shows. No staging screen: the game's own rows stay. */
+ * list widget shows. Its staging room and scoreboard are bound only in a room of more than eight
+ * players (g_vanilla), where the game's eight rows cannot show everyone: the players with their
+ * team, skin and ready tick (and the room's count against its limit), the scores with a scroll
+ * bar past a page. A server's description, or OPENRAC_RAC3_MP_UI, replaces all of it. */
 static const char VANILLA_DESCRIPTION[] =
     "{\"schema\": 1, \"name\": \"Up Your Arsenal\", \"screens\": ["
     "{\"id\": \"game_list\", \"columns\": [{\"field\": \"name\", \"width\": 100}],"
-    " \"items\": [{\"kind\": \"table\", \"key\": \"games\", \"action\": \"game:join\"}]}]}";
+    " \"items\": [{\"kind\": \"table\", \"key\": \"games\", \"action\": \"game:join\"}]},"
+    "{\"id\": \"staging\", \"columns\": [{\"field\": \"name\", \"width\": 28},"
+    " {\"field\": \"skill\", \"width\": 12}, {\"field\": \"voice\", \"width\": 11},"
+    " {\"field\": \"team\", \"width\": 17}, {\"field\": \"skin\", \"width\": 24},"
+    " {\"field\": \"ready\", \"width\": 8}],"
+    " \"items\": [{\"kind\": \"table\", \"key\": \"players\", \"action\": \"game:select\"}]},"
+    "{\"id\": \"scoreboard\", \"columns\": [{\"field\": \"name\", \"width\": 40},"
+    " {\"field\": \"score\", \"width\": 15}, {\"field\": \"kills\", \"width\": 15},"
+    " {\"field\": \"deaths\", \"width\": 15}, {\"field\": \"team\", \"width\": 15}],"
+    " \"items\": [{\"kind\": \"table\", \"key\": \"scores\"}]}]}";
 
 /* ---- The skin: the game's font, bar and sounds ---- */
 
@@ -406,7 +419,7 @@ static void describe_from_file(void) {
     static char json[DESCRIPTION_BYTES];
     const size_t size = fread(json, 1, sizeof json, file);
     fclose(file);
-    openrac_mp_ui_describe(g_ui, json, size);
+    g_vanilla = !openrac_mp_ui_describe(g_ui, json, size) && g_vanilla;
 }
 
 /* Makes the context and gives it the vanilla description, once. Returns 0 without memory. */
@@ -609,6 +622,8 @@ static void fill_scores(void) {
 static void fill_players(void) {
     const gaddr gs = GREF(gaddr, GAME_SETTINGS);
     openrac_mp_ui_table_begin(g_ui, "players");
+    /* The room's player limit, so the list shows joined/MAX. */
+    openrac_mp_ui_table_capacity(g_ui, rac3_mp_wide_slots());
     /* The slots in order; an empty one has client id -1. */
     for (int slot = 0; gs != 0 && slot < rac3_mp_wide_slots(); slot++) {
         const int16_t client = GREF(int16_t, settings_at(gs, GS_CLIENTS, 2u, slot));
@@ -680,6 +695,11 @@ static void open_for(int id, gaddr screen) {
     if (name == NULL) {
         return;
     }
+    /* The vanilla description's staging room and scoreboard are for the wide rooms alone. */
+    if (g_vanilla && (id == SCREEN_STAGING || id == SCREEN_RESULTS)
+        && rac3_mp_wide_slots() <= GS_SLOTS) {
+        return;
+    }
     float area[4];
     /* The results screen's eight rows: 230 + 21r pixels down, header 208 (L39_006A69C0's tables). */
     if (id == SCREEN_RESULTS) {
@@ -691,11 +711,14 @@ static void open_for(int id, gaddr screen) {
         /* The eight name rows of the staging room, 0.648 + (n - 3) * 0.412 / 9 of the picture's
          * height, from the left of the names to the ready ticks (L39_006C1730). */
         const float game_line = 0.412f / 9.0f * PICTURE_H;
-        const int rows = rac3_mp_wide_slots() > 16 ? 16 : rac3_mp_wide_slots();
-        g_line = rows > GS_SLOTS ? game_line * (float)GS_SLOTS / (float)rows : game_line;
+        /* A room of more than eight shows up to twelve rows and a line for its count, in the
+         * height of the game's eight; a longer list scrolls. */
+        const int wide = rac3_mp_wide_slots() > GS_SLOTS;
+        const int rows = rac3_mp_wide_slots() > 12 ? 12 : rac3_mp_wide_slots();
+        g_line = wide ? game_line * (float)GS_SLOTS / (float)(rows + 1) : game_line;
         area[0] = 50.0f, area[2] = 412.0f;
         area[1] = (0.648f - 3.0f * 0.412f / 9.0f) * PICTURE_H - game_line * 0.5f;
-        area[3] = g_line * (float)(rows > GS_SLOTS ? rows : GS_SLOTS);
+        area[3] = wide ? g_line * ((float)rows + 1.5f) : g_line * (float)GS_SLOTS;
     } else {
         const gaddr list = widget(screen, LIST_WIDGET);
         int32_t shown = GREF(int32_t, list + LIST_ROWS_SHOWN);
@@ -832,9 +855,71 @@ uint16_t rac3_mp_ui_pad_filter(uint16_t word) {
     return taken ? (uint16_t)(word | 0x2000u) : word;
 }
 
+/* Whether every player of the room is ready, the host counted: the ready joiners over every slot
+ * (GameSettings +0x178 is the players' count), as the host's START needs. */
+static int wide_all_ready(gaddr gs, int* ready_out) {
+    int ready = 1;
+    for (int slot = 1; slot < rac3_mp_wide_slots(); slot++) {
+        if (GREF(int16_t, settings_at(gs, GS_CLIENTS, 2u, slot)) != -1
+            && GREF(int16_t, settings_at(gs, GS_STATES, 2u, slot)) == GS_READY) {
+            ready++;
+        }
+    }
+    *ready_out = ready;
+    return ready == GREF(int32_t, gs + 0x178u);
+}
+
+/* Whether this console is the host of a room of more than eight players, on the staging screen
+ * with the room's flag the game's own START check reads (L39_006C30A0, mp_func_L39_006C30A0). */
+static int wide_host(void) {
+    return rac3_mp_wide_slots() > GS_SLOTS && GREF(gaddr, GAME_SETTINGS) != 0
+           && GREF(uint8_t, RAC3_MADDR(0x001A5CD0u) + 0x168u) != 0;
+}
+
+/* START in a room past eight rows: the game's list widget stops at eight rows, so its cursor
+ * (wrapping from the first row to the eighth) never reaches the host's START widget. The pad's
+ * Start button, and Up from the first row of the native list, go to START instead: the game's
+ * cursor moves to the widget and Cross is the event it sees, which the game answers as it does
+ * for START (a greyed START refuses with the denied sound). Returns 1 when the event was taken;
+ * `event` is then replaced by the one the game gets. */
+static int wide_start(int mgr, int* event) {
+    const int32_t current = GREF(int32_t, (gaddr)mgr + MGR_CURRENT);
+    if (!g_on_staging || current < 0 || !wide_host()) {
+        return 0;
+    }
+    const gaddr screen = GREF(gaddr, (gaddr)mgr + MGR_SCREENS + 4u * (gaddr)current);
+    if (screen == 0) {
+        return 0;
+    }
+    const int32_t focus = GREF(int32_t, screen + SCREEN_FOCUS);
+    const int up_from_top = *event == GAME_UP && g_ui != NULL && g_bound == SCREEN_STAGING
+                            && !openrac_mp_ui_modal(g_ui) && focus == STAGING_NAME_WIDGET
+                            && openrac_mp_ui_cursor(g_ui) == 0;
+    if (*event != GAME_START && !up_from_top) {
+        return 0;
+    }
+    /* The game's START byte is not read here (the staging update sets it after this event has been
+     * read): the room's readiness is counted again. */
+    int ready;
+    const int enabled = wide_all_ready(GREF(gaddr, GAME_SETTINGS), &ready);
+    fprintf(stderr, "[info] rac3: online: START (port path): %s\n", enabled ? "enabled" : "greyed");
+    mp_func_L39_0068B2F8((int)screen, STAGING_START_WIDGET, 0);
+    if (up_from_top || !enabled) {
+        /* Only the cursor goes there (or START refuses); Cross is pressed on a Start button alone. */
+        mp_func_L39_00688340(enabled || up_from_top ? SOUND_MOVE : SOUND_DENIED, 0, 0);
+        *event = 0;
+        return 1;
+    }
+    *event = GAME_CROSS;
+    return 1;
+}
+
 /* The menu event read (L39_00686138): the native screen's, while it has the cursor. */
 int mp_func_L39_00686138(int mgr, int pad) {
-    const int event = mp_func_L39_00686138__game(mgr, pad);
+    int event = mp_func_L39_00686138__game(mgr, pad);
+    if ((gaddr)pad == GREF(gaddr, ACTIVE_PAD) && wide_start(mgr, &event)) {
+        return event;
+    }
     /* A player in a slot past the game's eight rows has no row to READY on: Circle on the staging
      * screen readies it (whether or not the server's native screens are up). The game's own READY
      * reads the pad's pressed bits (pad +0x1C4, 0x20 Circle) in its staging update: the port takes
@@ -902,13 +987,8 @@ int mp_func_L39_006C30A0(int screen_object) {
         || GREF(uint8_t, RAC3_MADDR(0x001A5CD0u) + 0x168u) == 0) {
         return result;
     }
-    int ready = 1;
-    for (int slot = 1; slot < rac3_mp_wide_slots(); slot++) {
-        if (GREF(int16_t, settings_at(gs, GS_CLIENTS, 2u, slot)) != -1
-            && GREF(int16_t, settings_at(gs, GS_STATES, 2u, slot)) == GS_READY) {
-            ready++;
-        }
-    }
+    int ready;
+    wide_all_ready(gs, &ready);
     GREF(uint8_t, screen + 0x2A8u) = ready == GREF(int32_t, gs + 0x178u);
     static int last = -1;
     if (ready != last) {
@@ -1006,6 +1086,7 @@ int rac3_mp_ui_describe(const char* json, size_t size) {
         return 0;
     }
     g_bound = -1;
+    g_vanilla = 0;
     return 1;
 }
 
