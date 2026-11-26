@@ -834,6 +834,20 @@ uint16_t rac3_mp_ui_pad_filter(uint16_t word) {
     return taken ? (uint16_t)(word | 0x2000u) : word;
 }
 
+/* Whether every player of the room is ready, the host counted: the ready joiners over every slot
+ * (GameSettings +0x178 is the players' count), as the host's START needs. */
+static int wide_all_ready(gaddr gs, int* ready_out) {
+    int ready = 1;
+    for (int slot = 1; slot < rac3_mp_wide_slots(); slot++) {
+        if (GREF(int16_t, settings_at(gs, GS_CLIENTS, 2u, slot)) != -1
+            && GREF(int16_t, settings_at(gs, GS_STATES, 2u, slot)) == GS_READY) {
+            ready++;
+        }
+    }
+    *ready_out = ready;
+    return ready == GREF(int32_t, gs + 0x178u);
+}
+
 /* Whether this console is the host of a room of more than eight players, on the staging screen
  * with the room's flag the game's own START check reads (L39_006C30A0, mp_func_L39_006C30A0). */
 static int wide_host(void) {
@@ -859,7 +873,10 @@ static int wide_start(int mgr, int* event) {
     if (*event != GAME_START && !up_from_top) {
         return 0;
     }
-    const int enabled = GREF(uint8_t, g_screen + 0x2A8u) != 0;
+    /* The game's START byte is not read here (the staging update sets it after this event has been
+     * read): the room's readiness is counted again. */
+    int ready;
+    const int enabled = wide_all_ready(GREF(gaddr, GAME_SETTINGS), &ready);
     fprintf(stderr, "[info] rac3: online: START (port path): %s\n", enabled ? "enabled" : "greyed");
     mp_func_L39_0068B2F8((int)g_screen, STAGING_START_WIDGET, 0);
     if (up_from_top || !enabled) {
@@ -945,13 +962,8 @@ int mp_func_L39_006C30A0(int screen_object) {
         || GREF(uint8_t, RAC3_MADDR(0x001A5CD0u) + 0x168u) == 0) {
         return result;
     }
-    int ready = 1;
-    for (int slot = 1; slot < rac3_mp_wide_slots(); slot++) {
-        if (GREF(int16_t, settings_at(gs, GS_CLIENTS, 2u, slot)) != -1
-            && GREF(int16_t, settings_at(gs, GS_STATES, 2u, slot)) == GS_READY) {
-            ready++;
-        }
-    }
+    int ready;
+    wide_all_ready(gs, &ready);
     GREF(uint8_t, screen + 0x2A8u) = ready == GREF(int32_t, gs + 0x178u);
     static int last = -1;
     if (ready != last) {
