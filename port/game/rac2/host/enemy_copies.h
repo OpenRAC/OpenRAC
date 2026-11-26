@@ -45,6 +45,35 @@ typedef struct rac2_copy_class {
 extern const rac2_copy_class rac2_copy_never[];
 extern const unsigned rac2_copy_never_count;
 
+/* An arena whose waves the game draws from a reserve of placed enemies: its controller's group
+ * lists them, each waits in `dormant` until the controller puts it in a pod, which carries it in.
+ * A member of that group of one of `members` may be copied (not RAC2_COPY_SCRIPTED); its copy goes
+ * in with its original (rac2_copy_arenas_tick). The offsets are of the classes' pvars. */
+#define RAC2_COPY_ARENA_MEMBERS 4
+typedef struct rac2_copy_arena {
+    const char* what;
+    int16_t controller;     /* the controller's class */
+    uint16_t group;         /* the s32 of its pvars naming the reserve's group */
+    int16_t pod;            /* the class of the pods */
+    uint16_t pod_held;      /* the pod's members, a word each, 0 for an empty one */
+    uint8_t pod_held_count;
+    uint8_t pod_states;     /* the pod's states (bits) while it holds them, before it lets go */
+    uint8_t dormant;        /* a member's state in the reserve */
+    uint8_t held;           /* a member's state in a pod */
+    uint8_t health_at;      /* the float a member's health starts from, set to 1 as it goes in */
+    int16_t members[RAC2_COPY_ARENA_MEMBERS];
+} rac2_copy_arena;
+
+extern const rac2_copy_arena rac2_copy_arenas[];
+extern const unsigned rac2_copy_arenas_count;
+
+/* Once a frame (play.c's rac2_play_frame): a copy of an arena's member waiting in the reserve, its
+ * original out of it, goes into a pod as the controller puts a member in one (its state the held
+ * one, its owner the controller, its health full): the original's pod, or when that one is full
+ * another of the controller's drop with room. The wave's counts are left as they are, so the wave
+ * ends only once the copy is beaten too. */
+void rac2_copy_arenas_tick(void);
+
 /* The level's mobys, as play.c reads them: the first, the first the game made (past the placed
  * ones) and the end. */
 typedef struct rac2_moby_table {
