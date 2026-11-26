@@ -1,7 +1,7 @@
 {
  "about": "The NTSC-U view of rac3-decomp: each PAL address name and NTSC-U's name for it, the PAL definitions NTSC-U has other code for, and the values of the names with no address of their own. Written by port/tools/hostgen/release_rac3.py from config/us/map.tsv and config/us/names.tsv; do not edit.",
  "source": {
-  "commit": "4600f54b927c3f731c71c5f2783e33171dc12a9b",
+  "commit": "f2e6fc51661fca4e102b6c042ba02c87610dbfca",
   "version": "us",
   "table": "config/us/map.tsv, config/us/names.tsv"
  },
@@ -17,7 +17,7 @@
   "global: the front end's own address": 325,
   "global: the front end's, placed by hand (release.json)": 2,
   "no NTSC-U place (marked)": 3392,
-  "src/us: its own name, without the mark": 1348,
+  "src/us: its own name, without the mark": 1357,
   "value: a name with no address of its own": 6180,
   "value: the executable's kept over the front end's": 1
  },
@@ -4816,9 +4816,16 @@
   "D_U_001DE550": "D_001DE550",
   "D_U_001DE560": "D_001DE560",
   "D_U_001DEC9C": "D_001DEC9C",
+  "D_U_001DFBC0": "D_001DFBC0",
+  "D_U_001E1E10": "D_001E1E10",
+  "D_U_001E1E20": "D_001E1E20",
+  "D_U_001E1E38": "D_001E1E38",
+  "D_U_001E1E3C": "D_001E1E3C",
   "D_U_001E1EC0": "D_001E1EC0",
   "D_U_001E1ED8": "D_001E1ED8",
   "D_U_001E6200": "D_001E6200",
+  "D_U_001EAA80": "D_001EAA80",
+  "D_U_001EAAA0": "D_001EAAA0",
   "D_U_0021C940": "D_0021C940",
   "D_U_00222340": "D_00222340",
   "D_U_00222480": "D_00222480",
@@ -4842,6 +4849,8 @@
   "D_U_00238870": "D_00238870",
   "D_U_0023C8A0": "D_0023C8A0",
   "D_U_0027CB70": "D_0027CB70",
+  "D_U_002B3B40": "D_002B3B40",
+  "D_U_002C5640": "D_002C5640",
   "D_U_002CE040": "D_002CE040",
   "D_U_002CE088": "D_002CE088",
   "D_U_002CE0E0": "D_002CE0E0",
