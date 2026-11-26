@@ -207,3 +207,41 @@ pipeline, tools/extractor.py, to see the world); 16 and 24 players, headless joi
 up) and clients on box2 and the Mac; the staging list shows 8 rows (the native staging table is not up in these
 runs: the server serves no UI description) and has no scroll bar; channel 9 for clients 16-23; the NTSC-U
 carry of the new wraps' places (release_carry_rac3.py was rerun for the first batch).
+
+## 6b. Earlier state of the same match test (before the READY/START fixes above)
+
+Binary: PAL release build on box2 (this branch's step 2b plus `name_fix`, built from the tree before the
+merge of develop and the other agent's push), copied to box1; Server master `--mode all` on the Mac with
+`FAMILY_PARTY_SIZES=rac3-pal-1:24 MAX_CONNECTIONS_PER_ADDRESS=64`; clients hidden, muted, llvmpipe,
+scripted by `OPENRAC_PRESS` (host: CREATE with PLAYERS right x(N-8) and TIMED 5 Minutes, READY, up + cross
+for START; joiners: QUICK PLAY, join, READY). `OPENRAC_RAC3_NET_LOG=1` now also logs each console's view
+of the settings' slot client/state, the channel 17 slot updates it delivers (first 10 payload bytes),
+and the wide end message and results.
+
+Proven: rooms of 10 (host + 9 joiners) fill and every console shows the same 10 slots (`settings (sent)`
+on the host, `(received)` on the joiners, slots 8 and 9 included); 2-3 player rooms ready and START as before.
+
+Findings:
+- Box2's software-GL clients run far below 50 fps (about 190% CPU each), box1's use about 6% each; the
+  presses are by frame, so a script that spreads clients over both boxes drifts by minutes. Run all
+  hidden clients of one room on box1 (10 clients, host included, fit with room to spare) and start them
+  8-10 s apart.
+- A joiner that joins with no name in the game's net block sent "(null)" as its name and an
+  uninitialised skin (staging rows "(null)" / "Paradox ERR"); `name_fix` (mp_net.c `dme_relay`) puts the
+  account's name into the join request and slot updates. With it the rows show `j1`, `j2` ... and the skins
+  are valid. This did not change the ready problem below.
+- **READY does not hold with more than 2-3 joiners, in a room of 8 as well as of 10** (so not a
+  widening effect): every joiner's READY (channel 17, state 6) reaches the host and is applied, then the
+  same joiner sends channel 17 state 1 ("leave", L39_006C4308), which the host applies as state 0, once
+  for every joiner that readies after it (client 1 sends six, client 2 five, ... client 6 one, client 7
+  none: the last stays ready). Cause not found. Not yet compared with a build from before step 1
+  (box1 `~/RACSwarm/mp-ui-run/bin` is such a build but has no settings logging and needs a disc image
+  in its data dir). Start there next: whichever of the stock staging update (L39_006C20B0) or the
+  port's object update path (`obj_receive` calls the type's on_update with the whole object, field -1)
+  makes an already-ready joiner leave when another slot's state changes.
+- Joiners in slots 8 and up send no READY at all (their Circle press produces no channel 17 message):
+  the staging screen's own widget loop (L39_006C30A0) stays 8 rows, so there is no row for them to
+  have the cursor on. Needs a port-side READY for slots 8+ (a native handler for Circle in the
+  staging screen that sends the slot update from the wide settings), in `mp_ui.c`.
+- So no room of more than 8 could be started: the host's START stays greyed. The end message
+  (0x82), the wide results and the scoreboard are written and built but have not run in a match.
