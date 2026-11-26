@@ -6,10 +6,10 @@
 # Every action is pinned to a commit (Dependabot, .github/dependabot.yml,
 # moves the pins); the port's compiles are cached with ccache.
 name: checks
-# A unique title for each run: the run number, what started it, where, and what.
+# Each run's title: a pull request's own title; otherwise the run number, what started it and where.
 run-name: >-
   ${{ github.event_name == 'pull_request'
-      && format('checks #{0} · pr #{1} → {2} · {3}', github.run_number, github.event.pull_request.number, github.base_ref, github.event.pull_request.title)
+      && github.event.pull_request.title
   || github.event_name == 'merge_group'
       && format('checks #{0} · queue → {1}', github.run_number, endsWith(github.event.merge_group.base_ref, '/master') && 'master' || 'develop')
   || github.event_name == 'push'

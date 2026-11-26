@@ -18,7 +18,7 @@
 name: dev_release
 # A unique title for each run: the run number and who started it.
 run-name: >-
-  ${{ format('dev_release #{0} · develop → master · by {1}', github.run_number, github.actor) }}
+  ${{ format('dev_release #{0} · by {1}', github.run_number, github.actor) }}
 
 on:
   workflow_dispatch:
