@@ -24,6 +24,8 @@
 #define RAC3_ADDR_0x001427F0u 0x001427F0u
 /* D_00142CA0 (names.tsv, the same address) */
 #define RAC3_ADDR_0x00142CA0u 0x00142CA0u
+/* D_00142DE0 (names.tsv, the same address) */
+#define RAC3_ADDR_0x00142DE0u 0x00142DE0u
 /* D_00143950 (names.tsv, the same address) */
 #define RAC3_ADDR_0x00143950u 0x00143950u
 /* release.json: the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_004D0E90 (NTSC-U func_L01_004CD1D0) +0x68, 2 of 2 places; the options block D_00143950 is at the same address on both discs */

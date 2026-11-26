@@ -1125,10 +1125,34 @@ void func_0038B200(int r, int g, int b, int a) {
     }
 }
 
+/* Set while the weapon upgrade's frame routine runs (func_L01_004CA8C8, below). */
+static int g_upgrade_frame;
+
 void func_L01_004059C8(int r, int g, int b, int a) {
+    /* The upgrade's black at full strength is its frame's clear, not a fill (below). */
+    if (g_upgrade_frame && a >= 0x80) {
+        return;
+    }
     if (!darken(rac3_ui2d_level().cursor, DARKEN_PACKET, r, g, b, a)) {
         func_L01_004059C8__game(r, g, b, a);
     }
+}
+
+/* The weapon upgrade's frame (func_L01_004CA8C8, Going Commando's gfx_reset_screen_overlay, run
+ * each tick of the upgrade sequence func_L01_004C99F8): the picture darkened to black at full
+ * strength (0x80), then DrawFrame with the mobys and effects alone (layer mask 0x70: the weapon,
+ * its glow and its lightning) or, while its word 0x001E110E is set, the whole level. On the console
+ * that black only clears the buffer the weapon is drawn into. Sent as a record of the 2D layer it
+ * is a fill of its own, which the window put over the weapon, its glow and its lightning: the
+ * screen was blank for the whole upgrade. The window already clears a tick that drew mobys alone
+ * to black (frontend/tick_picture.h, kLevelLayers), and the level covers the picture when it is
+ * drawn, so the black is left out, as Going Commando's GIF fills there are (renderer/direct/
+ * direct.cpp, emit_sprite: "fills in a tick of mobys alone are clears"). A fade at less than full
+ * strength is still drawn. */
+void func_L01_004CA8C8(void) {
+    g_upgrade_frame = 1;
+    func_L01_004CA8C8__game();
+    g_upgrade_frame = 0;
 }
 
 /* The letterbox (func_0038AD28, the levels' func_L01_004054F0): while its word is set its height
