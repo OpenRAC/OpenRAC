@@ -2337,7 +2337,8 @@ static void clan_fix(gaddr data, int len) {
         }
         fprintf(stderr, "\n");
     }
-    if (GREF(uint8_t, data) != 2 || (channel != CHANNEL_ROOM_JOIN_REQUEST && channel != CHANNEL_SLOT_UPDATE)) {
+    if (GREF(uint8_t, data) != 2
+        || (channel != CHANNEL_ROOM_JOIN_REQUEST && channel != CHANNEL_SLOT_UPDATE)) {
         return;
     }
     /* A clanless player's tag is the text of a null pointer, at an offset the two messages differ in
@@ -3751,6 +3752,7 @@ int mp_func_0014B040(int status, int conn) {
  * a match's clock never ran (and its time limit never came). The count of the real time since the last
  * update goes into the register here, each net update, as a counter and no more. */
 #define T1_COUNT 0x10000800u
+
 static void timer1_feed(void) {
     static int64_t start, fed;
     const int64_t now = host_ms();
