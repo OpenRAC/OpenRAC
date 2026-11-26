@@ -161,6 +161,35 @@ strips still come from the chain, except rac2's level water and sea sheets (`rac
 hand-built strip whose state its capture proves; those pass `OPENRAC_STRIP_CHAIN_DEPTH`, which leaves the
 depth write to the window's placement (before the mobys, as the chain's strips are).
 
+### 3.3 Off-screen panels
+
+`openrac_frame_target_begin(id, w, h)` and `_end()` bracket a panel: everything the recording holds
+between them goes into a native render target of that `id` (a port id from `0x10000`, never a GS
+block), not the screen. That is **every** stream, not only the frame commands (`fill`, `clear`,
+`picture`, `ui_item`, `mobys`, `screen_effect`): the game's own packets spliced between the two
+anchors, the transitional `ui_quad` records and the moby markers in them, and the chain's own
+primitives all draw into the panel. While a panel is open the back end takes it as the draw target
+whatever the game's FRAME register names (`GifInterpreter::offscreen_target`), so a game that still
+points its draw environment at a GS block for the panel needs nothing else. Coordinates: native 2D
+commands use the panel's pixels, top left; a chain quad or a marker keeps the game's own, relative
+to the offset it set. The panel's storage is a square of `kOffscreenPixels` (512) with the `w` x `h`
+area at its top left, kept across frames; the renderer's own scale applies.
+
+The panel is shown by sampling it. The game's quad that shows it reads a texture at the GS block
+its packets drew through; the back end notes that block when the first primitive inside the panel
+names one (`m_panel_alias`) and resolves a texture at it to the panel (`sampled_target`), for the
+2D layer's quads and for the world's effect quads (`publish_offscreen`). A transfer over the block
+drops the link. A picture of a panel by id (`openrac_frame_picture`) is not wired; no game needs it
+yet. Each game opens a panel where its routine points the draw environment at the area and closes it
+where the draw buffer is put back, at the list cursor of each (`openrac_frame_anchor_at`): rac1's
+`render_panel.c` (`setup_render_target` `func_001FB608`, `PutDrawBufferLarge` `func_001FB498`: the
+vendor's monitors, their background `func_001FB908` and Z clear included, and the pause menu's
+tiles), rac2's `render_panel.c` (`gfx_build_screen_sprite_packet` `func_00285030`, which
+`gfx_setup_screen_copy_draw_state` `func_00280510` (Ship Shack and pause panels) and
+`gfx_setup_offscreen_target` `func_0027B9C0` (the cockpit's 256 x 256 target) both run;
+`gfx_append_draw_list_header` `func_00284EA8`). The game's own C runs unchanged. No window or
+`OPENRAC_UI_REPLAY`: nothing recorded, the game's packets alone, as before.
+
 ## 4. The transition: anchors instead of markers
 
 While a game still sends residual 2D as GS packets (fades, clears, the loading screen's stars until
@@ -326,8 +355,8 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
 | Game | On the recorder | Still markers in its list |
 |---|---|---|
 | rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; `host/screen.c`, `mp.c`, `mp_maps.c`: the screen glow and the second screen effect as `screen_effect`; `host/picture.c`: the pause menu's frame as `snapshot_world` + `picture` (no frame read back or written); the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening and the letterbox bars as colour-only quads, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6), `mp_ui.c`, `mp_maps.c`, `movie.c` (P2) |
-| rac1 | `render_native.c`: world, shrubs boundary and positive-count moby lists; `ui2d.c`: transitional `ui_quad` records; `hud.c`: picture-band and whole-target placement (HUD side placement uses the game's coordinates); `letterbox.c` (PAL v2.00 only): level 6's letterbox bars as depth-writing fills | water surface/UV scopes (`water_surfaces.c`, per-version `water.c`); boot-picture uploads and their residual draws; frame copies, blur, fades, clears and strips remain packet consumers |
-| rac2 | `render.c`: world, world-moby boundary, positive-count moby lists and effect-quad state placement; `ui2d.c`: transitional `ui_quad` records; `hud.c`: HUD side placement; `wide_view.c`: effect-parent scopes, including position-only scopes | `picture.c`: whole-target, saved-frame and credits-world markers; movie pictures/overlays, scissor, off-screen targets and strips remain packet consumers |
+| rac1 | `render_native.c`: world, shrubs boundary and positive-count moby lists; `ui2d.c`: transitional `ui_quad` records; `hud.c`: picture-band and whole-target placement (HUD side placement uses the game's coordinates); `letterbox.c` (PAL v2.00 only): level 6's letterbox bars as depth-writing fills; `render_panel.c` (PAL v2.00 only; the other versions omit it): the vendor's monitors and the pause menu's tiles as recorder panels (`func_001FB608` opens, `func_001FB498` closes) | water surface/UV scopes (`water_surfaces.c`, per-version `water.c`); boot-picture uploads and their residual draws; frame copies, blur, fades, clears and strips remain packet consumers |
+| rac2 | `render.c`: world, world-moby boundary, positive-count moby lists and effect-quad state placement; `ui2d.c`: transitional `ui_quad` records; `hud.c`: HUD side placement; `wide_view.c`: effect-parent scopes, including position-only scopes | `render_panel.c`: the Ship Shack and pause panels and the cockpit's target as recorder panels (`func_00285030` opens, `func_00284EA8` closes); `picture.c`: whole-target, saved-frame and credits-world markers; movie pictures/overlays, scissor and strips remain packet consumers |
 
 This is a recorder hand-off milestone, not the full R1-R3 audit scope. No rac1/rac2 adapter to the
 shared native 2D core, residual-picture conversion or native strip conversion is implied by these
