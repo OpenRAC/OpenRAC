@@ -669,6 +669,8 @@
       "func_0012DCB0": "unsigned long long (void)",
       "func_0016EE30": "int (int, int, int)",
       "func_0016EEB0": "int (int, int, int, int)",
+      "func_00198A38": "int (int, int, int, int)",
+      "func_00198C18": "int (int, int, int, int)",
       "func_0016EC18": "int (int, int, int, int, int, int, int, int)",
       "func_0016ED00": "int (int, int)",
       "func_0016ED68": "int (int)",

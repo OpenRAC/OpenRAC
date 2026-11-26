@@ -2293,6 +2293,13 @@ static void dme_deliver(void) {
             continue;
         }
         memcpy(G(dme.buf), dme.inbox[i].data, dme.inbox[i].len);
+        if (net_log() && dme.inbox[i].len >= 26 && dme.inbox[i].data[1] == 5) {
+            fprintf(stderr, "[info] rac3: online: channel 5 from client %d:", src);
+            for (int k = 0; k < 26; k++) {
+                fprintf(stderr, " %02x", dme.inbox[i].data[k]);
+            }
+            fprintf(stderr, "\n");
+        }
         if (net_log() && dme.inbox[i].len > 8 && dme.inbox[i].data[0] == 2
             && dme.inbox[i].data[1] == 17) {
             fprintf(
@@ -2440,6 +2447,13 @@ static int dme_relay(int dest, gaddr data, int len) {
             GREF(uint8_t, data + 1),
             len
         );
+        if (GREF(uint8_t, data + 1) == 5 && len >= 26) {
+            fprintf(stderr, "[info] rac3: online: channel 5 sent:");
+            for (int k = 0; k < 26; k++) {
+                fprintf(stderr, " %02x", GREF(uint8_t, data + (gaddr)k));
+            }
+            fprintf(stderr, "\n");
+        }
     }
     return 0;
 }
