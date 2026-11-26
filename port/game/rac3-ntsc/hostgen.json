@@ -508,7 +508,7 @@
       "func_L01_00444318": "void (int, int, float)",
       "func_L01_0044E068": "void (unsigned int, float)",
       "func_L01_0044ED38": "int (int, int, int, int, float, float)",
-      "func_L01_00478CC8": "void (int, int, int, int, float, float)",
+      "func_L01_00478CC8": "int (int, int, int, int, float, float)",
       "func_L01_0047ACE8": "void (int, int, int, int, float, float)",
       "func_L01_0047BB78": "int (int)",
       "func_L01_0047C588": "void (int, int, float, float)",
