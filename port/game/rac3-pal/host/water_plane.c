@@ -58,6 +58,10 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "rac3_version.h"
+#include "textures.h"
+
+/* render.c: the recorder's place is the levels' display list cursor. */
+void rac3_anchor_levels(void);
 
 /* The strip routine (func_003D3A24, hand-written: count, positions, colours, ST, 1), translated from
  * its instructions; game_protos.h may declare it without its parameters. */
@@ -444,6 +448,34 @@ static void upload_fog_line(
     VU_UPLOAD(FOG_LINE, (int)block, 4);
 }
 
+/* The two layers' native materials (docs/port/TEXTURES.md section 4), from the state this routine
+ * itself gives the GS above: the surface blends by its FIX (mix, or added when pv[0x39] is set), tests
+ * depth against the world and writes it; the reflection mixes by its FIX over the world, tested
+ * and never written (its alpha test fails every pixel to the frame buffer only). Both are
+ * bilinear, repeated, the surface through a mip chain the window makes. */
+static void layer_material(openrac_material* m, int surface, uint8_t fix, int additive) {
+    memset(m, 0, sizeof *m);
+    m->source_k = 1;
+    m->source_m = 0;
+    m->dest_k = additive ? 0 : -1;
+    m->dest_m = 1;
+    m->weight = OPENRAC_MATERIAL_WEIGHT_CONSTANT;
+    m->constant = fix;
+    m->depth_test = OPENRAC_MATERIAL_DEPTH_NEARER_OR_EQUAL;
+    m->combine = OPENRAC_MATERIAL_MODULATE;
+    m->writes = OPENRAC_MATERIAL_WRITE_COLOUR;
+    m->flags = OPENRAC_MATERIAL_BLEND | OPENRAC_MATERIAL_TEXTURE_ALPHA | OPENRAC_MATERIAL_LINEAR_MAG
+               | OPENRAC_MATERIAL_LINEAR_MIN | OPENRAC_MATERIAL_REPEAT_S
+               | OPENRAC_MATERIAL_REPEAT_T;
+    if (surface) {
+        m->alpha_test = OPENRAC_MATERIAL_TEST_ALWAYS;
+        m->flags |= OPENRAC_MATERIAL_DEPTH_WRITE | OPENRAC_MATERIAL_MIPMAP;
+    } else {
+        m->alpha_test = OPENRAC_MATERIAL_TEST_NEVER;
+        m->alpha_fail = OPENRAC_MATERIAL_FAIL_COLOUR;
+    }
+}
+
 /* The water plane's draw callback (class 2871's on Florana, the same routine in twelve levels):
  * its argument the moby, its pvar at +0x68. */
 void func_L02_00310838(int moby) {
@@ -521,26 +553,42 @@ void func_L02_00310838(int moby) {
     const gaddr uvs = colours + 4u * STRIP;
     const gaddr fog_block = (uvs + 8u * STRIP + 15u) & ~15u;
 
-    func_L01_00407588(); /* the strip routine's setup: its program, the view and the level's fog */
-    /* the water's own fog: its F line and colour */
-    upload_fog_line(
-        fog_block,
-        context,
-        f32_at(WATER_FOG_SLOPE),
-        f32_at(WATER_FOG_OFFSET),
-        f32_at(WATER_FOG_FAR),
-        f32_at(WATER_FOG_NEAR)
-    );
-    func_L01_004C5B90(
-        GS_FOGCOL, (uint64_t)pv[0x3A] | (uint64_t)pv[0x3B] << 8 | (uint64_t)pv[0x3C] << 16
-    );
-
-    const uint64_t reflection_tex0 = (uint64_t)func_L01_00404040(
-        reflection_texture >= 0 ? reflection_texture + EFFECT_BASE : WHITE_TEXTURE
-    );
-    const uint64_t surface_tex0 = (uint64_t)func_L01_00404040(
-        surface_texture >= 0 ? surface_texture + EFFECT_BASE : WHITE_TEXTURE
-    );
+    /* The effect textures' handles (EffectTex0 also pages the images into the list), and, when the
+     * window draws natively, the images they name. */
+    uint64_t reflection_tex0 = 0, surface_tex0 = 0;
+    int native = openrac_frame_native();
+    openrac_game_ui_image reflection_image, surface_image;
+    if (native) {
+        reflection_tex0 = (uint64_t)func_L01_00404040(
+            reflection_texture >= 0 ? reflection_texture + EFFECT_BASE : WHITE_TEXTURE
+        );
+        surface_tex0 = (uint64_t)func_L01_00404040(
+            surface_texture >= 0 ? surface_texture + EFFECT_BASE : WHITE_TEXTURE
+        );
+        native = rac3_effect_image(reflection_tex0, &reflection_image)
+                 && rac3_effect_image(surface_tex0, &surface_image);
+    }
+    if (!native) {
+        func_L01_00407588(); /* the strip routine's setup: its program, the view and the level's fog */
+        /* the water's own fog: its F line and colour */
+        upload_fog_line(
+            fog_block,
+            context,
+            f32_at(WATER_FOG_SLOPE),
+            f32_at(WATER_FOG_OFFSET),
+            f32_at(WATER_FOG_FAR),
+            f32_at(WATER_FOG_NEAR)
+        );
+        func_L01_004C5B90(
+            GS_FOGCOL, (uint64_t)pv[0x3A] | (uint64_t)pv[0x3B] << 8 | (uint64_t)pv[0x3C] << 16
+        );
+        reflection_tex0 = (uint64_t)func_L01_00404040(
+            reflection_texture >= 0 ? reflection_texture + EFFECT_BASE : WHITE_TEXTURE
+        );
+        surface_tex0 = (uint64_t)func_L01_00404040(
+            surface_texture >= 0 ? surface_texture + EFFECT_BASE : WHITE_TEXTURE
+        );
+    }
     const uint64_t reflection_alpha = (uint64_t)pv[0x37] << 32 | 0x64u;
     const uint64_t surface_alpha = (uint64_t)pv[0x33] << 32 | (pv[0x39] ? 0x68u : 0x64u);
     uint32_t reflection_rgba =
@@ -550,13 +598,30 @@ void func_L02_00310838(int moby) {
                           | (uint32_t)(pv[0x36] >> 1) << 16 | 0x80u << 24;
     }
 
+    openrac_frame_strip_desc desc;
+    memset(&desc, 0, sizeof desc);
+    desc.position = (const float*)G(positions);
+    desc.st = (const float*)G(uvs);
+    desc.rgba = (const uint32_t*)G(colours);
+    desc.flags = OPENRAC_STRIP_LIQUID | OPENRAC_STRIP_FOG;
+    desc.fog[0] = f32_at(WATER_FOG_SLOPE);
+    desc.fog[1] = f32_at(WATER_FOG_OFFSET);
+    desc.fog[2] = f32_at(WATER_FOG_FAR);
+    desc.fog[3] = f32_at(WATER_FOG_NEAR);
+    desc.fog_colour = (uint32_t)pv[0x3A] | (uint32_t)pv[0x3B] << 8 | (uint32_t)pv[0x3C] << 16;
+    if (native) {
+        rac3_anchor_levels();
+    }
+
     /* each pair of rows: the reflection, then the surface over it */
     for (int r = 1; r < row_count; ++r) {
         for (int layer = 0; layer < 2; ++layer) {
-            if (layer == 0) {
-                set_layer(reflection_tex0, reflection_alpha, kTestReflection, kTex1Reflection);
-            } else {
-                set_layer(surface_tex0, surface_alpha, kTestSurface, kTex1);
+            if (!native) {
+                if (layer == 0) {
+                    set_layer(reflection_tex0, reflection_alpha, kTestReflection, kTex1Reflection);
+                } else {
+                    set_layer(surface_tex0, surface_alpha, kTestSurface, kTex1);
+                }
             }
             for (int j = 0; j < COLUMNS; ++j) {
                 for (int side = 0; side < 2; ++side) {
@@ -568,17 +633,29 @@ void func_L02_00310838(int moby) {
                         layer ? v->surface_rgba : reflection_rgba;
                 }
             }
+            if (native) {
+                desc.count = STRIP;
+                layer_material(
+                    &desc.material, layer, (uint8_t)(layer ? pv[0x33] : pv[0x37]), layer && pv[0x39]
+                );
+                desc.image = layer ? surface_image : reflection_image;
+                /* A strip the window does not take (the call checked what it was given) is left out. */
+                (void)openrac_frame_strip(&desc);
+                continue;
+            }
             STRIP_ROUTINE(STRIP, (int)positions, (int)colours, (int)uvs, 1);
         }
     }
-    func_L01_004C5B90(GS_TEST_1, kTestRestore);
-    /* the level's fog line back for the strips after this */
-    upload_fog_line(
-        fog_block,
-        context,
-        f32_at(context + 0x220),
-        f32_at(context + 0x1AC),
-        f32_at(context + 0x23C),
-        f32_at(context + 0x238)
-    );
+    if (!native) {
+        func_L01_004C5B90(GS_TEST_1, kTestRestore);
+        /* the level's fog line back for the strips after this */
+        upload_fog_line(
+            fog_block,
+            context,
+            f32_at(context + 0x220),
+            f32_at(context + 0x1AC),
+            f32_at(context + 0x23C),
+            f32_at(context + 0x238)
+        );
+    }
 }

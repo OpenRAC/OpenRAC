@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "openrac/guest.h"
+#include "openrac/material.h"
 #include "openrac/ui_item.h"
 
 #ifdef __cplusplus
@@ -144,6 +145,35 @@ void openrac_frame_world_mobys(void);
 /* `count` mobys from `list`, drawn with the camera the game holds now, into the current target (a
  * panel, or the screen over a menu's world). Nonzero when the window draws them. */
 int openrac_frame_mobys(gaddr list, int count);
+
+/* openrac_frame_strip_desc::flags: drawn with the world's liquids (before the shrubs and the mobys)
+ * rather than with the other effects after them; the fog fields are read. */
+#define OPENRAC_STRIP_LIQUID 1u
+#define OPENRAC_STRIP_FOG 2u
+#define OPENRAC_STRIP_MOST_VERTICES 8192u
+
+/* A world effect strip (the seas, liquids and other callback meshes): `count` vertices as one
+ * triangle strip, world space, ST normalised, colours 0xAABBGGRR (0x80 = 1.0), drawn with the
+ * native material and the image as the game keeps it (openrac/ui_item.h; not read with
+ * OPENRAC_MATERIAL_UNTEXTURED, which a fogged strip may not be). With OPENRAC_STRIP_FOG the F of
+ * each vertex is the game's fog line over the view depth: slope per unit, offset, lower and upper
+ * bound, towards `fog_colour` (0x00BBGGRR). No GS word anywhere; the arrays are copied by the call. */
+typedef struct openrac_frame_strip_desc {
+    uint32_t count;
+    const float* position; /* 3 floats per vertex */
+    const float* st;       /* 2 floats per vertex */
+    const uint32_t* rgba;  /* 1 word per vertex */
+    openrac_material material;
+    openrac_game_ui_image image;
+    uint32_t flags;
+    float fog[4];
+    uint32_t fog_colour;
+} openrac_frame_strip_desc;
+
+/* Records the strip at the place of the call (the anchor in effect). 1 when the window takes it;
+ * 0 (no window, OPENRAC_UI_REPLAY, a material or count out of range, an image it cannot read): the
+ * caller draws the game's way. */
+int openrac_frame_strip(const openrac_frame_strip_desc* strip);
 
 /* A quad of the 2D layer from the game's data alone (openrac/ui_item.h). 1 when the window draws it
  * natively; 0 (no window, OPENRAC_UI_REPLAY): the caller draws the game's way. */

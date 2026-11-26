@@ -220,6 +220,8 @@ const char* frame_op_name(FrameOp op) {
             return "TargetEnd";
         case FrameOp::Scissor:
             return "Scissor";
+        case FrameOp::Strip:
+            return "Strip";
         case FrameOp::WorldShrubs:
             return "WorldShrubs";
         case FrameOp::EffectParent:
@@ -380,6 +382,8 @@ void FrameRecording::clear() {
     ui_quads.clear();
     ui_items.clear();
     images.clear();
+    strips.clear();
+    strip_vertices.clear();
     screen_effects.clear();
     views.clear();
     view_error.clear();

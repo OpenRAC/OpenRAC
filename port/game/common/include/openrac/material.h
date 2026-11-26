@@ -79,6 +79,9 @@ extern "C" {
 #define OPENRAC_MATERIAL_REPEAT_S 0x20u
 #define OPENRAC_MATERIAL_REPEAT_T 0x40u
 #define OPENRAC_MATERIAL_UNTEXTURED 0x80u
+/* The image is minified through a mip chain the window makes from it (a tiled surface seen far
+ * away, as water is); with OPENRAC_MATERIAL_LINEAR_MIN the levels blend. */
+#define OPENRAC_MATERIAL_MIPMAP 0x100u
 
 /*
  * With OPENRAC_MATERIAL_BLEND the drawn colour is (source_k w + source_m) Cs + (dest_k w + dest_m)

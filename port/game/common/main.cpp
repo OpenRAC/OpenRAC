@@ -272,6 +272,7 @@ int (*openrac_game_bolts)(void) = nullptr;
 int (*openrac_game_skip_buttons)(void) = nullptr;
 void (*openrac_game_skip)(void) = nullptr;
 int (*openrac_game_flight)(void) = nullptr;
+int (*openrac_game_loading_draws_world)(void) = nullptr;
 int (*openrac_game_mode)(uint32_t* mode) = nullptr;
 int (*openrac_game_touch)(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX]) =
     nullptr;

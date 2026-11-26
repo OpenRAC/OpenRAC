@@ -32,6 +32,7 @@ struct EffectState {
     bool linear_min = false;
     bool repeat_s = true;
     bool repeat_t = true;
+    bool mipmap = false;  // minified through a mip chain made from the image
 
     bool operator==(const EffectState&) const = default;
 };
@@ -78,6 +79,7 @@ struct EffectGlState {
     unsigned min_filter = 0;
     bool repeat_s = true;
     bool repeat_t = true;
+    bool mipmap = false;
     unsigned depth_function = 0;
 };
 

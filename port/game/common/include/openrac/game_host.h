@@ -248,6 +248,11 @@ extern void (*openrac_game_skip)(void);
  * being drawn now (0 the first of its worlds, levels 98 down), or -1. NULL: the words decide. */
 extern int (*openrac_game_flight)(void);
 
+/* A game whose loading screens are not all the flight with its world (GameProfile::loading_world):
+ * 0 while the screen playing draws no world of its own (a transition made of 2D alone), so its 2D is
+ * drawn over the loading world's clear, not under it. NULL, or nonzero: the screen has its world. */
+extern int (*openrac_game_loading_draws_world)(void);
+
 /* What the window's own menus and drawing need of a game's front end, when a game installs it
  * (rac1: port/game/rac1/host/front_end.c, with each disc's addresses). NULL: the window adds
  * nothing to the game's menus. */
