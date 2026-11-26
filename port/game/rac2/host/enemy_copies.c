@@ -955,8 +955,9 @@ typedef struct {
     int has_orig, has_copy, has_owners, room;
 } pod_seen;
 
-static int look_in_pod(const rac2_copy_arena* a, gaddr pod, gaddr copy, gaddr orig, gaddr owner,
-                       pod_seen* seen) {
+static int look_in_pod(
+    const rac2_copy_arena* a, gaddr pod, gaddr copy, gaddr orig, gaddr owner, pod_seen* seen
+) {
     const uint8_t state = GREF(uint8_t, pod + MOBY_STATE);
     if (state >= 8 || ((a->pod_states >> state) & 1u) == 0
         || GREF(int16_t, pod + MOBY_OCLASS) != a->pod) {
@@ -1050,9 +1051,8 @@ void rac2_copy_arenas_tick(void) {
     if (base == 0 || end <= base || made.loads != this_load()) {
         return;
     }
-    /* An arena's copy the game frees (seen as the hero fell out of the arena and the challenge was
-     * called off) comes off the arena's list at once: the arena's reset walks every entry, freed or
-     * not. */
+    /* The lists tidied once a frame while an arena has copies: a copy the game frees comes off the
+     * arena's list at once, as the arena's reset walks every entry, freed or not. */
     int arenas = 0;
     for (int i = 0; i < made.count && !arenas; ++i) {
         arenas = made.arena[i] != 0;

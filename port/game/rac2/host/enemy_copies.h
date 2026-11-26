@@ -50,17 +50,18 @@ extern const unsigned rac2_copy_never_count;
  * A member of that group of one of `members` may be copied (not RAC2_COPY_SCRIPTED); its copy goes
  * in with its original (rac2_copy_arenas_tick). The offsets are of the classes' pvars. */
 #define RAC2_COPY_ARENA_MEMBERS 4
+
 typedef struct rac2_copy_arena {
     const char* what;
-    int16_t controller;     /* the controller's class */
-    uint16_t group;         /* the s32 of its pvars naming the reserve's group */
-    int16_t pod;            /* the class of the pods */
-    uint16_t pod_held;      /* the pod's members, a word each, 0 for an empty one */
+    int16_t controller; /* the controller's class */
+    uint16_t group;     /* the s32 of its pvars naming the reserve's group */
+    int16_t pod;        /* the class of the pods */
+    uint16_t pod_held;  /* the pod's members, a word each, 0 for an empty one */
     uint8_t pod_held_count;
-    uint8_t pod_states;     /* the pod's states (bits) while it holds them, before it lets go */
-    uint8_t dormant;        /* a member's state in the reserve */
-    uint8_t held;           /* a member's state in a pod */
-    uint8_t health_at;      /* the float a member's health starts from, set to 1 as it goes in */
+    uint8_t pod_states; /* the pod's states (bits) while it holds them, before it lets go */
+    uint8_t dormant;    /* a member's state in the reserve */
+    uint8_t held;       /* a member's state in a pod */
+    uint8_t health_at;  /* the float a member's health starts from, set to 1 as it goes in */
     int16_t members[RAC2_COPY_ARENA_MEMBERS];
 } rac2_copy_arena;
 
