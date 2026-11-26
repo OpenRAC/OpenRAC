@@ -135,7 +135,6 @@ static void make_backdrop(int lines) {
     backdrop_lines = rows;
 }
 
-
 /* Port pictures (openrac_frame_picture_set: pixels the host keeps, rows top first, alpha 0x80 is
  * opaque): the title's picture and the backdrop's two sides, which the window draws as the frame
  * recorder's native 2D (no chip word). */
@@ -168,8 +167,10 @@ static void make_sides(void) {
             for (int side = 0; side < 2; ++side) {
                 const int a = side == 0 ? i0 : BACKDROP_WIDTH - 1 - i0;
                 const int b = side == 0 ? i1 : BACKDROP_WIDTH - 1 - i1;
-                uint8_t* to = (side == 0 ? left : right)
-                              + ((size_t)y * SIDE_COLUMNS + (size_t)(side == 0 ? SIDE_COLUMNS - 1 - x : x)) * 4;
+                uint8_t* to =
+                    (side == 0 ? left : right)
+                    + ((size_t)y * SIDE_COLUMNS + (size_t)(side == 0 ? SIDE_COLUMNS - 1 - x : x))
+                          * 4;
                 for (int c = 0; c < 3; ++c) {
                     const float v = (float)from[((size_t)y * BACKDROP_WIDTH + (size_t)a) * 4 + c] * (1.0f - f)
                                     + (float)from[((size_t)y * BACKDROP_WIDTH + (size_t)b) * 4 + c] * f;
@@ -191,8 +192,12 @@ static void draw_sides_native(float wider) {
     const float left[4] = {0.0f, top, band, bottom};
     const float right[4] = {(float)PICTURE_WIDTH - band, top, (float)PICTURE_WIDTH, bottom};
     rac2_anchor();
-    openrac_frame_picture(PORT_SIDE_LEFT, left, 0x80808080u, OPENRAC_BLEND_OPAQUE | OPENRAC_PICTURE_WHOLE);
-    openrac_frame_picture(PORT_SIDE_RIGHT, right, 0x80808080u, OPENRAC_BLEND_OPAQUE | OPENRAC_PICTURE_WHOLE);
+    openrac_frame_picture(
+        PORT_SIDE_LEFT, left, 0x80808080u, OPENRAC_BLEND_OPAQUE | OPENRAC_PICTURE_WHOLE
+    );
+    openrac_frame_picture(
+        PORT_SIDE_RIGHT, right, 0x80808080u, OPENRAC_BLEND_OPAQUE | OPENRAC_PICTURE_WHOLE
+    );
 }
 
 /* The picture itself: over the draw buffer's 416 lines. */

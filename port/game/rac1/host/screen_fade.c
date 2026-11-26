@@ -82,8 +82,16 @@ void func_001F55C0(int r, int g, int b, int a) {
         }
         if (count < 16) {
             seen[count++] = (rgba & 0xFFFFFF00u) + (uint32_t)(a >> 4);
-            fprintf(stderr, "screen_fade: tint %d %d %d %d (%u bytes) %s\n", r, g, b, a,
-                    (unsigned)(after - before), taken ? "native" : "kept");
+            fprintf(
+                stderr,
+                "screen_fade: tint %d %d %d %d (%u bytes) %s\n",
+                r,
+                g,
+                b,
+                a,
+                (unsigned)(after - before),
+                taken ? "native" : "kept"
+            );
         }
     }
 }
