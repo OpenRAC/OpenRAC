@@ -354,6 +354,9 @@ int rac3_mp_wide_slots(void) {
 
 /* A bound of the game's over its slots (8; 7 for "the last slot", ...): the room's. */
 int rac3_mp_wide_bound(int game) {
+    if (game == 24) { /* the effect pool's size: two descriptors a hero past the game's eight */
+        return game + 4 * (wide_slots - WIDE_GAME);
+    }
     return game + wide_slots - WIDE_GAME;
 }
 
@@ -368,10 +371,18 @@ static uint32_t wide_native(int table) {
     return table == WIDE_EFFECT_POOL ? 24u : (uint32_t)WIDE_GAME;
 }
 
+/* The entries the port adds past the game's: 16 for a per-slot table, but 64 for the effect pool, which
+ * takes two a hero and 24 heroes' worth with headroom (24 + 64 = 88 for the game's 24). */
+#define POOL_EXTRA 64u
+
+static uint32_t wide_extra(int table) {
+    return table == WIDE_EFFECT_POOL ? POOL_EXTRA : (uint32_t)WIDE_EXTRA;
+}
+
 static gaddr wide_extension(int table) {
     if (wide_ext[table] == 0) {
-        wide_ext[table] = openrac_guest_static(WIDE_EXTRA * wide_table[table].stride);
-        memset(G(wide_ext[table]), 0, WIDE_EXTRA * wide_table[table].stride);
+        wide_ext[table] = openrac_guest_static(wide_extra(table) * wide_table[table].stride);
+        memset(G(wide_ext[table]), 0, wide_extra(table) * wide_table[table].stride);
     }
     return wide_ext[table];
 }
@@ -385,7 +396,7 @@ static void wide_program_changed(int overlay) {
                             || wide_table[t].where == IN_PROG || wide_table[t].where == IN_REC;
         const int results = t >= WIDE_RESULT_NAME && overlay > PROGRAM_FIRST;
         if ((program || results) && wide_ext[t] != 0) {
-            memset(G(wide_ext[t]), 0, WIDE_EXTRA * wide_table[t].stride);
+            memset(G(wide_ext[t]), 0, wide_extra(t) * wide_table[t].stride);
         }
     }
     wide_overlay = overlay;
@@ -447,7 +458,7 @@ uint32_t rac3_mp_wide_address(uint32_t address, int table) {
     }
     const uint32_t native = wide_native(table);
     const uint32_t rel = address - base;
-    if (rel < native * stride || rel >= (native + WIDE_EXTRA) * stride) {
+    if (rel < native * stride || rel >= (native + wide_extra(table)) * stride) {
         return address;
     }
     if (wide_table[table].where == IN_GS) {
