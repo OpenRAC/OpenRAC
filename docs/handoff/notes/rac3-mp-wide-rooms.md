@@ -416,8 +416,9 @@ writes: the marker's own init (`func_L40_005390B8`, a valid pointer), a clear (`
 memset of a0 = 0x33BE40 from `00534D30`/`0050C780`), then two float stores by `func_L40_00504C70` (this = 0x33BE40,
 fields +0x110/+0x114 are sticks). So `D_0033BE40` is used as one big object (0x4DC0 bytes) by the pad/hero code and as an
 array of 0x340-byte marker entries by `005390B8`/`0053D0A0`: the marker array's entry 4 overlaps what the hero code
-writes. **It reproduces on the build from before this branch (baseline `04ae121f`, 9 players) and does not happen with 8
-players (the match ran 13 minutes), so it is not from the sites above.** Open: find why a 9th player makes
+writes. **It reproduces on the build from before this branch (baseline `04ae121f`, 9 players), so it is not from the sites
+above.** (An 8-player control did not start a match in this harness: the stock START path, up + cross, drifted into
+the team dialog; whether 8 players pass this code is therefore unproven.) Open: find why a 9th player makes
 `005390B8` take entries past the first four (its caller `003FE8B8`, a0 = 0/1, a1 = player mobys, lifetime 3000), or
 whether 8 players already use five or more entries only at other times; the 5390B8 call list (6 calls at the crash:
 a0 0,0,0,1,1,1) is in `~/RACSwarm/k4-mp/out/h-t9f/gdb.out` on box1 while it lasts.
