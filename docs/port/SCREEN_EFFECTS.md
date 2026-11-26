@@ -169,9 +169,25 @@ no window keep the game's own):
   0.0 to 0.6 of 255, `r2-progress/rac1-pause-*`, `rac1-vendor-*`).
 
 Off-screen panels (`func_001FB608` `setup_render_target` and the monitors' background `func_001FB908` on
-rac1; `func_00280510`, `func_00285030` and the cockpit's `func_0027B9C0` on rac2) are recorded panels
+rac1; `func_00280510`, `func_00285030` and `func_0027B9C0`, a cutscene's object preview, on rac2) are recorded panels
 now: the recorder's contract is that every stream between `openrac_frame_target_begin` and `_end`, the
 2D-quad and moby-marker streams included, draws into the panel, which the game's own quad then samples
 (FRAME_RECORDER.md, section 3.3; `rac1/host/render_panel.c`, `rac2/host/render_panel.c`). The game's
 packets for the panel still run (transitional, with the rest of the chain). Checked in hidden runs on
 box1: the Gadgetron vendor's six monitors on Novalis look as before (`r2-progress/rt/rac1-vendor-*`).
+
+Going Commando (NTSC-U, hidden runs on box1, gdb call counts and `OPENRAC_UI_LOG`): the rac2 panel
+wrappers do not run on the screens one expects. `func_00285030` was called 0 times in the Ship Shack
+vendor (level 24: monitor, Triangle; its pages are not the pause panels, `menu_draw_pause_panels`
+`func_002CBC58` 0 calls), in the seven pause pages (level 4: Weapons, Gadgets, Quick Select, Items,
+Help, Options, Special; `func_002CBC58` ran 448 times and `menu_panel_draw` 315, but the page's panel
+has flags 9 and is drawn directly, never through `func_00280510`) and in space flight (level 5:
+`gfx_render_object_preview_to_texture` ran 398 times with no object, so `func_0027B9C0` never did).
+`func_00284EA8` is a general draw-list header (1,500 or more calls a run) that closes nothing then.
+What reaches them is a pause-menu panel whose draw routine is one of four menu routines and whose
+flags have bits 1 and 8 clear, or a cutscene that holds an object to preview
+(`g_scene_playback_state.capture`); no such screen has been found yet. Residual 2D still drawn from
+the game's packets (`OPENRAC_UI_RESIDUAL=1`, kinds seen once per run): untextured sprites (fades,
+tints) and a textured sprite at block 0x1E80 from the start of a level, a line, a textured triangle
+strip at block 0x3FFB (in play and menus), another at block 0x2F31 (8-bit palette) in the Ship Shack
+vendor, and an untextured strip in flight.
