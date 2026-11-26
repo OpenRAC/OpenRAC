@@ -222,12 +222,32 @@
 #define RAC3_MADDR_0x001A30DCu 0x001A325Cu
 /* the same instruction of the same code: func 0x0027EDA8 (NTSC-U 0x0027EDE8) +0x94, 1 of 1 places agree */
 #define RAC3_MADDR_0x001A3800u 0x001A3980u
+/* not paired (rac3_mp_pairs.py) */
+#define RAC3_MADDR_0x001A5E18u 0u
+/* not paired (rac3_mp_pairs.py) */
+#define RAC3_MADDR_0x001A6310u 0u
+/* not paired (rac3_mp_pairs.py) */
+#define RAC3_MADDR_0x001A6330u 0u
+/* not paired (rac3_mp_pairs.py) */
+#define RAC3_MADDR_0x001A635Cu 0u
+/* not paired (rac3_mp_pairs.py) */
+#define RAC3_MADDR_0x001A637Du 0u
+/* not paired (rac3_mp_pairs.py) */
+#define RAC3_MADDR_0x001A6480u 0u
+/* not paired (rac3_mp_pairs.py) */
+#define RAC3_MADDR_0x001A64A5u 0u
+/* not paired (rac3_mp_pairs.py) */
+#define RAC3_MADDR_0x001A64ADu 0u
 /* the same instruction of the same code: func 0x00192D18 (NTSC-U 0x00192E08) +0x1B0, 2 of 2 places agree */
 #define RAC3_MADDR_0x001EBE00u 0x001EBF80u
 /* the same instruction of the same code: func 0x00195010 (NTSC-U 0x00195100) +0x10, 1 of 1 places agree */
 #define RAC3_MADDR_0x001FC6B0u 0x001FC830u
+/* not paired (rac3_mp_pairs.py) */
+#define RAC3_MADDR_0x001FD7E8u 0u
 /* the same instruction of the same code: func 0x00299218 (NTSC-U 0x002991F8) +0xC, 1 of 1 places agree */
 #define RAC3_MADDR_0x00228580u 0x00228700u
+/* the same instruction of the same code: func 0x001998C0 (NTSC-U 0x00199A00) +0x18, 1 of 1 places agree */
+#define RAC3_MADDR_0x0022F3D0u 0x0022F550u
 /* the same instruction of the same code: func 0x00192D18 (NTSC-U 0x00192E08) +0x254, 2 of 2 places agree */
 #define RAC3_MADDR_0x00240290u 0x00240410u
 /* the same instruction of the same code: func 0x0027EEB8 (NTSC-U 0x0027EEF8) +0xFC, 21 of 21 places agree */
@@ -240,6 +260,8 @@
 #define RAC3_MADDR_0x00241458u 0x002415D8u
 /* release.json: the font FontSelect chose last: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U's map copies store it at 0x002415F0) */
 #define RAC3_MADDR_0x00241470u 0x002415F0u
+/* not paired (rac3_mp_pairs.py) */
+#define RAC3_MADDR_0x00241640u 0u
 /* the start of the payload's record at PAL 0x00241A00 (NTSC-U 0x00241B80) */
 #define RAC3_MADDR_0x00241A00u 0x00241B80u
 /* release.json: the core's pointer to the current font's page handles: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U reads 0x00241E68 beside 0x00241E6C) */
@@ -426,6 +448,8 @@
 #define RAC3_LADDR_39_0x0024C940u 0x0024CA40u
 /* the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x6C, 95 of 95 places agree */
 #define RAC3_LADDR_39_0x0024CAD0u 0x0024CBD0u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 30 of 30 places agree */
+#define RAC3_LADDR_39_0x0024CE20u 0x0024CF20u
 /* the same instruction of the same code: func_L39_0067A4E0 (NTSC-U func_L39_00677AE8) +0x18, 1 of 1 places agree */
 #define RAC3_LADDR_39_0x0024DE20u 0x0024DF20u
 /* the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 10 of 10 places agree */
@@ -438,7 +462,65 @@
 #define RAC3_LADDR_39_0x00271500u 0x00271600u
 /* between the same code's 0x00294FC0 and 0x002965C0, both moved by +0x100 (NTSC-U 0x002950C0, 0x002966C0) */
 #define RAC3_LADDR_39_0x002961C0u 0x002962C0u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 23 of 23 places agree */
+#define RAC3_LADDR_39_0x00352940u 0x00352A40u
 /* the level program's entry (its ELF header: PAL 0x00575CC8, NTSC-U 0x00574F88) */
 #define RAC3_LADDR_39_0x00575CC8u 0x00574F88u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
+#define RAC3_LADDR_40_0x00249330u 0x002494B0u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
+#define RAC3_LADDR_40_0x00357260u 0x003573E0u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
+#define RAC3_LADDR_41_0x00249530u 0x002496B0u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
+#define RAC3_LADDR_41_0x003573A0u 0x00357520u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
+#define RAC3_LADDR_42_0x00249420u 0x002495A0u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
+#define RAC3_LADDR_42_0x0034F2A0u 0x0034F420u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
+#define RAC3_LADDR_43_0x002492A0u 0x00249420u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
+#define RAC3_LADDR_43_0x0034F120u 0x0034F2A0u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
+#define RAC3_LADDR_44_0x00249320u 0x002494A0u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
+#define RAC3_LADDR_44_0x0034F160u 0x0034F2E0u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
+#define RAC3_LADDR_45_0x002492A0u 0x00249420u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
+#define RAC3_LADDR_45_0x0034F120u 0x0034F2A0u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree */
+#define RAC3_LADDR_46_0x00248EA0u 0x00249020u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree */
+#define RAC3_LADDR_46_0x0035FCE0u 0x0035FE60u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree */
+#define RAC3_LADDR_47_0x00248FA0u 0x00249120u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree */
+#define RAC3_LADDR_47_0x0035FE20u 0x0035FFA0u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree */
+#define RAC3_LADDR_48_0x00248FA0u 0x00249120u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree */
+#define RAC3_LADDR_48_0x0035FE60u 0x0035FFE0u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree */
+#define RAC3_LADDR_49_0x00248FA0u 0x00249120u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree */
+#define RAC3_LADDR_49_0x0035FDE0u 0x0035FF60u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
+#define RAC3_LADDR_50_0x00249330u 0x002494B0u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
+#define RAC3_LADDR_50_0x00368260u 0x003683E0u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
+#define RAC3_LADDR_51_0x00249530u 0x002496B0u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
+#define RAC3_LADDR_51_0x003683A0u 0x00368520u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
+#define RAC3_LADDR_52_0x00249420u 0x002495A0u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
+#define RAC3_LADDR_52_0x003602A0u 0x00360420u
+/* the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree */
+#define RAC3_LADDR_53_0x002492A0u 0x00249420u
+/* the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree */
+#define RAC3_LADDR_53_0x00360120u 0x003602A0u
 
 #endif /* OPENRAC_RAC3_ADDRESSES_H */

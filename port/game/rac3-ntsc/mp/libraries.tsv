@@ -284,6 +284,7 @@ func_L39_00678170	dnas	rac3MpDnasScreen	wrap	the DNAS screen's update: the resol
 func_0018E718	net	rac3MpHeadsetInit	wrap	lgAudInit, the USB headset's library: no headset (its RPC has no IOP to answer) (host/mp_net.c)
 func_00195100	net	rac3MpProfilesReset	wrap	the online profiles' reset to defaults (every frame of the PROFILES screen while the card holds no multiplayer save): OPENRAC_RAC3_PROFILE's after it (host/mp_net.c)
 func_L39_00689630	net	rac3MpProfilesScreen	wrap	the PROFILES screen's update (event, its substate at $gp - 0x4BC): with OPENRAC_RAC3_PROFILE, LOGIN once on the profile given (host/mp_net.c)
+func_L39_00697028	net	rac3MpCreatePage	wrap	the CREATE page's constructor (level 39's screen 0x0069A630): online, its number of players goes up to the room's most, 24 (host/mp_net.c)
 func_00195500	net	rac3MpNetPump	wrap	the lobby's pump (each wait loop's frame, then its hook at net + 0x2D0): the host lobby's replies first, as the library's update would give them (host/mp_net.c)
 func_00198748	dme	rac3MpDmeAlloc	wrap	DME's allocator hook (newlib malloc within DME's budget, 0xC4000): a heap of that size in the port's statics (host/mp_net.c)
 func_001987A0	dme	rac3MpDmeFree	wrap	DME's free hook (host/mp_net.c)
