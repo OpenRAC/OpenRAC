@@ -3680,7 +3680,11 @@ TickPackets capture_2d_path(
     // stars are under its mobys. It splits at the world's marker its moby pass put in the boot
     // program's list; a list the game resends while it reads the disc, which ends before that
     // pass's marker, has the world over all of it.
-    const bool loading = g->render.profile->loading_world() >= 0 && world_to_draw(ram, level) == -2;
+    // A loading screen of 2D alone (Up Your Arsenal's Vid-comic transition) has no moby pass to split
+    // at: its 2D goes over the world's clear.
+    const bool loading =
+        g->render.profile->loading_world() >= 0 && world_to_draw(ram, level) == -2
+        && (openrac_game_loading_draws_world == nullptr || openrac_game_loading_draws_world() != 0);
     if (loading && world_marker == SIZE_MAX) {
         before_world = k.packets.size();
     }

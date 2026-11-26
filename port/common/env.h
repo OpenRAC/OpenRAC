@@ -215,6 +215,7 @@ enum class Var : std::uint16_t {
     StateDump,
     Strict,
     StripFogOff,
+    StripTrace,
     Stuck,
     SunInstanceCullOff,
     SunReceiverCullOff,

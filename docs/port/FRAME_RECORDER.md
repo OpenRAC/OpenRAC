@@ -157,7 +157,7 @@ same `apply_native` as a native quad (`OPENRAC_MATERIAL_MIPMAP` asks for a mip c
 image). 0 is returned (the caller draws the game's way) without a window, with
 `OPENRAC_UI_REPLAY`, or for a count, material or image out of range. First producer: rac3's open
 water plane (`rac3-pal/host/water_plane.c`, Florana, Marcadia, Daxx and nine more levels); the other
-strips still come from the chain. rac3's strip routine (`rac3-pal/host/render.c`) records every
+strips still come from the chain, except rac2's level water and sea sheets (`rac2/host/strips.c`). rac3's strip routine (`rac3-pal/host/render.c`) records every
 hand-built strip whose state its capture proves; those pass `OPENRAC_STRIP_CHAIN_DEPTH`, which leaves the
 depth write to the window's placement (before the mobys, as the chain's strips are).
 
