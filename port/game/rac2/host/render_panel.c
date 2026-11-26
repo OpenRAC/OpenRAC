@@ -54,7 +54,14 @@ void func_00285030(int tw, int th, int tbp, int mode) {
         if (openrac_env_string("OPENRAC_UI_LOG") != NULL) {
             static int logged[2];
             if (mode >= 0 && mode < 2 && logged[mode]++ < 8) {
-                fprintf(stderr, "render_panel: open %dx%d tbp %#x mode %d\n", 1 << tw, 1 << th, tbp, mode);
+                fprintf(
+                    stderr,
+                    "render_panel: open %dx%d tbp %#x mode %d\n",
+                    1 << tw,
+                    1 << th,
+                    tbp,
+                    mode
+                );
             }
         }
     }
