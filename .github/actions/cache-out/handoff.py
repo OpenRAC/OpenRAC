@@ -56,7 +56,8 @@ def pack(out):
     if not files:
         print(f"cache {key}: no files")
         return
-    name = "cache-" + re.sub(r"[^A-Za-z0-9._-]", "_", key)[:200]
+    # Readable, and unique per key even when two long keys share their start.
+    name = f"cache-{re.sub(r'[^A-Za-z0-9._-]', '_', key)[:150]}-{hashlib.sha1(key.encode()).hexdigest()[:10]}"
     folder = Path(out) / name
     folder.mkdir(parents=True, exist_ok=True)
     with tarfile.open(folder / "cache.tar", "w") as archive:
@@ -68,7 +69,8 @@ def pack(out):
 
 
 def unpack(root, slots):
-    manifests = sorted(Path(root).glob("*/manifest.json"))
+    # One artifact downloaded by name lands in ROOT itself, several in a folder each.
+    manifests = sorted([*Path(root).glob("manifest.json"), *Path(root).glob("*/manifest.json")])
     if len(manifests) > slots:
         print(f"::warning::{len(manifests)} caches, only the first {slots} are saved")
     lines = []
@@ -76,6 +78,7 @@ def unpack(root, slots):
         data = json.loads(manifest.read_text(encoding="utf-8"))
         with tarfile.open(manifest.parent / "cache.tar") as archive:
             archive.extractall("/", filter="tar")
+        (manifest.parent / "cache.tar").unlink()
         print(f"cache {data['key']}")
         lines += [multiline(f"key_{number}", data["key"]), multiline(f"path_{number}", data["path"])]
     output(lines)

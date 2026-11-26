@@ -2,7 +2,8 @@
 # its own short-lived branch. So in develop's queue a job hands each cache it would save to this
 # action, which keeps it as a one-day artifact. After the merge, .github/workflows/cache-handoff.yml
 # saves it as develop's cache under the same key and paths, with no build. Elsewhere this does
-# nothing: a push or a manual run saves its caches itself, and other queues keep none.
+# nothing: a push or a manual run saves its caches itself, and other queues keep none. Linux only:
+# the hand-off runs on Linux and a cache's version depends on the system that saved it.
 name: Cache hand-off
 description: In develop's merge queue, keep a cache as an artifact for cache-handoff.yml
 inputs:
@@ -16,7 +17,7 @@ runs:
   using: composite
   steps:
     - id: pack
-      if: github.event_name == 'merge_group' && github.event.merge_group.base_ref == 'refs/heads/develop'
+      if: runner.os == 'Linux' && github.event_name == 'merge_group' && github.event.merge_group.base_ref == 'refs/heads/develop'
       shell: bash
       env:
         KEY: ${{ inputs.key }}
@@ -30,4 +31,6 @@ runs:
         path: ${{ steps.pack.outputs.dir }}
         retention-days: 1
         compression-level: 0
+        # Jobs that share a cache (the same key) hand on the same files: the last one stays.
+        overwrite: true
         if-no-files-found: ignore

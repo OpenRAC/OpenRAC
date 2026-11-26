@@ -485,13 +485,15 @@ jobs:
       # library is really missing, and is cut short.
       - id: playwright
         run: echo "version=$(node -p "require('playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
-      # Written by pushes only, as every cache here (.github/actions/compiler-cache/save).
+      # Written by pushes only, as every cache here (.github/actions/compiler-cache/save); develop's
+      # queue hands it on below.
       - if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
-      - if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+      - id: browser-cache
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
@@ -509,6 +511,12 @@ jobs:
             timeout 300 yarn playwright-core install-deps chromium-headless-shell \
               || echo "::warning::install-deps failed; trying the tests anyway"
           fi
+      - name: Hand on the browser
+        if: github.event_name == 'merge_group' && steps.browser-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/cache-out
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
       - name: Android pages
         run: yarn test:android
 
