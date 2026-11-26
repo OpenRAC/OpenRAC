@@ -285,6 +285,15 @@ to directly.
   producer: the open water plane (`water_plane.c`: Florana, Marcadia, Daxx and the other levels with
   class 2871). Still on the strip routine: class 6576's draw, level 14 `0x003B24C8` and the other
   hand-written strip builders; the UNPACK/MSCAL branch of `direct_packets` stays until they move.
+- **Status (2026-11-25, rac1):** Oltanis' ice and Hoven's list (`draw_textured_effect_list`, one
+  function with a place in L12 and L14) record `openrac_frame_strip` from `rac1/host/strips.c`
+  (wrapped at the two callers, `func_L12_002E8530` and `func_L14_00308EB0`, which name the effect
+  textures): two strips per entry, the list's own ST then the environment ST, materials from the
+  static GS block the routine sends (read from the discs: TEST nearer-or-equal, ALPHA FIX 0x80 and
+  0x40), the fog line the view context's. PAL v2.00 only; PAL v1.00, NTSC-J and NTSC-U keep the
+  game's draw (parity.tsv) until their addresses are carried. Novalis' ripples
+  (`update_and_draw_scrolling_overlay_layers`, `DrawEnvOverlayMesh`) are not moved: the enhanced-water
+  tags and the Fleet pool passes (`water_surfaces.c`) read those strips from the chain.
 
 ### P6 — Screen effects and frame copies natively (rac3, implementation; after P1)
 
@@ -470,6 +479,10 @@ is matching work under rac3-decomp's rules (WORKFLOW "Matching"), not port work.
 | **R3** strips (as P5), DMA hand-off out (as P7) — **blocked on P4/P5/P7 (2026-11-25, see below)** | Oltanis ice and Hoven (`draw_textured_effect_list`, shared L12/L14 code), Novalis ripples (`update_and_draw_scrolling_overlay_layers` and the wave builder), all ending in `DrawEnvOverlayMesh` (`func_L00_001FDE48`); `shown_chain` double buffer | lava `func_00303070` is **already native** (it draws quads through `draw_world_quad`, `rac2/host/render.c` `world_quad`); sea and the other water strips still come from the chain; `rac2/host/spr_dma.c` **gone** (P9, #771; CollLine is `rac2/host/coll_line.c`); `handasm_vu0.c` DMA waits are report-only fragments already; `rac2/host/dma.c` stays until P7/P8 |
 | VU0 (as P10) | 5 `vcallms` stubs; `vu0_sine.c` microcode constants | `vu0_programs` 0xC80/0xC90/0xD18 (`trig.c`), `handasm.c` vectors on `openrac_vu0` |
 | Sound (as P11a) | already at the API | the same ring as rac3: do it right after rac3's |
+
+**R3 status (2026-11-25, after the strip record):** Oltanis and Hoven's list is on the record for
+PAL v2.00 (`rac1/host/strips.c`); Novalis' ripples, the other versions and the `DrawEnvOverlayMesh`
+callers of Fleet, Batalia and the weapons are still on the chain.
 
 R3 findings (2026-11-25, read from develop f7e809b0a):
 
