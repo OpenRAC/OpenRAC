@@ -233,10 +233,10 @@ void rac3_mp_ui_notice(const char* text);               /* mp_ui.c */
 #define M_ACCOUNT_NOT_FOUND (-998) /* the login's message 0xF: the hub's ERROR_INVALID_ACCOUNT */
 #define M_SERVER_ERROR (-991)      /* message 1: the hub's ERROR_TRY_LATER */
 #define M_INVALID_PASSWORD (-978)  /* message 0xA: the hub's ERROR_WRONG_PASSWORD */
-#define M_WORLD_LOBBY 2     /* the one channel's world id */
-#define M_WORLD_OWN 900     /* this console's own game */
-#define M_WORLD_LISTED 1000 /* the first listed game's world id */
-#define M_PORT 10075        /* what the connection infos name; nothing connects to it */
+#define M_WORLD_LOBBY 2            /* the one channel's world id */
+#define M_WORLD_OWN 900            /* this console's own game */
+#define M_WORLD_LISTED 1000        /* the first listed game's world id */
+#define M_PORT 10075               /* what the connection infos name; nothing connects to it */
 
 /* A request with a reply: the reply's class, type and size, and whether it is a list (its last
  * word EndOfList). The sizes are the library's own (its handlers' results). */
@@ -358,7 +358,7 @@ typedef struct {
     net_socket fd;
     int state; /* 0 not tried, 1 connected and greeted, 2 hello sent, -1 failed */
     int32_t session;
-    int features; /* the UDP offer's bits: which requests the server takes */
+    int features;     /* the UDP offer's bits: which requests the server takes */
     int64_t alive_ms; /* when PACKET_TIME last went */
     uint8_t in[LINK_IN];
     size_t in_len;
@@ -2293,6 +2293,25 @@ static void dme_deliver(void) {
             continue;
         }
         memcpy(G(dme.buf), dme.inbox[i].data, dme.inbox[i].len);
+        if (net_log() && dme.inbox[i].len > 8 && dme.inbox[i].data[0] == 2
+            && dme.inbox[i].data[1] == 17) {
+            fprintf(
+                stderr,
+                "[info] rac3: online: slot update from client %d: %02x %02x %02x %02x %02x %02x "
+                "%02x %02x %02x %02x\n",
+                src,
+                dme.inbox[i].data[2],
+                dme.inbox[i].data[3],
+                dme.inbox[i].data[4],
+                dme.inbox[i].data[5],
+                dme.inbox[i].data[6],
+                dme.inbox[i].data[7],
+                dme.inbox[i].data[8],
+                dme.inbox[i].data[9],
+                dme.inbox[i].data[10],
+                dme.inbox[i].data[11]
+            );
+        }
         GFN(int (*)(int, int, int, int, int), RAC3_MADDR(0x0014CE48u))(
             GREF(int32_t, dme.conn + CONN_DISPATCH),
             (int)dme.conn,
@@ -2305,6 +2324,26 @@ static void dme_deliver(void) {
 
 /* Sends a DME packet ([class][id][payload]) to DEST: a client index, -1 / 0xFFFE every other
  * member (the room join request goes to -1), 0xFFFF the DME server (none here: dropped). */
+/* A console that joined with no name in the game's net block sends "(null)" (the game's own
+ * sprintf of a null name) in its room join request (channel 16, name at +0x30) and its slot updates
+ * (channel 17, name at +0x07): the account's name goes in its place, so two such players are not
+ * the same name to the staging room (which sends the second one's "leave"). */
+static void name_fix(gaddr data, int len) {
+    const int channel = GREF(uint8_t, data + 1);
+    const uint32_t at = channel == CHANNEL_ROOM_JOIN_REQUEST ? 2u + 0x30u : 2u + 0x07u;
+    if (GREF(uint8_t, data) != 2
+        || (channel != CHANNEL_ROOM_JOIN_REQUEST && channel != CHANNEL_SLOT_UPDATE)
+        || (int)at + 16 > len || memcmp(G(data + at), "(null)", 7) != 0 || net_login.name[0] == 0) {
+        return;
+    }
+    memset(G(data + at), 0, 16);
+    snprintf((char*)G(data + at), 16, "%s", net_login.name);
+}
+
+#define END_MESSAGE_BYTES 0x68 /* channel 5's message */
+#define END_MESSAGE_COMMAND 0x0C
+#define END_MESSAGE_SCORES 0x82
+
 static int dme_relay(int dest, gaddr data, int len) {
     if (srv.fd == NET_INVALID || !room.in || len <= 0 || len > 0x5F0) {
         return 0;
@@ -2337,6 +2376,24 @@ static int dme_relay(int dest, gaddr data, int len) {
     }
     if (!srv_room((size_t)len + 8)) {
         return 0;
+    }
+    name_fix(data, len);
+    /* The match's end (channel 5, command 0x82: the scores of the game's eight slots) is followed
+     * by the others' in a wide room: they go first, so a console has them before the message. */
+    if (len == 2 + END_MESSAGE_BYTES && GREF(uint8_t, data + 1) == CHANNEL_MATCH_STATE
+        && GREF(uint8_t, data + 2 + END_MESSAGE_COMMAND) == END_MESSAGE_SCORES
+        && rac3_mp_wide_slots() > 8 && srv_room(0x100)) {
+        uint8_t wide[0xC0];
+        const int n = rac3_mp_wide_end_pack(wide, (int)sizeof wide);
+        if (n > 0) {
+            srv_begin(PACKET_RELAY, -1);
+            srv_i32(target);
+            srv_u8(RELAY_MATCH_END_WIDE);
+            srv_u8((uint8_t)rac3_mp_wide_slots());
+            srv_bytes(wide, (size_t)n);
+            srv_end();
+            fprintf(stderr, "[info] rac3: online: the end message's slots 8+ sent (%d bytes)\n", n);
+        }
     }
     srv_begin(PACKET_RELAY, -1);
     srv_i32(target);
@@ -2432,6 +2489,8 @@ static int obj_new(int32_t id, int32_t type, int32_t owner, int32_t creator) {
     return i;
 }
 
+static void gs_log(const char* who);
+
 /* Sends object I to every other member (TARGET 0) or to one session. */
 static void obj_send(int i, int32_t target) {
     const int32_t size = obj_type[objs[i].type].size;
@@ -2461,6 +2520,9 @@ static void obj_send(int i, int32_t target) {
     srv_bytes(G(objs[i].data), (size_t)size);
     srv_end();
     memcpy(objs[i].sent, G(objs[i].data), (size_t)size);
+    if (net_log() && objs[i].type == gs_wide.type) {
+        gs_log("sent");
+    }
 }
 
 /* DME's update sends what changed in the objects this console owns, every frame (the game edits
@@ -2499,6 +2561,35 @@ static void obj_send_all_to(int32_t session) {
         if (objs[i].owner == me) {
             obj_send(i, session);
         }
+    }
+}
+
+/* The settings object's slots (client:state per slot with a client), logged when they change: the
+ * room's staging as this console sees it (OPENRAC_RAC3_NET_LOG). */
+static void gs_log(const char* who) {
+    static char last[512];
+    char line[512];
+    size_t n = 0;
+    const int slots = rac3_mp_wide_slots();
+    for (int slot = 0; slot < slots && n + 16 < sizeof line; slot++) {
+        const gaddr client = rac3_mp_wide_settings(0x0E0u, slot);
+        const gaddr state = rac3_mp_wide_settings(0x0F0u, slot);
+        if (client == 0 || GREF(int16_t, client) < 0) {
+            continue;
+        }
+        n += (size_t)snprintf(
+            line + n,
+            sizeof line - n,
+            " %d:%d/%d",
+            slot,
+            GREF(int16_t, client),
+            GREF(int16_t, state)
+        );
+    }
+    line[n] = 0;
+    if (strcmp(line, last) != 0) {
+        snprintf(last, sizeof last, "%s", line);
+        fprintf(stderr, "[info] rac3: online: settings (%s), slot client/state:%s\n", who, line);
     }
 }
 
@@ -2567,6 +2658,9 @@ static void obj_receive(int kind, int32_t from, reader* r) {
         obj_callback(obj_type[objs[i].type].on_create, creator, id, 0, 0);
     } else {
         obj_callback(obj_type[objs[i].type].on_update, creator, id, -1, 1);
+    }
+    if (net_log() && objs[i].type == gs_wide.type) {
+        gs_log("received");
     }
 }
 
@@ -2869,6 +2963,14 @@ static void on_frame(int id, reader* r) {
             const int kind = rd_u8(r);
             if (kind == RELAY_OBJECT || kind == RELAY_OBJECT_RELEASE || kind == RELAY_OBJECT_WIDE) {
                 obj_receive(kind, from, r);
+                break;
+            }
+            if (kind == RELAY_MATCH_END_WIDE) {
+                /* The room's width, then the arrays of slots 8 up; a console of another width
+                 * (never in one room) ignores it. */
+                if (r->n >= 1 && r->p[0] == rac3_mp_wide_slots()) {
+                    rac3_mp_wide_end_unpack(r->p + 1, (int)r->n - 1);
+                }
                 break;
             }
             if (kind != RELAY_ROOM_PACKET || r->n == 0 || r->n > sizeof dme.inbox[0].data) {

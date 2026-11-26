@@ -33,6 +33,7 @@
 #include <string.h>
 
 #include "mp/game_protos.h"
+#include "mp_wide.h"
 #include "openrac/frame.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
@@ -517,29 +518,45 @@ static void add_mock_players(void) {
     }
 }
 
+/* The room's most players (rac3_mp_wide_slots is the count in this room; slots 8 and up are the
+ * port's companions of the game's tables, mp_wide.c). */
+#define ROOM_MAX 24
+
+/* Slot `slot`'s entry of the results block's array at `offset`, and of the settings object's array
+ * at `offset` of the object `gs`: the game's own for the first eight, the port's after. */
+static gaddr result_at(uint32_t offset, uint32_t stride, int slot) {
+    return slot < GS_SLOTS ? RESULTS + offset + stride * (gaddr)slot
+                           : rac3_mp_wide_results(offset, slot);
+}
+
+static gaddr settings_at(gaddr gs, uint32_t offset, uint32_t stride, int slot) {
+    return slot < GS_SLOTS ? gs + offset + stride * (gaddr)slot
+                           : rac3_mp_wide_settings(offset, slot);
+}
+
 /* Whether slot `a` ranks above slot `b` on the results: a higher score, or the same with fewer
  * deaths, as the game ranks its rows (seen in game code: L39_006A6FC8). */
-static int beats(int a, int b, const int score[GS_SLOTS]) {
-    const int16_t deaths_a = GREF(int16_t, RESULTS + RESULTS_KILLS + 4u * (gaddr)a + 2u);
-    const int16_t deaths_b = GREF(int16_t, RESULTS + RESULTS_KILLS + 4u * (gaddr)b + 2u);
+static int beats(int a, int b, const int score[ROOM_MAX]) {
+    const int16_t deaths_a = GREF(int16_t, result_at(RESULTS_KILLS, 4u, a) + 2u);
+    const int16_t deaths_b = GREF(int16_t, result_at(RESULTS_KILLS, 4u, b) + 2u);
     return score[a] > score[b] || (score[a] == score[b] && deaths_a < deaths_b);
 }
 
 /* The "scores" table: the match's results, a row a slot with a name, keyed by slot, best first by
  * the score the game shows (kills less suicides), then fewer deaths. */
 static void fill_scores(void) {
-    int order[GS_SLOTS];
-    int score[GS_SLOTS];
+    int order[ROOM_MAX];
+    int score[ROOM_MAX];
     int count = 0;
+    const int slots = rac3_mp_wide_slots();
     /* The slots with a player, and each one's score. */
-    for (int slot = 0; slot < GS_SLOTS; slot++) {
-        const gaddr kills = RESULTS + RESULTS_KILLS + 4u * (gaddr)slot;
+    for (int slot = 0; slot < slots; slot++) {
+        const gaddr kills = result_at(RESULTS_KILLS, 4u, slot);
         /* A slot whose name is empty had no player. */
-        if (GREF(uint8_t, RESULTS + RESULTS_NAME_BYTES * (gaddr)slot) == 0) {
+        if (GREF(uint8_t, result_at(0, RESULTS_NAME_BYTES, slot)) == 0) {
             continue;
         }
-        score[slot] =
-            GREF(int16_t, kills) - GREF(int16_t, RESULTS + RESULTS_SUICIDES + 2u * (gaddr)slot);
+        score[slot] = GREF(int16_t, kills) - GREF(int16_t, result_at(RESULTS_SUICIDES, 2u, slot));
         order[count++] = slot;
     }
     /* Best first: a stable insertion sort, eight rows at most. */
@@ -557,19 +574,16 @@ static void fill_scores(void) {
     /* One row a player, in that order. */
     for (int n = 0; n < count; n++) {
         const int slot = order[n];
-        const gaddr kills = RESULTS + RESULTS_KILLS + 4u * (gaddr)slot;
+        const gaddr kills = result_at(RESULTS_KILLS, 4u, slot);
         char name[RESULTS_NAME_BYTES + 1];
         char number[4][12];
-        memcpy(name, G(RESULTS + RESULTS_NAME_BYTES * (gaddr)slot), RESULTS_NAME_BYTES);
+        memcpy(name, G(result_at(0, RESULTS_NAME_BYTES, slot)), RESULTS_NAME_BYTES);
         name[RESULTS_NAME_BYTES] = 0;
         snprintf(number[0], sizeof number[0], "%d", score[slot]);
         snprintf(number[1], sizeof number[1], "%d", GREF(int16_t, kills));
         snprintf(number[2], sizeof number[2], "%d", GREF(int16_t, kills + 2u));
         snprintf(
-            number[3],
-            sizeof number[3],
-            "%d",
-            GREF(int32_t, RESULTS + RESULTS_TEAMS + 4u * (gaddr)slot) + 1
+            number[3], sizeof number[3], "%d", GREF(int32_t, result_at(RESULTS_TEAMS, 4u, slot)) + 1
         );
         openrac_mp_ui_table_row(g_ui, (uint32_t)slot, 1);
         openrac_mp_ui_table_cell(g_ui, "name", name);
@@ -588,8 +602,8 @@ static void fill_players(void) {
     const gaddr gs = GREF(gaddr, GAME_SETTINGS);
     openrac_mp_ui_table_begin(g_ui, "players");
     /* The slots in order; an empty one has client id -1. */
-    for (int slot = 0; gs != 0 && slot < GS_SLOTS; slot++) {
-        const int16_t client = GREF(int16_t, gs + GS_CLIENTS + 2u * (gaddr)slot);
+    for (int slot = 0; gs != 0 && slot < rac3_mp_wide_slots(); slot++) {
+        const int16_t client = GREF(int16_t, settings_at(gs, GS_CLIENTS, 2u, slot));
         /* An empty slot has no row. */
         if (client < 0) {
             continue;
@@ -597,11 +611,11 @@ static void fill_players(void) {
         char name[17];
         char clan[9];
         char team[8];
-        memcpy(name, G(gs + GS_NAMES + 16u * (gaddr)slot), 16);
-        memcpy(clan, G(gs + GS_CLANS + 8u * (gaddr)slot), 8);
+        memcpy(name, G(settings_at(gs, GS_NAMES, 16u, slot)), 16);
+        memcpy(clan, G(settings_at(gs, GS_CLANS, 8u, slot)), 8);
         name[16] = 0, clan[8] = 0;
-        snprintf(team, sizeof team, "%d", GREF(int16_t, gs + GS_TEAMS + 2u * (gaddr)slot) + 1);
-        const int16_t skin_number = GREF(int16_t, gs + GS_SKINS + 2u * (gaddr)slot);
+        snprintf(team, sizeof team, "%d", GREF(int16_t, settings_at(gs, GS_TEAMS, 2u, slot)) + 1);
+        const int16_t skin_number = GREF(int16_t, settings_at(gs, GS_SKINS, 2u, slot));
         const gaddr skin_text = (gaddr)mp_func_L39_0059A970(
             GREF(int32_t, SKIN_TEXT_IDS + 4u * (gaddr)(skin_number & 0xFF))
         );
@@ -613,7 +627,7 @@ static void fill_players(void) {
         openrac_mp_ui_table_cell(
             g_ui,
             "ready",
-            GREF(int16_t, gs + GS_STATES + 2u * (gaddr)slot) >= GS_READY ? "\x11" : ""
+            GREF(int16_t, settings_at(gs, GS_STATES, 2u, slot)) >= GS_READY ? "\x11" : ""
         );
     }
     add_mock_players();
