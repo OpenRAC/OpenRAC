@@ -6,12 +6,21 @@
 # Every action is pinned to a commit (Dependabot, .github/dependabot.yml,
 # moves the pins); the port's compiles are cached with ccache.
 name: checks
+# A unique title for each run: the run number, what started it, where, and what.
+run-name: >-
+  ${{ github.event_name == 'pull_request'
+      && format('checks #{0} · pr #{1} → {2} · {3}', github.run_number, github.event.pull_request.number, github.base_ref, github.event.pull_request.title)
+  || github.event_name == 'merge_group'
+      && format('checks #{0} · queue → {1} · {2}', github.run_number, endsWith(github.event.merge_group.base_ref, '/master') && 'master' || 'develop', github.event.merge_group.head_commit.message)
+  || github.event_name == 'push'
+      && format('checks #{0} · push {1} · {2}', github.run_number, github.ref_name, github.event.head_commit.message)
+  || format('checks #{0} · manual {1} · by {2}', github.run_number, github.ref_name, github.actor) }}
 
 # The games (hostgen and each version's build) and Windows build only for a dev release (its pull
 # request from develop to master, .github/workflows/dev-release.yml) and a manual run (Run
 # workflow). The push to master that merges it runs only the repository checks: what it brings was
 # built on the pull request. A game that breaks there is fixed on develop.
-# A pull request to develop runs only the lint jobs (Lint: ...), which need no build. The merge
+# A pull request to develop runs only the lint jobs (lint_*), which need no build. The merge
 # queue runs everything else and no lint: the builds of the port's shared part, its tests, the
 # enhanced Vulkan build, the launcher and the unit tests (tools/ci_scope.py picks what the change
 # can affect). A job a run does not need reports skipped, which passes a required check. develop
@@ -21,7 +30,7 @@ on:
   push:
     branches: [master, develop]
   pull_request:
-    # ready_for_review: a draft pull request to master skips the port's builds (scope below), so
+    # ready_for_review: a draft pull request to master skips the port's builds (plan below), so
     # they run when it is ready.
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
@@ -54,8 +63,8 @@ jobs:
   # pull request to master and a manual run run everything; a push to master only the repository
   # checks. A draft pull request runs no port build, only the cheap checks; marking it ready
   # runs the rest.
-  scope:
-    name: Plan
+  plan:
+    name: plan
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
@@ -67,6 +76,7 @@ jobs:
       windows: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.windows || 'true' }}
       launcher_systems: ${{ steps.scope.outputs.launcher_systems || '["Linux", "Windows"]' }}
       port_programs: ${{ steps.parts.outputs.port_programs }}
+      port_part_names: ${{ steps.parts.outputs.port_part_names }}
       port_parts: ${{ github.event.pull_request.draft && '[]' || steps.scope.outputs.port_parts || steps.parts.outputs.port_parts }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -81,6 +91,9 @@ jobs:
                             for path in pathlib.Path("port/game").glob("*/hostgen.json"))
           print("port_programs=" + json.dumps(programs))
           print("port_parts=" + json.dumps(["common", *programs]))
+          # Check names: port_linux_common, port_linux_rac1_ntsc, ...
+          print("port_part_names=" + json.dumps({part: "port_linux_" + part.replace("-", "_")
+                                                 for part in ["common", *programs]}))
           PY
       - id: scope
         env:
@@ -116,9 +129,9 @@ jobs:
 
   # Lint: the repository's static checks (no build, no unit tests). Pull requests and pushes, not
   # the merge queue: the pull request already ran them on its merge with develop. Starts at once,
-  # beside scope.
-  checks:
-    name: "Lint: repository (workflows, conventions, tables)"
+  # beside plan.
+  lint_repo:
+    name: lint_repo
     if: github.event_name != 'merge_group'
     runs-on: ubuntu-26.04
     timeout-minutes: 30
@@ -132,7 +145,7 @@ jobs:
         with:
           python-version: "3.12"
       # A pull request checks a decomp's progress report only when it changes that game (tools/ci_scope.py
-      # decomp-games); pushes check them all. With the base branch's script, as in scope.
+      # decomp-games); pushes check them all. With the base branch's script, as in plan.
       - name: Which games' decomp reports to check
         id: games
         env:
@@ -255,8 +268,8 @@ jobs:
   # The repository's unit tests: OpenRAC's tools, the extractor, the bake tools, the lint tools'
   # own tests and each game's decomp tools as its original repository ran them. The merge queue
   # and pushes, not a pull request to develop (the queue runs them on what will land).
-  tool-tests:
-    name: "Repository: tool tests"
+  repo_tests:
+    name: repo_tests
     if: ${{ !(github.event_name == 'pull_request' && github.base_ref != 'master') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 30
@@ -340,10 +353,10 @@ jobs:
 
   # Lint: the launcher's format and static checks (Rust format, svelte-check, ESLint, Prettier),
   # with no build. Pull requests and pushes, not the merge queue (as the repository's lint).
-  launcher-lint:
-    name: "Lint: launcher (Rust format, svelte-check, ESLint, Prettier)"
-    needs: scope
-    if: ${{ !cancelled() && github.event_name != 'merge_group' && needs.scope.outputs.docs_only != 'true' && (needs.scope.outputs.launcher != 'false' || needs.scope.outputs.pages != 'false') }}
+  lint_launcher:
+    name: lint_launcher
+    needs: plan
+    if: ${{ !cancelled() && github.event_name != 'merge_group' && needs.plan.outputs.docs_only != 'true' && (needs.plan.outputs.launcher != 'false' || needs.plan.outputs.pages != 'false') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     defaults:
@@ -380,15 +393,15 @@ jobs:
   # files are checked out with CRLF and the Unix-only tests are left out, for a dev release.
   # Not on a pull request to develop: the merge queue runs it.
   launcher:
-    needs: scope
-    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.launcher != 'false' && needs.scope.outputs.launcher_systems != '[]' }}
-    name: "${{ matrix.system == 'Windows' && 'Dev release: Launcher Windows' || format('Launcher: {0}', matrix.system) }}"
+    needs: plan
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.launcher != 'false' && needs.plan.outputs.launcher_systems != '[]' }}
+    name: "${{ matrix.system == 'Windows' && 'launcher_windows' || 'launcher_linux' }}"
     runs-on: ${{ matrix.system == 'Windows' && 'windows-latest' || 'ubuntu-26.04' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        system: ${{ fromJSON(needs.scope.outputs.launcher_systems) }}
+        system: ${{ fromJSON(needs.plan.outputs.launcher_systems) }}
     defaults:
       run:
         shell: bash
@@ -408,8 +421,8 @@ jobs:
         with:
           packages: libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev
 
-      # The pages' tests are the same on every system: they run once, in launcher-android, and
-      # their lint in launcher-lint. Here only what differs per system: the Rust side.
+      # The pages' tests are the same on every system: they run once, in launcher_pages, and
+      # their lint in lint_launcher. Here only what differs per system: the Rust side.
       - name: Rust tests (the logic, and actions.json against the checkout)
         run: cargo test -p openrac-launcher-core
 
@@ -422,27 +435,27 @@ jobs:
   # One check for the launcher's systems (what branch protection requires): Windows is in the
   # matrix only for a dev release, so its own check cannot be the required one. Skipped (which
   # passes) on a pull request to develop: the merge queue runs it.
-  launcher-gate:
-    name: "Gate: Launcher"
-    needs: [scope, launcher]
+  launcher_gate:
+    name: launcher_gate
+    needs: [plan, launcher]
     if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Require every system
         env:
-          SCOPE: ${{ needs.scope.result }}
+          PLAN: ${{ needs.plan.result }}
           RESULT: ${{ needs.launcher.result }}
-        run: test "$SCOPE" = success && { test "$RESULT" = success || test "$RESULT" = skipped; }
+        run: test "$PLAN" = success && { test "$RESULT" = success || test "$RESULT" = skipped; }
 
   # The launcher's pages, once (they are the same on every system): Vitest, then the Android
   # layout in a browser (launcher/e2e/), page by page. No Rust, one browser, one Vite server. On
-  # 24.04, which Playwright's install-deps knows. Their lint is in launcher-lint. Not on a pull
+  # 24.04, which Playwright's install-deps knows. Their lint is in lint_launcher. Not on a pull
   # request to develop: the merge queue runs it.
-  launcher-android:
-    name: "Launcher: pages (unit tests, Android layout)"
-    needs: scope
-    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.pages != 'false' }}
+  launcher_pages:
+    name: launcher_pages
+    needs: plan
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.pages != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -506,19 +519,19 @@ jobs:
   # labelled game-<id> (port/cmake/Games.cmake). One part per program, not per game: Going
   # Commando's three programs in one job took 53 minutes with a cold cache. Every test runs in
   # exactly one part.
-  port-part:
-    name: "Port Linux: ${{ matrix.part == 'common' && 'shared code' || matrix.part }}"
-    needs: scope
-    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port_parts != '[]' }}
+  port_linux:
+    name: "${{ fromJSON(needs.plan.outputs.port_part_names || '{}')[matrix.part] || format('port_linux_{0}', matrix.part) }}"
+    needs: plan
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.port_parts != '[]' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        part: ${{ fromJSON(needs.scope.outputs.port_parts) }}
+        part: ${{ fromJSON(needs.plan.outputs.port_parts) }}
     env:
       PART: ${{ matrix.part }}
-      PORT_PROGRAMS: ${{ needs.scope.outputs.port_programs }}
+      PORT_PROGRAMS: ${{ needs.plan.outputs.port_programs }}
       MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
       MESA_SHADER_CACHE_MAX_SIZE: 1G
     steps:
@@ -617,17 +630,17 @@ jobs:
 
   # One check for every part (what branch protection requires). Skipped (which passes) on a pull
   # request to develop: the merge queue runs it.
-  port:
-    name: "Gate: Port Linux"
-    needs: [scope, port-part]
-    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.scope.outputs.docs_only != 'true' }}
+  port_linux_gate:
+    name: port_linux_gate
+    needs: [plan, port_linux]
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.plan.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Require every part
         env:
-          RESULT: ${{ needs.port-part.result }}
-          PARTS: ${{ needs.scope.outputs.port_parts }}
+          RESULT: ${{ needs.port_linux.result }}
+          PARTS: ${{ needs.plan.outputs.port_parts }}
         # Skipped only when the pull request needs no part.
         run: test "$RESULT" = success || { test "$RESULT" = skipped && test "$PARTS" = "[]"; }
 
@@ -635,10 +648,10 @@ jobs:
   # build above. The preset explicitly compiles enhanced code in. One job: the build, then two
   # CTest calls (tools/ci_port_tests.py): the tests without Vulkan, then all Vulkan tests. Full
   # tier only.
-  port-vulkan-enhanced-build:
-    name: "Enhanced Vulkan: build and tests"
-    needs: scope
-    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.enhanced != 'false' }}
+  enhanced_vulkan:
+    name: enhanced_vulkan
+    needs: plan
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.enhanced != 'false' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     env:
@@ -756,17 +769,17 @@ jobs:
 
   # One check for the build and its tests (what branch protection requires). Skipped (which
   # passes) on a pull request to develop: the merge queue runs it.
-  port-vulkan-enhanced:
-    name: "Gate: Enhanced Vulkan"
-    needs: [scope, port-vulkan-enhanced-build]
-    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.scope.outputs.docs_only != 'true' }}
+  enhanced_vulkan_gate:
+    name: enhanced_vulkan_gate
+    needs: [plan, enhanced_vulkan]
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.plan.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Require the build and its tests
         env:
-          RESULT: ${{ needs.port-vulkan-enhanced-build.result }}
-          NEEDED: ${{ needs.scope.outputs.enhanced }}
+          RESULT: ${{ needs.enhanced_vulkan.result }}
+          NEEDED: ${{ needs.plan.outputs.enhanced }}
         # Skipped only when the change does not touch what the enhanced build reads.
         run: |
           if [ "$NEEDED" = false ]; then test "$RESULT" = skipped; exit; fi
@@ -777,11 +790,11 @@ jobs:
   # libraries and the Windows SDK, Clang, Ninja), then the runtime's tests and
   # those of hostgen's that need no POSIX host. The port is written on Linux
   # and macOS, and what only builds there (execinfo.h, fseeko) stops here.
-  port-windows:
-    name: "Dev release: Port Windows"
-    needs: scope
+  port_windows:
+    name: port_windows
+    needs: plan
     # Only when everything is checked (a dev release, a manual run).
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.windows == 'true' }}
+    if: ${{ !cancelled() && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.windows == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 120
     env:
