@@ -112,7 +112,7 @@ func_001252E0	cdvd	sceCdMmode	host	symbol_addrs.txt name
 func_001253A8	cdvd	sceCdRead	host	symbol_addrs.txt name
 func_001256D8	cdvd	sceCdReadClock	host	symbol_addrs.txt name
 func_001257D0	graph	sceGsResetGraph	host	symbol_addrs.txt name
-func_001282A8	dbc	sceDbcInit	host	symbol_addrs.txt name
+func_001282A8	dbc	sceDbcInit	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c)
 func_00124418	vu	sceGsResetPath	host	resets VU1/VIF1/GIF (VU0 FBRST, then VIF and GIF reset writes); the native renderer has no paths to reset
 func_001244B8	vu	sceGsSyncPath	host	symbol_addrs.txt WaitGsPathsIdle: polls the DMA, VIF1 and GIF status; native hand-offs are synchronous
 func_001158F8	libc	strncmp	host	same instructions as rac4's strncmp (relocations masked)
@@ -162,13 +162,15 @@ func_00127E48	mc	sceMcGetDir	host	same instructions as rac1-pal's
 func_00127F98	mc	sceMcFormat	host	same instructions as rac1-pal's sceMcFormat (and its sceMcUnformat; the library's order decides)
 func_00128068	mc	sceMcDelete	host	same instructions as rac1-pal's
 func_00128180	mc	sceMcUnformat	host	same instructions as rac1-pal's sceMcUnformat (and its sceMcFormat; the library's order decides)
-func_001288C0	pad2	scePad2Init	host	same instructions as rac1-pal's
-func_00128900	pad2	scePad2CreateSocket	host	same instructions as rac1-pal's
-func_00128A50	pad2	scePad2Read	host	same instructions as rac1-pal's
-func_00128B28	pad2	scePad2GetButtonProfile	host	same instructions as rac1-pal's
-func_00128C18	pad2	scePad2GetState	host	same instructions as rac1-pal's
-func_00128F50	vib	sceVibGetProfile	host	same instructions as rac1-pal's
-func_00128FD0	vib	sceVibSetActParam	host	the motors the pad poll (func_002B85F8) sends each read, packed by the profile sceVibGetProfile gave; played by the window (lib/pad.c)
+func_001288C0	pad2	scePad2Init	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c)
+func_00128900	pad2	scePad2CreateSocket	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c)
+func_00128A50	pad2	scePad2Read	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c)
+func_00128B28	pad2	scePad2GetButtonProfile	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c)
+func_00128C18	pad2	scePad2GetState	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c)
+func_00128F50	vib	sceVibGetProfile	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c)
+func_00128FD0	vib	sceVibSetActParam	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c); the motors the game sets go to the window from there
+func_002B8548	pad	pad_init_ports	host	each pad record's socket is its port; libdbc and libpad2 are not started, the port's pad update needs neither (rac2/host/pad_state.c)	void (unsigned int)
+func_002B85F8	pad	poll_pad_device_state	host	the profiles and the report a poll are the port's, from its controllers (openrac_pad_report, through the mods' pad callbacks), the motors the game set go to the window, and the game's reader takes the report; no libpad2 or libvib call (rac2/host/pad_state.c)	void (unsigned int)
 # sceVu0RotMatrixZ, X and Y (func_00129218, func_001292C0, func_00129368) run from the disc's own
 # instructions (hostgen.json "asm"): the shared replacement (common/lib/vu0.c) takes its sine and cosine
 # from the host's libm, whose last bit differs between macOS and glibc, and level starts built the
@@ -344,6 +346,7 @@ func_00302470	bolt	Bolt_SpawnPickup	hook	Makes one bolt coin of a value (classes
 func_00302848	bolt	part_spawn_trail_puff	wrap	a bolt coin's trail (the puff, ground sparkle and streak around it): silver for a coin a mod draws as platinum, its glow colour for an obsidian one, gold for the rest (host/platinum_trail.c)
 func_00301D10	bolt	Bolt_Collect	hook	A bolt coin collected (CollectBolts): its class's value added to the player's bolts and the level's bolt score; the coin's update calls it as the coin reaches the hero. A hook point for mods; the game's C with none.
 func_L02_003FCDF8	arena	Arena_Prize	hook	The bolts an arena challenge pays (Maktar's and Joba's arena): its record's prize, less for each earlier win, ten times in challenge mode; the menu prints it and a win adds it. A hook point for mods; the game's C with none.
+func_L00_00424F98	camera	FollowCamera_ReadStick	hook	The follow camera's read of the right stick, each tick: camera (its data at +0x70), and the guest addresses of the floats it then turns and tilts by. By then the tick's goals are set (the data's eye distance and height goals, +0x1A0 and +0x1AC, which the camera eases its distance and height, +0x18C and +0x190, towards; the eye it wants from Ratchet, +0x160); after it the camera turns, eases and builds its view. A hook point for mods, under the port's own wrap (FollowCameraReadStick): the mod's replacement or the game's C runs where the wrap calls the game's.
 # Hand-written assembly (ASM_FUNC in the decompilation), written in C for a build without the disc: host/handasm.c.
 func_00115250	libc	memchr	host	newlib's memchr, sixteen bytes at a time with the MMI
 func_00129178	vu0	rac2UnitMatrix	host	sceVu0UnitMatrix, the second entry of func_00129160: the identity (host/handasm.c)	void (void *)
@@ -394,6 +397,9 @@ func_0012118C	libgcc	rac2RethrowLanding	host	a fragment of __rethrow (001210E0-u
 func_00130004	mpeg	rac2DecodeFrameTail	host	a fragment of func_0012FEC0 (its epilogue), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
 func_L00_00403730	moby	sheep_spawn_from_object	wrap	the Sheepinator: a moby it already turned is not turned again, which deleted Joba arena fighters (host/sheep_once.c)
 func_L00_00408800	moby	dark_sheep_spawn_from_object	wrap	the Sheepinator: a moby it already turned is not turned again, which deleted Joba arena fighters (host/sheep_once.c)
+func_00281810	gfx	DrawEffectStrip	wrap	part_draw_glint_effect: a level's water and sea sheets as native strip records, with the state the draw callback set (host/strips.c); the game's packet when that state is not proven.
+func_002FC560	gfx	AddGSRegister	wrap	VU1_addGSregister: its TEX0, TEX1, CLAMP, ALPHA and TEST sets kept as native values for the strips (host/strips.c).
+func_00280328	gfx	QueueVuState	wrap	font_queue_vu_state: the view's fog line kept for the strips (host/strips.c).
 func_002B0DB8	collectibles	PlatinumBolts_CountTotal	hook	Counts the platinum bolts recorded in the save. A replacement can return received currency independently of physical pickups.
 func_L00_002D5EB8	hero	Hero_UpdateCollectionProgress	hook	Recounts nanotech and weapon collection progress from inventory; mods can separate pickup flags from received ownership.
 func_0029ADA0	save	Save_Serialize	hook	Serializes live game state to the save packet at output. Inventory substitutions made by a mod must be restored before calling the original.
@@ -409,3 +415,8 @@ func_L13_0041CD18	moby	Moby_BoldanCutscene_Update	hook	Updates the Boldan cutsce
 func_L18_0043FC70	moby	Moby_HypnomaticPart_Update	hook	Updates the Hypnomatic part pickup on Damosel.
 func_002A6AE0	combat	Moby_CountKill	hook	Records a kill or event and grants its rewards. A replacement can adjust reward state around the original call.
 func_002CF340	menu	Menu_Extras	hook	Processes the extras menu and returns its menu result.
+func_00285030	graphics	gfx_build_screen_sprite_packet	wrap	the off-screen panel a pause-menu panel drawn through the panel path (page panels without flag bit 1) or a cutscene's object preview renders into (neither reached in the Ship Shack, the pause pages, or flight: see docs/port/FRAME_RECORDER.md 3.3): its own C runs, and the recorder is told a panel opens at the list cursor the packets begin at (host/render_panel.c, docs/port/FRAME_RECORDER.md section 3.3)	void (int, int, int, int)
+func_00284EA8	graphics	gfx_append_draw_list_header	wrap	puts the screen back after an off-screen panel (the pause panels, the object preview): the recorder is told the panel closes at the list cursor here (host/render_panel.c)	void (void)
+func_0027DDC0	graphics	gfx_set_clear_color_packet	wrap	the screen-wide fade and tint RenderFrame draws last (the clear colour, the black fade, the white flash): its own C runs, and when the list ends in the tail's ALPHA 0x44 write, the colour write and the DMA call, they are taken back and recorded as a whole-picture source-over fill (rac2/host/screen_fade.c, docs/port/SCREEN_EFFECTS.md section 5.2); every other caller and the game's own with no window or OPENRAC_UI_REPLAY	void (int, int, int, int)
+func_0027C660	graphics	DoGifPaging	wrap	remembers where the list ended after the frame's last paging, which the fade's proof reads (rac2/host/screen_fade.c)	void (void)
+func_0027D900	graphics	DrawLetterboxBars	wrap	the cutscenes' letterbox bars: its own C runs, and the bars' packet, after RenderFrame's TEST 0x33001 (colour only, depth ALWAYS), is taken back and recorded as two opaque black fills (rac2/host/letterbox.c, docs/port/SCREEN_EFFECTS.md section 5.2); the game's own with no window or OPENRAC_UI_REPLAY	void (void)

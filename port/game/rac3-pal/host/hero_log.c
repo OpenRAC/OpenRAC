@@ -20,6 +20,11 @@
  * - the last checkpoint reached, Veldin's D_L01_001DCA14 (checkpoint_reached keeps its id there);
  * - the level's progress flags, 16 bytes a level at progress_flags 0x001BBC40.
  *
+ * The same file gets a "scene" line whenever the flight scene picker's words change (the first New Game
+ * flight's laps: func_003BE068 sets the table and the count, func_003BE0F0 picks a row at random from
+ * those not yet used, never the one before): the table 0x001DA268, its used flags 0x001DA290, the count
+ * 0x001D8CF8, the scene excluded 0x001D8CFC and the scene playing (0x0016C580 + 0x64).
+ *
  * OPENRAC_RAC3_MOBYS=FRAME,... adds, at those frames, a line for each live moby within 500 units of
  * the hero: its class (+0xAA), state (+0x20), update (+0x64) and position (+0x10). Veldin's moby table runs from *0x001E001C to
  * *0x001E0024 (D_L01_001E001C, moby_end), 0x100 bytes a moby.
@@ -75,6 +80,40 @@ static float f32_at(gaddr at) {
     float v;
     memcpy(&v, G(at), sizeof v);
     return v;
+}
+
+#define SCENE_TABLE RAC3_ADDR(0x001DA268u)
+#define SCENE_USED RAC3_ADDR(0x001DA290u)
+#define SCENE_COUNT RAC3_ADDR(0x001D8CF8u)
+#define SCENE_EXCLUDED RAC3_ADDR(0x001D8CFCu)
+#define SCENE_PLAYING RAC3_ADDR(0x0016C580u + 0x64u)
+
+static char g_scene_last[160];
+
+static void log_scene(unsigned frame) {
+    char line[160];
+    char* at = line;
+    char* const end = line + sizeof line;
+    at += snprintf(
+        at,
+        (size_t)(end - at),
+        "count=%d\texcl=%d\tplaying=%d\ttable=",
+        (int)u32_at(SCENE_COUNT),
+        (int)u32_at(SCENE_EXCLUDED),
+        (int)u32_at(SCENE_PLAYING)
+    );
+    for (unsigned i = 0; i < 10u && at < end; ++i) {
+        at += snprintf(at, (size_t)(end - at), i ? ",%d" : "%d", (int)u32_at(SCENE_TABLE + 4u * i));
+    }
+    at += snprintf(at, (size_t)(end - at), "\tused=");
+    for (unsigned i = 0; i < 10u && at < end; ++i) {
+        at += snprintf(at, (size_t)(end - at), "%d", (int)*(const uint8_t*)G(SCENE_USED + i));
+    }
+    if (strcmp(line, g_scene_last) != 0) {
+        memcpy(g_scene_last, line, sizeof g_scene_last);
+        fprintf(g_log, "%u\tscene\t%s\n", frame, line);
+        fflush(g_log);
+    }
 }
 
 static int moby_frame(unsigned frame) {
@@ -136,6 +175,7 @@ static void on_frame(unsigned frame) {
     if (g_previous != NULL) {
         g_previous(frame);
     }
+    log_scene(frame);
     const int overlay = openrac_game_loaded_overlay();
     if (overlay <= 0 || overlay >= 100) {
         return;

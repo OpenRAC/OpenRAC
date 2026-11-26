@@ -54,6 +54,8 @@ int func_L01_003E4580(int camera, int move); /* camera_platform_ride, the loaded
 #define MAX_HEALTH RAC3_ADDR(0x00142668u)
 #define ITEM_AMMO RAC3_ADDR(0x001427F0u)
 #define ITEM_OWNED RAC3_ADDR(0x00142CA0u)
+/* Each item's experience, in 32nds (the boot program's 0x00142DE0; a kill adds to it). */
+#define ITEM_EXPERIENCE RAC3_ADDR(0x00142DE0u)
 #define ITEM_VERSION RAC3_ADDR(0x001425C0u)
 #define HELD_ITEM RAC3_ADDR(0x001A5E08u)
 #define EQUIPPED_GUN RAC3_ADDR(0x001D4C40u)
@@ -71,6 +73,7 @@ int func_L01_003E4580(int camera, int move); /* camera_platform_ride, the loaded
 #define ITEM_RECORD_BYTES 0xF0u
 #define RECORD_AMMO_PRICE 0x84u
 #define RECORD_AMMO_FULL 0x8Eu
+#define RECORD_NEXT_LEVEL 0x68u
 
 /* The levels, by the game's own numbers (rac3-decomp config/levels/levels.tsv); NULL: no program
  * on the disc. */
@@ -175,6 +178,17 @@ int rac3_level_flight(void) {
     }
     const int32_t current = GREF(int32_t, LEVEL_CURRENT);
     return current >= 0 && current < RAC3_LEVELS && current != level ? 0 : -1;
+}
+
+/* openrac_game_loading_draws_world: the transition the game chose (level_load's table row, its
+ * `value` at 0x0016C580 + 0x2E, core data) is the flight, whose ship and stars come in a moby pass
+ * of their own, unless it is the Vid-comic one (value 6: the Phoenix to a Vid-comic level and
+ * back), a full-screen picture and two turning sprites that no world is under. */
+#define LOADING_VALUE (RAC3_ADDR(0x0016C580u) + 0x2Eu)
+#define LOADING_VIDCOMIC 6
+
+static int loading_draws_world(void) {
+    return GREF(int16_t, LOADING_VALUE) != LOADING_VIDCOMIC;
 }
 
 /* openrac_game_mode: the loaded level's mode word; none outside a level (the front end's word is
@@ -294,6 +308,25 @@ static int give_guns(void) {
     return changed;
 }
 
+/* OPENRAC_GIVE=xp: every owned gun's experience to its version's next level (the record's +0x68,
+ * as weapon_level_up reads it), so the game levels it up as it would after a kill: for checking
+ * the upgrade's screen without playing to it. */
+static int give_experience(void) {
+    int changed = 0;
+    for (unsigned i = 0; i < sizeof guns / sizeof guns[0]; ++i) {
+        const int id = guns[i];
+        if (GREF(uint8_t, ITEM_OWNED + (unsigned)id) == 0) {
+            continue;
+        }
+        const int32_t next = GREF(int32_t, item_record(id) + RECORD_NEXT_LEVEL);
+        if (next > 0 && GREF(int32_t, ITEM_EXPERIENCE + 4u * (unsigned)id) < next << 5) {
+            GREF(int32_t, ITEM_EXPERIENCE + 4u * (unsigned)id) = next << 5;
+            ++changed;
+        }
+    }
+    return changed;
+}
+
 static int give(const char* what) {
     if (strncmp(what, "bolts:", 6) == 0) {
         GREF(int32_t, BOLTS) = atoi(what + 6);
@@ -306,6 +339,9 @@ static int give(const char* what) {
     }
     if (strcmp(what, "all") == 0 || strcmp(what, "weapons") == 0) {
         return give_guns();
+    }
+    if (strcmp(what, "xp") == 0) {
+        return give_experience();
     }
     char* end = NULL;
     const long id = strtol(what, &end, 0);
@@ -453,6 +489,7 @@ void rac3_install_tools(void) {
     openrac_game_skip = rac3_loading_skip;
     openrac_game_mode = rac3_level_mode;
     openrac_game_flight = rac3_level_flight;
+    openrac_game_loading_draws_world = loading_draws_world;
     rac3_loading_install();
     openrac_game_bolts = bolts;
     openrac_game_skip_buttons = skip_buttons;

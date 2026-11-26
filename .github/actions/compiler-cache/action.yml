@@ -1,7 +1,8 @@
 # Restores the job's compiler cache. Saving is a separate step at the end of the job
-# (compiler-cache/save): only a push run that compiled something new writes a snapshot. Pull
-# requests and the merge queue only read: their caches would be private to their ref and push
-# develop's shared ones out of the repository's 10 GB. ccache-action does setup and statistics,
+# (compiler-cache/save): only a push run that compiled something new writes a snapshot, and
+# develop's merge queue hands it to cache-handoff.yml (.github/actions/cache-out). Pull requests
+# and master's queue only read: their caches would be private to their ref and push develop's
+# shared ones out of the repository's 10 GB. ccache-action does setup and statistics,
 # with its own archive handling off.
 name: Compiler cache
 description: Restore compiler objects (compiler-cache/save writes them)

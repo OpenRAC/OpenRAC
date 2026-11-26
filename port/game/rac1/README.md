@@ -33,6 +33,10 @@ Each file includes [rac1.h](host/rac1.h), which reads the disc's translation and
 and address used has an entry, every entry is used, no address sits outside `RAC1_ADDR`. ctest
 runs it as `rac1-*_host_table`.
 
+`host/screen_cover.{h,c}` provides the address-free native cover helpers tested by
+`rac1_screen_cover`. Retail activation is blocked on the state/target proof in
+[RAC1_COVERS.md](../../../docs/port/RAC1_COVERS.md); these helpers add no retail wrappers.
+
 ## The game's profile
 
 The host's C++ reads the running game (camera, fog, live mobys, display list) through this

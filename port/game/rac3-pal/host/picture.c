@@ -354,39 +354,27 @@ void rac3_picture_frame_sent(void) {
  * memory (`to`), 64 x 64 tiles of PSMCT24 from its pages (`frame`: the buffer's address in the
  * chip's words, `bytes` its size, the lines times 2048); every frame after it writes those tiles
  * back over the buffer as image transfers in the display list (func_L01_00403C88), darkens them
- * (func_L01_004059C8) and draws the menu over them. The window has no chip memory to read or
- * write: it keeps the frame it drew, whole and at its own resolution and shape
- * (openrac_game_store_image, frontend/images.cpp), and a marker in the list
- * (renderer::GifInterpreter::kFrameMarker) draws that frame where the tiles would have landed, over
- * the whole window, so the world under the menu is as sharp and as wide as it was. Nothing of the
- * game's transfers is sent. */
-#define FRAME_MARKER (0x4653ull << 48)
-/* The statics region is 1 MB in all, so the buffer is the game's own frame at most (448 lines), not
- * a whole megabyte. */
-#define FRAME_LINES_MOST 448
-
-void func_L01_004C5F70__game(int to, int frame, int bytes);
+ * (func_L01_004059C8) and draws the menu over them. The game reads nothing of the tiles but to
+ * write them back, so the window keeps its own frame instead: the read is the last frame it drew
+ * with its world in, kept as a port picture (openrac_frame_snapshot_world), and the write is that
+ * picture drawn over the whole window where the tiles would have landed, so the world under the
+ * menu is as sharp and as wide as it was. No frame-buffer address is read or written. */
+#define PAUSE_PICTURE 0x52330003u
 
 void func_L01_004C5F70(int to, int frame, int bytes) {
-    static gaddr pixels;
-    int lines = bytes >> 11;
-    if (lines <= 0 || lines > FRAME_LINES_MOST) {
-        func_L01_004C5F70__game(to, frame, bytes);
-        return;
-    }
     (void)to;
-    if (pixels == 0) {
-        pixels = openrac_guest_static(512 * FRAME_LINES_MOST * 4);
-    }
-    /* The frame read back, at the chip's 512 x lines: the window keeps its own whole picture as it
-     * answers (the snapshot the marker draws). */
-    const openrac_game_image image = {frame >> 8, 512 / 64, 0, 0, 0, 512, lines, pixels};
-    openrac_game_store_image(&image);
+    (void)frame;
+    (void)bytes;
+    openrac_frame_snapshot_world(PAUSE_PICTURE);
 }
 
 void func_L01_004C6030(int from, int frame, int bytes) {
     (void)from;
     (void)frame;
     (void)bytes;
-    rac3_ui2d_marker(rac3_ui2d_level().cursor, FRAME_MARKER);
+    const gaddr at = GREF(gaddr, rac3_ui2d_level().cursor);
+    openrac_frame_anchor(at < 0x02000000u ? at : 0);
+    openrac_frame_picture(
+        PAUSE_PICTURE, NULL, 0x80808080u, OPENRAC_BLEND_OPAQUE | OPENRAC_PICTURE_WHOLE
+    );
 }

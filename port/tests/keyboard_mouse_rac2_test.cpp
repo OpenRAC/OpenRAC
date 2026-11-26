@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -187,12 +188,28 @@ void host_fail(openrac_mod*, const char* reason) {
 
 bool g_low_latency = true;  // the "mouse_low_latency" setting
 
+// Settings a check sets, as their JSON-less text: the mod reads them as set.
+std::map<std::string, std::string> g_written;
+
+const std::string* written(const char* key) {
+    const auto it = g_written.find(key);
+    return it != g_written.end() ? &it->second : nullptr;
+}
+
 int setting_bool(openrac_mod*, const char* key) {
+    if (const std::string* w = written(key)) {
+        return *w == "true" ? 1 : 0;
+    }
+
     if (std::strcmp(key, "key_prompts") == 0) {
         return g_prompts ? 1 : 0;
     }
     if (std::strcmp(key, "mouse_low_latency") == 0) {
         return g_low_latency ? 1 : 0;
+    }
+
+    if (std::strcmp(key, "aim_vignette") == 0) {
+        return 1;
     }
     return std::strcmp(key, "capture_cursor") == 0 || std::strcmp(key, "menu_mouse") == 0 ? 1 : 0;
 }
@@ -202,6 +219,10 @@ std::int64_t setting_int(openrac_mod*, const char*) {
 }
 
 double setting_float(openrac_mod*, const char* key) {
+    if (const std::string* w = written(key)) {
+        return std::stod(*w);
+    }
+
     if (std::strcmp(key, "mouse_sensitivity") == 0
         || std::strcmp(key, "mouse_sensitivity_y") == 0) {
         return 1.0;
@@ -215,7 +236,18 @@ double setting_float(openrac_mod*, const char* key) {
     return 0.0;  // stick_ramp_ms: at once
 }
 
+// The Aim bind (none by default; the Modern preset's right click is the Quick Select's here).
+const char* g_aim_bind = "";
+
 const char* setting_string(openrac_mod*, const char* key) {
+    if (const std::string* w = written(key)) {
+        return w->c_str();
+    }
+
+    if (std::strcmp(key, "aim") == 0) {
+        return g_aim_bind;
+    }
+
     for (const kbm::ActionInfo& a : kbm::kActions) {
         if (std::strcmp(a.key, key) == 0) {
             return a.fallback;
@@ -227,6 +259,11 @@ const char* setting_string(openrac_mod*, const char* key) {
     if (std::strcmp(key, "prompt_device") == 0) {
         return g_prompt_device;
     }
+
+    if (std::strcmp(key, "strafe_fire") == 0) {
+        return "off";
+    }
+
     return std::strcmp(key, "camera_tilt") == 0 ? "hold" : "";
 }
 
@@ -257,6 +294,55 @@ void host_capture_mouse(openrac_mod*, int capture) {
     g_capture = capture;
 }
 
+// Item_Equip as the disc's build would give it (rac2.item.equip): the items it was asked for, and
+// the name the mod looked it up by.
+std::vector<std::int32_t> g_equipped;
+std::string g_equip_name;
+
+std::int32_t fake_equip(std::int32_t item) {
+    g_equipped.push_back(item);
+    return 1;
+}
+
+void* host_function(const char* name) {
+    g_equip_name = name;
+    return reinterpret_cast<void*>(&fake_equip);
+}
+
+// The mod's overlay (openrac_api.on_overlay), drawn by the checks on a picture of their own: how
+// many rectangles it drew, and how far the nearest one's middle is from a point the check names.
+openrac_overlay_fn g_overlay = nullptr;
+void* g_overlay_user = nullptr;
+int g_rects = 0;
+float g_nearest = 1e9f;
+float g_near_x = 0.0f;
+float g_near_y = 0.0f;
+
+int host_on_overlay(openrac_mod*, openrac_overlay_fn fn, void* user) {
+    g_overlay = fn;
+    g_overlay_user = user;
+    return OPENRAC_HOOK_OK;
+}
+
+int host_play_status(openrac_play_status*) {
+    return OPENRAC_HOOK_UNKNOWN;
+}
+
+void draw_overlay(float near_x, float near_y) {
+    g_rects = 0;
+    g_nearest = 1e9f;
+    g_near_x = near_x;
+    g_near_y = near_y;
+    openrac_overlay o{};
+    o.size = sizeof o;
+    o.rect = [](void*, float x, float y, float w, float h, std::uint32_t) {
+        ++g_rects;
+        g_nearest =
+            std::min(g_nearest, std::hypot(x + w * 0.5f - g_near_x, y + h * 0.5f - g_near_y));
+    };
+    g_overlay(g_overlay_user, &o);
+}
+
 openrac_api make_api() {
     openrac_api api{};
     api.size = sizeof api;
@@ -279,6 +365,9 @@ openrac_api make_api() {
     api.take_input = host_take_input;
     api.capture_mouse = host_capture_mouse;
     api.on_settings = host_on_settings;
+    api.function = host_function;
+    api.on_overlay = host_on_overlay;
+    api.play_status = host_play_status;
     return api;
 }
 
@@ -772,8 +861,340 @@ void gyro_follow() {
     g_gyro = "off";
 }
 
+// Q swings the follow camera round behind Ratchet over its ticks, and the mouse turning sideways
+// stops the swing. Aim held on foot presses L1 (the first-person view) and darkens the picture's
+// edges, the movement keys leaving the stick alone; let go, the overlay draws nothing.
+void camera_reset_and_aim() {
+    constexpr std::uint32_t kCamera = 0x00150000u, kData = 0x00160000u, kTilt = 0x00170000u;
+    constexpr std::uint32_t kTurn = 0x00170010u;
+    constexpr std::uint32_t kHeroYaw = 0x00189E20u + 0x98u;
+    constexpr int kKeyQ = 20, kKeyG = 10;
+    g_version = "ntsc";
+    g_context = "foot";
+    g_aim_bind = "KeyG";
+    std::fill(g_memory.begin(), g_memory.end(), 0);
+    load_ok();
+    std::memcpy(g_memory.data() + kCamera + 0x70u, &kData, 4);
+
+    for (std::uint32_t off : {0x160u, 0x170u}) {
+        set_float(kData + off, -5.0f);
+        set_float(kData + off + 4u, 0.0f);
+        set_float(kData + off + 8u, 1.0f);
+    }
+
+    // Ratchet faces +y: behind him is -y.
+    set_float(kHeroYaw, 1.5707964f);
+    const auto run = [&](int ticks, auto&& input) {
+        for (int i = 0; i < ticks; ++i) {
+            tick();
+            input();
+            read_pad();
+            g_follow_mouse(kCamera, kTurn, kTilt);
+        }
+    };
+    const auto none = [] {
+    };
+    run(1, none);
+
+    // Q: after the swing the eye is behind him, at the same distance and height.
+    run(1, [] { g_input.keys[kKeyQ] = OPENRAC_KEY_HELD | OPENRAC_KEY_PRESSED; });
+    run(40, none);
+    CHECK(std::abs(mem_float(kData + 0x160u)) < 1e-3f);
+    CHECK(std::abs(mem_float(kData + 0x164u) - (-5.0f)) < 1e-3f);
+    CHECK(std::abs(mem_float(kData + 0x168u) - 1.0f) < 1e-4f);
+    CHECK(std::abs(mem_float(kData + 0x174u) - (-5.0f)) < 1e-3f);
+
+    // Ratchet turns round (faces -y): Q again, and the mouse moving sideways stops the swing short.
+    set_float(kHeroYaw, -1.5707964f);
+    run(1, [] { g_input.keys[kKeyQ] = OPENRAC_KEY_HELD | OPENRAC_KEY_PRESSED; });
+    run(3, none);
+    run(1, [] { g_input.mouse_dx = 1.0f; });
+    const float stopped = mem_float(kData + 0x164u);
+    run(40, none);
+    CHECK(stopped < 0.0f && mem_float(kData + 0x164u) == stopped);
+
+    // Aim held: L1 (the first-person view), the follow camera left as it was, the picture's edges
+    // darkened (the crosshair is the game's own).
+    const auto aim = [] {
+        g_input.keys[kKeyG] = OPENRAC_KEY_HELD;
+    };
+    const float before = mem_float(kData + 0x164u);
+    tick();
+    aim();
+    Report r = read_pad();
+    CHECK(r.held(kbm::kL1) && !r.held(kbm::kL2));
+    run(10, aim);
+    CHECK(mem_float(kData + 0x164u) == before);
+    CHECK(g_overlay != nullptr);
+    draw_overlay(256.0f, 224.0f);
+    CHECK(g_rects == 4 * 12 && g_nearest > 100.0f);
+
+    // The movement keys leave the stick alone while aiming: the first-person view turns with it.
+    tick();
+    aim();
+    g_input.keys[kKeyW] = OPENRAC_KEY_HELD;
+    r = read_pad();
+    CHECK(r.bytes[4] == 0x80 && r.bytes[5] == 0x80);
+
+    // Let go: the look fades, then the overlay draws nothing; L1 up.
+    run(10, none);
+    draw_overlay(256.0f, 224.0f);
+    CHECK(g_rects == 0);
+    tick();
+    CHECK(!read_pad().held(kbm::kL1));
+
+    // Not on foot (swimming): Aim is L1 only, no look on the picture.
+    g_context = "swim";
+    run(10, aim);
+    draw_overlay(256.0f, 224.0f);
+    CHECK(g_rects == 0);
+    g_context = "foot";
+    g_aim_bind = "";
+}
+
+// The number keys and the wheel take a Quick Select slot's item through Item_Equip, on each disc at
+// its own addresses: on foot only, not with the ring open, and never the item already in hand. Last
+// weapon takes the item held before the one in hand.
+void weapons() {
+    struct Where {
+        const char* version;
+        std::uint32_t hero;
+        std::uint32_t slots;
+        const char* equip;
+    };
+
+    constexpr std::uint32_t kHeld = 0x1248u;
+    constexpr int kDigit1 = 30, kDigit2 = 31, kDigit3 = 32, kKeyX = 27;
+
+    for (const Where& w :
+         {Where{"ntsc", 0x00189E20u, 0x001A73B8u, "func_002AD860"},
+          Where{"pal", 0x00189EA0u, 0x001A7438u, "func_002AE3C0"},
+          Where{"ntsc2", 0x00189E20u, 0x001A73B8u, "func_002AE6C8"}}) {
+        g_version = w.version;
+        g_context = "foot";
+        std::fill(g_memory.begin(), g_memory.end(), 0);
+        // Slots 1, 2 and 4 hold items (30, 42, 12); 3 and the rest are empty. 30 is in hand.
+        const std::int32_t slots[8] = {30, 42, 0, 12, 0, 0, 0, 0};
+        std::memcpy(&g_memory[w.slots], slots, sizeof slots);
+        const auto set_held = [&](std::int32_t item) {
+            std::memcpy(&g_memory[w.hero + kHeld], &item, sizeof item);
+        };
+        set_held(30);
+        g_written = {{"weapon_last", "KeyX"}};
+        load_ok();
+        CHECK(g_equip_name == w.equip);
+        g_equipped.clear();
+
+        const auto press = [](int key) {
+            tick();
+            g_input.keys[key] = OPENRAC_KEY_HELD | OPENRAC_KEY_PRESSED;
+            read_pad();
+        };
+        const auto wheel = [](float notches) {
+            tick();
+            g_input.wheel_y = notches;
+            read_pad();
+        };
+
+        // 2: slot 2's item. 3: an empty slot, nothing. 1: the item in hand, nothing.
+        press(kDigit2);
+        CHECK(g_equipped == std::vector<std::int32_t>{42});
+        press(kDigit3);
+        CHECK(g_equipped.size() == 1);
+        // The hero dropped the request (he was still switching): 2 again asks again.
+        press(kDigit2);
+        CHECK(g_equipped == (std::vector<std::int32_t>{42, 42}));
+        set_held(42);
+        press(kDigit2);
+        CHECK(g_equipped.size() == 2);
+
+        // The wheel down: the next slot that holds an item (slot 4's 12); a second notch before he
+        // has it out goes on from it, round to slot 1's 30. Up: back the other way.
+        set_held(42);
+        wheel(-1.0f);
+        CHECK(g_equipped.back() == 12);
+        wheel(-1.0f);
+        CHECK(g_equipped.back() == 30);
+        set_held(30);
+        wheel(1.0f);
+        CHECK(g_equipped.back() == 12);
+        const std::size_t asked = g_equipped.size();
+
+        // Not with the Quick Select held open, nor in the ship, swimming or in a menu.
+        set_held(12);
+        tick();
+        g_input.mouse_held = OPENRAC_MOUSE_RIGHT;
+        g_input.keys[kDigit1] = OPENRAC_KEY_HELD | OPENRAC_KEY_PRESSED;
+        read_pad();
+        CHECK(g_equipped.size() == asked);
+
+        for (const char* c : {"ship", "swim", "menu"}) {
+            g_context = c;
+            press(kDigit1);
+            wheel(-1.0f);
+            CHECK(g_equipped.size() == asked);
+        }
+
+        g_context = "foot";
+        press(kDigit1);
+        CHECK(g_equipped.size() == asked + 1 && g_equipped.back() == 30);
+
+        // 30 out now, 12 before it: X takes 12 back.
+        set_held(30);
+        tick();
+        read_pad();
+        press(kKeyX);
+        CHECK(g_equipped.size() == asked + 2 && g_equipped.back() == 12);
+    }
+
+    g_written.clear();
+    g_version = "ntsc";
+}
+
+// Strafe while firing: L2 held with Fire on foot and for half a second after (30 ticks at 60 a
+// second), or always; not when off, nor while aiming (L1) or swimming.
+void strafe_while_firing() {
+    constexpr int kKeyG = 10;
+    g_context = "foot";
+    g_aim_bind = "KeyG";
+    const auto with = [](const char* mode) {
+        g_written.clear();
+        g_written["strafe_fire"] = mode;
+        load_ok();
+    };
+    const auto l2 = [](bool fire, bool aim = false) {
+        tick();
+
+        if (fire) {
+            g_input.mouse_held = OPENRAC_MOUSE_LEFT;
+        }
+
+        if (aim) {
+            g_input.keys[kKeyG] = OPENRAC_KEY_HELD;
+        }
+
+        return read_pad().held(kbm::kL2);
+    };
+
+    with("firing");
+    CHECK(!l2(false));
+    CHECK(l2(true));
+    bool held_after = true;
+
+    for (int i = 0; i < 29; ++i) {
+        held_after = held_after && l2(false);
+    }
+
+    CHECK(held_after && !l2(false));
+    // Aiming (first person) or swimming: no strafe of ours.
+    CHECK(!l2(true, true));
+    g_context = "swim";
+    CHECK(!l2(true));
+    g_context = "foot";
+
+    with("always");
+    CHECK(l2(false));
+    with("off");
+    CHECK(!l2(true));
+
+    g_written.clear();
+    g_aim_bind = "";
+}
+
+// The comforts of a modern shooter: Aim toggles with a press; the mouse turns by aim_sensitivity's
+// share while aiming; Dodge holds the strafe and the way the keys go (back when none) and presses
+// jump a tick in.
+void modern_comforts() {
+    constexpr std::uint32_t kCamera = 0x00150000u, kData = 0x00160000u, kTilt = 0x00170000u;
+    constexpr std::uint32_t kTurn = 0x00170010u;
+    constexpr int kKeyG = 10, kKeyH = 11, kKeyD = 7;
+    g_version = "ntsc";
+    g_context = "foot";
+    g_aim_bind = "KeyG";
+    const auto fresh = [&](std::map<std::string, std::string> settings) {
+        g_written = std::move(settings);
+        std::fill(g_memory.begin(), g_memory.end(), 0);
+        load_ok();
+    };
+    const auto press = [](int key) {
+        g_input.keys[key] = OPENRAC_KEY_HELD | OPENRAC_KEY_PRESSED;
+    };
+
+    // Aim toggles: a press aims (L1) and it stays without the key; another press stops.
+    fresh({{"aim_toggle", "true"}});
+    tick();
+    press(kKeyG);
+    CHECK(read_pad().held(kbm::kL1));
+    tick();
+    CHECK(read_pad().held(kbm::kL1));
+    tick();
+    press(kKeyG);
+    read_pad();
+    tick();
+    CHECK(!read_pad().held(kbm::kL1));
+
+    // Dodge: right held, the strafe and right a tick, then jump, the flip over in eight ticks; with
+    // no key held it goes back.
+    fresh({{"dodge", "KeyH"}});
+    tick();
+    press(kKeyH);
+    g_input.keys[kKeyD] = OPENRAC_KEY_HELD;
+    Report r = read_pad();
+    CHECK(r.held(kbm::kL2) && !r.held(kbm::kCross) && r.bytes[4] > 0xC0);
+    tick();
+    r = read_pad();
+    CHECK(r.held(kbm::kL2) && r.held(kbm::kCross) && r.bytes[4] > 0xC0);
+
+    for (int i = 0; i < 6; ++i) {
+        tick();
+        r = read_pad();
+    }
+
+    CHECK(r.held(kbm::kL2) && !r.held(kbm::kCross));
+    tick();
+    CHECK(!read_pad().held(kbm::kL2));
+    tick();
+    press(kKeyH);
+    r = read_pad();
+    CHECK(r.held(kbm::kL2) && r.bytes[5] > 0xC0);
+
+    // Aiming at half the sensitivity: the camera the mouse turns (here the follow camera) turns by
+    // half the mouse's turn, and the vignette is drawn.
+    fresh({{"aim_sensitivity", "0.5"}});
+    std::memcpy(g_memory.data() + kCamera + 0x70u, &kData, 4);
+
+    for (std::uint32_t off : {0x160u, 0x170u}) {
+        set_float(kData + off, -5.0f);
+    }
+
+    tick();
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    tick();
+    g_input.keys[kKeyG] = OPENRAC_KEY_HELD;
+    g_input.mouse_dx = 100.0f;
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    const float yaw = -50.0f * kbm::kRadiansPerPixel;
+    CHECK(std::abs(mem_float(kData + 0x164u) - (-5.0f * std::sin(yaw))) < 1e-4f);
+
+    for (int i = 0; i < 8; ++i) {
+        tick();
+        g_input.keys[kKeyG] = OPENRAC_KEY_HELD;
+        read_pad();
+    }
+
+    draw_overlay(256.0f, 224.0f);
+    CHECK(g_rects == 4 * 12);
+
+    g_written.clear();
+    g_aim_bind = "";
+}
+
 int main() {
     contexts();
+    weapons();
+
     for (const char* v : {"ntsc", "pal"}) {
         g_version = v;
         play();
@@ -785,6 +1206,9 @@ int main() {
     first_person_rows();
     gyro_follow();
     other_games();
+    camera_reset_and_aim();
+    strafe_while_firing();
+    modern_comforts();
     std::puts("keyboard-mouse rac2: all passed");
     return 0;
 }

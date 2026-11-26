@@ -15,10 +15,14 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
+#include "common/result.h"
 #include "renderer/direct/draw_state.h"
+#include "renderer/effects/effect_state.h"
 #include "renderer/frame/ui_records.h"
 #include "renderer/math.h"
 
@@ -38,9 +42,61 @@ enum class FrameOp : std::uint8_t {
     TargetBegin,  // draws go into panel `index` (a port id >= kRecordedTargets), width x height
     TargetEnd,    // back to the screen
     Scissor,      // what follows is cut to rect (or the whole target)
-    ViewBegin,    // the world that follows is split-screen view `index`'s, into rect
-    ViewEnd,      // the open view ends (FrameRecording::views has its camera)
+    // Transitional placements, read where they land among the residual packets as the markers
+    // the host C once wrote into the list were (rac1 and rac2 until R2/R3):
+    WorldShrubs,  // the world's shrub pass starts here: effect strips before it come first
+    EffectParent,  // strips follow attachment `index`'s parent (0 ends it), value bit 0: position only
+    HudSide,       // what follows goes out to the HUD's side `index` (0 ends it); value bit 0
+                   // stretches what crosses the middle, bit 1 parts it at value >> 2 instead
+    Wide,          // `index` 1: what follows covers the whole target, as a fade does; 0 ends it
+    PictureBand,   // `index` 1: a full-width scissor stays the picture's with "HUD: Edges"; 0 ends
+    LastFrame,     // the frame the window last drew with its world in, over the whole target
+    ViewBegin,     // the world that follows is split-screen view `index`'s, into rect
+    ViewEnd,       // the open view ends (FrameRecording::views has its camera)
+    ScreenEffect,  // screen_effects[index], a native post pass over the target as drawn so far
+    Strip,         // strips[index]: a world effect strip with its native material
 };
+
+// A screen effect (openrac_frame_screen_effect, docs/port/SCREEN_EFFECTS.md): the game's values;
+// renderer/effects/screen_effect.h draws it.
+enum class ScreenEffectKind : std::uint8_t {
+    None,
+    Glow,    // the pixels whose alpha passes the threshold, tinted, blurred and added back
+    Soften,  // the frame blurred and mixed back over itself
+};
+
+struct ScreenEffect {
+    ScreenEffectKind kind = ScreenEffectKind::None;
+    std::uint32_t tint = 0x80808080u;  // 0xAABBGGRR, 0x80 = 1.0
+    std::uint32_t threshold = 0;       // Glow: alpha (0x80 = 1.0) a pixel must be above
+    std::uint32_t strength = 0x80;     // how much of the blurred copy goes back, 0x80 = all
+    std::uint8_t blur = 0;             // extra blur passes at the largest size (0 to 2)
+
+    bool operator==(const ScreenEffect&) const = default;
+};
+
+// Returns the command's contract name for recorder diagnostics, or "Unknown" for an invalid value.
+// A world effect strip as the game's host C gave it (openrac_frame_strip): `count` vertices from
+// strip_vertices[first], drawn as a triangle strip with `state` and, unless untextured, images[image].
+struct StripVertex {
+    float x, y, z;
+    float s, t;
+    std::uint32_t rgba;  // 0xAABBGGRR, 0x80 = 1.0
+};
+
+struct StripRecord {
+    std::uint32_t first = 0, count = 0;
+    EffectState state{};
+    std::uint32_t image = 0;  // index in FrameRecording::images
+    bool untextured = false;
+    bool liquid = false;       // drawn with the world's liquids, before the shrubs and the mobys
+    bool chain_depth = false;  // state.depth_write holds only where the place in the list is early
+    bool fogged = false;
+    std::array<float, 4> fog{};  // slope per unit of view depth, offset, lower and upper bound
+    std::uint32_t fog_colour = 0;
+};
+
+const char* frame_op_name(FrameOp op);
 
 // FrameCommand::clear bits.
 inline constexpr std::uint8_t kClearColour = 1, kClearDepth = 2;
@@ -58,9 +114,10 @@ struct FrameCommand {
     std::uint32_t anchor = 0;
     std::uint32_t index = 0;
     std::uint64_t value = 0;
-    // The view open when the command was recorded (its index in the recording's views), set by
-    // FrameRecorder::push whether or not the view's ViewBegin anchor reaches the submitted list.
+    // Capture-time owner, independent of whether the ViewBegin anchor reaches the submitted list.
     std::uint32_t view = kNoFrameView;
+    // Set only after submission validation schedules this effect on its owner's framebuffer.
+    bool view_effect_prepared = false;
     // Fill, Picture, Scissor: x0, y0, x1, y1 in the game's 2D screen pixels; `whole` for the whole
     // target (rect not read). `wide`: on a target wider than the picture, the whole target rather
     // than the picture's middle.
@@ -72,10 +129,35 @@ struct FrameCommand {
     std::uint8_t clear = 0;                               // kClear*
     std::uint16_t width = 0, height = 0;                  // TargetBegin
     float screen_width = 512.0f, screen_height = 448.0f;  // the game's 2D screen for rect
+    // Fill: a depth of its own (openrac_frame_fill_depth). `depth_bits` 0 is the plain fill, which
+    // neither tests nor writes depth; else `depth_value`, out of a `depth_bits`-bit buffer, is
+    // compared by `depth` and stored when `depth_write`. `writes`: the colour channels written.
+    DepthTest depth{};
+    bool depth_write = false;
+    std::uint8_t depth_bits = 0;
+    std::uint32_t depth_value = 0;
+    std::uint8_t writes = kWriteColour;  // kWrite* bits
 
     bool operator==(const FrameCommand&) const = default;
 };
 
+// A flat rectangle with a depth of its own (openrac_frame_fill_depth), in native values: `rect`
+// x0, y0, x1, y1 of the game's 2D screen (null: the whole target), `wide` as FrameCommand's;
+// `depth` out of a `depth_bits`-bit buffer (16, 24 or 32, bigger nearer), compared by `compare`
+// and stored when `write_depth`; `writes` the colour channels (kWrite* bits). Empty for another
+// bit count, a depth the buffer cannot hold, another comparison than Always, GreaterEqual or
+// Greater, or channels outside kWriteColour: the caller draws its own way.
+std::optional<FrameCommand> depth_fill_command(
+    const float* rect,
+    std::uint32_t rgba,
+    BlendMode blend,
+    bool wide,
+    std::uint32_t depth,
+    int depth_bits,
+    DepthCompare compare,
+    bool write_depth,
+    std::uint8_t writes
+);
 // The number of local-player pictures the split-screen compositor retains.
 inline constexpr std::uint32_t kFrameViews = 4;
 
@@ -106,6 +188,8 @@ struct FrameView {
     std::uint32_t layers = 0;
     // Layout setup without a World call must not replace a full-screen frame with cached views.
     bool has_world = false;
+    // Submitted screen-effect payload indices, in order, applied before this picture is composited.
+    std::vector<std::uint32_t> screen_effects;
 
     // Returns whether the view id, screen and rectangle can be placed in a render target.
     bool valid() const;
@@ -120,21 +204,45 @@ struct FrameView {
     bool operator==(const FrameView&) const = default;
 };
 
+struct FrameSplice;
+
+// Conditions required to execute isolated native view effects without reordering other colour work.
+struct FrameViewContext {
+    bool has_camera = false;        // A usable world camera is available for the view pass.
+    bool residual_2d = false;       // Unowned residual packets remain in the frame's colour stream.
+    bool composite_colour = false;  // Composite bloom/grading would precede global effects.
+};
+
 // One recording: the commands of one pass of the game's frame code, in call order, and their
 // records.
 struct FrameRecording {
     std::uint64_t serial = 0;  // 0: never closed
+    // A producer-announced build identity, independent of coincident tag addresses; 0: legacy mode.
+    std::uint32_t list_root = 0;
+    std::uint64_t list_generation = 0;
     std::vector<FrameCommand> commands;
     std::vector<UiQuad> ui_quads;
     std::vector<UiItem> ui_items;
     std::vector<UiImage> images;
+    std::vector<StripRecord> strips;
+    std::vector<StripVertex> strip_vertices;
+    std::vector<ScreenEffect> screen_effects;
     // The split-screen views drawn in it, in the order they ended; none for a full-screen frame.
     std::vector<FrameView> views;
+    // A submission contract failure is reported by the render worker before drawing any of the frame.
+    std::string view_error;
 
     bool empty() const { return commands.empty(); }
 
     bool anchored() const;
     void clear();
+    // Keeps split composition selected even when a cut list refreshes none of its recorded worlds.
+    bool has_split_world() const;
+    // Rebuilds drawable views from submitted World commands and schedules their terminal post effects.
+    // Failure leaves commands/views unchanged: orphan effects or interleaved drawing need richer scoping.
+    [[nodiscard]] Result<void> resolve_views(std::span<const FrameSplice> submitted);
+    // Rejects unproved render contexts for scheduled view effects; unscoped/panel effects are unchanged.
+    [[nodiscard]] Result<void> validate_view_effect_context(FrameViewContext context) const;
 };
 
 // Where a command of a recording goes: before byte `offset` of the window's 2D stream.
@@ -173,13 +281,27 @@ public:
     // Appends `command` with the current anchor; returns its index.
     std::uint32_t push(FrameCommand command);
 
-    // Closes the open recording into the kept ones (when it has commands) and starts another.
-    // The anchor is forgotten.
+    // Starts a fresh build at `root`, retiring commands from its previous use even if this build
+    // records nothing. Other buffers remain eligible for late/resent submission. The game calls
+    // this only at its actual list reset/swap, before recording any commands of the new build.
+    void begin_list(std::uint32_t root);
+
+    // Appends an effect and its command to the same recording, including at the command limit.
+    void push_screen_effect(const ScreenEffect& effect);
+
+    // Keeps the open recording when nonempty and forgets the anchor. In producer-owned mode this
+    // snapshots the current build without losing earlier commands when capture splits the build;
+    // otherwise it starts another legacy recording. Empty owned builds still retire old ownership.
     void close();
 
     // The kept recording a display list draws with: the most recent one (non-empty) any of whose
     // anchors is one of `tags` (the list's DMA tag addresses, in walk order). Null for none.
     const FrameRecording* match(std::span<const std::uint32_t> tags) const;
+
+    // Matches the build that owns `root`, then requires anchor membership as before. Once the
+    // producer announces list builds, numerical tag coincidence alone cannot choose a recording.
+    // Legacy producers that announce none retain the tag-only matching behavior.
+    const FrameRecording* match(std::uint32_t root, std::span<const std::uint32_t> tags) const;
 
     // The most recent kept recording with no anchors (a frame with no display list at all), or null.
     const FrameRecording* latest_unanchored() const;
@@ -203,6 +325,12 @@ private:
     std::array<FrameRecording, kKept> m_kept{};
     std::uint64_t m_serial = 0;
     std::uint32_t m_anchor = 0;
+    // Build generations are monotonic for this recorder; reset clears ownership but not this clock.
+    std::uint64_t m_list_generation = 0;
+    // True after a producer opts into list ownership; legacy matching cannot reappear on empty builds.
+    bool m_owns_lists = false;
+    // Only a push changes a build's captured payload; empty ticks must not evict a valid resend.
+    bool m_open_dirty = false;
     std::array<float, 2> m_screen{512.0f, 448.0f};
     bool m_view_open = false;
 };
@@ -211,8 +339,8 @@ private:
 // command goes before the first tag, from the one the command before it went to, whose address is
 // its anchor. One whose anchor is not found there is dropped: the list never reached the place it
 // was recorded at (a list the game sent again, cut short), as a marker written there would not have
-// been in it. One with no anchor goes where the command before it went (the list's start for the
-// first). Non-decreasing, kDropped aside.
+// been in it. One with no anchor goes where the command before it went, including kDropped (the
+// list's start for the first). Non-decreasing, kDropped aside.
 inline constexpr std::size_t kDropped = static_cast<std::size_t>(-1);
 std::vector<std::size_t> place_commands(
     const FrameRecording& recording, std::span<const std::uint32_t> tags

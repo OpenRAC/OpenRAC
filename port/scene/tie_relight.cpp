@@ -4,7 +4,9 @@
 #include "scene/tie_relight.h"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
+#include <cstdint>
 
 namespace openrac::scene {
 
@@ -15,9 +17,11 @@ float t32(double x) {
     if (x == 0.0) {
         return 0.0f;
     }
-    float f = static_cast<float>(x);
+    const float f = static_cast<float>(x);
     if (std::fabs(static_cast<double>(f)) > std::fabs(x)) {
-        f = std::nextafter(f, 0.0f);
+        // One step toward zero, as std::nextafter(f, 0.0f) but without the library call: f is
+        // not zero here, so its magnitude bits drop by one for either sign.
+        return std::bit_cast<float>(std::bit_cast<std::uint32_t>(f) - 1u);
     }
     return f;
 }

@@ -80,8 +80,10 @@ float openrac_rac2_follow_tilt_range(void) {
 }
 static unsigned s_reads; /* how many reads so far: the frontend sees whether one ran this tick */
 
+/* The stick read (a mod's rac2.camera.follow.read_stick runs within, as func_L00_00424F98__hooked),
+ * then the camera it read for noted, the stick's turn scaled and the mouse's own turn. */
 void func_L00_00424F98(gaddr camera, gaddr x, gaddr y) {
-    func_L00_00424F98__game(camera, x, y);
+    func_L00_00424F98__hooked(camera, x, y);
     s_state = GREF(gaddr, camera + 0x70u) + 0x1C0u;
     ++s_reads;
     /* Sensitivity above 100%: scale the stick's turn, as in rac1. */

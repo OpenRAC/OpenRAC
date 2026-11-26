@@ -112,57 +112,54 @@ class Vu0InlineAssemblyAsC(unittest.TestCase):
              '__asm__("vadd.xyz %0, %1, %2" : "=j"(qr) : "j"(qa), "j"(qb)); '
              '__asm__("sqc2 %1, %0" : "=m"(*(vu0_v4 *)d) : "j"(qr));')
 
-    def test_the_instructions_it_does_not_know_stay_stubs(self):
-        self.assertIsNone(clangast.vu0_macro_c('__asm__("vitof0.xyzw %0, %1" : "=j"(f) : "j"(f));'))
-        self.assertIsNone(clangast.vu0_macro_c('__asm__("lqc2 %0, D_L01_001D6750" : "=j"(qa));'))
-        self.assertIsNone(clangast.vu0_macro_c('__asm__("vsub.xyz $vf2, $vf2, $vf1" : : : "vf1");'))
-        self.assertIsNone(clangast.vu0_macro_c('__asm__ volatile ("sync.l" : : : "memory");'))
+    def test_the_statements_reach_clang_with_their_vector_operands_as_memory(self):
+        # prep.py: Clang reads each operand as the C variable it is; lower.py writes the
+        # instructions as C on it (vu0asm.py). Only the operand lists change, and only "j".
+        import prep
 
-    def test_replacing_writes_c_on_the_statements_lines(self):
-        lines = ["void f(void *d, void *a) {", "    vu0_q x;",
-                 '    __asm__("lqc2 %0, %1"', '            : "=j"(x) : "m"(*(vu0_v4 *)a));',
-                 '    __asm__("sqc2 %1, %0" : "=m"(*(vu0_v4 *)d) : "j"(x));', "}"]
+        prepared = prep.vu0_register_operands(self.ADD_COPY + " " + self.ADD_L)
+        self.assertNotIn('j"', prepared)
+        self.assertEqual(len(prepared), len(self.ADD_COPY + " " + self.ADD_L))
+        self.assertIn('"+m"(y) : "m"(x)', prepared)
+        # abs.s on "j" is not VU0's: left for Clang to refuse, as before.
+        other = '__asm__("abs.s %0, %1" : "=j"(f) : "j"(g));'
+        self.assertEqual(prep.vu0_register_operands(other), other)
+
+    def test_a_statement_clang_refuses_becomes_the_stub_call_on_its_lines(self):
+        lines = ["void f(void *d, void *a) {", "    int x;",
+                 '    __asm__("mfhi %0"', '            : "=h"(x) : "m"(*(int *)a));',
+                 '    *(int *)d = x;', "}"]
         self.assertTrue(clangast._replace_asm(lines, 3, 15))
         self.assertEqual(len(lines), 6)
-        self.assertIn(clangast.VU0_C_MARK, lines[2])
-        self.assertNotIn("openrac_hostgen_asm", "\n".join(lines))
-        # The next statement is its own: a place inside the written C is not taken for it.
+        self.assertIn("openrac_hostgen_asm();", lines[2])
+        # The next statement is its own: a place inside the written call is not taken for it.
         self.assertFalse(clangast._replace_asm(lines, 2, len(lines[2]) - 2))
 
-    def test_c_clang_refuses_goes_back_to_the_stub(self):
-        line = "    " + clangast.vu0_macro_c('__asm__("lqc2 %0, %1" : "=j"(x) : "m"(*(vu0_v4 *)a));') + " g();"
-        lines = [line]
-        self.assertTrue(clangast._unwrite_vu0_c(lines, 0, 30))
-        self.assertEqual(lines[0], "    openrac_hostgen_asm(); g();")
-
     @unittest.skipUnless(shutil.which("clang"), "needs Clang")
-    def test_the_c_computes_what_the_instructions_do(self):
-        c = lambda stmts: " ".join(clangast.vu0_macro_c(s.strip() + ";") for s in stmts.split(";") if s.strip())
-        program = (
-            "#include <stdio.h>\n"
+    def test_the_stepped_line_tests_helpers_are_c(self):
+        # func_L01_00446BF0's helpers, translated: C on locals, no stub and nothing skipped.
+        import hostgen
+
+        source = (
             "typedef int vu0_q __attribute__((mode(TI)));\n"
             "typedef struct { float x, y, z, w; } __attribute__((aligned(16))) vu0_v4;\n"
-            "static void add_copy(void *d, void *a, void *b, void *cd, void *cs) { vu0_q x, y; " + c(self.ADD_COPY) + " }\n"
-            "static void add_l(void *d, void *a, void *b) { vu0_q qa, qb, qr; " + c(self.ADD_L) + " }\n"
-            "static void rot(void *d) { vu0_q q; " + c('__asm__("vmr32.xyzw %0, $vf0" : "=j"(q)); '
-                                                    '__asm__("sqc2 %1, %0" : "=m"(*(vu0_v4 *)d) : "j"(q))') + " }\n"
-            "static void neg(void *d, void *a) { vu0_q q, r; " + c('__asm__("lqc2 %0, %1" : "=j"(q) : "m"(*(vu0_v4 *)a)); '
-                                                              '__asm__("vsub.xyz %0, $vf0, %1" : "=j"(r) : "j"(q)); '
-                                                              '__asm__("sqc2 %1, %0" : "=m"(*(vu0_v4 *)d) : "j"(r))') + " }\n"
-            "int main(void) {\n"
-            "  vu0_v4 a = {1, 2, 3, 4}, b = {10, 20, 30, 40}, d, cd, cs = {7, 8, 9, 5}, e, r, n;\n"
-            "  add_copy(&d, &a, &b, &cd, &cs); add_l(&e, &a, &b); rot(&r); neg(&n, &b);\n"
-            "  printf(\"%g %g %g %g|%g %g %g %g|%g %g %g %g|%g %g %g %g|%g %g %g %g\\n\",\n"
-            "         d.x, d.y, d.z, d.w, cd.x, cd.y, cd.z, cd.w, e.x, e.y, e.z, e.w, r.x, r.y, r.z, r.w,\n"
-            "         n.x, n.y, n.z, n.w);\n"
-            "  return 0;\n"
-            "}\n")
+            "void add_copy(void *d, void *a, void *b, void *cd, void *cs) { vu0_q x, y; " + self.ADD_COPY + " }\n"
+            "void add_l(void *d, void *a, void *b) { vu0_q qa, qb, qr; " + self.ADD_L + " }\n")
         with tempfile.TemporaryDirectory(prefix="hostgen vu0 ") as tmp:
-            src, exe = Path(tmp) / "vu0.c", Path(tmp) / "vu0"
-            src.write_text(program)
-            subprocess.run(["clang", "-std=gnu99", "-o", str(exe), str(src)], check=True)
-            out = subprocess.run([str(exe)], check=True, capture_output=True, text=True).stdout.strip()
-        self.assertEqual(out, "11 22 33 4|7 8 9 5|11 22 33 4|0 0 1 0|-10 -20 -30 40")
+            root = Path(tmp)
+            (root / "src").mkdir()
+            (root / "src/main.c").write_text(source)
+            config = root / "hostgen.json"
+            config.write_text('{"name": "test", "sources": ["src"], "includes": []}')
+            out = root / "generated"
+            self.assertEqual(hostgen.main(["--game", str(config), "--source", str(root), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            report = json.loads((out / "report.json").read_text())
+            text = (out / hostgen.generated_name("src/main.c")).read_text()
+        self.assertEqual(report["stubbed"], {})
+        self.assertEqual(report["inline_assembly_skipped"], {})
+        self.assertNotIn("openrac_hostgen_asm", text)
+        self.assertIn("openrac_v1_[0] + openrac_v2_[0]", text)  # add_l's vadd.xyz, as C
 
 
 class ClangCompatibility(unittest.TestCase):

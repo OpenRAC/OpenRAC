@@ -14,6 +14,15 @@
  * library's public interface as the game uses them
  * (docs/port/RAC1_PAL_SURVEY.md, section 7).
  *
+ * Why the port answers the library and not the games' own save code above it: in each game that
+ * code is one state machine that drives libmc a step a frame (Ratchet & Clank's
+ * memcard_update_state func_00209E68, Going Commando's func_00298F00, Up Your Arsenal's
+ * func_0039C7F0 with frontbin's and the levels' copies), its states interleaved with the card
+ * screens' messages, prompts and checksums. It is the game's own logic, written against libmc's
+ * start-then-sync calls; the rest of their card calls are its start-up (sceMcInit) and, in Ratchet &
+ * Clank, the boot check (func_00209BB8: a card's info and its save folder's entries, synced at
+ * once). Answered here, the save bytes and the folders are the game's own, so players' cards load.
+ *
  * While a party plays, a filter stands between the game and its saves (the end of "The save mark"
  * below says how): whatever the game believes it writes, a player's own saves stay as they were.
  *

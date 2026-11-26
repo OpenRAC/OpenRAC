@@ -8,7 +8,12 @@
  *
  * - the 2D screen: the game adds an offset to every 2D position (12.4; the boot program's at
  *   0x001D4BD0, the multiplayer core's at 0x00240310) that centres its screen on 2048, so the screen
- *   is 2 x (2048 - offset) pixels each way (512 x 448 on PAL);
+ *   is 2 x (2048 - offset) pixels each way (512 x 448 on PAL). The multiplayer executable's screen
+ *   is its frame block's size (0x00228580: +0x150 width, +0x152 height), which its SetScissor
+ *   (0x00299218) keeps the scissor within and its screen set-ups (0x0027D190, 0x0027DA40) centre
+ *   the offset by. Its split-screen maps' view layout (level 39's 0x00588A08, each map's copy)
+ *   moves the offset to each view's top left and cuts the scissor to the view, so its 2D is
+ *   placed from the whole screen's offset, not the view's (seen in game code);
  * - the fonts: two font headers (the boot program's table at 0x001D55D0, which every
  *   single-player program's copy of FontUpload and FontSelect reads; the multiplayer core's at
  *   0x00241458, which its level 39 and maps read too; the font selected at +0x18 of either). A
@@ -26,7 +31,62 @@
 #include "openrac/guest.h"
 #include "openrac/ui.h"
 #include "rac3_version.h"
-#include "ui2d.h"
+
+/* The frame block's halfwords: the screen's width and height in pixels. */
+#define FRAME_WIDTH 0x150u
+#define FRAME_HEIGHT 0x152u
+/* The middle of the chip's 4096 x 4096 drawing window, where the 2D offset centres the screen. */
+#define CHIP_MIDDLE 0x800
+/* The sizes a 2D screen can have; outside them the game has not set its screen up yet. */
+#define SCREEN_MIN 64
+#define SCREEN_MAX 1024
+
+gaddr rac3_ui_offset(void) {
+    /* The boot program's, which every single-player program shares, or the multiplayer core's,
+     * which its level 39 and maps share (seen in game code). */
+    return rac3_exec_program() == RAC3_EXEC_MULTIPLAYER ? RAC3_MADDR(0x00240310u)
+                                                        : RAC3_ADDR(0x001D4BD0u);
+}
+
+gaddr rac3_ui_frame(void) {
+    /* The boot program's (its SetScissor func_003A98B8) or the multiplayer core's (0x00299218),
+     * which level 39 and the maps read too (seen in game code). */
+    return rac3_exec_program() == RAC3_EXEC_MULTIPLAYER ? RAC3_MADDR(0x00228580u)
+                                                        : RAC3_ADDR(0x001CFEC0u);
+}
+
+/* The multiplayer executable's whole screen, its frame block's size: 0 before the game sets it. */
+static int mp_screen(int* width, int* height) {
+    /* The single-player programs' offset is their whole screen's: no views to undo. */
+    if (rac3_exec_program() != RAC3_EXEC_MULTIPLAYER) {
+        return 0;
+    }
+    *width = GREF(int16_t, rac3_ui_frame() + FRAME_WIDTH);
+    *height = GREF(int16_t, rac3_ui_frame() + FRAME_HEIGHT);
+    return *width >= SCREEN_MIN && *width <= SCREEN_MAX && *height >= SCREEN_MIN
+           && *height <= SCREEN_MAX;
+}
+
+void rac3_ui_origin(int* x, int* y) {
+    int width, height;
+    /* The whole screen's offset as the core's screen set-ups write it (seen in game code:
+     * 0x0027D190, 0x0027DA40): 2048 less half the screen, in sixteenths. */
+    if (mp_screen(&width, &height)) {
+        *x = (CHIP_MIDDLE - (width >> 1)) << 4;
+        *y = (CHIP_MIDDLE - (height >> 1)) << 4;
+        return;
+    }
+    *x = GREF(int32_t, rac3_ui_offset());
+    *y = GREF(int32_t, rac3_ui_offset() + 4u);
+}
+
+void rac3_ui_view_corner(float* x, float* y) {
+    int ox, oy;
+    rac3_ui_origin(&ox, &oy);
+    /* From 12.4 to pixels. */
+    *x = (float)(GREF(int32_t, rac3_ui_offset()) - ox) / 16.0f;
+    *y = (float)(GREF(int32_t, rac3_ui_offset() + 4u) - oy) / 16.0f;
+}
 
 /* The running program's font header table (two fonts): the boot program's, which every
  * single-player program reads, or the multiplayer core's, which level 39 and the maps read. */
@@ -44,9 +104,16 @@ int rac3_ui_font_index(void) {
 }
 
 static void screen(float* width, float* height) {
+    int w, h;
+    /* The multiplayer executable's views each draw part of the whole screen its 2D spans. */
+    if (mp_screen(&w, &h)) {
+        *width = (float)w;
+        *height = (float)h;
+        return;
+    }
     /* The screen's left and top as the game offsets its 2D (to_screen_x(0) is that less 8). */
-    const float ofx = (float)(rac3_ui2d_screen_x(0) + 8) / 16.0f;
-    const float ofy = (float)(rac3_ui2d_screen_y(0) + 8) / 16.0f;
+    const float ofx = (float)GREF(int32_t, rac3_ui_offset()) / 16.0f;
+    const float ofy = (float)GREF(int32_t, rac3_ui_offset() + 4u) / 16.0f;
     *width = 2.0f * (2048.0f - ofx);
     *height = 2.0f * (2048.0f - ofy);
     if (*width < 64.0f || *width > 1024.0f || *height < 64.0f || *height > 1024.0f) {
@@ -87,7 +154,12 @@ int rac3_ui_font_page(int font, int page, openrac_game_ui_image* out) {
 }
 
 int rac3_ui_font_page_of(
-    int font, uint32_t image_handle, uint32_t palette_handle, gaddr images, gaddr palettes
+    int font,
+    uint32_t image_handle,
+    uint32_t palette_handle,
+    uint32_t mask,
+    gaddr images,
+    gaddr palettes
 ) {
     if (font < 0 || font > 1) {
         return -1;
@@ -105,8 +177,8 @@ int rac3_ui_font_page_of(
         if (j >= image_count || k >= palette_count || j > 15 || k > 15) {
             continue;
         }
-        if ((GREF(uint32_t, images + 4u * j) & 0x3FFFu) == image_handle
-            && (GREF(uint32_t, palettes + 4u * k) & 0x3FFFu) == palette_handle) {
+        if ((GREF(uint32_t, images + 4u * j) & mask) == image_handle
+            && (GREF(uint32_t, palettes + 4u * k) & mask) == palette_handle) {
             return page;
         }
     }

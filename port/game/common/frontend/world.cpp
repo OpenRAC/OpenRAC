@@ -52,6 +52,7 @@
 #include "enhanced/viewer/scene_lighting.h"
 #include "frontend.h"
 #include "game/common/frontend/draw_coverage.h"
+#include "game/common/frontend/effect_material.h"
 #include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/energy_effects.h"
 #include "game/common/frontend/geometry.h"
@@ -884,6 +885,7 @@ void savestate_restored(std::uint64_t tick) {
     g->view_states = {};
     g->effects.clear();
     g->effect_uploads.clear();
+    g->effect_images.clear();
     g->sky_shell_mask = 0;
     g->sky_sprites.clear();
     g->particles.clear();
@@ -1021,7 +1023,9 @@ void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& qua
     } else {
         // No paging record: a texture the game put in the GS itself (the flight's planet picture,
         // loaded with the transition's data), resolved from the pool at TEX0's blocks; the
-        // renderer leaves the quad out when nothing is there.
+        // renderer leaves the quad out when nothing is there. A frame copy (GetEffectTex -1) is the
+        // exception: no image is ever sent to its block, the window's own snapshot stands in.
+        q.frame_copy = g->render.profile->frame_copy_texture(q.tex0);
         g->effects.push_back(q);
     }
 }
@@ -1030,7 +1034,21 @@ std::uint32_t effect_quad_marker() {
     if (!g || g->effects.empty() || g->effects.size() > 0xFFFFF) {
         return 0;
     }
+
+    // A native quad takes nothing from the list: no marker names it.
+    if (g->effects.back().native) {
+        return 0;
+    }
+
     return (g->effect_generation & 0xFFF) << 20 | static_cast<std::uint32_t>(g->effects.size() - 1);
+}
+
+bool material_quad(std::span<const std::uint8_t> ram, const openrac_game_material_quad& quad) {
+    // The tick's capture reads the image through the 2D layer's cache, on this (the game's) thread.
+    const EffectImageLookup lookup = [ram](const openrac_game_ui_image& image) {
+        return recorder::resolve_image(ram, image);
+    };
+    return g != nullptr && capture_material_quad(quad, lookup, g->effects, g->effect_images);
 }
 
 void effect_textures() {
@@ -1107,6 +1125,12 @@ void effect_textures() {
         stats::gauge("effect quads without texture source", g->effect_sources[0]);
         stats::gauge("effect quads paged this frame", g->effect_sources[1]);
         stats::gauge("effect quads paged before", g->effect_sources[2]);
+        // Those drawn with a native material (material_quad), whose state no marker gives.
+        const auto native = [](const renderer::EffectQuad& q) {
+            return q.native;
+        };
+        const auto drawn = std::count_if(g->effects.begin(), g->effects.end(), native);
+        stats::gauge("effect quads native", static_cast<double>(drawn));
     }
     g->effect_texture_ids.clear();
     g->effect_hashed.clear();
