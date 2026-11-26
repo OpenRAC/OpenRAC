@@ -36,7 +36,7 @@ run-name: >-
   ${{ github.ref_type == 'tag'
       && format('launcher #{0} · tag {1}', github.run_number, github.ref_name)
   || github.event_name == 'merge_group'
-      && format('launcher #{0} · queue → {1}', github.run_number, endsWith(github.event.merge_group.base_ref, '/master') && 'master' || 'develop')
+      && format('launcher #{0} · queue → master', github.run_number)
   || github.event_name == 'push'
       && format('launcher #{0} · push {1}', github.run_number, github.ref_name)
   || format('launcher #{0} · manual {1} · by {2}', github.run_number, github.ref_name, github.actor) }}
@@ -45,9 +45,14 @@ on:
   push:
     tags: ["launcher-v*"]
   # Pull requests and develop build nothing here: each build is five installers of up to two
-  # hours. master's merge queue (a dev release) builds and publishes them; develop's queue runs
-  # nothing. A branch can still be built by hand (workflow_dispatch).
+  # hours. master's merge queue (a dev release) builds and publishes them; develop's queue starts
+  # no run. A branch can still be built by hand (workflow_dispatch).
+  # A pull request to master runs only so that the checks master requires report (skipped) on it:
+  # GitHub counts only a pull_request run's checks for a pull request, not a manual run's.
+  pull_request:
+    branches: [master]
   merge_group:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -70,11 +75,9 @@ jobs:
   # forever.
   version:
     name: version
-    # Nothing in develop's queue. Nothing on release/dev either: dev-release.yml starts this there
-    # only so that the pull request has the checks master requires (skipped); its queue builds.
-    if: >-
-      ${{ (github.event_name != 'merge_group' || github.event.merge_group.base_ref == 'refs/heads/master')
-      && github.ref != 'refs/heads/release/dev' }}
+    # Nothing on a pull request to master or on release/dev: they run only so that the checks master
+    # requires report (skipped); its queue builds.
+    if: github.event_name != 'pull_request' && github.ref != 'refs/heads/release/dev'
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:

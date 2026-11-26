@@ -96,6 +96,9 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_OMIT_func_001F4E08 1
 #define RAC1_OMIT_func_L00_002A21A8 1
 #define RAC1_OMIT_func_L00_002A2258 1
+/* The vendor and pause panels as recorder panels (render_panel.c): checked on PAL v2.00 only. */
+#define RAC1_OMIT_func_001FB608 1
+#define RAC1_OMIT_func_001FB498 1
 
 /* Imported moby classes (rac1/host/foreign_class.c): register_moby_class and
  * resident_class_id_by_slot in this release (release_names.json, the release's check). */
@@ -340,5 +343,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x001CA7C0u 0x001CA440u
 #define RAC1_ADDR_L01_0x0015F504u 0x0015F404u
 #define RAC1_ADDR_L01_0x00309078u 0x003075D0u
+#define RAC1_ADDR_0x0015F538u 0x0015F438u
 
 #endif /* OPENRAC_RAC1_VERSION_H */

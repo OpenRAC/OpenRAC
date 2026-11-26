@@ -1158,7 +1158,7 @@ def parse_arguments(argv: list[str] | None) -> argparse.Namespace:
     ap.add_argument("--game", type=Path, required=True, help="the game's hostgen.json")
     ap.add_argument("--source", type=Path, required=True, help="the decompilation's directory")
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--jobs", type=int, default=os.cpu_count() or 2)
+    ap.add_argument("--jobs", type=int, default=int(os.environ.get("HOSTGEN_JOBS") or os.cpu_count() or 2))
     ap.add_argument("--only", action="append", default=[], help="translate only these units (for checks)")
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--allow-unreadable", action="store_true",

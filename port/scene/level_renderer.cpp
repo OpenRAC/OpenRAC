@@ -555,6 +555,7 @@ bool LevelScene::upload(
             texels.data()
         );
         glBindTexture(GL_TEXTURE_2D, 0);
+        m_light_texels = std::move(texels);
     }
     for (std::size_t layer = 0; layer < kLayerCount; ++layer) {
         build_groups(static_cast<Layer>(layer), level.instances[layer], false);
@@ -982,6 +983,8 @@ void LevelScene::release() {
         glDeleteTextures(1, &m_lights);
         m_lights = 0;
     }
+    m_light_texels.clear();
+    m_light_dirty.clear();
     m_mesh.release();
     m_static_translucent.release();
     m_static_translucent_full.release();
