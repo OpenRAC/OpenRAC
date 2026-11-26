@@ -4,3 +4,4 @@
 # Also: a name, "sig" (its row's C type differs); an address, "data" (no evidence for it).
 func_0012C9A0	row	rac3-ntsc,rac3-pal	the entry after a fill word (0xCDCDCDCD at 0x0012C99C, the inventory's start), as Going Commando's func_00126288: sceGsSetDefLoadImage is entered at 0x0012C9A0 on both discs
 func_003AA3C8__frontbin	frontbin	rac3-ntsc	DrawWidgetSpriteFrontbin: rac3-ntsc leaves the wrap out (release.json libraries_left_out) while its release view names the frontbin function without the __frontbin suffix
+func_003CA608	39	rac3-ntsc	level 39 (the multiplayer menu and maps) carries a copy of the evaluator that rac3-decomp's map does not pair on NTSC-U (no row for it in config/us/map.tsv); PAL runs the port's evaluator, NTSC-U still its generated code until the pair is named
