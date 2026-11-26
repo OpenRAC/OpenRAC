@@ -1013,6 +1013,14 @@ static void arena(void) {
     GREF(uint8_t, c + 0x20u) = 7;
     rac2_copy_arenas_tick();
     CHECK(GREF(gaddr, held + 8u) == 0 && GREF(gaddr, held2 + 4u) == 0);
+    /* Before the member's first update (state 0) it is copied too, onto the reserve's list. */
+    make_arena(0, 2850);
+    const gaddr first = rac2_copy_make(&table, placed(1), 0);
+    CHECK(first != 0 && GREF(uint8_t, first + 0x20u) == 0);
+    CHECK(
+        GREF(uint16_t, GREF(gaddr, 0x001EE5A0u) + 4u)
+        == (uint16_t)(((first - BASE) / 0x100u) | 0x8000u)
+    );
     /* Not the arena's: a class it does not draw, a group no controller names. */
     make_arena(0, ENEMY);
     CHECK(rac2_copy_check(&table, placed(1)) == RAC2_COPY_SCRIPTED);
