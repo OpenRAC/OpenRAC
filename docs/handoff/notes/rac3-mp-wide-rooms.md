@@ -187,8 +187,23 @@ What was wrong, and what fixes it:
 - The staging header reads `PLAYER n/m` from net+0x130 and net+0x134: `m` is the room's maximum
   (`rac3_mp_wide_set_slots`), so 10/10 is a full room of 10 (screenshots show 2/8, 5/10, 3/10 on the way).
 
-Still open: the match itself (host START press landed before START was enabled in the runs so far; the run
-with the START wrap is the next), the end message and results in a match, the staging list shows 8 rows
-(the native staging table is not up in these runs: the server serves no UI description, so rows 9+ are
-not drawn; `mp_ui.c` sizes the native table's pitch for up to 16 rows when it is), a scroll bar, channel 9
-for clients 16-23, the NTSC-U carry of the new wraps' places (release_carry_rac3.py was rerun).
+Result of the run with the START wrap (host + 9 joiners on box1, 10 players): START pressed with all 10 ready,
+every console loaded map 40 (Bakisi Isles) and drew its HUD with the other players' name tags (screenshots 12, 13
+in `~/Projects/RAC/mp24-progress/`), and channel 9 (the player state stream) flowed from every client, slots 8
+and 9 included. The match then did not progress: the HUD clock stayed 00:00 and the frame did not change for
+the 40,000 frames the run lasted (about 13 minutes), so the 5 minute time limit never ended it and the end
+message (0x82), the wide results and the scoreboard have not run. No joiner sent the map-loaded slot update
+(state 8) to the host; only the host's own state 8 went round (the host's settings read 0:8, the joiners' 1-9 stay
+6). Whether the map's start barrier waits for those states, and why the joiners' L39_00575CC8 / map-load update
+(channel 17, state 8) is not sent, is the next thing to find: compare the same run at 2 players, where the
+earlier notes say the barrier opens, and read what the barrier counts (a bound or slot table of the map that
+the wide.json sites do not cover is the first suspect).
+
+Also left: clan tags print as "(null)" after the name tags (the join request's clan, +0x50, and the slot
+update's, +0x17, should get an empty string the way `name_fix` gives the name); the map shows no scenery in
+box1's data dir (no level exports there: extract the PAL levels with the launcher's "Get the levels ready"
+pipeline, tools/extractor.py, to see the world); 16 and 24 players, headless joiners (a window-less run
+`--window` left out: not yet tried, its tick pacing decides whether the frame-scripted presses still line
+up) and clients on box2 and the Mac; the staging list shows 8 rows (the native staging table is not up in these
+runs: the server serves no UI description) and has no scroll bar; channel 9 for clients 16-23; the NTSC-U
+carry of the new wraps' places (release_carry_rac3.py was rerun for the first batch).
