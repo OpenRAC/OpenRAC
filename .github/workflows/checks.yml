@@ -24,8 +24,10 @@ run-name: >-
 # everything: hostgen, every game in every version and Windows; launcher.yml builds the installers
 # and publishes them in the same queue run. A game that breaks there is fixed on develop. A job a
 # run does not need reports skipped, which passes a required check. A push to master runs only the
-# repository checks. develop pushes run both lint and builds and are the only runs that write the
-# caches (.github/actions/*/save), so they are never cancelled. A manual run runs everything.
+# repository checks. A develop push runs only the builds and their tests, not the lint or the unit
+# tests: the queue checked the same commit, and the push is there because only develop's runs can
+# write the caches every pull request and queue run reads (.github/actions/*/save). It is never
+# cancelled. A manual run runs everything.
 on:
   push:
     branches: [master, develop]
@@ -126,12 +128,12 @@ jobs:
           esac
           python3 "$script"
 
-  # Lint: the repository's static checks (no build, no unit tests). Pull requests and pushes, not
-  # the merge queue: the pull request already ran them on its merge with develop. Starts at once,
-  # beside plan.
+  # Lint: the repository's static checks (no build, no unit tests). Pull requests and pushes to
+  # master, not the merge queue or a develop push: the pull request already ran them on its merge
+  # with develop. Starts at once, beside plan.
   lint_repo:
     name: lint_repo
-    if: github.event_name != 'merge_group'
+    if: github.event_name != 'merge_group' && github.ref != 'refs/heads/develop'
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
@@ -225,7 +227,7 @@ jobs:
       # The layout of the C++ under port/ and sdk/ (docs/CODING_CONVENTIONS.md, section 5.6):
       # clang-format and the blank lines around control blocks. Report only: the step
       # lists what would change and never fails the build. clang-format comes from the step above.
-      # Pushes only: a report nobody waits for.
+      # Pushes to master only: a report nobody waits for.
       - name: C++ layout (report only)
         if: github.event_name == 'push'
         run: python tools/cpp_style.py --report-only
@@ -266,10 +268,11 @@ jobs:
 
   # The repository's unit tests: OpenRAC's tools, the extractor, the bake tools, the lint tools'
   # own tests and each game's decomp tools as its original repository ran them. The merge queue
-  # and pushes, not a pull request to develop (the queue runs them on what will land).
+  # and pushes to master, not a pull request (the queue runs them on what will land) or a develop
+  # push (the queue already ran them on the same commit).
   repo_tests:
     name: repo_tests
-    if: ${{ !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') }}
+    if: ${{ !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev' || github.ref == 'refs/heads/develop') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
@@ -351,11 +354,12 @@ jobs:
           python tools/check_repository.py
 
   # Lint: the launcher's format and static checks (Rust format, svelte-check, ESLint, Prettier),
-  # with no build. Pull requests and pushes, not the merge queue (as the repository's lint).
+  # with no build. Pull requests and pushes to master, not the merge queue or a develop push (as
+  # the repository's lint).
   lint_launcher:
     name: lint_launcher
     needs: plan
-    if: ${{ !cancelled() && github.event_name != 'merge_group' && needs.plan.outputs.docs_only != 'true' && (needs.plan.outputs.launcher != 'false' || needs.plan.outputs.pages != 'false') }}
+    if: ${{ !cancelled() && github.event_name != 'merge_group' && github.ref != 'refs/heads/develop' && needs.plan.outputs.docs_only != 'true' && (needs.plan.outputs.launcher != 'false' || needs.plan.outputs.pages != 'false') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     defaults:
