@@ -321,8 +321,11 @@ This is a recorder hand-off milestone, not the full R1-R3 audit scope. No rac1/r
 shared native 2D core, residual-picture conversion or native strip conversion is implied by these
 rows. `openrac_frame_effect_parent_position` keeps a strip's world-space orientation while following
 the delayed parent's move; `openrac_frame_effect_parent` follows its axes too. Both scopes end at 0.
-RAC1 PAL title's reported two dropped commands out of three still need an identified runtime trace;
-the old aggregate warning alone does not identify them.
+RAC1 PAL title: traced on 2026-11-26 (hidden run, title through "PRESS START", the first 3,300 frames,
+with the placement of every recording logged). The title's recordings are one Fill, then World,
+WorldShrubs and UiQuad commands, and every command is placed: 0 dropped. The title is pixel
+identical to `OPENRAC_UI_REPLAY=1`. The earlier report of two drops out of three predates #779's list
+ownership (`openrac_frame_list_begin`), which retires a rebuilt buffer's old recording.
 
 ## 9. Tests
 
