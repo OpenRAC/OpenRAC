@@ -278,6 +278,8 @@
       "func_L01_003A9CC0": "void (unsigned int, unsigned long long, unsigned long long)",
       "func_L01_004C1FE8": "void (int, unsigned long long)",
       "func_L01_004010D0": "void (int)",
+      "func_L01_004066DC": "void (int, int, int, int, int)",
+      "func_L01_004051B8": "void (void)",
       "func_L01_00438468": "unsigned int (unsigned int, int)",
       "func_L01_00438488": "unsigned int (int, int, int)",
       "func_L01_0040C490": "float (float, float)",
