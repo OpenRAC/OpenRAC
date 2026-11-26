@@ -859,6 +859,7 @@
       "func_L39_0057F278": "int (int, int, int, int, int)",
       "func_L39_0059C320": "int (int, int, int, int, int, int)",
       "func_L39_005FA990": "int (int, int, int, int)",
+      "func_L39_006C0588": "int (int)",
       "func_L40_003C6F78": "int (int, int)",
       "func_L40_003E6900": "float (float, float, float)",
       "func_L40_003ED4C0": "int (int)",
