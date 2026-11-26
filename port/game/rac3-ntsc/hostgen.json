@@ -507,7 +507,7 @@
       "func_L01_00420380": "void (int, int)",
       "func_L01_00444318": "void (int, int, float)",
       "func_L01_0044E068": "void (unsigned int, float)",
-      "func_L01_0044ED38": "void (int, int, int, int, float, float)",
+      "func_L01_0044ED38": "int (int, int, int, int, float, float)",
       "func_L01_00478CC8": "void (int, int, int, int, float, float)",
       "func_L01_0047ACE8": "void (int, int, int, int, float, float)",
       "func_L01_0047BB78": "int (int)",
@@ -913,6 +913,7 @@
     "stack_arguments": true,
     "result_flow": true,
     "signature_allow": {
+      "func_L01_0047C838": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers; some copies' callees read more): variant_callees",
       "func_L01_0047C858": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers; the catalogue now files the copies right, and some copies' callees read more): variant_callees",
       "func_L01_0049EB78": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers; the catalogue now files the copies right, and some copies' callees read more): variant_callees",
       "func_L03_00502C58": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers; the catalogue now files the copies right, and some copies' callees read more): variant_callees",
