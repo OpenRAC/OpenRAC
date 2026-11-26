@@ -352,7 +352,6 @@ func_L39_005F4690	render	rac3DrawTfragMultiplayer	host	DrawTfrag, the multiplaye
 func_L39_005F61A0	render	rac3DrawTiesMultiplayer	host	the tie pass, the multiplayer maps' copy (func_002F0EF8): as Veldin's (host/render.c)	int (void)
 func_L39_005EDE28	render	rac3DrawShrubsMultiplayer	host	the shrub pass, the multiplayer maps' copy (func_002E11C0): as Veldin's (host/render.c)	int (void)
 func_L39_005B25C8	render	rac3MobyProcMultiplayer	host	MobyProc, the multiplayer maps' copy (hand-written, func_002A4E68): as Veldin's (host/render.c)	int (int, int, int, int)
-func_L39_005B0AE0	render	rac3MobyChainMultiplayer	host	moby_anim_eval_chain, the multiplayer menu's copy (func_L01_00440090's instructions): the marked joints' poses from the port's evaluator (host/render.c)	int (int, int)
 func_L01_004DE670	render	rac3ScreenGlowCopy	host	the screen glow (appends 0x001D0A50, the frame copied through an alpha test, tinted and shrunk, that 0x004DDE98 built): the window's native glow pass from the glow's words, recorded at the list's place; the word it sets kept (host/screen.c)	int (void)
 func_L01_004DE6F0	render	rac3ScreenGlowAdd	host	the screen glow's second half (appends 0x001D2A50: blurred and added back over the frame): the glow word cleared, the add-back is the recorded pass's (host/screen.c)	int (void)
 func_L01_00407E28	render	rac3DrawWorldQuad	host	DrawWorldQuad (func_00280B90's instructions): the draw callbacks' world quad drawn natively, its effect texture from GetEffectTex's records (host/render.c)	int (int, int)
