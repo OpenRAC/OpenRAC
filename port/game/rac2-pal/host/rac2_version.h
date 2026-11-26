@@ -23,6 +23,7 @@
 #define RAC2_ADDR_0x00137EA0u 0x00137F20u /* the release's build */
 #define RAC2_ADDR_0x00138180u 0x00138200u /* the release's build */
 #define RAC2_ADDR_0x00138280u 0x00138300u /* the release's build */
+#define RAC2_ADDR_0x00138500u 0x00138580u /* the release's build */
 #define RAC2_ADDR_0x001393E0u 0x00139460u /* the release's build */
 #define RAC2_ADDR_0x00139410u 0x00139490u /* the release's build */
 #define RAC2_ADDR_0x00139568u 0x001395E8u /* the release's build */
@@ -39,6 +40,7 @@
 #define RAC2_ADDR_0x001A7350u 0x001A73D0u /* the release's build */
 #define RAC2_ADDR_0x001A7354u 0x001A73D4u /* the release's build */
 #define RAC2_ADDR_0x001A7420u 0x001A74A0u /* the release's build */
+#define RAC2_ADDR_0x001A7428u 0x001A74A8u /* the release's build */
 #define RAC2_ADDR_0x001A79F0u 0x001A7A78u /* the release's build */
 #define RAC2_ADDR_0x001A79F8u 0x001A7A80u /* the release's build */
 #define RAC2_ADDR_0x001A7AF8u 0x001A7B80u /* the release's build */
@@ -143,6 +145,7 @@
 #define RAC2_LADDR_00_0x00255BA0u 0x00255BE0u /* the release's build */
 #define RAC2_LADDR_00_0x00262570u 0x00262570u /* versionmap: exact */
 /* Constants of the game's code (RAC2_K): the same instruction's in this release. */
+#define RAC2_K_PICTURE_TOP 16 /* the lines the 416-line picture sits below the top of the 2D screen (PAL: 448 lines) */
 #define RAC2_K_CAMERA_CURSOR 0x2D8 /* v1.01 0x2A8; func_0033C738 as func_0033E608: 4 instructions */
 #define RAC2_K_HELP_0 0xBB7 /* v1.01 0x2DA6; word 0 of the table at 0x00265030 (v1.01's 0x002652B0) */
 #define RAC2_K_HELP_1 0xBB8 /* v1.01 0x2DA7; word 1 of the table at 0x00265030 (v1.01's 0x002652B0) */

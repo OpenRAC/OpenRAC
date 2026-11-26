@@ -180,6 +180,79 @@ struct QuadMark {
     bool zbuf_seen;
 };
 
+// Reports actual placement drops, including anchors that exist only earlier in walk order.
+void note_recorder_drops(
+    const renderer::FrameRecording& recording,
+    std::span<const std::uint32_t> tags,
+    std::span<const std::size_t> places,
+    std::uint32_t chain
+) {
+    const std::size_t dropped =
+        static_cast<std::size_t>(std::count(places.begin(), places.end(), renderer::kDropped));
+    stats::gauge("recorder anchors missed", static_cast<double>(dropped));
+
+    // Told as the dropped anchors are (tell_dropped_anchors): a few in a row in each level and game
+    // context, so that a screen reached late in a session is still told.
+    if (dropped == 0 || !tell_dropped_anchors()) {
+        return;
+    }
+
+    log::warn(
+        "frame recorder: {} of {} commands dropped (chain {:08x}, recording {}, {} tags; frame {}, "
+        "level {}, {})",
+        dropped,
+        recording.commands.size(),
+        chain,
+        recording.serial,
+        tags.size(),
+        g->index,
+        g_recorder_situation.level,
+        g_recorder_situation.context
+    );
+
+    // The commands' detail only for a situation's first drop: those told after it in the same
+    // situation are mostly the same list sent again.
+    static RecorderSituation detailed_for{-2, {}};
+    if (g_recorder_situation == detailed_for) {
+        return;
+    }
+    detailed_for = g_recorder_situation;
+
+    // A malformed recording can contain many commands; the first eight bound each warning's detail.
+    constexpr std::size_t kMostDetails = 8;
+    for (std::size_t n = 0; n < std::min(places.size(), kMostDetails); ++n) {
+        const renderer::FrameCommand& command = recording.commands[n];
+
+        // Report surviving commands too, so a partial match identifies its successful anchor.
+        if (places[n] != renderer::kDropped) {
+            log::warn(
+                "frame recorder: command {} {} anchor {:08x} at tag {}",
+                n,
+                renderer::frame_op_name(command.op),
+                command.anchor,
+                places[n]
+            );
+            continue;
+        }
+
+        const char* reason = "inherits dropped predecessor";
+
+        // An anchor can be missing entirely or already behind the forward-only search cursor.
+        if (command.anchor != 0) {
+            const bool found = std::find(tags.begin(), tags.end(), command.anchor) != tags.end();
+            reason = found ? "tag only before preceding placement" : "no tag reached";
+        }
+
+        log::warn(
+            "frame recorder: command {} {} anchor {:08x} dropped: {}",
+            n,
+            renderer::frame_op_name(command.op),
+            command.anchor,
+            reason
+        );
+    }
+}
+
 std::vector<std::uint8_t> direct_packets(
     std::span<const std::uint8_t> ram,
     std::uint32_t chain,
@@ -195,7 +268,8 @@ std::vector<std::uint8_t> direct_packets(
     const renderer::FrameRecorder* recorder = nullptr,
     const renderer::FrameRecording** recorded = nullptr,
     std::vector<renderer::FrameSplice>* splices = nullptr,
-    std::span<const std::uint32_t> earlier = {}
+    std::span<const std::uint32_t> earlier = {},
+    std::vector<renderer::UiImage>* effect_images = nullptr
 ) {
     std::vector<std::uint8_t> vif;
     // The submitted root selects a producer-owned generation before any anchor is considered: the
@@ -292,6 +366,22 @@ std::vector<std::uint8_t> direct_packets(
                     break;
                 case 3:  // ref
                 case 4:  // refs
+                    if (env::flag(env::Var::UiResidual)) {
+                        // OPENRAC_UI_RESIDUAL: each fixed packet the list refers to, once, so the
+                        // game's routine that sent it can be found by its address.
+                        static std::vector<std::uint64_t> noted_refs;
+                        const std::uint64_t key = (static_cast<std::uint64_t>(addr) << 16) | qwc;
+                        if (std::find(noted_refs.begin(), noted_refs.end(), key) == noted_refs.end()
+                            && noted_refs.size() < 600) {
+                            noted_refs.push_back(key);
+                            log::info(
+                                "ui residual ref: tag at {:#x} sends {:#x} ({} quadwords)",
+                                tag_at,
+                                addr,
+                                qwc
+                            );
+                        }
+                    }
                     from_spr ? append_scratchpad(addr, qwc * 16) : append(addr, qwc * 16);
                     tag_at = after;
                     break;
@@ -324,36 +414,18 @@ std::vector<std::uint8_t> direct_packets(
 
     // The recording this list was built with, and where each of its commands goes in `vif`.
     const renderer::FrameRecording* recording =
-        recorder != nullptr ? recorder->match(tag_addresses) : nullptr;
+        recorder != nullptr ? recorder->match(list_root, tag_addresses) : nullptr;
     std::vector<std::size_t> command_vif;
     if (recording != nullptr) {
-        for (const std::size_t t : renderer::place_commands(*recording, tag_addresses)) {
+        const std::vector<std::size_t> places = renderer::place_commands(*recording, tag_addresses);
+        for (const std::size_t t : places) {
             command_vif.push_back(
                 t == renderer::kDropped ? renderer::kDropped
                 : t < tag_vif.size()    ? tag_vif[t]
                                         : vif.size()
             );
         }
-        // Anchors that name no tag of the list: their commands are dropped (the list never got
-        // there), as the markers once written there would not have been in it.
-        std::vector<std::uint32_t> sorted = tag_addresses;
-        std::sort(sorted.begin(), sorted.end());
-        int missed = 0;
-        for (const renderer::FrameCommand& c : recording->commands) {
-            missed += c.anchor != 0 && !std::binary_search(sorted.begin(), sorted.end(), c.anchor);
-        }
-        stats::gauge("recorder anchors missed", double(missed));
-        if (missed > 0 && tell_dropped_anchors()) {
-            log::warn(
-                "frame recorder: {} of {} commands anchored where the display list has no tag "
-                "(dropped; frame {}, level {}, {})",
-                missed,
-                recording->commands.size(),
-                g->index,
-                g_recorder_situation.level,
-                g_recorder_situation.context
-            );
-        }
+        note_recorder_drops(*recording, tag_addresses, places, chain);
     }
     if (recorded != nullptr) {
         *recorded = recording;
@@ -634,6 +706,16 @@ std::vector<std::uint8_t> direct_packets(
                         strips_after_early_effects = strips->size();
                     }
                     break;
+                case renderer::FrameOp::WorldShrubs:
+                    // Only after the world has started, as OPENRAC_WORLD_SHRUBS_MARKER's.
+                    if (strips != nullptr && strips_at_world && !strips_after_early_effects) {
+                        strips_after_early_effects = strips->size();
+                    }
+                    break;
+                case renderer::FrameOp::EffectParent:
+                    previous_effect_parent = c.index;
+                    previous_effect_parent_position_only = (c.value & 1u) != 0;
+                    break;
                 case renderer::FrameOp::Mobys:
                     if (moby_marker != nullptr && *moby_marker == SIZE_MAX) {
                         *moby_marker = gif.size();
@@ -646,6 +728,61 @@ std::vector<std::uint8_t> direct_packets(
                         );
                     }
                     break;
+                case renderer::FrameOp::Strip: {
+                    // A native strip (openrac_frame_strip): its material and vertices as recorded,
+                    // in order with the chain's own strips, its image kept with the tick's.
+                    if (strips == nullptr || strip_vertices == nullptr || effect_images == nullptr
+                        || c.index >= recording->strips.size()) {
+                        break;
+                    }
+                    const renderer::StripRecord& r = recording->strips[c.index];
+                    if (r.first > recording->strip_vertices.size()
+                        || r.count > recording->strip_vertices.size() - r.first
+                        || (!r.untextured && r.image >= recording->images.size())) {
+                        break;
+                    }
+                    renderer::EffectStrip strip;
+                    strip.first = static_cast<std::uint32_t>(strip_vertices->size());
+                    strip.count = r.count;
+                    strip.native = true;
+                    strip.untextured = r.untextured;
+                    strip.state = r.state;
+                    if (r.chain_depth && r.state.depth_write) {
+                        strip.chain_depth = true;
+                        strip.state.depth_write = false;
+                    }
+                    strip.previous_parent = previous_effect_parent;
+                    strip.previous_parent_position_only = previous_effect_parent_position_only;
+                    strip.before_mobys = r.liquid;
+                    if (r.fogged) {
+                        strip.fogged = true;
+                        strip.fog = {
+                            (1.0f / renderer::world::kNear) * r.fog[0], r.fog[1], r.fog[2], r.fog[3]
+                        };
+                        strip.fog_colour = r.fog_colour;
+                    }
+                    if (!r.untextured) {
+                        const renderer::UiImage& image = recording->images[r.image];
+                        std::size_t at = 0;
+                        while (at < effect_images->size()
+                               && !(
+                                   (*effect_images)[at].hash == image.hash
+                                   && (*effect_images)[at].image == image.image
+                               )) {
+                            ++at;
+                        }
+                        if (at == effect_images->size()) {
+                            effect_images->push_back(image);
+                        }
+                        strip.image = static_cast<std::uint32_t>(at + 1);
+                    }
+                    for (std::uint32_t k = 0; k < r.count; ++k) {
+                        const renderer::StripVertex& v = recording->strip_vertices[r.first + k];
+                        strip_vertices->push_back({v.x, v.y, v.z, v.s, v.t, v.rgba});
+                    }
+                    strips->push_back(strip);
+                    break;
+                }
                 case renderer::FrameOp::EffectQuad:
                     if (quad_marks != nullptr) {
                         quad_marks->push_back(
@@ -851,6 +988,9 @@ std::vector<std::uint8_t> direct_packets(
         // Mark only strips collected in this display list.
         for (std::size_t i = from; i < *strips_after_early_effects && i < strips->size(); ++i) {
             (*strips)[i].before_mobys = true;
+            if ((*strips)[i].chain_depth) {
+                (*strips)[i].state.depth_write = true;
+            }
         }
     }
     return gif;
@@ -3317,7 +3457,8 @@ TickPackets capture_2d_path(
         &g->recorder,
         &recorded,
         &splices,
-        sent_chain ? earlier : std::span<const std::uint32_t>{}
+        sent_chain ? earlier : std::span<const std::uint32_t>{},
+        &g->effect_images
     );
     // The strips that sample the game's frame copy are drawn from the window's own picture.
     for (renderer::EffectStrip& strip : strips) {
@@ -3332,9 +3473,12 @@ TickPackets capture_2d_path(
     );
     static int haze_logged = 0;
     const bool log_haze = haze_log && haze_logged < 12
-                          && std::ranges::any_of(strips, [](const renderer::EffectStrip& s) {
-                                 return s.frame_copy || ((s.alpha & 0xFF) == 0x54);
-                             });
+                          && std::ranges::any_of(
+                              strips,
+                              [](const renderer::EffectStrip& s) {
+                                  return s.frame_copy || ((s.alpha & 0xFF) == 0x54);
+                              }
+                          );
     if (log_haze) {
         ++haze_logged;
         log::info(
@@ -3351,9 +3495,9 @@ TickPackets capture_2d_path(
             if (!near_copy) {
                 continue;
             }
-            const renderer::EffectVertex v0 =
-                s.count > 0 && s.first < strip_vertices.size() ? strip_vertices[s.first]
-                                                               : renderer::EffectVertex{};
+            const renderer::EffectVertex v0 = s.count > 0 && s.first < strip_vertices.size()
+                                                  ? strip_vertices[s.first]
+                                                  : renderer::EffectVertex{};
             log::info(
                 "  strip {}: count {} tex0 {:#x} alpha {:#x} test {:#x} copy {} uploads {} "
                 "noblend {} v0 ({:.3f} {:.3f} {:.3f}) st ({:.3f} {:.3f}) rgba {:#010x}",
@@ -3379,12 +3523,18 @@ TickPackets capture_2d_path(
         renderer::frame_copy_haze(strips, strip_vertices, k.haze);
     }
     if (log_haze) {
-        log::info("  -> {} haze patches, {} strips left", k.haze.size() - haze_before, strips.size());
+        log::info(
+            "  -> {} haze patches, {} strips left", k.haze.size() - haze_before, strips.size()
+        );
         for (std::size_t i = haze_before; i < k.haze.size(); ++i) {
             const auto& p = k.haze[i];
             log::info(
                 "  patch ({:.2f} {:.2f} {:.2f}) radius {:.3f} strength {:.4f}",
-                p[0], p[1], p[2], p[3], p[4]
+                p[0],
+                p[1],
+                p[2],
+                p[3],
+                p[4]
             );
         }
     }
@@ -3407,6 +3557,23 @@ TickPackets capture_2d_path(
     if (const renderer::FrameRecording* last = g->recorder.latest()) {
         k.views = last->views;
     }
+    const Result<void> view_submission = k.recording.resolve_views(k.splices);
+
+    // The render worker reports unsupported scoping before any partial or whole-target effect can run.
+    if (!view_submission) {
+        k.recording.view_error = view_submission.error().message;
+    }
+
+    // The views the window draws are the latest recording's: they take the effects scheduled on the
+    // matched recording's own view of the same player.
+    for (renderer::FrameView& drawn : k.views) {
+        for (const renderer::FrameView& own : k.recording.views) {
+            if (own.view == drawn.view) {
+                drawn.screen_effects = own.screen_effects;
+            }
+        }
+    }
+
     // The effect quads the list marks (openrac_game_effect_quad_marker) take the TEST and ZBUF in
     // effect there: Going Commando's flight sparks and flames test alpha GEQUAL 0x60, and the
     // pixels that pass write Z. A list of this tick marks this tick's quads. Going Commando's list
@@ -3416,6 +3583,11 @@ TickPackets capture_2d_path(
     // state the last tick drew with two TESTs, is drawn as before: no alpha test, no Z).
     std::size_t quads_marked = 0, marks_stale = 0;
     const auto apply = [&](renderer::EffectQuad& q, std::uint64_t test, std::uint64_t zbuf) {
+        // A native quad's material is its whole state: the list's registers are not its own.
+        if (q.native) {
+            return;
+        }
+
         q.test = test;
         q.zbuf = zbuf;
         q.registers = test != 0;
@@ -3524,7 +3696,11 @@ TickPackets capture_2d_path(
     // stars are under its mobys. It splits at the world's marker its moby pass put in the boot
     // program's list; a list the game resends while it reads the disc, which ends before that
     // pass's marker, has the world over all of it.
-    const bool loading = g->render.profile->loading_world() >= 0 && world_to_draw(ram, level) == -2;
+    // A loading screen of 2D alone (Up Your Arsenal's Vid-comic transition) has no moby pass to split
+    // at: its 2D goes over the world's clear.
+    const bool loading =
+        g->render.profile->loading_world() >= 0 && world_to_draw(ram, level) == -2
+        && (openrac_game_loading_draws_world == nullptr || openrac_game_loading_draws_world() != 0);
     if (loading && world_marker == SIZE_MAX) {
         before_world = k.packets.size();
     }
@@ -3662,6 +3838,7 @@ void keep_effects(
     // stars and galaxy turn a little each pass (SkyDraw's copy, 0x003CE568).
     k.prev_sky_shells = k.sky_shells;
     k.prev_sky_shell_mask = sky_adjacent ? k.sky_shell_mask : 0u;
+    k.effect_images = std::move(g->effect_images);
     k.sky_shells = g->sky_shells;
     k.sky_shell_mask = std::exchange(g->sky_shell_mask, 0u);
     // The list's own tick's quads (above). The game's FadeToBlack (after a story card, between
@@ -3676,6 +3853,7 @@ void keep_effects(
     g->ui_quads.clear();
     g->effects.clear();
     g->effect_uploads.clear();
+    g->effect_images.clear();
     g->particles.clear();
     g->sky_sprites.clear();
 }
@@ -4001,6 +4179,7 @@ bool frame(
         ++g->effect_generation;
         g->effect_states_before.clear();
         g->effect_uploads.clear();
+        g->effect_images.clear();
         // effect_quad's notes of the cleared quads go with them: effect_textures() would read
         // them against the next tick's quads.
         g->effect_texture_ids.clear();

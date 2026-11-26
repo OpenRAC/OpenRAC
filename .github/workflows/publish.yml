@@ -5,6 +5,10 @@
 # on master. The notes become the release's text. A draft without a notes file
 # stays a draft, to be published by hand as before.
 name: publish
+# A unique title for each run: the run number and the run that started it.
+run-name: >-
+  ${{ format('publish #{0} · after {1} #{2} · {3}', github.run_number, github.event.workflow_run.name,
+  github.event.workflow_run.run_number, github.event.workflow_run.head_branch) }}
 
 on:
   workflow_run:
@@ -23,7 +27,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
+  publish_release:
+    name: publish_release
     runs-on: ubuntu-26.04
     if: github.event.workflow_run.conclusion == 'success'
     timeout-minutes: 10

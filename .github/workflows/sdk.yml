@@ -10,6 +10,15 @@
 #
 # Every action is pinned to a commit, as in launcher.yml.
 name: sdk
+# Each run's title: a pull request's own title; otherwise the run number, what started it and where.
+run-name: >-
+  ${{ github.event_name == 'pull_request'
+      && github.event.pull_request.title
+  || github.ref_type == 'tag'
+      && format('sdk #{0} · tag {1}', github.run_number, github.ref_name)
+  || github.event_name == 'push'
+      && format('sdk #{0} · push {1}', github.run_number, github.ref_name)
+  || format('sdk #{0} · manual {1} · by {2}', github.run_number, github.ref_name, github.actor) }}
 
 on:
   push:
@@ -36,7 +45,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  archive:
+  sdk_archive:
+    name: sdk_archive
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -76,16 +86,17 @@ jobs:
           path: dist/*
 
   # The template and the example, built from the archive alone.
-  build:
-    needs: archive
+  sdk_build:
+    name: sdk_build_${{ matrix.name }}
+    needs: sdk_archive
     strategy:
       fail-fast: false
       matrix:
         # A pull request builds on Linux only (its runners are shared with every other check);
-        # master and an SDK tag build every system before anything is released. android-arm64 is
+        # master and an SDK tag build every system before anything is released. android_arm64 is
         # cross-built with the runner's NDK (Android's mods), no test run.
-        name: ${{ fromJSON(github.event_name == 'pull_request' && '["linux-x86_64"]' || '["linux-x86_64", "macos-arm64", "windows-x86_64", "android-arm64"]') }}
-    runs-on: ${{ matrix.name == 'macos-arm64' && 'macos-15' || matrix.name == 'windows-x86_64' && 'windows-2025' || 'ubuntu-24.04' }}
+        name: ${{ fromJSON(github.event_name == 'pull_request' && '["linux_x86_64"]' || '["linux_x86_64", "macos_arm64", "windows_x86_64", "android_arm64"]') }}
+    runs-on: ${{ matrix.name == 'macos_arm64' && 'macos-15' || matrix.name == 'windows_x86_64' && 'windows-2025' || 'ubuntu-24.04' }}
     timeout-minutes: 120
     defaults:
       run:
@@ -121,13 +132,13 @@ jobs:
             src="$RUNNER_TEMP/build/$(basename "$mod")"
             cp -r "$SDK/$mod" "$src"
             cmake -S "$src" -B "$src/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DOpenRACMod_DIR="$SDK/cmake" \
-              ${{ matrix.name == 'android-arm64' && '-DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28' || '' }}
+              ${{ matrix.name == 'android_arm64' && '-DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28' || '' }}
             cmake --build "$src/build"
             python "$SDK/tools/package_mod.py" -o "$RUNNER_TEMP/dist" "$src"/build/package/*
           done
           ls "$RUNNER_TEMP/dist"
       - name: Test the C++ layer
-        if: matrix.name != 'android-arm64'
+        if: matrix.name != 'android_arm64'
         run: |
           cmake -S "$SDK/tests" -B "$RUNNER_TEMP/build/sdk-tests" -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build "$RUNNER_TEMP/build/sdk-tests"
@@ -139,9 +150,10 @@ jobs:
           python "$SDK/tools/package_mod.py" -o "$RUNNER_TEMP/dist" "$SDK/template-script"
           ls "$RUNNER_TEMP/dist"
 
-  release:
+  sdk_release:
+    name: sdk_release
     if: startsWith(github.ref, 'refs/tags/sdk-v')
-    needs: [archive, build]
+    needs: [sdk_archive, sdk_build]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:

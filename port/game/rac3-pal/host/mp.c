@@ -31,7 +31,9 @@
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
 #include "rac3_coll_line.h"
+#include "rac3_screen.h"
 #include "rac3_version.h"
+#include "textures.h"
 #include "trig.h"
 
 void mp_openrac_game_register_functions(void);
@@ -65,10 +67,11 @@ void rac3_sound_reset(void); /* sound.c */
 #define MP_MAPS_LAST 55
 
 /* LoadExecPS2("cdrom0:\I5BOOTN.ELF;1", ...) came back to func_0013ADA8: the multiplayer
- * program's records copied over memory (exec.c), its functions in place of the boot program's,
- * and its crt0 run. */
+ * program's records copied over memory (exec.c), the images the boot program handed over let go
+ * with its memory (textures.c), its functions in place of the boot program's, and its crt0 run. */
 void rac3_mp_run(void) {
     memset(G(0x00100000u), 0, 0x02000000u - 0x00100000u);
+    rac3_textures_forget();
     openrac_guest_unregister_all();
     openrac_game_kernel_reset();
     rac3_sound_reset();
@@ -251,23 +254,24 @@ float mp_func_002804B0(float angle) {
     return rac3_sin(angle);
 }
 
-/* libpad (pad.c). */
-int func_0012EC90(int mode);
+/* libpad: the executable's pad update still runs its state machine (pad.c, "The multiplayer
+ * executable's libpad"); scePadEnd is the boot program's. */
+int rac3_mp_pad_init(int mode);
 int func_0012EF10(void);
-int func_0012F0B8(int port, int slot, int work);
-int func_0012F3F8(int port, int slot, int data);
-int func_0012F470(int port, int slot);
-int func_0012F5A8(int port, int slot);
-int func_0012F608(int port, int slot, int actno, int term);
-int func_0012F728(int port, int slot, int term, int offs);
-int func_0012F860(int port, int slot, int offs, int lock);
-int func_0012F918(int port, int slot, int data);
-int func_0012F9E0(int port, int slot, int data);
-int func_0012FC18(int port, int slot);
-int func_0012FC78(int port, int slot);
+int rac3_mp_pad_port_open(int port, int slot, int work);
+int rac3_mp_pad_read(int port, int slot, int data);
+int rac3_mp_pad_get_state(int port, int slot);
+int rac3_mp_pad_get_req_state(int port, int slot);
+int rac3_mp_pad_info_act(int port, int slot, int actno, int term);
+int rac3_mp_pad_info_mode(int port, int slot, int term, int offs);
+int rac3_mp_pad_set_main_mode(int port, int slot, int offs, int lock);
+int rac3_mp_pad_set_act_direct(int port, int slot, int data);
+int rac3_mp_pad_set_act_align(int port, int slot, int data);
+int rac3_mp_pad_info_press_mode(int port, int slot);
+int rac3_mp_pad_enter_press_mode(int port, int slot);
 
 int mp_func_0013C268(int mode) {
-    return func_0012EC90(mode);
+    return rac3_mp_pad_init(mode);
 }
 
 int mp_func_0013C4E8(void) {
@@ -275,47 +279,47 @@ int mp_func_0013C4E8(void) {
 }
 
 int mp_func_0013C690(int port, int slot, int work) {
-    return func_0012F0B8(port, slot, work);
+    return rac3_mp_pad_port_open(port, slot, work);
 }
 
 int mp_func_0013CA88(int port, int slot, int data) {
-    return func_0012F3F8(port, slot, data);
+    return rac3_mp_pad_read(port, slot, data);
 }
 
 int mp_func_0013CB00(int port, int slot) {
-    return func_0012F470(port, slot);
+    return rac3_mp_pad_get_state(port, slot);
 }
 
 int mp_func_0013CC38(int port, int slot) {
-    return func_0012F5A8(port, slot);
+    return rac3_mp_pad_get_req_state(port, slot);
 }
 
 int mp_func_0013CC98(int port, int slot, int actno, int term) {
-    return func_0012F608(port, slot, actno, term);
+    return rac3_mp_pad_info_act(port, slot, actno, term);
 }
 
 int mp_func_0013CDB8(int port, int slot, int term, int offs) {
-    return func_0012F728(port, slot, term, offs);
+    return rac3_mp_pad_info_mode(port, slot, term, offs);
 }
 
 int mp_func_0013CEF0(int port, int slot, int offs, int lock) {
-    return func_0012F860(port, slot, offs, lock);
+    return rac3_mp_pad_set_main_mode(port, slot, offs, lock);
 }
 
 int mp_func_0013CFA8(int port, int slot, int data) {
-    return func_0012F918(port, slot, data);
+    return rac3_mp_pad_set_act_direct(port, slot, data);
 }
 
 int mp_func_0013D070(int port, int slot, int data) {
-    return func_0012F9E0(port, slot, data);
+    return rac3_mp_pad_set_act_align(port, slot, data);
 }
 
 int mp_func_0013D2A8(int port, int slot) {
-    return func_0012FC18(port, slot);
+    return rac3_mp_pad_info_press_mode(port, slot);
 }
 
 int mp_func_0013D308(int port, int slot) {
-    return func_0012FC78(port, slot);
+    return rac3_mp_pad_enter_press_mode(port, slot);
 }
 
 /* The WAD decompressor (wad.c). */
@@ -374,21 +378,20 @@ int mp_func_L39_005A9AA0(int source, int destination) {
 }
 
 /* Level 39's copies of the screen glow (the catalogue's func_L01_004DE670, func_L01_004DE6F0 and
- * func_L01_004DF310 at 39:0060DFC8, 39:0060E048 and 39:0060EC68): left out as render.c leaves the
- * boot program's levels' (their packets copy and blur the frame and add it back; replayed, they
- * covered the menus in one colour). The word each sets for the frame ($gp - 0x240C) is kept. */
-#define MP_MENUS_GLOW_WORD RAC3_LADDR(39, 0x00245BB4u)
+ * func_L01_004DF310 at 39:0060DFC8, 39:0060E048 and 39:0060EC68), drawn natively as the
+ * single-player levels' are (screen.c), from level 39's globals: the glow word at $gp - 0x240C,
+ * the blur byte 0x24 after it, the list pointer at 0x0024CAD0. */
+static const Rac3Glow kMenusGlow =
+    {RAC3_LADDR(39, 0x00245BB4u), RAC3_LADDR(39, 0x00245BD8u), RAC3_LADDR(39, 0x0024CAD0u)};
 
 int mp_func_L39_0060DFC8(void) {
-    GREF(int32_t, MP_MENUS_GLOW_WORD) = 0x6000;
-    return 0;
+    return rac3_screen_glow(&kMenusGlow);
 }
 
 int mp_func_L39_0060E048(void) {
-    GREF(int32_t, MP_MENUS_GLOW_WORD) = 0;
-    return 0;
+    return rac3_screen_glow_end(&kMenusGlow);
 }
 
 int mp_func_L39_0060EC68(void) {
-    return 0;
+    return rac3_screen_soften(kMenusGlow.list);
 }

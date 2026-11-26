@@ -12,7 +12,20 @@
   "top": "0x00250000",
   "save_folder": "BESCES-50916RATCHET",
   "omit": {
-    "func_001E9E70": "The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here)."
+    "func_L12_002E8530": "Hoven's and Oltanis' effect lists on the native strip record (strips.c): carried to PAL v2.00 first; its addresses are not carried to this disc, so it keeps the game's own draw.",
+    "func_L14_00308EB0": "Hoven's and Oltanis' effect lists on the native strip record (strips.c): carried to PAL v2.00 first; its addresses are not carried to this disc, so it keeps the game's own draw.",
+    "func_001E9E70": "The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here).",
+    "func_001F5148": "Native letterbox bars (letterbox.c): their caller state is proved on PAL v2.00's level 6 only.",
+    "func_001F55C0": "Native screen tint (screen_fade.c): checked on PAL v2.00 only.",
+    "func_001FB848": "The AA pass left out natively (screen_fade.c): checked on PAL v2.00 only.",
+    "func_001FB8A8": "The small-buffer copy left out natively (screen_fade.c): checked on PAL v2.00 only.",
+    "func_001F4E08": "Native fade to black (screen_fade.c): checked on PAL v2.00 only.",
+    "func_001F5368": "Native stripes of the screen colour effect (screen_fade.c): checked on PAL v2.00 only.",
+    "func_L00_002A21A8": "The frame copy's read as a port picture (screen_copy.c): checked on PAL v2.00 only.",
+    "func_L00_002A2258": "The frame copy's write as a port picture (screen_copy.c): checked on PAL v2.00 only.",
+    "func_001FB608": "The vendor and pause panels as recorder panels (render_panel.c): checked on PAL v2.00 only.",
+    "func_001FB498": "The vendor and pause panels as recorder panels (render_panel.c): checked on PAL v2.00 only.",
+    "func_001FB908": "The vendor and pause panels as recorder panels (render_panel.c): checked on PAL v2.00 only."
   },
   "libraries": {
     "func_E1_001240C0": [

@@ -160,8 +160,8 @@ pipeline cache are saved on `Context::cache_saver` at each load, every two minut
 
 Built-in programs load from the build-generated shader package before consulting the writable
 SPIR-V cache. The CPU-only [shader compiler](../../tools/shader_compiler/README.md) assembles the
-supported variants, emits SPIR-V and reflection, and embeds its compressed archive into the
-renderer. Device-specific pipeline creation and prewarming stay here. Material texture-array
+supported variants, emits SPIR-V and reflection, and puts its compressed archive in
+`libopenrac-shaders`, one shared library that every program loads. Device-specific pipeline creation and prewarming stay here. Material texture-array
 capacity is specialization constant 901, alongside the clip-space and feature-mode constants.
 
 `Context::spirv_cache` keeps development-time compiler results between runs (R-12), by hashes of

@@ -528,6 +528,20 @@ void check_kept_pictures(const fs::path& root) {
     image = hud;
     CHECK(texture_pack::replace(image, {.interface = true, .later = true}) && image.width == 16);
     CHECK(reads() == after_reader);
+
+    // Read ahead before the game learns the GPU's block format: a PNG has no blocks, so it is
+    // still used after the format is set, without reading it again.
+    texture_pack::set_block_format(BlockFormat::None);
+    texture_pack::configure(root, {}, {counted_load, save});
+    texture_pack::preload();
+    texture_pack::finish_preload();
+    texture_pack::set_block_format(BlockFormat::Bc7);
+    reads() = 0;
+    CHECK(texture_pack::is_kept(texture_pack::image_hash(hud)));
+    image = hud;
+    CHECK(texture_pack::replace(image, {.interface = true, .later = true}) && image.width == 16);
+    CHECK(reads() == 0);
+    texture_pack::set_block_format(BlockFormat::None);
     fs::remove_all(root);
 }
 

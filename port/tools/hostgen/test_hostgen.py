@@ -1236,22 +1236,155 @@ class Translate(unittest.TestCase):
 
     def test_asm_statements_the_host_does_not_run_are_reported(self):
         # Clang's JSON leaves out an asm statement's text (clangast.asm_strings reads it): a sync or
-        # a nop is a barrier; VU0 code the host does not run stays one too, and the report lists it
-        # (rac1-decomp's func_001F7E98, src/game/drawquad.c).
+        # a nop is a barrier; VU0 code the host does not run (a microprogram; the rest is C,
+        # vu0asm.py) stays one too, and the report lists it.
         out = self.run_program({"a.c": """
             int ordered(int x) { __asm__ __volatile__("sync.l"); __asm__ __volatile__("nop"); return x + 1; }
             float vu0(float *p) {
                 float t;
                 __asm__ __volatile__(
                     "lqc2 $vf1,0(%1)\\n\\t"
-                    "vaddw.xyz $vf24,$vf0,$vf0w"
+                    "vcallms 0x100"
                     : "=f"(t) : "r"(p) : "memory");
                 return t;
             }
             int test_main(void) { test_print(ordered(41)); return 0; }
         """})
         self.assertEqual(out, ["42"])
-        self.assertEqual(self.last_report["inline_assembly_skipped"], {"vu0": "lqc2, vaddw.xyz"})
+        self.assertEqual(self.last_report["inline_assembly_skipped"], {"vu0": "lqc2, vcallms"})
+
+    VU0_TYPES = """
+        typedef struct { float x, y, z, w; } __attribute__((aligned(16))) V4;
+        static void show(V4 *v) {
+            test_print((int)(v->x * 100.0f)); test_print((int)(v->y * 100.0f));
+            test_print((int)(v->z * 100.0f)); test_print((int)(v->w * 100.0f));
+        }
+    """
+
+    def test_vu0_asm_on_register_operands_is_c_on_the_variables(self):
+        # GCC's "j" class (a VU0 register) reaches Clang as "m" (prep.py), and each statement is C
+        # on the C variables (vu0asm.py): rac3-decomp's src/frontbin/003C1440.c. vadd.xyz into an
+        # output of its own keeps its first source's w, as GCC's register reuse there does.
+        out = self.run_program({"a.c": self.VU0_TYPES + """
+            void step(V4 *pos, V4 *vel) {
+                V4 a, b, c;
+                __asm__("lqc2 %0, %1" : "=j"(a) : "m"(*pos));
+                __asm__("lqc2 %0, %1" : "=j"(b) : "m"(*vel));
+                __asm__("vadd.xyz %0, %1, %2" : "=&j"(c) : "j"(a), "j"(b));
+                __asm__("vsub.xyz %0, %0, %1" : "+j"(c) : "j"(b));
+                __asm__("vadd.xyz %0, %1, %2" : "=j"(c) : "j"(c), "j"(b));
+                __asm__("sqc2 %1, %0" : "=m"(*pos) : "j"(c));
+            }
+            int test_main(void) {
+                V4 p = {1.0f, 2.0f, 3.0f, 9.0f}, v = {0.5f, -1.0f, 0.25f, 7.0f};
+                step(&p, &v);
+                show(&p);
+                return 0;
+            }
+        """})
+        self.assertEqual(out, ["150", "100", "325", "900"])
+        self.assertEqual(self.last_report["inline_assembly_skipped"], {})
+        self.assertNotIn("OPENRAC_VU0", self.last_generated)
+
+    def test_vu0_asm_on_named_registers_is_c_on_the_functions_own_unit(self):
+        # Named registers are the function's own vector unit, a local: vf1 and ACC carry from one
+        # statement to the next in the function, as rac3-decomp's src/frontbin/38DA10.c and
+        # levels/shared/L01_0040E408.c have them (mfc1 through $at, qmtc2, vdiv and Q).
+        out = self.run_program({"a.c": self.VU0_TYPES + """
+            void scale(float *dst, float *src, float f) {
+                __asm__ __volatile__(
+                    ".set noat\\n\\t"
+                    "mfc1 $at, %2\\n\\t"
+                    "lqc2 $vf1, 0(%1)\\n\\t"
+                    "qmtc2.ni $at, $vf2\\n\\t"
+                    "vdiv Q, $vf0w, $vf2x\\n\\t"
+                    "vwaitq\\n\\t"
+                    "vmulq.xyz $vf1, $vf1, Q\\n\\t"
+                    "sqc2 $vf1, 0(%0)\\n\\t"
+                    ".set at"
+                    : : "r"(dst), "r"(src), "f"(f) : "$1", "memory");
+            }
+            void row(V4 *out, V4 *m, V4 *v) {
+                __asm__ __volatile__("lqc2 $vf5, %0\\n\\tlqc2 $vf1, 0(%1)\\n\\tlqc2 $vf2, 16(%1)"
+                                     : : "m"(*v), "r"(m));
+                __asm__ __volatile__("vmulax.xyzw ACC, $vf1, $vf5x\\n\\tvmadday.xyzw ACC, $vf2, $vf5y");
+                __asm__ __volatile__("vmaddw.xyzw $vf6, $vf0, $vf5w\\n\\tsqc2 $vf6, %0" : "=m"(*out));
+            }
+            int test_main(void) {
+                V4 a = {1.0f, 2.0f, 4.0f, 3.0f}, d;
+                V4 m[2] = {{1.0f, 0.0f, 0.0f, 0.0f}, {0.0f, 2.0f, 0.0f, 0.0f}}, v = {3.0f, 5.0f, 0.0f, 1.0f};
+                scale((float *)&d, (float *)&a, 4.0f);
+                show(&d);
+                row(&d, m, &v);
+                show(&d);
+                return 0;
+            }
+        """})
+        self.assertEqual(out, ["25", "50", "100", "300", "300", "1000", "0", "100"])
+        self.assertEqual(self.last_report["inline_assembly_skipped"], {})
+
+    def test_vu0_asm_moves_to_an_integer_output(self):
+        # qmfc2 to an "r" output, a doubleword shift on it: rac3-decomp's levels/shared/L02_003E71A8.c.
+        out = self.run_program({"a.c": """
+            int near(float *a, float *b, float r) {
+                long x;
+                __asm__ __volatile__(
+                    ".set noat\\n"
+                    "lqc2 $vf1, 0(%1)\\n"
+                    "lqc2 $vf2, 0(%2)\\n"
+                    "mfc1 $at, %3\\n"
+                    "vsub.xyz $vf1, $vf1, $vf2\\n"
+                    "qmtc2.ni $at, $vf4\\n"
+                    "vaddw.xyz $vf3, $vf0, $vf0w\\n"
+                    "vmul.x $vf4, $vf4, $vf4\\n"
+                    "vmul.xyz $vf1, $vf1, $vf1\\n"
+                    "vadday.x ACC, $vf1, $vf1y\\n"
+                    "vmaddaz.x ACC, $vf3, $vf1z\\n"
+                    "vmsubx.x $vf1, $vf3, $vf4x\\n"
+                    "qmfc2.ni %0, $vf1\\n"
+                    "dsll32 %0, %0, 0\\n"
+                    ".set at\\n"
+                    : "=r"(x) : "r"(a), "r"(b), "f"(r) : "memory");
+                return x < 1;
+            }
+            int test_main(void) {
+                float a[4] __attribute__((aligned(16))) = {1.0f, 1.0f, 1.0f, 0.0f};
+                float b[4] __attribute__((aligned(16))) = {0.0f, 0.0f, 0.0f, 0.0f};
+                test_print(near(a, b, 2.0f));
+                test_print(near(a, b, 1.0f));
+                return 0;
+            }
+        """})
+        self.assertEqual(out, ["1", "0"])
+
+    def test_vu0_asm_reads_the_argument_registers_as_the_first_statement(self):
+        # sqc2 through $4 with nothing before it in the function: the first argument (rac3-decomp's
+        # levels/shared/L01_0040E388.c writes 0(%0) with "r"(a0); frontbin's 38D278.c names $4).
+        out = self.run_program({"a.c": self.VU0_TYPES + """
+            void ones(V4 *a0) {
+                __asm__ __volatile__("vmaxw.xyzw $vf1, $vf0, $vf0w\\nnop\\nsqc2 $vf1, 0($4)\\n" : : : "memory");
+            }
+            int test_main(void) { V4 v; ones(&v); show(&v); return 0; }
+        """})
+        self.assertEqual(out, ["100", "100", "100", "100"])
+
+    def test_vu0_asm_that_reads_what_its_function_did_not_write_stays_out(self):
+        # A named register no statement of the function wrote holds what someone else left there
+        # (a hand-written routine's result): there is no such value here. A statement on named
+        # registers only stays a barrier, reported; one on register operands makes the function a
+        # stub, as when Clang refused it.
+        out = self.run_program({"a.c": self.VU0_TYPES + """
+            void leftover(V4 *out) { __asm__ __volatile__("sqc2 $vf3, %0" : "=m"(*out)); }
+            void program(V4 *v) {
+                V4 a;
+                __asm__("vcallms 0x10\\n\\tvmove.xyzw %0, $vf1" : "=j"(a));
+                *v = a;
+            }
+            int test_main(void) { V4 v = {1.0f, 2.0f, 3.0f, 4.0f}; leftover(&v); show(&v); return 0; }
+        """}, stubs=1)
+        self.assertEqual(out, ["100", "200", "300", "400"])
+        self.assertEqual(self.last_report["inline_assembly_skipped"], {"leftover": "sqc2"})
+        self.assertIn("program", self.last_report["stubbed"])
 
     def test_an_empty_asm_statement_hands_its_input_to_the_tied_output(self):
         # kputchar (rac1-decomp src/core/00119D88.c) hides an address from the optimizer with
@@ -1273,12 +1406,12 @@ class Translate(unittest.TestCase):
         # unreported, so no moby's update ran. Its instructions are read where the macro spells
         # them; what the host does not run is listed.
         out = self.run_program({"a.c": """
-            #define SPIN(x) __asm__ __volatile__("vnop\\n\\tvnop" : : "r"(x))
+            #define SPIN(x) __asm__ __volatile__("vnop\\n\\tvcallms 0x10" : : "r"(x))
             int loop(int seen) { SPIN(seen); return seen; }
             int test_main(void) { test_print(loop(3)); return 0; }
         """})
         self.assertEqual(out, ["3"])
-        self.assertEqual(self.last_report["inline_assembly_skipped"], {"loop": "vnop"})
+        self.assertEqual(self.last_report["inline_assembly_skipped"], {"loop": "vnop, vcallms"})
 
     def test_a_hook_call_in_asm_through_a_macro_runs(self):
         # MOBY_CALL_UPDATE's call (beqz, move $4, jalr, spelled in a macro) calls the hook with a0.
@@ -3637,6 +3770,18 @@ class Preparation(unittest.TestCase):
         self.assertEqual(out.count("\n"), src.count("\n"))
         self.assertNotIn("nop", out)
         self.assertIn('__asm__("sync")', out)
+
+    def test_vu0_register_operands_reach_clang_as_memory(self):
+        # GCC's "j" (a VU0 register) is "m" for Clang, in statements with VU0 instructions only and
+        # with every column kept; strings outside the operand lists stay as they are.
+        src = ('void f(void) { __asm__("vadd.xyz %0, %1, %2" : "=j"(x) : "j"(x), "j"(y));\n'
+               '__asm__ __volatile__("lqc2 %0, %1" : "=&j"(a) : "m"(b)); char *s = "=j";\n'
+               '__asm__("abs.s %0, %1" : "=j"(r) : "j"(q)); }\n')
+        out = prep.vu0_register_operands(src)
+        self.assertEqual([len(line) for line in out.split("\n")], [len(line) for line in src.split("\n")])
+        self.assertIn('"=m"(x) : "m"(x), "m"(y)', out)
+        self.assertIn('"=m" (a) : "m"(b)); char *s = "=j"', out)
+        self.assertIn('"abs.s %0, %1" : "=j"(r) : "j"(q)', out)
 
     def test_a_record_defined_in_a_cast_is_named_before_its_function(self):
         # Clang's JSON leaves such a record out; named and defined ahead of the function (the

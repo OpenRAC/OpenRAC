@@ -29,6 +29,7 @@
 
 #include "common/result.h"
 #include "renderer/effects/ambient_occlusion.h"
+#include "renderer/effects/effect_state.h"
 #include "renderer/effects/shadow_volume.h"
 #include "renderer/effects/water_impulse.h"
 #include "renderer/frame/frame_record.h"
@@ -113,6 +114,18 @@ struct EffectQuad {
     std::uint32_t parent = 0;
     // Physical attachment for current-tick geometry; callback ownership alone does not imply this.
     std::uint32_t attachment = 0;
+    // The quad samples the game's copy of the frame drawn so far (GameProfile::frame_copy_texture:
+    // Up Your Arsenal's refraction rings, the Nitro Launcher's implosion among them), its ST the
+    // place in the game's picture. Drawn from a native snapshot of the target taken before the
+    // pass's first such quad or strip, never from the chip's frame copy (EffectRenderer,
+    // frame_copy_st), as EffectStrip::frame_copy is.
+    bool frame_copy = false;
+    // Drawn with `state` (openrac_game_material_quad's native material) and FrameInput::
+    // effect_images[image - 1] (0: none; untextured says whether it samples one): clamp, tex0,
+    // tex1, alpha, uploads, tbp, cbp, test, zbuf and registers are then not read.
+    bool native = false;
+    EffectState state{};
+    std::uint32_t image = 0;
 };
 
 // A strip the game sent to its VU1 strip program (rac1: func_L00_001FDE48's packets: the seas,
@@ -166,6 +179,15 @@ struct EffectStrip {
     // Drawn from a native snapshot of the target taken before the pass's first such strip, never
     // from the chip's frame copy (EffectRenderer, frame_copy_st).
     bool frame_copy = false;
+    // Drawn with `state` (openrac_frame_strip's native material) and FrameInput::effect_images[
+    // image - 1] (0: none; untextured says whether it samples one): tex0, tex1, clamp, alpha, test,
+    // uploads and the z flags are then not read.
+    bool native = false;
+    bool untextured = false;
+    bool chain_depth =
+        false;  // state.depth_write is on only once the strip is placed before the mobys
+    EffectState state{};
+    std::uint32_t image = 0;
 };
 
 struct RenderTarget;
@@ -192,7 +214,7 @@ struct FrameInput {
     GtaoSettings gtao_settings;
     std::span<const ShadowCapsule> shadow_capsules;
     Vec3 shadow_extrusion{};
-    std::optional<std::array<float,2>> shadow_heights;
+    std::optional<std::array<float, 2>> shadow_heights;
     std::span<const ShadowSet> shadow_sets;  // further casters, each its own extrusion and slab
     // The packets the game built for each bucket this frame (empty when a
     // bucket has nothing, or its renderer draws from elsewhere).
@@ -220,6 +242,9 @@ struct FrameInput {
     // The frame's world effect quads, in the order the game drew them.
     std::span<const EffectQuad> effects{};
     std::span<const ImageUpload> effect_uploads{};
+    // The images the native effect quads sample (EffectQuad::image), decoded on the game's thread
+    // and owned by the tick's capture: never game memory.
+    std::span<const UiImage> effect_images{};
     // The sky shells' matrices as the game drew them (bit k of sky_shell_mask: shell k has one),
     // in the sky's own units; a shell without one is drawn as it is stored.
     std::array<Mat4, 8> sky_shells{};
@@ -247,8 +272,14 @@ struct FrameInput {
     // marker's value and the off-screen target bound (its framebuffer, its side in GL pixels, and
     // the centre of the game's projection in it, in the chip's pixels of its 512 square; whether
     // its depth is cleared first: the first mobys of a panel, not those drawn right after others).
-    std::function<void(std::uint64_t marker, unsigned framebuffer, int size, float centre_x, float centre_y,
-                       bool clear_depth)>
+    std::function<void(
+        std::uint64_t marker,
+        unsigned framebuffer,
+        int size,
+        float centre_x,
+        float centre_y,
+        bool clear_depth
+    )>
         target_mobys;
     // Mobys a menu drew on the screen over a world drawn under it, with a camera of their own (the
     // pause menu's frame objects while a party plays, frontend menu_layers.h): at their marker in

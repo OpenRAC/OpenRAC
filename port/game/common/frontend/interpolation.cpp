@@ -993,6 +993,11 @@ bool finish_render() try {
 }
 
 void draw_kept(bool first, bool held) try {
+    // OPENRAC_NO_RENDER: the game ticks, but no frame is built, drawn or presented.
+    static const bool no_render = env::flag(env::Var::NoRender);
+    if (no_render) {
+        return;
+    }
     sampler::note_thread("window");  // [debug tools] sampled while a capture runs
     // One in-flight snapshot bounds both latency and ownership of the current scene (and the
     // simulated slow processor's share of the window thread is spent there).
@@ -1030,6 +1035,11 @@ void draw_kept(bool first, bool held) try {
     mod_overlay::record_under_hud(output->overlay_phase, output->aspect, output->under_hud);
     debug_overlay::begin(first, g_held, output->alpha, g->kept->frame);
     pacing.last_alpha = output->alpha;
+    if (first) {
+        pacing.first_shown = std::clamp(
+            std::chrono::duration<double>(display - pacing.tick).count(), 0.0, pacing.period.count()
+        );
+    }
     frame_cost.mark = output->started;
     output->measure_cost = frame_cost.on;
     log_pacing(*output);
@@ -1146,9 +1156,16 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     // A frame only for a refresh the kept tick is still shown at (the next tick's, with the lag;
     // without it, any before the next tick's own frame).
     const auto display = next_display(now);
-    if (display >= between_limit(
-            next_tick, pacing.period, lag_ticks(), pacing.cost, pacing.interval, pacing.last_swap
-        )) {
+    const auto limit = between_limit(
+        next_tick,
+        pacing.period,
+        lag_ticks(),
+        pacing.cost,
+        pacing.interval,
+        pacing.last_swap,
+        pacing.first_shown
+    );
+    if (display >= limit) {
         if (motion_log_on()) {
             const auto ms = [](std::chrono::steady_clock::duration d) {
                 return std::chrono::duration<double, std::milli>(d).count();
@@ -1160,15 +1177,7 @@ int between(std::chrono::steady_clock::time_point next_tick) {
                 ms(now - pacing.tick),
                 ms(display - pacing.tick),
                 ms(next_tick - pacing.tick),
-                ms(between_limit(
-                       next_tick,
-                       pacing.period,
-                       lag_ticks(),
-                       pacing.cost,
-                       pacing.interval,
-                       pacing.last_swap
-                   )
-                   - pacing.tick),
+                ms(limit - pacing.tick),
                 ms(pacing.last_swap - pacing.tick),
                 pacing.interval * 1000.0
             );

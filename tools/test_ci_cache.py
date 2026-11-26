@@ -80,7 +80,10 @@ def cache_paths(step, preset):
     return block.replace("${{ inputs.preset }}", preset).replace("${{ env.OPENRAC_PBC_PRESET }}", preset)
 
 
-WRITERS_ONLY = 'if [ "$EVENT" = pull_request ] || [ "$EVENT" = merge_group ]'
+# Pull requests and master's queue never write; develop's queue hands its caches on
+# (.github/actions/cache-out).
+WRITERS_ONLY = ('if [ "$EVENT" = pull_request ] || '
+                '{ [ "$EVENT" = merge_group ] && [ "$BASE" != refs/heads/develop ]; }')
 
 
 class CachePolicy(unittest.TestCase):
@@ -116,6 +119,91 @@ class CachePolicy(unittest.TestCase):
         self.assertIn("openrac-ccache-mark", text)
         self.assertIn("key: ${{ env.OPENRAC_CCACHE_SAVE_KEY }}", save)
         self.assertIn("path: ${{ env.OPENRAC_CCACHE_SAVE_DIR }}", save)
+
+    def test_every_queue_hand_off_saves_what_a_push_saves(self):
+        """develop's queue hands on each cache under the key and paths a push saves it with."""
+        for name in ("compiler-cache/save", "port-build-cache/save"):
+            steps = action_steps(name)
+            saves = [step for step in steps if "uses: actions/cache/save@" in step]
+            outs = [step for step in steps if "uses: ./.github/actions/cache-out" in step]
+            self.assertEqual(len(saves), len(outs), name)
+            for save, out in zip(saves, outs):
+                self.assertIn("github.event_name != 'merge_group'", save)
+                self.assertIn("github.event_name == 'merge_group'", out)
+                self.assertEqual(save.split("with:")[1].replace("continue-on-error: true", "").split(),
+                                 out.split("with:")[1].split(), name)
+
+    def test_workflow_hand_offs_match_their_restores(self):
+        """checks.yml's own hand-offs use the key and paths its restore steps use."""
+        text = (ROOT / ".github/workflows/checks.yml").read_text()
+        for marker, restore_id in (("ms-playwright", "browser-cache"), ("openrac-enhanced-apt", "enhanced-apt"),
+                                   ("shader_package/.cache", "shader-cache")):
+            outs = [step for step in re.split(r"(?m)^      - ", text)
+                    if "uses: ./.github/actions/cache-out" in step and marker in step]
+            self.assertEqual(1, len(outs), marker)
+            self.assertIn("github.event_name == 'merge_group'", outs[0])
+            restore = next(step for step in re.split(r"(?m)^      - ", text)
+                           if (f"id: {restore_id}\n" in step or step.startswith(f"id: {restore_id}\n"))
+                           and "actions/cache/restore@" in step)
+            path = re.search(r"path: (.+)", outs[0]).group(1)
+            self.assertIn(f"path: {path}\n", restore, marker)
+            key = re.search(r"key: (.+)", outs[0]).group(1)
+            self.assertTrue(key in restore or f"steps.{restore_id}.outputs.cache-primary-key" in key, marker)
+
+    def test_cargo_hand_off_builds_with_the_launcher_jobs_key(self):
+        """rust-cache keys hash the toolchain inputs and some variables: cache_handoff's launcher
+        job must match checks.yml's Linux launcher job in both."""
+        checks = (ROOT / ".github/workflows/checks.yml").read_text()
+        handoff = (ROOT / ".github/workflows/cache-handoff.yml").read_text()
+        hashed = re.compile(r"(?m)^  ((?:CARGO|CC|CFLAGS|CXX|CMAKE|RUST)\w*): (.+)$")
+        top = checks.split("\njobs:")[0]
+        job = handoff.split("  launcher_cache:")[1]
+        self.assertEqual(sorted(hashed.findall(top)),
+                         sorted((name, value) for name, value in
+                                re.findall(r"(?m)^      ((?:CARGO|CC|CFLAGS|CXX|CMAKE|RUST)\w*): (.+)$", job)))
+        self.assertIn("cache-key: checks-launcher-${{ matrix.system == 'Windows' && 'windows-latest' || 'ubuntu-26.04' }}",
+                      checks)
+        self.assertIn("cache-key: checks-launcher-ubuntu-26.04", job)
+        launcher = checks.split("\n  launcher:\n")[1].split("\n  launcher_gate:")[0]
+        self.assertIn("runs-on: ${{ matrix.system == 'Windows' && 'windows-latest' || 'ubuntu-26.04' }}", launcher)
+        self.assertIn("runs-on: ubuntu-26.04", job)
+        for line in ("components: clippy", "cargo test -p openrac-launcher-core",
+                     "cargo clippy --workspace --all-targets -- -D warnings", "yarn build"):
+            self.assertIn(line, launcher)
+            self.assertIn(line, job)
+
+    def test_hand_off_round_trip(self):
+        """pack keeps what the paths match (globs, "!" exclusions, "~"); unpack puts it back."""
+        handoff = ROOT / ".github/actions/cache-out/handoff.py"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            work, home = root / "work", root / "home"
+            for path in ("build/a/keep.txt", "build/a/sub/deep.txt", "build/a/skip.o", "build/b/other.txt"):
+                (work / path).parent.mkdir(parents=True, exist_ok=True)
+                (work / path).write_text(path)
+            (home / ".cache/tool").mkdir(parents=True)
+            (home / ".cache/tool/bin").write_text("tool")
+            out, outputs = root / "out", root / "outputs"
+            key = "k" * 300
+            paths = "build/a\n!build/**/*.o\n~/.cache/tool"
+            env = {**os.environ, "KEY": key, "PATHS": paths, "HOME": str(home), "GITHUB_OUTPUT": str(outputs)}
+            subprocess.run(["python3", str(handoff), "pack", str(out)], cwd=work, env=env, check=True,
+                           capture_output=True)
+            name = re.search(r"name=(.+)", outputs.read_text()).group(1)
+            self.assertLess(len(name), 180)
+            shutil.rmtree(work / "build")
+            shutil.rmtree(home / ".cache")
+            outputs.unlink()
+            subprocess.run(["python3", str(handoff), "unpack", str(out / name), "1"], cwd=root, env=env,
+                           check=True, capture_output=True)
+            self.assertEqual("build/a/sub/deep.txt", (work / "build/a/sub/deep.txt").read_text())
+            self.assertTrue((work / "build/a/keep.txt").exists())
+            self.assertFalse((work / "build/a/skip.o").exists())
+            self.assertFalse((work / "build/b").exists())
+            self.assertEqual("tool", (home / ".cache/tool/bin").read_text())
+            text = outputs.read_text()
+            self.assertIn(key, text)
+            self.assertIn(paths, text)
 
     def test_compiler_cache_paths_match_existing_archive_versions(self):
         """Windows and POSIX path spelling must match ccache-action's cacheDir implementation."""

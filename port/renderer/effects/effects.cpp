@@ -189,6 +189,9 @@ bool before_mobys_writes_z(const EffectStrip& strip) {
 }
 
 bool liquid_pass_strip(const EffectStrip& strip) {
+    if (strip.native) {
+        return strip.before_mobys;
+    }
     // A strip sent before the world's mobys is drawn where the game drew it, with the liquids:
     // Dobbo's water (ALPHA 0x44, TEST 0x5310B, from the draw callback list after the ties), drawn
     // after the mobys, covered the Dynamo's platforms over it.
@@ -229,6 +232,10 @@ bool uses_frame_uploads(const gs::Tex0& texture, const FrameInput& input) {
 }  // namespace
 
 bool opaque_effect_strip(const EffectStrip& strip, std::span<const EffectVertex> vertices) {
+    // A native strip is drawn in its place with its own material: never moved to the opaque pass.
+    if (strip.native) {
+        return false;
+    }
     if (strip.surface != 0 || strip.z_masked || strip.count < 3 || strip.first > vertices.size()
         || strip.count > vertices.size() - strip.first
         || (!strip.z_written && !liquid_strip(strip.alpha, strip.test))) {
@@ -247,6 +254,11 @@ bool opaque_effect_strip(const EffectStrip& strip, std::span<const EffectVertex>
 }
 
 bool opaque_effect_quad(const EffectQuad& quad) {
+    // A native quad is drawn in its place among the quads: it is not moved to the opaque pass.
+    if (quad.native) {
+        return false;
+    }
+
     const bool full_vertex_alpha = !gs::Tex0::decode(quad.tex0).tcc
                                    && std::ranges::all_of(quad.rgba, [](std::uint32_t colour) {
                                           return (colour >> 24) == 0x80;
@@ -279,6 +291,11 @@ bool EffectRenderer::draws(const EffectStrip& strip, const FrameInput& input) co
 }
 
 bool EffectRenderer::draws(const EffectQuad& quad, const FrameInput& input) const {
+    // A native quad names no GS block: it is never an off-screen target's nor moved earlier.
+    if (quad.native) {
+        return m_part == EffectPart::All || m_part == EffectPart::Rest;
+    }
+
     if (input.opaque_effects && (m_split_opaque || m_part == EffectPart::Opaque)
         && opaque_effect_quad(quad) && offscreen_texture(quad.tex0, quad.tbp) == 0) {
         // Content keys are placed before rendering. Raw GS addresses must stay with the original
@@ -599,7 +616,8 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
             // corner of the picture in it, upside down.
             // A frame-copy strip samples the pass's native snapshot of the target instead
             // (frame_copy_st), never the chip's copy the 2D path may have drawn at its block.
-            const bool target = !strip.frame_copy && offscreen_texture(strip.tex0, 0) != 0;
+            const bool target =
+                !strip.native && !strip.frame_copy && offscreen_texture(strip.tex0, 0) != 0;
             for (std::uint32_t k = 0; k + 2 < strip.count; ++k) {
                 for (std::uint32_t c = 0; c < 3; ++c) {
                     Vertex v = vertex(input.strip_vertices[strip.first + k + c]);
@@ -646,11 +664,15 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
         const std::uint8_t pair = second ? 0xFF : 0;
         // A quad that samples an off-screen target the 2D path drew (g_offscreen_textures): its
         // coordinates over the TEX0's size become the target texture's (offscreen_target_st).
-        const bool target = offscreen_texture(q.tex0, q.tbp) != 0;
+        // A native quad's image is its own, whatever its zero words would name.
+        // A frame-copy quad samples the pass's native snapshot (frame_copy_st) instead.
+        const bool target = !q.native && !q.frame_copy && offscreen_texture(q.tex0, q.tbp) != 0;
         // The strip's two triangles, 0-1-2 and 1-2-3 (the faces are not culled).
         for (const int k : order) {
-            const auto [s, t] = target ? offscreen_target_st(q.tex0, q.st[k][0], q.st[k][1])
-                                       : std::array<float, 2>{q.st[k][0], q.st[k][1]};
+            const auto [s, t] =
+                q.frame_copy ? frame_copy_st(q.st[k][0], q.st[k][1], state.target.picture_scale_x)
+                : target     ? offscreen_target_st(q.tex0, q.st[k][0], q.st[k][1])
+                             : std::array<float, 2>{q.st[k][0], q.st[k][1]};
             m_vertices.push_back(
                 {q.corner[k][0],
                  q.corner[k][1],
@@ -774,11 +796,16 @@ void EffectRenderer::render_depth(const FrameInput& input, RenderState& state) {
 }
 
 bool EffectRenderer::draws_frame_copy(const FrameInput& input) const {
-    return std::ranges::any_of(input.strips, [&](const EffectStrip& strip) {
+    const auto strip_copy = [&](const EffectStrip& strip) {
         return strip.frame_copy && strip.count >= 3
                && static_cast<std::size_t>(strip.first) + strip.count <= input.strip_vertices.size()
                && draws(strip, input);
-    });
+    };
+    const auto quad_copy = [&](const EffectQuad& quad) {
+        return quad.frame_copy && draws(quad, input);
+    };
+    return std::ranges::any_of(input.strips, strip_copy)
+           || std::ranges::any_of(input.effects, quad_copy);
 }
 
 void EffectRenderer::snapshot_frame_copy(const RenderTarget& target) {
@@ -1095,6 +1122,83 @@ void EffectRenderer::apply_colour_state(
         glUniform1f(m_source_fix, b.fix);
         m_applied.alpha_bits = alpha_bits;
     }
+}
+
+bool EffectRenderer::apply_native(
+    const EffectState& material, TextureHandle image, bool untextured, RenderState& state
+) {
+    const profiling::Zone trace("Effects native state setup");
+    const EffectGlState wanted = effect_gl_state(material);
+    float scale = 1.0f;
+
+    // An untextured quad's shader samples nothing; a textured one needs its image's texture.
+    if (!untextured) {
+        // The pool had no image for it (the capture kept none): the quad is left out.
+        if (image == 0) {
+            return false;
+        }
+
+        // A mipmapped material (a tiled surface seen far away) gets its chain made natively.
+        if (wanted.mipmap && !state.textures.has_mipmaps(image)) {
+            state.textures.ensure_mipmaps(image);
+        }
+        state.textures.bind_upscaled_texture_colours(
+            image, *m_active_shader, m_texture_filter, wanted.repeat_s, wanted.repeat_t
+        );
+        const auto magnify = static_cast<GLint>(wanted.mag_filter);
+        const bool chain = wanted.mipmap && state.textures.has_mipmaps(image);
+        const auto minify = static_cast<GLint>(
+            chain ? (wanted.min_filter == GL_LINEAR ? GL_LINEAR_MIPMAP_LINEAR
+                                                    : GLenum{0x2700} /* NEAREST_MIPMAP_NEAREST */)
+                  : wanted.min_filter
+        );
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magnify);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minify);
+        scale = state.textures.alpha_scale(image) == AlphaScale::Full ? 0.5f : 1.0f;
+        m_applied.texture = image;
+        m_applied.offscreen = 0;
+    }
+
+    // The words the older quads are keyed by no longer describe what is bound or blended.
+    m_applied.clamp_bits = ~0ull;
+    m_applied.tex1_bits = ~0ull;
+    m_applied.alpha_bits = ~0ull;
+    glUniform1i(m_tcc, wanted.tcc);
+    m_applied.tcc = wanted.tcc;
+    glUniform1i(m_tfx, wanted.tfx);
+    m_applied.tfx = wanted.tfx;
+    glUniform1f(m_tex_alpha_scale, scale);
+    m_applied.alpha_scale = scale;
+    glUniform1i(m_active_shader->uniform("atmosphere_inscatter"), wanted.inscatter ? 1 : 0);
+
+    // Blended by the native coefficients, through the same translation as the 2D path's; an
+    // unblended quad replaces the colour and its shader weighs nothing.
+    if (wanted.blend) {
+        const GlBlend b = translate_blend(material.blend);
+        glEnable(GL_BLEND);
+        glBlendEquation(b.equation);
+        // The source alpha is written as it is, never blended (draw_state.h, Blend).
+        glBlendFuncSeparate(b.src, b.dst, GL_ONE, GL_ZERO);
+        glBlendColor(0.0f, 0.0f, 0.0f, b.constant);
+        glUniform1i(m_source_scale, static_cast<GLint>(b.source_scale));
+        glUniform1f(m_source_fix, b.fix);
+    } else {
+        glDisable(GL_BLEND);
+        glUniform1i(m_source_scale, 0);
+    }
+
+    set_depth_function(wanted.depth_function);
+    return true;
+}
+
+void EffectRenderer::set_depth_function(unsigned function) {
+    // The same comparison as the last draws needs no GL call.
+    if (function == m_depth_function) {
+        return;
+    }
+
+    glDepthFunc(function);
+    m_depth_function = function;
 }
 
 void EffectRenderer::release() {

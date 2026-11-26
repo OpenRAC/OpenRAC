@@ -55,6 +55,9 @@ FIXED = [
      "the pads' update the main loop runs each frame (func_L01_00461818)"),
     ("00646B98", "gameplay", "rac3PlayerHeadPointMap", "wrap",
      "the player's camera head point (player +0x1180) from its camera matrix"),
+    ("00670D90", "net", "rac3EndResultsMap", "wrap",
+     "the match's end (the results block, the winner): slots 8 and up in a wide room"),
+    ("005778C8", "", "", "ref", "a local player's profile reset (func_L01_003F1F60)"),
 ]
 
 BEGIN = "# --- the stock-bug fixes' rows: written by mp/fixes.py, do not edit by hand ---"

@@ -22,8 +22,15 @@ runs:
         key: mesa-${{ inputs.variant }}-${{ runner.arch }}-${{ steps.cpu.outputs.key }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}
         restore-keys: mesa-${{ inputs.variant }}-${{ runner.arch }}-${{ steps.cpu.outputs.key }}-
     - if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+      id: restore
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ env.MESA_SHADER_CACHE_DIR }}
         key: mesa-${{ inputs.variant }}-${{ runner.arch }}-${{ steps.cpu.outputs.key }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}
         restore-keys: mesa-${{ inputs.variant }}-${{ runner.arch }}-${{ steps.cpu.outputs.key }}-
+    # For mesa-cache/save at the job's end: develop's queue hands a new cache on (cache-out).
+    - if: github.event_name == 'merge_group' && steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        KEY: ${{ steps.restore.outputs.cache-primary-key }}
+      run: echo "OPENRAC_MESA_SAVE_KEY=$KEY" >> "$GITHUB_ENV"

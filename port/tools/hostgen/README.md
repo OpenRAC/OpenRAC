@@ -177,7 +177,7 @@ The C keeps the EE's registers as locals ([ee.h](../../runtime/include/openrac/e
 | a general register | a 64-bit local; a second 64-bit half where the function uses 128-bit loads, stores or MMI |
 | HI, LO (and HI1, LO1), SA | locals |
 | an FPU register, its condition bit, its accumulator | a float local, an int, a float |
-| VU0's registers (vf, vi, ACC, Q, I) | `openrac_vu0`: one for the program, as hand-written routines leave results there |
+| VU0's registers (vf, vi, ACC, Q, I) | `openrac_vu0`: one for the program, as hand-written routines leave results there (the C's own inline assembly has a local one, vu0asm.py) |
 | a branch target | a label |
 | a delay slot | runs after the branch's condition is read and before it jumps; a likely branch's only when taken |
 | `$sp` | the game stack: `openrac_guest_sp` at entry, given back at every return; each call sees it at the caller's `$sp` |
@@ -297,15 +297,70 @@ diagnostics:
   it, get an alias of the same symbol;
 - an asm label given after a function's first use is dropped, and the name
   followed to the label's symbol;
-- VU0 macro-mode inline assembly on GCC's `"j"` registers (`lqc2`, `sqc2`,
-  `vadd`/`vsub` on `.xyz` or `.xyzw`, `vmr32.xyzw`) is written as C on four
-  floats a register (clangast.py `vu0_macro_c`); other inline assembly whose
-  constraints Clang does not know (`=j`, `=h`) is replaced by a call hostgen
-  recognises, and the function becomes a stub;
+- inline assembly whose constraints Clang does not know (`=h`) is
+  replaced by a call hostgen recognises, and the function becomes a stub;
+  in a statement of VU0 instructions, GCC's `j` (a vector register) is
+  written `m` instead, so Clang reads the operand as the C variable it is
+  (`vu0_register_operands`; see "VU0 inline assembly" below);
 - a call with too few arguments to a K&R function passes zeros.
 
 Game typedefs named like the host's standard types (`size_t`, `uint32_t`)
 are renamed.
+
+## VU0 inline assembly
+
+The decompilations keep the vector unit's macro-mode instructions in matched C
+as GCC inline assembly: one instruction a statement on C variables in GCC's
+`j` class (`__asm__("vadd.xyz %0, %1, %2" : "=j"(x) : "j"(x), "j"(y))`),
+or a block on named registers that loads and stores through its operands
+(`lqc2 $vf1, 0(%1)` ... `sqc2 $vf1, 0(%0)`). [vu0asm.py](vu0asm.py) writes
+each such statement as C (lower.py's `asm_stmt`), with no VU0 behind it:
+
+- an operand an instruction names as a vector register is that C variable's
+  sixteen bytes, in four float locals read before the statement and written
+  back after it, as GCC's register for it was. An output of its own written in
+  part keeps the fields of the register its instruction reads first (the
+  register GCC gives an output whose input dies there, as `headers/vu0.h`'s
+  helpers keep the first source's w);
+- named registers (`$vf1`, ACC, Q, `vi`) are a local `openrac_vu0_state` of
+  the function: what a statement leaves there the next one in the function
+  reads, and nothing outside the function sees it. A statement that reads a
+  named register no earlier statement of its function wrote (a hand-written
+  routine's result) is not written as C;
+- the integer registers a block names (`$at` between `mfc1` and `qmtc2`) are
+  locals of the block; `$4` ... `$11` that it reads before writing are the
+  function's arguments, when the statement is the function's first;
+- a leading `mfc1` from a named float argument register uses the corresponding
+  declared float parameter, with the same argument-register order as asmc.py.
+  Missing parameters, later reads after C code and implicit float results stay
+  unsupported rather than taking zero;
+- a symbolic memory operand uses the same global-address and level-relocation
+  path as a C global. An unknown symbol is refused, never guessed;
+- the arithmetic is the assembly's translation of the same instructions
+  (asmc.py's `Translator.vu0`): rounding, `vf0`, the broadcast fields and
+  `asm.vu_flush` as there.
+
+During preparation, literal vector-register clobbers (`"vf1"`, `"$vf2"`) become
+`"memory"` only in VU0 statements. This lets Clang read operands instead of
+stubbing the function for unknown register names; the instructions themselves
+are still lowered to C or refused with a reason, never executed as host assembly.
+
+What it cannot write (a microprogram, `.word`, a control register, a branch)
+stays as before: a statement on named registers is a barrier, reported under
+"Inline assembly the host does not run"; one with a vector-register operand
+makes the function a stub ("VU0 inline assembly: ..."), which `from_assembly`
+can send to the assembly's translation instead.
+
+`report.json` keeps skipped mnemonics in `inline_assembly_skipped` and the native
+VU0 lowering's refusal reasons in `inline_assembly_unsupported`. A function with
+skipped VU0 instructions is not evidence that its forced-assembly entry can go,
+even when the rest of its C translated without a stub.
+
+Initialization is checked per vector/accumulator component. A write to `x` does
+not supply `y`, and a broadcast or rotation checks the components it reads.
+Named-register state is inferred only within a straight-line region: branches,
+loops, labels and C calls are conservative boundaries, not proof that another
+path wrote the value.
 
 ## A game's configuration
 
@@ -334,7 +389,7 @@ describes every key). What hostgen itself reads:
 | `level_hooks` | stubs of the executable that only return, which every level's program fills with a function of its own (rac1/pal's `func_001E9780` to `func_001E97C0`). A call to one from engine code the levels also carry goes to what the loaded level's copy calls at the same instruction (`openrac_hook_in_copy`, [guest.h](../../runtime/include/openrac/guest.h)); in the executable's own program it is the stub |
 | `level_twins` | a TSV (`copycalls.py --twins`): name, entry, size, level places. Functions of the executable that the levels' programs carry, entered away from the address their name says (leftover instructions of the function before sit in front: Going Commando's `func_0031FC28`, the ammo pickup's update, is entered at `0x0031FC60`), whose copies the level catalogue lists under level names (`func_L00_003D1258`). The entry is the function's address: what its callers form relocates to the level's copy, and `functions.c` registers it there. Its calls of `level_hooks` go through those places (`openrac_hook_in_copy`); without them they ran the empty stub, and the pickup gave no ammo |
 | `from_assembly` | functions whose C in the decompilation is left out for C from their instructions (`asm`): matching C whose declaration leaves out registers its callers pass and it forwards (a wrapper that hands its second and third arguments on without naming them, which on the EE simply stay in their registers). Each becomes a stub that the assembly stage writes, reading those registers as parameters, so its callers pass them. The report's `arguments_filled_with_zero` names candidates |
-| `vu0_assembly_from_retail` | `true`: a definition whose inline assembly runs VU0 instructions on named registers (`lqc2 $vf1, 0(%1)` ... `sqc2`, which the lowering keeps only as a barrier) is translated from its assembly instead, as a `from_assembly` row would leave it; so is one that calls a static helper of its unit with such assembly. Up Your Arsenal's divide_vector_xyz (`func_L01_0040E408`) is a body of it, and its C wrote nothing. Clobbers naming VU0 registers (`: "vf1", "vf2"`), which Clang has no name for, are dropped from the prepared copy first, so such a statement no longer makes its function a stub before it is found (Veldin's `func_L01_003AA658`). The report's `vu0_assembly_from_retail` names each one moved and the instructions. Assembly on GCC's `"j"` class (`__asm__("vadd.xyz %0, %1, %2" : "=j"(r) : "j"(a), "j"(b))`) needs none of this: hostgen writes it as C (clangast.py `vu0_macro_c`) |
+| `vu0_assembly_from_retail` | `true`: a definition whose inline assembly runs VU0 instructions the lowering does not write as C is translated from its assembly instead, as a `from_assembly` row would leave it; so is one that calls a static helper of its unit with such assembly. The first translation writes every VU0 statement it can as C on locals (see "VU0 inline assembly" above); when a statement is refused (`inline_assembly_unsupported`) or its VU0 instructions are skipped, hostgen translates again with those functions left to their assembly, and names them on stderr (list them in `from_assembly` to save the second translation). Up Your Arsenal's divide_vector_xyz (`func_L01_0040E408`) is the reason: as a barrier its C wrote nothing. Clobbers naming VU0 registers that the preparation does not turn into `"memory"` (`: "vi1"`), which Clang has no name for, are dropped from the prepared copy, so such a statement no longer makes its function a stub (Veldin's `func_L01_003AA658`). The report's `vu0_assembly_from_retail` names each one moved and the instructions |
 | `caller_aliases` | `true`: a call by a per-caller declaration of a function the port wraps or replaces (`libraries.tsv` `wrap` or `host`), the function's name with its caller's address after it, is a call of that function. Up Your Arsenal's matched C declares FontPrint as `func_0038EBC8_00390768` in func_00390768's file; without this the call ran a translation of its own at 0x0038EBC8 and the port's FontPrint (and the menu log) never saw the text |
 | `unpassed_registers` | `true`: an argument a call to a K&R function leaves out is the register the caller left there, its own argument in that position, as for a prototyped callee (Calls, above), not 0. Clang refuses such a call, so [clangast.py](clangast.py) fills the missing arguments with `openrac_hostgen_unset()`, which [lower.py](lower.py) drops when this is on and writes as 0 otherwise. Up Your Arsenal's func_003ABB30 calls `func_003AB3F0()` to hand it its own three arguments |
 | `executable_extents` | `{"sources": [DIR, ...]}` (the decompilation's C definitions and `INCLUDE_ASM` / `ASM_FUNC` / `LINKER_REMNANT` lines under those directories, each running to the next) and/or `{"report": PATH, "units": PREFIX}` (the sizes of its objdiff progress report): an executable address inside a function so placed starts no function of its own ([retail.py](retail.py) `starts_of`). A name the C only declares there (another program's or another release's address) otherwise cuts the function in two and drops its jump tables' targets past the cut: Up Your Arsenal's pad update, func_003A3B40, kept one of its switch's 79 cases |

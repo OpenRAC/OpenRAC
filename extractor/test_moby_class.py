@@ -232,6 +232,17 @@ class BoundTextureTests(unittest.TestCase):
         for bound in (0, 1, 2):
             self.assertEqual(self.faces("rac2", bound), {("moby", SHIP_TEXTURE)})
 
+    def test_going_commando_flight_binds_occupied_slots_only_when_flagged(self):
+        for flight in (False, True):
+            for bound in (0, 1, 2):
+                with self.subTest(flight=flight, bound=bound):
+                    entry = self.entry(4308, bound)[:16] + bytes((9,)) * 16
+                    level = self.Level("rac2", [entry])
+                    level.flight_ship_textures = flight
+                    result = moby_classes(level)[4308]
+                    expected = SHIP_TEXTURE if flight and bound else 9
+                    self.assertEqual(set(result.mesh.faces), {("moby", expected)})
+
 
 class SceneClassTests(unittest.TestCase):
     """The classes Up Your Arsenal's scenes load (level.scene_classes): a lump of 16-byte entries

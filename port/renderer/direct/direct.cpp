@@ -127,6 +127,8 @@ void GifInterpreter::clear() {
     m_hud_side = 0;
     m_hud_stretch = false;
     m_hud_split = -1;
+    m_place = 0;
+    m_place_first.clear();
     m_whole = false;
     m_picture = false;
     m_recorded_target = 0;
@@ -1040,6 +1042,7 @@ void GifInterpreter::run_splices(std::size_t at) {
 
 void GifInterpreter::finish_commands() {
     run_splices(SIZE_MAX - m_splice_base);
+    place_items();
     m_recording = nullptr;
     m_splices = {};
     m_next_splice = 0;
@@ -1056,11 +1059,27 @@ void GifInterpreter::run_command(const FrameCommand& c) {
             }
             break;
         case FrameOp::WorldMobys:
+        case FrameOp::WorldShrubs:
+        case FrameOp::EffectParent:
         case FrameOp::EffectQuad:
         case FrameOp::ViewBegin:
         case FrameOp::ViewEnd:
-            // The window's split and the effect quads' tests, read where they were recorded; the
-            // views' worlds, drawn by the window (frontend/split_views.cpp).
+            break;  // the window's split, strips and effect quads' tests: read where recorded
+        case FrameOp::HudSide:
+            hud_side(
+                static_cast<std::int32_t>(c.index),
+                (c.value & 1u) != 0,
+                (c.value & 2u) != 0 ? static_cast<int>(c.value >> 2) : -1
+            );
+            break;
+        case FrameOp::Wide:
+            m_whole = c.index != 0;
+            break;
+        case FrameOp::PictureBand:
+            m_picture = c.index != 0;
+            break;
+        case FrameOp::LastFrame:
+            draw_frame_snapshot();
             break;
         case FrameOp::Mobys:
             moby_draw(c.value);
@@ -1076,10 +1095,40 @@ void GifInterpreter::run_command(const FrameCommand& c) {
             }
             break;
         case FrameOp::Fill: {
+            // A plain fill neither tests nor writes depth (depth_bits 0); a depth fill
+            // (openrac_frame_fill_depth) tests and writes as its producer asked, at its depth placed
+            // as a residual vertex's would be, so the two compare equal at the same value.
             DirectState s;
             s.blend = Blend::of(c.blend);
-            s.depth_write = false;
-            native_rect(c, s, 1.0f);
+            s.depth = c.depth;
+            s.depth_write = c.depth_write;
+            s.colour_writes = c.writes;
+            const bool own_depth = c.depth_bits != 0;
+            // A plain fill's depth is never compared or stored: the nearest value, as before.
+            const float depth =
+                own_depth ? depth_clip(static_cast<double>(c.depth_value), depth_max(c.depth_bits))
+                          : 1.0f;
+
+            // OPENRAC_DUMP_DRAWS lists the depth fills beside the residual draws they replace.
+            if (g_dump_draws && own_depth) {
+                log::info(
+                    "recorded fill ({},{})-({},{}) whole {} rgba {:08x} depth {:#x}/{} bits "
+                    "test {} write {} channels {:#x}",
+                    c.rect[0],
+                    c.rect[1],
+                    c.rect[2],
+                    c.rect[3],
+                    c.whole,
+                    c.rgba,
+                    c.depth_value,
+                    static_cast<int>(c.depth_bits),
+                    static_cast<int>(c.depth.compare),
+                    c.depth_write,
+                    static_cast<int>(c.writes)
+                );
+            }
+
+            native_rect(c, s, depth);
             break;
         }
         case FrameOp::Clear: {
@@ -1089,7 +1138,9 @@ void GifInterpreter::run_command(const FrameCommand& c) {
             s.depth = {s.depth_write, DepthCompare::Always};
             FrameCommand whole = c;
             whole.whole = true;
-            native_rect(whole, s, 0.0f);  // reversed depth: cleared to 0
+            // Reversed depth is cleared to its far value 0, which the 2D pass's -1..1 clip range
+            // places at -1 (clip-space 0 stored 0.5).
+            native_rect(whole, s, depth_clip(0.0, 1.0));
             break;
         }
         case FrameOp::Picture: {
@@ -1124,6 +1175,22 @@ void GifInterpreter::run_command(const FrameCommand& c) {
             d.state.target = m_recorded_target;
             d.first = static_cast<std::uint32_t>(m_vertices.size());
             d.snapshot = c.index;
+            m_draws.push_back(d);
+            break;
+        }
+        case FrameOp::ScreenEffect: {
+            // A validated view-owned post pass has already run on that view's framebuffer.
+            if (c.view_effect_prepared) {
+                break;
+            }
+
+            if (c.index >= r.screen_effects.size()) {
+                break;
+            }
+            DirectDraw d;
+            d.state.target = m_recorded_target;
+            d.first = static_cast<std::uint32_t>(m_vertices.size());
+            d.screen = r.screen_effects[c.index];
             m_draws.push_back(d);
             break;
         }
@@ -1173,8 +1240,7 @@ void GifInterpreter::native_rect(const FrameCommand& c, const DirectState& given
               };
     // The whole target (a fade, a backdrop) on a target wider than the picture.
     s.whole = c.wide;
-    if (m_draws.empty() || !(m_draws.back().state == s) || m_draws.back().mobys != 0
-        || m_draws.back().snapshot != 0) {
+    if (m_draws.empty() || !(m_draws.back().state == s) || m_draws.back().vertexless()) {
         m_draws.push_back({s, static_cast<std::uint32_t>(m_vertices.size()), 0});
     }
     float x0 = 0.0f, y0 = 0.0f, x1 = tw, y1 = th;
@@ -1265,8 +1331,8 @@ void GifInterpreter::native_item(const UiItem& item, std::span<const UiImage> im
         s.combine = TextureCombine::Modulate;
         s.linear_mag = (item.flags & kUiItemNearest) == 0;
         s.linear_min = s.linear_mag;
-        s.clamp_s = true;
-        s.clamp_t = true;
+        s.clamp_s = (item.flags & kUiItemRepeat) == 0;
+        s.clamp_t = s.clamp_s;
         if (glyph) {
             s.field = m_textures.distance_field(s.texture);
             s.distance_field = s.field != s.texture;
@@ -1295,8 +1361,7 @@ void GifInterpreter::native_item(const UiItem& item, std::span<const UiImage> im
     } else {
         s.scissor = {0, static_cast<std::uint32_t>(tw) - 1, 0, static_cast<std::uint32_t>(th) - 1};
     }
-    if (m_draws.empty() || !(m_draws.back().state == s) || m_draws.back().mobys != 0
-        || m_draws.back().snapshot != 0) {
+    if (m_draws.empty() || !(m_draws.back().state == s) || m_draws.back().vertexless()) {
         m_draws.push_back({s, static_cast<std::uint32_t>(m_vertices.size()), 0});
     }
     const float iw = image != nullptr ? static_cast<float>(std::max(image->image->width, 1)) : 1.0f;
@@ -1307,6 +1372,14 @@ void GifInterpreter::native_item(const UiItem& item, std::span<const UiImage> im
     const float top = *std::min_element(item.v, item.v + 4);
     const float bottom = *std::max_element(item.v, item.v + 4);
     const float inset = glyph && bottom - top > 1.0f ? 0.5f : 0.0f;
+    if (item.place != m_place) {
+        place_items();
+        m_place = item.place;
+        m_place_move = item.side * 2.0f / std::max(item.screen_width, 1.0f);
+    }
+    if (m_place != 0 && target == 0) {
+        m_place_first.push_back(static_cast<std::uint32_t>(m_vertices.size()));
+    }
     // A flat item over the screen's last column or line goes on to its edge, as a plain fill from
     // the packets does (sprite()): the game's covers run from -0.5 to 511.5 and -0.5 to 447.5 (the
     // pause menu's darkening over the world), and drawn there they left the right and bottom half
@@ -1348,6 +1421,82 @@ void GifInterpreter::native_item(const UiItem& item, std::span<const UiImage> im
     }
 }
 
+// The HUD's placement (openrac_ui_place_begin): the items of one placement that overlap are one
+// element, and an element whose middle is past the picture's middle third goes out to its side by
+// the placement's width, as hud_side moves what lies between two kHudSideMarker markers. Each item
+// is two triangles (six vertices) from its first.
+void GifInterpreter::place_items() {
+    if (m_place == 0 || m_place_first.empty() || m_place_move == 0.0f) {
+        m_place_first.clear();
+        m_place = 0;
+        return;
+    }
+    constexpr float kMiddle = 56.0f / 256.0f;
+
+    struct Element {
+        float left, right, top, bottom;
+        int parent;
+    };
+
+    std::vector<Element> items;
+    items.reserve(m_place_first.size());
+    for (const std::uint32_t first : m_place_first) {
+        Element e{
+            std::numeric_limits<float>::max(),
+            std::numeric_limits<float>::lowest(),
+            std::numeric_limits<float>::max(),
+            std::numeric_limits<float>::lowest(),
+            static_cast<int>(items.size())
+        };
+        for (std::uint32_t k = first; k < first + 6 && k < m_vertices.size(); ++k) {
+            e.left = std::min(e.left, m_vertices[k].x);
+            e.right = std::max(e.right, m_vertices[k].x);
+            e.top = std::min(e.top, m_vertices[k].y);
+            e.bottom = std::max(e.bottom, m_vertices[k].y);
+        }
+        items.push_back(e);
+    }
+    const auto root = [&](int n) {
+        while (items[static_cast<std::size_t>(n)].parent != n) {
+            auto& parent = items[static_cast<std::size_t>(n)].parent;
+            parent = items[static_cast<std::size_t>(parent)].parent;
+            n = parent;
+        }
+        return n;
+    };
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        for (std::size_t k = i + 1; k < items.size(); ++k) {
+            const Element& p = items[i];
+            const Element& q = items[k];
+            if (p.left <= q.right && q.left <= p.right && p.top <= q.bottom && q.top <= p.bottom) {
+                items[static_cast<std::size_t>(root(static_cast<int>(k)))].parent =
+                    root(static_cast<int>(i));
+            }
+        }
+    }
+    std::vector<std::pair<float, float>> extent(
+        items.size(), {std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()}
+    );
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        auto& e = extent[static_cast<std::size_t>(root(static_cast<int>(i)))];
+        e.first = std::min(e.first, items[i].left);
+        e.second = std::max(e.second, items[i].right);
+    }
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        const auto& e = extent[static_cast<std::size_t>(root(static_cast<int>(i)))];
+        const float mid = (e.first + e.second) / 2.0f;
+        if (std::abs(mid) < kMiddle) {
+            continue;
+        }
+        const std::uint32_t first = m_place_first[i];
+        for (std::uint32_t k = first; k < first + 6 && k < m_vertices.size(); ++k) {
+            m_vertices[k].x += mid < 0.0f ? -m_place_move : m_place_move;
+        }
+    }
+    m_place_first.clear();
+    m_place = 0;
+}
+
 // OPENRAC_UI_RESIDUAL: each kind of 2D primitive still drawn from the game's packets (not a native
 // quad), once: what is left to move off the GS packets.
 static void log_residual(const gs::Prim& prim, const gs::Tex0& tex0, bool native) {
@@ -1365,9 +1514,69 @@ static void log_residual(const gs::Prim& prim, const gs::Tex0& tex0, bool native
               prim.tme ? tex0.tbp0 : 0u, prim.tme ? tex0.psm : 0u);
 }
 
+// OPENRAC_UI_RESIDUAL: where each residual draw lands (its vertex in 12.4, colour and the draws so far),
+// once per distinct place, so a residual kind can be tied to the routine of the game that sent it.
+static void log_residual_vertex(
+    const gs::Prim& prim,
+    const gs::Tex0& tex0,
+    const gs::Alpha& alpha,
+    std::uint32_t x,
+    std::uint32_t y,
+    const std::uint8_t* rgba,
+    bool native
+) {
+    if (native || !env::flag(env::Var::UiResidual)) {
+        return;
+    }
+    static std::vector<std::uint64_t> seen;
+    static unsigned count = 0;
+    ++count;
+    const std::uint64_t key = static_cast<std::uint64_t>(prim.kind)
+                              | (static_cast<std::uint64_t>(prim.tme) << 4)
+                              | (static_cast<std::uint64_t>(prim.tme ? tex0.tbp0 : 0) << 8)
+                              | (static_cast<std::uint64_t>(x & 0xFFFF) << 24)
+                              | (static_cast<std::uint64_t>(y & 0xFFFF) << 40);
+    if (seen.size() >= 400 || std::find(seen.begin(), seen.end(), key) != seen.end()) {
+        return;
+    }
+    seen.push_back(key);
+    log::info(
+        "ui residual at: draw #{} prim {} tbp {:#x} xy ({:.1f},{:.1f}) rgba "
+        "{:02x}{:02x}{:02x}{:02x} tex {}x{} psm {:#x} tbw {} abe {} alpha {}{}{}{} fix {:#x}",
+        count,
+        static_cast<int>(prim.kind),
+        prim.tme ? tex0.tbp0 : 0u,
+        x / 16.0,
+        y / 16.0,
+        rgba[0],
+        rgba[1],
+        rgba[2],
+        rgba[3],
+        prim.tme ? tex0.width() : 0,
+        prim.tme ? tex0.height() : 0,
+        prim.tme ? tex0.psm : 0u,
+        prim.tme ? tex0.tbw : 0u,
+        prim.abe,
+        alpha.a,
+        alpha.b,
+        alpha.c,
+        alpha.d,
+        alpha.fix
+    );
+}
+
 void GifInterpreter::kick(bool draw) {
     if (draw) {
         log_residual(attributes(), context().tex0, m_in_native);
+        log_residual_vertex(
+            attributes(),
+            context().tex0,
+            context().alpha,
+            m_current.x,
+            m_current.y,
+            m_current.rgba,
+            m_in_native
+        );
     }
     m_queue[m_queued++] = m_current;
     if (g_dump_draws && m_prim.kind != gs::PrimKind::Sprite) {
@@ -1445,6 +1654,19 @@ void GifInterpreter::kick(bool draw) {
     }
 }
 
+std::uint32_t GifInterpreter::sampled_target(std::uint32_t tbp) const {
+    if (std::find(m_offscreen.begin(), m_offscreen.end(), tbp) != m_offscreen.end()) {
+        return tbp;
+    }
+    // A texture at the GS block a recorded panel was drawn through is that panel.
+    for (const auto& [block, id] : m_panel_alias) {
+        if (block == tbp) {
+            return id;
+        }
+    }
+    return 0;
+}
+
 bool GifInterpreter::is_offscreen(const gs::Frame& f) const {
     const std::uint32_t block = f.fbp * 32;
     return static_cast<int>(f.fbw) * 64 < m_config.screen_width
@@ -1452,6 +1674,11 @@ bool GifInterpreter::is_offscreen(const gs::Frame& f) const {
 }
 
 std::uint32_t GifInterpreter::offscreen_target() const {
+    // Everything drawn while a recorded panel is open goes into it, the game's own packets and the
+    // 2D-quad and moby-marker streams included (FRAME_RECORDER.md, section 3.3).
+    if (m_recorded_target != 0) {
+        return m_recorded_target;
+    }
     const gs::Frame& f = context().frame;
     return is_offscreen(f) ? f.fbp * 32 : 0;
 }
@@ -1474,6 +1701,7 @@ void GifInterpreter::overwritten(std::uint32_t dbp, std::uint32_t dbw, std::uint
     std::erase_if(m_frame_copies, [&](const FrameCopy& f) { return covered(f.dbp); });
     const std::size_t targets = m_offscreen.size();
     std::erase_if(m_offscreen, covered);
+    std::erase_if(m_panel_alias, [&](const auto& a) { return covered(a.first); });
     // A target the transfer only reuses part of keeps what was drawn there for the world's quads
     // that sampled it before (take_drawn_blocks); one a texture starts at is that texture now.
     std::erase(m_drawn, dbp);
@@ -1626,12 +1854,10 @@ DirectVertex GifInterpreter::convert(const GsVertex& v) const {
     out.y = 1.0f - py / target_h * 2.0f;
     // The chip's depth, bigger nearer, straight into GL's [0, 1] window
     // depth: with the buffer cleared to 0 and GEQUAL, as on the console.
-    const double depth = std::clamp(static_cast<double>(v.z) / c.zbuf.max_z(), 0.0, 1.0);
-    out.z = static_cast<float>(depth * 2.0 - 1.0);
+    out.z = depth_clip(static_cast<double>(v.z), c.zbuf.max_z());
     int frame_x = 0;
     int frame_y = 0;
-    if (attributes().tme
-        && std::find(m_offscreen.begin(), m_offscreen.end(), c.tex0.tbp0) != m_offscreen.end()) {
+    if (attributes().tme && sampled_target(c.tex0.tbp0) != 0) {
         // A texel of an off-screen target: its pixel, over the target's square (first row on top,
         // as it was drawn).
         const float u = attributes().fst ? static_cast<float>(v.u) / 16.0f
@@ -1641,7 +1867,8 @@ DirectVertex GifInterpreter::convert(const GsVertex& v) const {
         out.s = u / static_cast<float>(kOffscreenPixels);
         out.t = 1.0f - w / static_cast<float>(kOffscreenPixels);
         out.q = 1.0f;
-    } else if (attributes().tme && is_colour_format(c.tex0.psm) && frame_source(c.tex0.tbp0, frame_x, frame_y)) {
+    } else if (attributes().tme && is_colour_format(c.tex0.psm)
+               && frame_source(c.tex0.tbp0, frame_x, frame_y)) {
         // A texel of the frame: its pixel, over the frame's size; the copy of the render target
         // the draw samples has its first row at the bottom, as GL keeps it.
         const float u = attributes().fst ? static_cast<float>(v.u) / 16.0f
@@ -1686,9 +1913,23 @@ void GifInterpreter::ensure_draw() {
         int frame_x = 0;
         int frame_y = 0;
         s.target = offscreen_target();
-        s.source = s.textured && std::find(m_offscreen.begin(), m_offscreen.end(), c.tex0.tbp0) != m_offscreen.end()
-                       ? c.tex0.tbp0
-                       : 0;
+        s.source = s.textured ? sampled_target(c.tex0.tbp0) : 0;
+        // A recorded panel the game's packets name by a GS block (its FRAME) is sampled by that
+        // block's TEXs from here on, in place of any block target drawn there before.
+        if (m_recorded_target != 0 && is_offscreen(c.frame)) {
+            const std::uint32_t block = c.frame.fbp * 32;
+            const auto at =
+                std::find_if(m_panel_alias.begin(), m_panel_alias.end(), [&](const auto& a) {
+                    return a.first == block;
+                });
+            if (at == m_panel_alias.end()) {
+                m_panel_alias.emplace_back(block, m_recorded_target);
+            } else {
+                at->second = m_recorded_target;
+            }
+            std::erase(m_offscreen, block);
+            std::erase(m_drawn, block);
+        }
         s.frame_source = s.source == 0 && s.textured && is_colour_format(c.tex0.psm)
                          && frame_source(c.tex0.tbp0, frame_x, frame_y);
         if (s.source != 0 || s.frame_source) {
@@ -1809,7 +2050,7 @@ void GifInterpreter::ensure_draw() {
             log::verbose("2D: drawn off-screen into block {:#x} (FRAME width {})", m_state.target, context().frame.fbw);
         }
     }
-    if (m_draws.empty() || !(m_draws.back().state == m_state) || m_draws.back().mobys != 0) {
+    if (m_draws.empty() || !(m_draws.back().state == m_state) || m_draws.back().vertexless()) {
         m_draws.push_back({m_state, static_cast<std::uint32_t>(m_vertices.size()), 0});
     }
 }
@@ -2321,6 +2562,7 @@ void DirectRenderer::release() {
         glDeleteTextures(1, &p.texture);
     }
     m_pictures.clear();
+    m_screen_effects.release();
     if (m_samplers[0] != 0) {
         glDeleteSamplers(16, m_samplers.data());
         m_samplers.fill(0);
@@ -2377,8 +2619,7 @@ bool DirectRenderer::draws_nothing() const {
                    m_interpreter->draws().begin(),
                    m_interpreter->draws().end(),
                    [](const DirectDraw& d) {
-                       return (d.count != 0 || d.mobys != 0 || d.snapshot != 0)
-                              && (d.state.target == 0 || d.state.frame_source);
+                       return d.draws() && (d.state.target == 0 || d.state.frame_source);
                    }
                ));
 }
@@ -2482,9 +2723,12 @@ std::array<unsigned, 2> DirectRenderer::apply(const DirectState& s, RenderState&
             textures[0] = s.view_picture;
         } else if (s.snapshot_picture != 0) {
             const auto found = m_pictures.find(s.snapshot_picture);
+            // The world a menu read back as it opened (openrac_frame_snapshot_world) is the frame
+            // snapshot, which the window keeps following the world drawn under the menu.
             textures[0] =
-                found != m_pictures.end()
-                    ? found->second.texture
+                found != m_pictures.end() ? found->second.texture
+                : g_frame_snapshot.picture == s.snapshot_picture && g_frame_snapshot.texture != 0
+                    ? g_frame_snapshot.texture
                     : render_state.textures.gl_texture(render_state.textures.placeholder());
         } else if (s.source != 0) {
             // A panel the game rendered off-screen, as the chip would read it from its memory.
@@ -2648,6 +2892,26 @@ void DirectRenderer::keep_snapshot(std::uint32_t id, const RenderTarget& target)
 
 void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
     const DirectState& s = d.state;
+    if (d.screen.kind != ScreenEffectKind::None) {
+        // A screen effect over the target as drawn so far, then this renderer's own state again.
+        RenderTarget target = render_state.target;
+        // An effect inside a panel works on the panel.
+        if (s.target != 0) {
+            const Offscreen& o = offscreen(s.target);
+            target =
+                {o.framebuffer,
+                 kOffscreenPixels * kOffscreenScale,
+                 kOffscreenPixels * kOffscreenScale};
+        }
+        m_screen_effects.apply(d.screen, target, readable(target));
+        m_bound_sampler = 0xFFFFFFFF;
+        glBindFramebuffer(GL_FRAMEBUFFER, render_state.target.framebuffer);
+        use_program(m_masked);
+        glBindVertexArray(m_vao);
+        glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+        glActiveTexture(GL_TEXTURE0);
+        return;
+    }
     if (d.snapshot != 0) {
         // The target as drawn so far, kept as the recorder's picture.
         RenderTarget target = render_state.target;
@@ -2809,6 +3073,14 @@ void DirectRenderer::publish_offscreen() {
             }
         }
     }
+    // The GS blocks recorded panels were drawn through: the world's quads sample them by block.
+    for (const auto& [block, id] : m_interpreter->panel_aliases()) {
+        for (const auto& [b, o] : m_offscreen_targets) {
+            if (b == id) {
+                g_offscreen_textures.push_back({block, o.texture});
+            }
+        }
+    }
 }
 
 void DirectRenderer::flush(RenderState& state, bool background) {
@@ -2816,7 +3088,7 @@ void DirectRenderer::flush(RenderState& state, bool background) {
     const auto& vertices = m_interpreter->vertices();
     const bool snapshots = std::any_of(
         m_interpreter->draws().begin(), m_interpreter->draws().end(), [](const DirectDraw& d) {
-            return d.snapshot != 0;
+            return d.snapshot != 0 || d.screen.kind != ScreenEffectKind::None;
         }
     );
     if (vertices.empty() && !snapshots) {
@@ -2913,7 +3185,7 @@ void DirectRenderer::flush(RenderState& state, bool background) {
                 continue;
             }
             if (s.target != 0 || d.count == 0) {
-                if (d.count != 0 || d.mobys != 0 || d.snapshot != 0) {
+                if (d.draws()) {
                     runs.push_back({&d, d.first, d.count, true});  // an off-screen panel's own square
                 }
                 continue;
@@ -2986,7 +3258,8 @@ void DirectRenderer::flush(RenderState& state, bool background) {
                     r.draw->centre_x,
                     r.draw->centre_y,
                     r.draw->clear_depth,
-                    r.draw->snapshot
+                    r.draw->snapshot,
+                    r.draw->screen
                 },
                 state
             );
@@ -2994,7 +3267,7 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         m_whole_target = true;
     } else {
         for (const DirectDraw& d : m_interpreter->draws()) {
-            if ((d.count != 0 || d.mobys != 0 || d.snapshot != 0) && !held(d)) {
+            if (d.draws() && !held(d)) {
                 draw(d, state);
             }
         }
