@@ -1535,6 +1535,10 @@
    "is": "0x001A3980",
    "why": "the same instruction of the same code: func 0x0027EDA8 (NTSC-U 0x0027EDE8) +0x94, 1 of 1 places agree"
   },
+  "0x001A5CD0": {
+   "is": "0x001A5E50",
+   "why": "the same instruction of the same code: func 0x001966E8 (NTSC-U 0x001967D8) +0x4, 2 of 2 places agree"
+  },
   "0x001EBE00": {
    "is": "0x001EBF80",
    "why": "the same instruction of the same code: func 0x00192D18 (NTSC-U 0x00192E08) +0x1B0, 2 of 2 places agree"
@@ -2215,6 +2219,10 @@
   },
   "func_L39_00699838": {
    "is": "func_L39_00697028",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_006C30A0": {
+   "is": "func_L39_006C0588",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_006CD218": {

@@ -474,6 +474,7 @@ void rac3_install_play(void) {
 static void play_trace(unsigned frame) {
     static int on = -1;
     static int last_phase = -2, last_level = -2, travel_to = -1;
+    static unsigned travel_after = 600u;
     static uint32_t last_loads = 0xFFFFFFFFu;
     static unsigned played;
     if (on < 0) {
@@ -481,6 +482,8 @@ static void play_trace(unsigned frame) {
         on = v != NULL && *v != '\0';
         const char* t = on ? strstr(v, "travel=") : NULL;
         travel_to = t != NULL ? atoi(t + 7) : -1;
+        const char* at = t != NULL ? strchr(t, '@') : NULL;
+        travel_after = at != NULL ? (unsigned)atoi(at + 1) : 600u;
     }
     if (!on) {
         return;
@@ -539,7 +542,8 @@ static void play_trace(unsigned frame) {
             (int)bolts(0)
         );
     }
-    if (travel_to > 0 && played == 600u) {
+    if (travel_to > 0 && played == travel_after) {
         fprintf(stderr, "PTRACE %u travel %d: %d\n", frame, travel_to, travel(travel_to));
+        travel_to = -1;
     }
 }

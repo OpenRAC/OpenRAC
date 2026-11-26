@@ -224,6 +224,8 @@
 #define RAC3_MADDR_0x001A30DCu 0x001A325Cu
 /* the same instruction of the same code: func 0x0027EDA8 (NTSC-U 0x0027EDE8) +0x94, 1 of 1 places agree */
 #define RAC3_MADDR_0x001A3800u 0x001A3980u
+/* the same instruction of the same code: func 0x001966E8 (NTSC-U 0x001967D8) +0x4, 2 of 2 places agree */
+#define RAC3_MADDR_0x001A5CD0u 0x001A5E50u
 /* not paired (rac3_mp_pairs.py) */
 #define RAC3_MADDR_0x001A5E18u 0u
 /* not paired (rac3_mp_pairs.py) */
