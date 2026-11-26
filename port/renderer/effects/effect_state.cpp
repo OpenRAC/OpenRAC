@@ -98,6 +98,7 @@ EffectGlState effect_gl_state(const EffectState& state) {
     out.min_filter = state.linear_min ? GL_LINEAR : GL_NEAREST;
     out.repeat_s = state.repeat_s;
     out.repeat_t = state.repeat_t;
+    out.mipmap = state.mipmap;
     out.depth_function = depth_function(state.depth);
     return out;
 }

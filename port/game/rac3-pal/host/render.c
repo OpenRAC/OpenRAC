@@ -106,6 +106,12 @@ static void anchor(const Copy* c) {
     anchor_at(at_copy(c, c->list_pointer));
 }
 
+/* The levels' display list (the one DrawFrame's callbacks append to): the frame recorder's place for
+ * what a callback records now (water_plane.c's strips). */
+void rac3_anchor_levels(void) {
+    anchor(&kVeldin);
+}
+
 /* DrawTfrag (Going Commando's func_002EF3B0, the same 208 bytes): the world's first native pass
  * after the sky, so the world's marker goes here. */
 static void draw_tfrag(const Copy* c) {
