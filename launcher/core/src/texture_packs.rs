@@ -609,19 +609,37 @@ fn ktx2_problem(bytes: &[u8]) -> Option<&'static str> {
     }
 }
 
+/// An SVG's text without the PNG and JPEG pictures embedded in it (Inkscape keeps reference
+/// pictures so), each left as a local link: they reach nothing outside the file.
+fn without_embedded_pictures(lower: &str) -> String {
+    const PREFIXES: [&str; 3] = ["data:image/png;base64,", "data:image/jpeg;base64,", "data:image/jpg;base64,"];
+    let mut out = String::with_capacity(lower.len());
+    let mut rest = lower;
+    while let Some((at, prefix)) = PREFIXES.iter().filter_map(|p| rest.find(p).map(|i| (i, *p))).min_by_key(|(i, _)| *i)
+    {
+        out.push_str(&rest[..at]);
+        out.push('#');
+        rest = rest[at + prefix.len()..]
+            .trim_start_matches(|c: char| c.is_ascii_alphanumeric() || "+/=".contains(c) || c.is_ascii_whitespace());
+    }
+    out.push_str(rest);
+    out
+}
+
 /// Why an SVG is not a plain drawing, if it is not: a pack's SVG reaches nothing outside its file
-/// and runs nothing. The game draws only shapes from it (nanosvg); this keeps the file safe for
-/// other programs a player opens it in, too.
+/// and runs nothing. The game draws only shapes from it (nanosvg), not its pictures; this keeps the
+/// file safe for other programs a player opens it in, too.
 fn svg_problem(bytes: &[u8]) -> Option<&'static str> {
     if bytes.len() > MAX_SVG {
         return Some("is larger than 16 MB");
     }
     let Ok(text) = std::str::from_utf8(bytes) else { return Some("is not an SVG (not UTF-8 text)") };
-    let lower = text.to_ascii_lowercase();
+    let lower = without_embedded_pictures(&text.to_ascii_lowercase());
     if !lower.contains("<svg") {
         return Some("is not an SVG");
     }
-    for banned in ["<script", "<!entity", "<foreignobject", "<image", "<iframe", "@import", "javascript:"] {
+    // An <image> may only show a picture embedded in the file (the link checks below).
+    for banned in ["<script", "<!entity", "<foreignobject", "<iframe", "@import", "javascript:"] {
         if lower.contains(banned) {
             return Some("holds a script, an embedded document or a link to another file");
         }
@@ -1215,10 +1233,16 @@ mod tests {
         // SVG: shapes only, links inside the file only.
         assert_eq!(svg_problem(SVG.as_bytes()), None);
         assert_eq!(svg_problem(br#"<svg width="8" height="8"><rect width="8" height="8"/></svg>"#), None);
+        // Inkscape's hidden reference pictures, embedded in the file.
+        let embedded = r#"<svg><image style="display:none" xlink:href="data:image/png;base64,iVBORw0K
+            GgoAAAANSUhE=="/><image href="data:image/jpeg;base64,/9j/4AAQ"/><rect/></svg>"#;
+        assert_eq!(svg_problem(embedded.as_bytes()), None);
         for bad in [
             r#"<svg><script>alert(1)</script></svg>"#,
             r#"<svg onload="alert(1)"><rect/></svg>"#,
             r#"<svg><image href="photo.png"/></svg>"#,
+            r#"<svg><image href="data:image/svg+xml;base64,PHN2Zz4="/></svg>"#,
+            r#"<svg><image href="data:image/png;base64,AAAA" onload="alert(1)"/></svg>"#,
             r#"<svg><use xlink:href="other.svg#a"/></svg>"#,
             r#"<svg><rect fill="url(http://example.com/a)"/></svg>"#,
             r#"<svg><style>@import "x.css";</style></svg>"#,
