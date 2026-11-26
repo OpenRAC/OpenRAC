@@ -72,7 +72,6 @@ jobs:
       windows: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.windows || 'true' }}
       launcher_systems: ${{ steps.scope.outputs.launcher_systems || '["Linux", "Windows"]' }}
       port_programs: ${{ steps.parts.outputs.port_programs }}
-      port_part_names: ${{ steps.parts.outputs.port_part_names }}
       port_parts: ${{ github.event.pull_request.draft && '[]' || steps.scope.outputs.port_parts || steps.parts.outputs.port_parts }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -87,9 +86,6 @@ jobs:
                             for path in pathlib.Path("port/game").glob("*/hostgen.json"))
           print("port_programs=" + json.dumps(programs))
           print("port_parts=" + json.dumps(["common", *programs]))
-          # Check names: port_linux_common, port_linux_rac1_ntsc, ...
-          print("port_part_names=" + json.dumps({part: "port_linux_" + part.replace("-", "_")
-                                                 for part in ["common", *programs]}))
           PY
       - id: scope
         env:
@@ -394,7 +390,7 @@ jobs:
   launcher:
     needs: plan
     if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.launcher != 'false' && needs.plan.outputs.launcher_systems != '[]' }}
-    name: "${{ matrix.system == 'Windows' && 'launcher_windows' || 'launcher_linux' }}"
+    # No name of its own: GitHub names each row "launcher (Linux)", and a skipped job "launcher".
     runs-on: ${{ matrix.system == 'Windows' && 'windows-latest' || 'ubuntu-26.04' }}
     timeout-minutes: 30
     strategy:
@@ -519,7 +515,8 @@ jobs:
   # Commando's three programs in one job took 53 minutes with a cold cache. Every test runs in
   # exactly one part.
   port_linux:
-    name: "${{ fromJSON(needs.plan.outputs.port_part_names || '{}')[matrix.part] || format('port_linux_{0}', matrix.part) }}"
+    # No name of its own: GitHub names each row "port_linux (rac1-ntsc)", and a skipped job
+    # "port_linux".
     needs: plan
     if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.port_parts != '[]' }}
     runs-on: ubuntu-26.04

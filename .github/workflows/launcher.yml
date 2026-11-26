@@ -36,7 +36,7 @@ run-name: >-
   ${{ github.ref_type == 'tag'
       && format('launcher #{0} · tag {1}', github.run_number, github.ref_name)
   || github.ref == 'refs/heads/release/dev'
-      && format('launcher #{0} · dev release PR · required checks only (no build)', github.run_number)
+      && format('launcher #{0} · dev release PR · no build', github.run_number)
   || github.event_name == 'merge_group'
       && format('launcher #{0} · queue → {1}', github.run_number, endsWith(github.event.merge_group.base_ref, '/master') && 'master' || 'develop')
   || github.event_name == 'push'
@@ -96,8 +96,7 @@ jobs:
           path: ${{ runner.temp }}/version.txt
 
   installer:
-    # installer_windows, installer_linux, installer_linux_arm64, installer_macos, installer_android
-    name: "${{ format('installer_{0}', matrix.name == 'linux-arm64' && 'linux_arm64' || matrix.name) }}"
+    # No name of its own: GitHub names each row "installer (android)", and a skipped job "installer".
     needs: version
     runs-on: ${{ matrix.os }}
     # Two hours for every row: a cold compiler cache takes Windows and Android past an hour.
