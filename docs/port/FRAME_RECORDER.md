@@ -185,8 +185,10 @@ where the draw buffer is put back, at the list cursor of each (`openrac_frame_an
 `render_panel.c` (`setup_render_target` `func_001FB608`, `PutDrawBufferLarge` `func_001FB498`: the
 vendor's monitors, their background `func_001FB908` and Z clear included, and the pause menu's
 tiles), rac2's `render_panel.c` (`gfx_build_screen_sprite_packet` `func_00285030`, which
-`gfx_setup_screen_copy_draw_state` `func_00280510` (Ship Shack and pause panels) and
-`gfx_setup_offscreen_target` `func_0027B9C0` (the cockpit's 256 x 256 target) both run;
+`gfx_setup_screen_copy_draw_state` `func_00280510` (the pause menu's panels whose flag bit 1 is clear and whose
+draw is one of four menu routines) and `gfx_setup_offscreen_target` `func_0027B9C0` (a cutscene's object
+preview, 256 x 256) both run; hidden runs of the Ship Shack, the seven pause pages and space flight
+never reached them (SCREEN_EFFECTS.md, section 5.1), so they are unproven on a screen;
 `gfx_append_draw_list_header` `func_00284EA8`). The game's own C runs unchanged. No window or
 `OPENRAC_UI_REPLAY`: nothing recorded, the game's packets alone, as before.
 
