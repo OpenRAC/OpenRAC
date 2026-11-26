@@ -16,22 +16,20 @@ run-name: >-
       && format('checks #{0} · push {1}', github.run_number, github.ref_name)
   || format('checks #{0} · manual {1} · by {2}', github.run_number, github.ref_name, github.actor) }}
 
-# The games (hostgen and each version's build) and Windows build only for a dev release (its pull
-# request from develop to master, .github/workflows/dev-release.yml) and a manual run (Run
-# workflow). The push to master that merges it runs only the repository checks: what it brings was
-# built on the pull request. A game that breaks there is fixed on develop.
-# A pull request to develop runs only the lint jobs (lint_*), which need no build. The merge
-# queue runs everything else and no lint: the builds of the port's shared part, its tests, the
-# enhanced Vulkan build, the launcher and the unit tests (tools/ci_scope.py picks what the change
-# can affect). A job a run does not need reports skipped, which passes a required check. develop
-# pushes run both and are the only runs that write the caches (.github/actions/*/save), so they
-# are never cancelled.
+# A pull request runs only the lint jobs (lint_*), which need no build. So does a dev release's
+# pull request (release/dev to master, .github/workflows/dev-release.yml starts this on
+# release/dev by hand). The merge queue runs everything else and no lint. develop's queue builds
+# the port's shared part and runs its tests, the enhanced Vulkan build, the launcher and the unit
+# tests (tools/ci_scope.py picks what the change can affect). master's queue (a dev release) runs
+# everything: hostgen, every game in every version and Windows; launcher.yml builds the installers
+# and publishes them in the same queue run. A game that breaks there is fixed on develop. A job a
+# run does not need reports skipped, which passes a required check. A push to master runs only the
+# repository checks. develop pushes run both lint and builds and are the only runs that write the
+# caches (.github/actions/*/save), so they are never cancelled. A manual run runs everything.
 on:
   push:
     branches: [master, develop]
   pull_request:
-    # ready_for_review: a draft pull request to master skips the port's builds (plan below), so
-    # they run when it is ready.
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
   workflow_dispatch:
@@ -59,10 +57,8 @@ concurrency:
 jobs:
   # What a run needs (tools/ci_scope.py: the jobs and the port's parts its files can affect, in
   # the event's tier), and on every event all the parts the Linux port job is built in: one for
-  # what the games share, one per game program (port/game/*/hostgen.json "id"). A dev release's
-  # pull request to master and a manual run run everything; a push to master only the repository
-  # checks. A draft pull request runs no port build, only the cheap checks; marking it ready
-  # runs the rest.
+  # what the games share, one per game program (port/game/*/hostgen.json "id"). master's queue (a
+  # dev release) and a manual run run everything; a push to master only the repository checks.
   plan:
     name: plan
     runs-on: ubuntu-26.04
@@ -99,18 +95,21 @@ jobs:
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           MERGE_BASE: ${{ github.event.merge_group.base_sha }}
+          MERGE_BASE_REF: ${{ github.event.merge_group.base_ref }}
           BEFORE: ${{ github.event.before }}
         run: |
           # The base branch's policy, so that a change to the gate gets full checks. A develop
           # push checks what it changed (it landed through the queue, which checked all of it);
-          # a pull request to master (a dev release), any other push or a manual run gives every
-          # output (the defaults).
+          # master's queue (a dev release), any other push or a manual run gives every output (the
+          # defaults).
           script="$RUNNER_TEMP/openrac-ci-scope.py"
           case "$GITHUB_EVENT_NAME" in
             pull_request)
               [ "$GITHUB_BASE_REF" != master ] || exit 0
               git show HEAD^1:tools/ci_scope.py > "$script" || exit 0 ;;
             merge_group)
+              # master's queue (a dev release) checks everything.
+              [ "$MERGE_BASE_REF" != refs/heads/master ] || exit 0
               git fetch -q --no-tags --depth=1 origin "$MERGE_BASE" || exit 0
               git show "$MERGE_BASE:tools/ci_scope.py" > "$script" || exit 0 ;;
             push)
@@ -270,7 +269,7 @@ jobs:
   # and pushes, not a pull request to develop (the queue runs them on what will land).
   repo_tests:
     name: repo_tests
-    if: ${{ !(github.event_name == 'pull_request' && github.base_ref != 'master') }}
+    if: ${{ !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
@@ -394,7 +393,7 @@ jobs:
   # Not on a pull request to develop: the merge queue runs it.
   launcher:
     needs: plan
-    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.launcher != 'false' && needs.plan.outputs.launcher_systems != '[]' }}
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.launcher != 'false' && needs.plan.outputs.launcher_systems != '[]' }}
     name: "${{ matrix.system == 'Windows' && 'launcher_windows' || 'launcher_linux' }}"
     runs-on: ${{ matrix.system == 'Windows' && 'windows-latest' || 'ubuntu-26.04' }}
     timeout-minutes: 30
@@ -438,7 +437,7 @@ jobs:
   launcher_gate:
     name: launcher_gate
     needs: [plan, launcher]
-    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') }}
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
@@ -455,7 +454,7 @@ jobs:
   launcher_pages:
     name: launcher_pages
     needs: plan
-    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.pages != 'false' }}
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.pages != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -522,7 +521,7 @@ jobs:
   port_linux:
     name: "${{ fromJSON(needs.plan.outputs.port_part_names || '{}')[matrix.part] || format('port_linux_{0}', matrix.part) }}"
     needs: plan
-    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.port_parts != '[]' }}
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.port_parts != '[]' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     strategy:
@@ -633,7 +632,7 @@ jobs:
   port_linux_gate:
     name: port_linux_gate
     needs: [plan, port_linux]
-    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.plan.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
@@ -651,7 +650,7 @@ jobs:
   enhanced_vulkan:
     name: enhanced_vulkan
     needs: plan
-    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.enhanced != 'false' }}
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.enhanced != 'false' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     env:
@@ -772,7 +771,7 @@ jobs:
   enhanced_vulkan_gate:
     name: enhanced_vulkan_gate
     needs: [plan, enhanced_vulkan]
-    if: ${{ !cancelled() && !(github.event_name == 'pull_request' && github.base_ref != 'master') && needs.plan.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
@@ -793,8 +792,8 @@ jobs:
   port_windows:
     name: port_windows
     needs: plan
-    # Only when everything is checked (a dev release, a manual run).
-    if: ${{ !cancelled() && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.windows == 'true' }}
+    # Only when everything is checked (master's queue, a manual run).
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.windows == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 120
     env:
