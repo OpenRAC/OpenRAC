@@ -262,9 +262,14 @@ static int send_quad(const openrac_game_ui_rect* q, gaddr cursor) {
     return openrac_frame_ui_quad(q);
 }
 
-/* The image of the glyph page whose handles are tex0's (its TBP and CBP fields, the values the
- * print read from the copy's tables), from the current font's header. */
+/* The image of the glyph page a glyph is drawn from, given the TEX0 the font's getter returned for
+ * it: the image FontTex0 kept against that handle (the font page its own tables named). Else, for
+ * a print whose getter is not wrapped (the multiplayer executable's), the page whose table words
+ * hold the handle's TBP and CBP fields, from the current font's header. */
 static int glyph_page(unsigned long long tex0, openrac_game_ui_image* out) {
+    if (rac3_exec_program() != RAC3_EXEC_MULTIPLAYER && rac3_texture_image(tex0, 0, out)) {
+        return 1;
+    }
     if (!g_print.fonts_known) {
         return 0;
     }
@@ -275,9 +280,54 @@ static int glyph_page(unsigned long long tex0, openrac_game_ui_image* out) {
     }
     const int font = rac3_ui_font_index();
     const int page = rac3_ui_font_page_of(
-        font, (uint32_t)(tex0 & 0x3FFFu), (uint32_t)((tex0 >> 37) & 0x3FFFu), pages, palettes
+        font,
+        (uint32_t)(tex0 & 0x3FFFu),
+        (uint32_t)((tex0 >> 37) & 0x3FFFu),
+        0x3FFFu,
+        pages,
+        palettes
     );
     return page >= 0 && rac3_ui_font_page(font, page, out);
+}
+
+/* FontTex0 (boot func_0038A0E0, frontbin's func_00389D00, the levels' func_L01_004047A8): the TEX0
+ * of a font page, made of the words the print looked up in the font's tables (`page_word` in the
+ * table of pages, `palette_word` in the palettes'). Run as the game's; the font page those words
+ * name in the font's header is kept against the handle it returned (textures.c), so the glyphs
+ * drawn from the handle read that image. */
+static unsigned long long font_tex0_kept(
+    unsigned long long handle, const FontTables* fonts, int page_word, int palette_word
+) {
+    const gaddr pages = GREF(gaddr, fonts->pages);
+    const gaddr palettes = GREF(gaddr, fonts->palettes);
+    openrac_game_ui_image image;
+    if (pages != 0 && palettes != 0) {
+        const int font = rac3_ui_font_index();
+        const int page = rac3_ui_font_page_of(
+            font, (uint32_t)page_word, (uint32_t)palette_word, 0xFFFFFFFFu, pages, palettes
+        );
+        if (page >= 0 && rac3_ui_font_page(font, page, &image)) {
+            rac3_texture_keep_font(handle, &image);
+        }
+    }
+    return handle;
+}
+
+unsigned long long func_0038A0E0__game(int a, int b, int c, int d, int e);
+unsigned long long func_00389D00__frontbin__game(int a, int b, int c, int d, int e);
+unsigned long long func_L01_004047A8__game(int a, int b, int c, int d, int e);
+
+unsigned long long func_0038A0E0(int a, int b, int c, int d, int e) {
+    return font_tex0_kept(func_0038A0E0__game(a, b, c, d, e), &kBootFonts, a, b);
+}
+
+unsigned long long func_00389D00__frontbin(int a, int b, int c, int d, int e) {
+    return font_tex0_kept(func_00389D00__frontbin__game(a, b, c, d, e), &kBootFonts, a, b);
+}
+
+unsigned long long func_L01_004047A8(int a, int b, int c, int d, int e) {
+    const FontTables fonts = level_fonts();
+    return font_tex0_kept(func_L01_004047A8__game(a, b, c, d, e), &fonts, a, b);
 }
 
 /* The 2D layer's scissor (SetScissor: the boot program's func_003A98B8, frontbin's func_003A9500,

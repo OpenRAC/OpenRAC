@@ -35,9 +35,14 @@ int rac3_ui_font_index(void);
  * memory: nonzero when the font has it. */
 int rac3_ui_font_page(int font, int page, openrac_game_ui_image* out);
 
-/* The glyph page of font `font` whose image and palette the game put at the handles
- * `image_handle` and `palette_handle` (the values its tables at `images` and `palettes` hold for
- * the font's pages and palettes, which a glyph's builder is given): -1 when none is. */
+/* The glyph page of font `font` whose image and palette handles are `image_handle` and
+ * `palette_handle`: the words its tables at `images` and `palettes` hold for the font's pages and
+ * palettes (which the font's TEX0 getter is given), compared under `mask`. -1 when none is. */
 int rac3_ui_font_page_of(
-    int font, uint32_t image_handle, uint32_t palette_handle, gaddr images, gaddr palettes
+    int font,
+    uint32_t image_handle,
+    uint32_t palette_handle,
+    uint32_t mask,
+    gaddr images,
+    gaddr palettes
 );

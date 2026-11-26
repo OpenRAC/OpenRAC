@@ -467,6 +467,10 @@ unsigned long long func_L01_0042D898(int header) {
     return handle;
 }
 
+void rac3_texture_keep_font(unsigned long long handle, const openrac_game_ui_image* image) {
+    keep_handle(handle, image, 0);
+}
+
 void rac3_textures_forget(void) {
     memset(s_handles, 0, sizeof s_handles);
     s_next_handle = 0;
