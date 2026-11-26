@@ -1,0 +1,122 @@
+# develop's caches, which every pull request and queue run reads. Only a run on develop can write
+# them, and develop's merge queue already built the commit a merge pushes: its jobs left each new
+# cache as an artifact (.github/actions/cache-out). This saves those artifacts as develop's caches,
+# under the same keys and paths, with no build. A queue run with no artifacts saves nothing.
+name: cache_handoff
+run-name: >-
+  ${{ format('cache_handoff #{0} · push develop', github.run_number) }}
+
+on:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+  actions: read
+
+# No concurrency group: a pending run would replace the one before it and lose its caches. Two
+# runs that save the same key just leave the first copy.
+jobs:
+  # The queue run that built this commit (develop takes the queue's commit as it is) and its caches.
+  find:
+    name: find
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    outputs:
+      run: ${{ steps.find.outputs.run }}
+      names: ${{ steps.find.outputs.names }}
+    steps:
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          run=$(gh run list --workflow checks.yml --event merge_group --commit "$GITHUB_SHA" --limit 1 \
+                --json databaseId -q '.[0].databaseId // ""')
+          echo "queue run: ${run:-none}"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          if [ -z "$run" ]; then echo "names=[]" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # The merge waits only for the required checks: let the rest of the run finish its uploads.
+          for _ in $(seq 120); do
+            [ "$(gh run view "$run" --json status -q .status)" = completed ] && break
+            sleep 10
+          done
+          gh api "repos/$GH_REPO/actions/runs/$run/artifacts?per_page=100" --paginate \
+             -q '.artifacts[] | select(.expired | not) | .name | select(startswith("cache-"))' |
+            python3 -c 'import json, sys; print("names=" + json.dumps(sorted(set(sys.stdin.read().split()))))' \
+            >> "$GITHUB_OUTPUT"
+          grep '^names=' "$GITHUB_OUTPUT"
+
+  # Each cache on a runner of its own: no limit on their number or size, and one failing alone.
+  save:
+    name: save
+    needs: find
+    if: needs.find.outputs.names != '[]' && needs.find.outputs.names != ''
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        artifact: ${{ fromJSON(needs.find.outputs.names) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ runner.temp }}/handoff
+          run-id: ${{ needs.find.outputs.run }}
+          github-token: ${{ github.token }}
+      # The cache back where its job had it, then saved from there.
+      - name: Unpack the cache
+        id: unpack
+        run: python3 .github/actions/cache-out/handoff.py unpack "$RUNNER_TEMP/handoff" 1
+      # A key another run saved first stays as it is.
+      - if: steps.unpack.outputs.key_1 != ''
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          key: ${{ steps.unpack.outputs.key_1 }}
+          path: ${{ steps.unpack.outputs.path_1 }}
+
+  # Cargo's cache cannot be handed on: rust-cache makes its key itself, from the Rust version too.
+  # So when develop has none for this commit's key, this builds what checks.yml's launcher job
+  # (Linux) builds, which saves it; with one it only restores it and stops. The Yarn packages come
+  # along: a missing Yarn cache is saved after the install. The key hashes the CC*, CARGO*, RUST*,
+  # CMAKE* and CXX* variables, so they must stay as in checks.yml (tools/test_ci_cache.py).
+  launcher_cache:
+    name: launcher_cache
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    env:
+      CCACHE_COMPILERCHECK: content
+    defaults:
+      run:
+        working-directory: launcher
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: toolchain
+        uses: ./.github/actions/launcher-toolchain
+        with:
+          cache-key: checks-launcher-ubuntu-26.04
+          components: clippy
+      - name: The launcher's packages
+        run: yarn install --immutable
+      - if: steps.toolchain.outputs.cache-hit != 'true'
+        uses: ./.github/actions/decomp-sources
+      - name: Tauri's system libraries
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        uses: ./.github/actions/apt-install
+        with:
+          packages: libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev
+      - name: Build what the launcher job builds
+        if: steps.toolchain.outputs.cache-hit != 'true'
+        run: |
+          cargo test -p openrac-launcher-core --no-run
+          yarn build
+          cargo clippy --workspace --all-targets -- -D warnings
