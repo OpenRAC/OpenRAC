@@ -718,7 +718,7 @@ static void open_for(int id, gaddr screen) {
         g_line = wide ? game_line * (float)GS_SLOTS / (float)(rows + 1) : game_line;
         area[0] = 50.0f, area[2] = 412.0f;
         area[1] = (0.648f - 3.0f * 0.412f / 9.0f) * PICTURE_H - game_line * 0.5f;
-        area[3] = wide ? g_line * (float)(rows + 1) : g_line * (float)GS_SLOTS;
+        area[3] = wide ? g_line * ((float)rows + 1.5f) : g_line * (float)GS_SLOTS;
     } else {
         const gaddr list = widget(screen, LIST_WIDGET);
         int32_t shown = GREF(int32_t, list + LIST_ROWS_SHOWN);
