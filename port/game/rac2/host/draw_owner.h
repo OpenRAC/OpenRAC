@@ -18,6 +18,12 @@
 /* The running callback's argument, 0 outside the lists' runs. */
 extern gaddr rac2_draw_owner;
 
+/* Which draw callback list is running (wide_view.c's run_first .. run_fifth as 1 to 5), 0 outside. */
+extern uint32_t rac2_draw_list;
+
+/* A draw callback is about to run: the strip capture (strips.c) starts from nothing. */
+void rac2_strips_forget(void);
+
 /* The id of the next world quad drawn (openrac_game_quad::id), counted up per quad; 0 for none.
  * A frame between ticks moves a quad with an id from where the last tick had it. */
 extern uint32_t rac2_effect_quad_id;
