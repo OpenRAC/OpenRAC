@@ -1,6 +1,6 @@
 """What the extractor's two level writers share: textures, glTF models, the scene text and
 level.json. The port's writer (port.py) writes the game's data from it; the level editor's (OpenRAC
-Editor's tools/godot.py) a Godot project.
+Editor's tools/godot.py) an OpenRAC Editor level project.
 """
 
 from dataclasses import replace
@@ -28,11 +28,11 @@ PANORAMA = (2048, 1024)  # About one texel per pixel around the horizon.
 
 
 class Raw(str):
-    """A value already in Godot's text syntax, such as ExtResource("id")."""
+    """A value already in the editor's scene text syntax, such as ExtResource("id")."""
 
 
 def number(x: float) -> str:
-    """The shortest text that reads back as the same float32, as Godot writes it."""
+    """The shortest text that reads back as the same float32, as OpenRAC Editor writes it."""
     target = struct.pack("<f", x)
     for digits in range(1, 10):
         shortest = float(f"{x:.{digits}g}")
@@ -181,14 +181,14 @@ class LevelWriter:
         """A moby class's mesh and, for an animated class, its skeleton (joint
         nodes in their bind pose, with a child node for joints scaled after
         the chain) and one animation per sequence. A looping sequence's name
-        ends in _loop, which Godot's importer turns into a looping animation.
+        ends in _loop, which the editor's importer turns into a looping animation.
         """
         bones = moby.skeleton
         if bones is None:
             return self.glb(path, [moby.mesh] + ([moby.metal] if moby.metal is not None else []), 1, True)
         count = len(bones.joints)
         scaled = [j for j, joint in enumerate(bones.joints) if joint.post_scale]
-        # Every node is a skin joint, so that Godot makes each one a bone;
+        # Every node is a skin joint, so that the editor makes each one a bone;
         # vertices of a post-scaled joint use its child node.
         slot = {j: count + i for i, j in enumerate(scaled)}
         skins = [tuple((slot.get(j, j), w) for j, w in pairs) for pairs in moby.mesh.skins]
@@ -226,8 +226,8 @@ class LevelWriter:
         return f"{self.res}/{path}"
 
     def scale(self, value) -> list[float]:
-        """A joint's scale as Godot can import it. The game hides a part by scaling its joint to
-        zero; Godot's importer cannot take a rotation out of a zero basis and reports an error for
+        """A joint's scale as OpenRAC Editor can import it. The game hides a part by scaling its joint to
+        zero; the editor's importer cannot take a rotation out of a zero basis and reports an error for
         each, so the editor's models get MIN_SCALE instead, too small to see (the same picture).
         The port's models keep the game's zeros (PortLevelWriter)."""
         if not self.godot_scales:
@@ -235,7 +235,7 @@ class LevelWriter:
         return [v if abs(v) >= MIN_SCALE else math.copysign(MIN_SCALE, v) for v in value]
 
     def place(self, mesh: Mesh, matrix: list[float] | None = None) -> None:
-        """Count a placed mesh, and keep its corners in Godot space for check.gd."""
+        """Count a placed mesh, and keep its corners in editor space for check.gd."""
         low, high = mesh.bounds()
         for p in ((x, y, z) for x in (low[0], high[0]) for y in (low[1], high[1]) for z in (low[2], high[2])):
             x, y, z = apply(matrix, p) if matrix else p
@@ -264,7 +264,7 @@ class LevelWriter:
         (self.dir / "collision.glb").write_bytes(collision_glb(data))
         self.scene.node("Collision", "Game", instance=self.scene.resource("PackedScene", f"{self.res}/collision.glb", "collision"),
                         visible=False)
-        # Godot's glTF import ignores vertex colours, so the mesh gets the material here.
+        # The editor's glTF import ignores vertex colours, so the mesh gets the material here.
         material = self.scene.subresource("StandardMaterial3D", "collision_material", transparency=1, shading_mode=0,
                                           cull_mode=2, vertex_color_use_as_albedo=True,
                                           albedo_color=Raw(f"Color(1, 1, 1, {number(COLLISION_ALPHA)})"))
@@ -277,7 +277,7 @@ class LevelWriter:
 
     def write_light_bank(self, bank) -> None:
         """light_bank.json: the level's 16 directional light sets as floats (colour A, direction A,
-        colour B, direction B; directions in Godot's axes), which rc1/import_lit.gd gives the
+        colour B, direction B; directions in the editor's axes), which rc1/import_lit.gd gives the
         mobys' lit_moby shader."""
         def floats(words):
             return [struct.unpack("<f", struct.pack("<I", w))[0] for w in words]
@@ -288,13 +288,13 @@ class LevelWriter:
 
     @staticmethod
     def godot_axes(v: list[float]) -> list[float]:
-        """A game (x, y, z, w) vector in Godot's axes (GAME_TO_GODOT)."""
+        """A game (x, y, z, w) vector in the editor's axes (GAME_TO_GODOT)."""
         return [v[0], v[2], -v[1], v[3]]
 
     def write_terrain(self, fragments: list[Mesh], lod: int) -> None:
         if self.godot_scales:
             # The game multiplies a texel by the vertex colour as stored (0x80 = 1.0, up to 2.0);
-            # Godot multiplies in linear light, so the editor's terrain carries the colour in
+            # The editor multiplies in linear light, so the editor's terrain carries the colour in
             # linear (c ** 2.2) to look as the game's does. The port's terrain keeps the game's.
             fragments = [replace(m, colours=[tuple(c ** 2.2 for c in rgba[:3]) + tuple(rgba[3:]) for rgba in m.colours])
                          if m.colours else m for m in fragments]

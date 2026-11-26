@@ -21,6 +21,21 @@
    "status": "differs",
    "port": "host C"
   },
+  "func_003A2BC0__frontbin": {
+   "is": "func_PAL_003A2BC0__frontbin",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_003A2CD8__frontbin": {
+   "is": "func_PAL_003A2CD8__frontbin",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_003A31C8": {
+   "is": "func_003A3088",
+   "status": "differs",
+   "port": "host C"
+  },
   "func_003A7EF8": {
    "is": "func_003A7DB0",
    "status": "differs",
@@ -111,6 +126,11 @@
    "status": "differs",
    "port": "hook"
   },
+  "func_L01_00460868": {
+   "is": "func_PAL_L01_00460868",
+   "status": "none",
+   "port": "host C"
+  },
   "func_L01_004B04D8": {
    "is": "func_L01_004ACA98",
    "status": "differs",
@@ -148,6 +168,8 @@
   }
  },
  "left_out": {
+  "func_003A2BC0__frontbin": "PAL-only overlay pad startup: NTSC-U's boot caller 0x003984CC initializes the core records through 0x003A2E80; frontbin enters at 0x0037D200 and calls the existing-pad iterator 0x0039E8E0 at +0x400 and +0x8D4 without pad/library initialization. Its records start at 0x001D5680, above the retained pad records and core pointers; no NTSC startup is invented or substituted.",
+  "func_L01_00460868": "PAL-only overlay pad startup: NTSC-U's level 1 entry 0x003EE988 uses iterator 0x0045E370 and updater 0x0045DF40 on the boot-initialized core pad records. All 34 NTSC-U SP programs start their records at 0x001D5680, overlap no pad/core-pointer state, and have no calls to pad/library init or port open and no GP-relative stores to the port-one core pointers. Preserve that lifecycle rather than bind a nonexistent overlay initializer.",
   "func_003AA3C8__frontbin": "DrawWidgetSpriteFrontbin: since rac3-decomp f9ea1754 NTSC-U's release view names PAL's frontbin func_003AA3C8 func_003A4E70 without its program's suffix, so frontbin's C calls a stub and the row would bind the boot program's address (inside func_003A4688); left out until the release view names it as frontbin's again",
   "mp:func_L39_0067A7E0": "no NTSC-U pair (release/mp_pairs.json)"
  },
@@ -155,7 +177,19 @@
   "L01:004D8220",
   "L01:004DB780",
   "mp:001959F8",
-  "mp:00241128"
+  "mp:00241128",
+  "mp:00241640",
+  "mp:00241640",
+  "mp:00241640",
+  "mp:001FD7E8",
+  "mp:001A5E18",
+  "mp:001A635C",
+  "mp:001A637D",
+  "mp:001A6480",
+  "mp:001A64A5",
+  "mp:001A64AD",
+  "mp:001A6310",
+  "mp:001A6330"
  ],
  "hand_addresses": {
   "0x001439F4": {
@@ -209,6 +243,10 @@
   "0x001BBC40": {
    "is": "0x001BBC40",
    "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x78, 24 of 24 places agree"
+  },
+  "0x001D4CF4": {
+   "is": "0x001D4CF4",
+   "why": "the active pad's not-ready flag the pad update writes ($gp - 0x7BBC: NTSC-U's func_003A3A00 stores to it as PAL's func_003A3B40 does, asm/us/boot_elf/13_text/f_003A3A00.s at 0x003A3A64, and both programs' $gp is 0x001DC8B0, config/gp.tsv)"
   },
   "0x001A71A0": {
    "is": "0x001A71A0",
@@ -294,14 +332,11 @@
    "func_PAL_L39_0067A7E0",
    "func_L01_003B6B68_003B7290",
    "func_00193590",
-   "func_1488A8",
-   "func_PAL_L30_003B3A30",
-   "func_PAL_L39_006461B0"
+   "func_1488A8"
   ]
  },
  "own_functions": [
   "func_00395FE0__frontbin",
-  "func_0039DB38__frontbin",
   "func_003B0C70__frontbin",
   "func_003B0D18__frontbin",
   "func_003B6430",

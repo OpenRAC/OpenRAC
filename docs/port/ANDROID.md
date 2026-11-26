@@ -54,8 +54,9 @@ offers *Return to game* and *Stop the game*.
 
 - **Build.** `cmake --preset android-arm64` cross-compiles the port with the
   NDK; hostgen still runs on the build machine. The game becomes a shared
-  library and SDL3 `libSDL3.so`. `tools/build_android.py` copies both into
-  the launcher's `jniLibs/arm64-v8a`. The preset links with ThinLTO
+  library and SDL3 `libSDL3.so`. The Vulkan shaders are one library,
+  `libopenrac-shaders.so`, which every game loads, so the APK has them once.
+  `tools/build_android.py` copies them into the launcher's `jniLibs/arm64-v8a`. The preset links with ThinLTO
   (`OPENRAC_PORT_LTO`).
 - **Graphics.** The renderer targets desktop OpenGL 4.1 and asks for an
   OpenGL ES 3.2 context on Android:

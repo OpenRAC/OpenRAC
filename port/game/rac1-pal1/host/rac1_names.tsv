@@ -1,6 +1,7 @@
 # The shared host C's function names (PAL v2.00's) and this release's. Written by
 # port/tools/hostgen/release_rac1.py (release_carry.json says how each rests); do not edit.
 func_00118D80	func_00118A80
+func_00122598	func_00122298
 func_001252C0	func_00125180
 func_00125328	func_001251E8
 func_00125358	func_00125218
@@ -30,6 +31,14 @@ func_001F4A78	func_001F45C8
 func_001F4AF0	func_001F4640
 func_001F4B68	func_001F46B8
 func_001F4BB8	func_001F4708
+func_001F4E08	func_001F4958
+func_001F4E08__game	func_001F4958__game
+func_001F5148	func_001F4C98
+func_001F5148__game	func_001F4C98__game
+func_001F5368	func_001F4EB8
+func_001F5368__game	func_001F4EB8__game
+func_001F55C0	func_001F5110
+func_001F55C0__game	func_001F5110__game
 func_001F5800	func_001F5350
 func_001F5800__game	func_001F5350__game
 func_001F6668	func_001F61B8
@@ -60,7 +69,14 @@ func_001FA218	func_001F9B80
 func_001FA480	func_001F9DE8
 func_001FA898	func_001FA200
 func_001FA8A8	func_001FA210
+func_001FB498	func_001FAE00
+func_001FB498__game	func_001FAE00__game
+func_001FB530	func_001FAE98
+func_001FB608	func_001FAF70
+func_001FB608__game	func_001FAF70__game
 func_001FB848	func_001FB1B0
+func_001FB848__game	func_001FB1B0__game
+func_001FB908	func_001FB270
 func_001FD3E8	func_001FC8F0
 func_001FD3E8__hooked	func_001FC8F0__hooked
 func_001FE540	func_001FD7D8
@@ -138,6 +154,10 @@ func_00216270	func_00214F18
 func_002167C0	func_00215468
 func_002177F0	func_00216448
 func_00217860	func_002164B8
+func_00217EE8	func_00216B40
+func_00217F68	func_00216BC0
+func_00218188	func_00216DB8
+func_002181F0	func_00216E20
 func_00218B10	func_00217710
 func_00219704	func_00218304
 func_0021A610	func_002191B0
@@ -180,6 +200,12 @@ func_00230A90	func_0022F288
 func_00230A90__game	func_0022F288__game
 func_00234620	func_00232E18
 func_002347F0	func_00232FE8
+func_002348E8	func_002330E0
+func_002348E8__game	func_002330E0__game
+func_00234948	func_00233140
+func_00234948__game	func_00233140__game
+func_002349B8	func_002331B0
+func_00234AC8	func_002332C0
 func_00234C98	func_00233490
 func_00235118	func_00233910
 func_002352C8	func_00233AC0
@@ -199,6 +225,7 @@ func_L00_001F1D20	func_L00_001F1920
 func_L00_001F2BE8	func_L00_001F27E8
 func_L00_001F34F0	func_L00_001F30F0
 func_L00_001F3958	func_L00_001F3558
+func_L00_001F9D40	func_L00_001F9940
 func_L00_001FD1D8	func_L00_001FCDD8
 func_L00_001FD1D8__game	func_L00_001FCDD8__game
 func_L00_001FDE48	func_L00_001FDA48
@@ -267,6 +294,7 @@ func_L00_00261448	func_L00_0025FFE0
 func_L00_002617B0	func_L00_00260348
 func_L00_0026C0D0	func_L00_0026ABC0
 func_L00_0026E438	func_L00_0026CF28
+func_L00_00277208	func_L00_00275CF8
 func_L00_00277A88	func_L00_00276560
 func_L00_00277A88__game	func_L00_00276560__game
 func_L00_002781D8	func_L00_00276C50
@@ -289,6 +317,10 @@ func_L00_0029AB38	func_L00_00299170
 func_L00_0029AB38__game	func_L00_00299170__game
 func_L00_0029BA20	func_L00_0029A058
 func_L00_0029C070	func_L00_0029A6B0
+func_L00_002A21A8	func_L00_002A08C0
+func_L00_002A21A8__game	func_L00_002A08C0__game
+func_L00_002A2258	func_L00_002A0970
+func_L00_002A2258__game	func_L00_002A0970__game
 func_L00_002A6070	func_L00_002A4788
 func_L00_002A8A20	func_L00_002A7128
 func_L00_002AB170	func_L00_002A9878
@@ -373,12 +405,17 @@ func_L11_0030F4F8__hooked	func_L11_0030D9B8__hooked
 func_L11_0030FB58	func_L11_0030DFC0
 func_L12_002407C0	func_L12_0023FC38
 func_L12_002407C0__hooked	func_L12_0023FC38__hooked
+func_L12_002677B4	func_L12_00266394
 func_L12_002C0310	func_L12_002BEA70
 func_L12_002C0310__hooked	func_L12_002BEA70__hooked
+func_L12_002E8530	func_L12_002E6AE0
+func_L12_002E8530__game	func_L12_002E6AE0__game
 func_L13_0030B340	func_L13_003097B0
 func_L13_0030B340__hooked	func_L13_003097B0__hooked
 func_L14_002306C8	func_L14_0022FB40
 func_L14_002306C8__hooked	func_L14_0022FB40__hooked
+func_L14_00308EB0	func_L14_003073D8
+func_L14_00308EB0__game	func_L14_003073D8__game
 func_L15_00217348	func_L15_002167A0
 func_L15_00217348__hooked	func_L15_002167A0__hooked
 func_L16_0021EA88	func_L16_0021DF00

@@ -40,6 +40,7 @@
 #include "platform/input.h"
 #include "platform/window.h"
 #include "renderer/effects/haze.h"
+#include "renderer/effects/screen_effect.h"
 #include "renderer/effects/shadows.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/renderer.h"
@@ -83,6 +84,9 @@ struct Kept {
     bool has_state = false, has_prev_state = false;
     std::vector<scene::Instance> live;
     std::vector<std::uint32_t> addresses;  // each live moby's address, for its last matrix
+    // Split screen drawn in one capture: the views that draw each live instance (bit n: view n,
+    // frontend/view_mobys.h); empty when every view draws every one.
+    std::vector<std::uint8_t> live_views;
     std::unordered_map<std::uint32_t, renderer::Mat4> prev_matrices;
     // Each moby's move the tick before the last (from two ticks ago to prev_matrices), where both
     // ticks had it, and the eye's (prev_state's from the one before): a frame between ticks moves
@@ -117,6 +121,8 @@ struct Kept {
     std::vector<renderer::WaterImpulse> water_impulses;
     std::vector<renderer::EffectQuad> effects;
     std::vector<renderer::ImageUpload> effect_uploads;
+    // The images the tick's native quads sample (EffectQuad::image), decoded when they were drawn.
+    std::vector<renderer::UiImage> effect_images;
     // The last tick's corners of each effect quad with an id (EffectQuad::id), when that tick was
     // the one before (GameProfile::interpolates_effect_quads): a frame between ticks moves the
     // quad from them (scene_hud.cpp). The tick the effects were kept on (Kept::frame).
@@ -134,6 +140,10 @@ struct Kept {
     renderer::FrameRecording recording;
     std::vector<renderer::FrameSplice> splices;
     std::size_t splices_before_world = 0;
+    // The split-screen views the game drew last (FrameRecorder::latest's), drawn by
+    // frontend/split_views.cpp: not `recording`'s, which is the one the 2D path's list was built
+    // with and can be older.
+    std::vector<renderer::FrameView> views;
     // The mods' heat haze (interface 1.12): each patch's place (x, y, z), radius and strength.
     std::vector<std::array<float, 5>> haze;
 
@@ -187,6 +197,8 @@ struct TickMobys {
     // The ties and shrubs as the game holds them (LevelScene::move_scenery); none keeps the last
     // tick's.
     std::optional<scene::GameScenery> scenery;
+    // The views that draw each instance of `live` (Kept::live_views); empty: every view.
+    std::vector<std::uint8_t> live_views;
 };
 
 // The producer's next scene while the worker owns the previous rendered snapshot.
@@ -260,6 +272,19 @@ struct SceneRenderState {
     // The mod's additional views and the OpenGL framebuffers around their output textures.
     std::array<renderer::FrameBuffer, 4> views;
     std::vector<std::pair<unsigned, unsigned>> view_targets;
+
+    // Split screen (frontend/split_views.cpp): each local player's view's world as last drawn, the
+    // recorded layout and whether it holds one. Forgotten at the first tick with no view's world
+    // or when the next view's layout no longer fits the retained pictures.
+    struct SplitView {
+        renderer::FrameBuffer picture;
+        renderer::FrameView layout;  // Source rectangle and screen size of the retained picture.
+        bool held = false;
+    };
+
+    std::array<SplitView, renderer::kFrameViews> split_views;
+    // Post-pass resources belong to the renderer/context; their sources are individual view pictures.
+    renderer::ScreenEffects split_screen_effects;
     scene::LevelData level;
     scene::LevelScene scene;
     DebugCamera debug_camera;
@@ -332,6 +357,9 @@ struct State {
     bool paused_from_play = false;
     // Mobys drawn this frame with a camera of their own (mobys_drawn): address, that camera.
     std::vector<std::pair<std::uint32_t, host::GameState>> moby_cameras;
+    // Split screen: the game's state when each view's world was drawn since the last capture
+    // (recorder::view_camera), for MobyProc's test from each view's camera (pose_mobys).
+    std::array<std::optional<host::GameState>, renderer::kFrameViews> view_states{};
 
     // The mobys the last 2D path read drew with a list of their own, by their markers (frame.cpp,
     // direct_packets): first moby, count, and whether the frame was a buffer narrower than the
@@ -348,6 +376,8 @@ struct State {
     // The world effect quads the game drew since the last frame (effect_quad).
     std::vector<renderer::EffectQuad> effects;
     std::vector<renderer::ImageUpload> effect_uploads;  // the quads' textures (EffectQuad::uploads)
+    // The native quads' images (material_quad, EffectQuad::image), read when each was drawn.
+    std::vector<renderer::UiImage> effect_images;
     // The sky shells the game drew since the last frame, with their matrices (sky_shell).
     std::array<renderer::Mat4, 8> sky_shells{};
     unsigned sky_shell_mask = 0;

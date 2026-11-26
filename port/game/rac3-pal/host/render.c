@@ -19,13 +19,17 @@
  */
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
+#include "effect_state.h"
 #include "game/common/lib/effect_texture.h"
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "openrac/host_env.h"
 #include "rac3_version.h"
+#include "textures.h"
 
 /* Shared with the multiplayer maps' copies (mp_maps.c), which pass their own globals. */
 int rac3_sky_draw_shell(int shell, gaddr matrix);
@@ -101,6 +105,12 @@ static void anchor_at(gaddr pointer) {
 
 static void anchor(const Copy* c) {
     anchor_at(at_copy(c, c->list_pointer));
+}
+
+/* The levels' display list (the one DrawFrame's callbacks append to): the frame recorder's place for
+ * what a callback records now (water_plane.c's strips). */
+void rac3_anchor_levels(void) {
+    anchor(&kVeldin);
 }
 
 /* DrawTfrag (Going Commando's func_002EF3B0, the same 208 bytes): the world's first native pass
@@ -374,35 +384,8 @@ int func_L01_00461CB8(void) {
     );
 }
 
-/*
- * The screen glow (Up Your Arsenal's own; Going Commando has none): DrawFrame, while the word
- * 0x001DBCA0 is set, appends two prebuilt GS packets by DMA reference. 0x004DE670 the first
- * (0x001D0A50, built by 0x004DDE98: the frame at block 0x1E00 copied into a 256 x 256 buffer at
- * FBP 0x198 and shrunk into FBP 0 and 0x1FD), 0x004DE6F0 the second (0x001D2A50, built by
- * 0x004DE5B0: blurred and added back over the frame, ALPHA 0x221, FIX 0x80). Replayed over the
- * native world they drew a ghost of the picture and a copy of it in its top left corner. The port
- * leaves them out: the enhanced renderer's bloom (enhanced/docs/bloom.md) is its glow. The word
- * each sets for the frame (0x6000 at $gp - 0xC0C, 0 again after) is kept.
- */
-#define GLOW_WORD RAC3_LADDR(1, 0x001DBCA4u)
-
-int func_L01_004DE670(void) {
-    GREF(int32_t, VELDIN(GLOW_WORD)) = 0x6000;
-    return 0;
-}
-
-int func_L01_004DE6F0(void) {
-    GREF(int32_t, VELDIN(GLOW_WORD)) = 0;
-    return 0;
-}
-
-/* The second screen effect (0x004DF310, while 0x001DBCBC is set; DrawFrame clears it after): the
- * same family, two more prebuilt packets, 0x001D3650 (0x004DF070: the frame copied and blurred
- * twice) and 0x001D3EF0 (0x004DF1B0: tinted and added back over the frame). Left out as the glow
- * is. */
-int func_L01_004DF310(void) {
-    return 0;
-}
+/* The screen glow and the second screen effect (func_L01_004DE670, 004DE6F0, 004DF310) are in
+ * screen.c. */
 
 /* The draw callback running and its argument (wide_view.c), the owner of the quads it draws. */
 extern gaddr rac3_draw_owner;
@@ -417,12 +400,158 @@ static gaddr s_trail_record;
 #define TEXTURE_UPLOADS RAC3_LADDR(1, 0x001DF97Cu)
 #define TEXTURE_RECORDS RAC3_LADDR(1, 0x001E7880u)
 
+/* The draw state the levels' C sets while DrawFrame runs (effect_state.h), on the game's thread. */
+static rac3_effect_state s_effects;
+
+/* The levels' VU1_addGSregister (frontbin's func_003A9440, Veldin's 0x004C5B90): one register's
+ * packet (CNT, DIRECT, one A+D) appended through the list pointer. Run as the game's; the register
+ * and its value go to the capture with where the packet lies in the list. */
+void func_L01_004C5B90__game(int reg, unsigned long long value);
+
+void func_L01_004C5B90(int reg, unsigned long long value) {
+    const gaddr list = at_copy(&kVeldin, kVeldin.list_pointer);
+    const gaddr before = GREF(gaddr, list);
+    func_L01_004C5B90__game(reg, value);
+    rac3_effect_state_set(&s_effects, list, before, GREF(gaddr, list), reg, value);
+}
+
+/* DrawFrame, the levels' copy (frontbin's func_00388AF8, Veldin's 0x00403440): the capture is open
+ * while it runs, from nothing known; the draw callbacks run inside it. */
+void func_L01_00403440__game(int view);
+
+void func_L01_00403440(int view) {
+    const gaddr list = at_copy(&kVeldin, kVeldin.list_pointer);
+    rac3_effect_state_open(&s_effects, list, GREF(gaddr, list));
+    func_L01_00403440__game(view);
+    rac3_effect_state_close(&s_effects);
+}
+
+/* The levels' strip routine (frontbin's func_003D3A24, hand-written; Veldin's 0x00408AAC) takes
+ * count vertices as separate arrays (positions of three floats, colours, ST of two floats) and
+ * appends them with its GIF tag (a triangle strip, textured, fogged, blended) to the list for the
+ * strip program. Its callers (the levels' hand-built strips: class 6576's liquids, level 14's
+ * 0x003B24C8, the glints and the lasers) set TEST_1, ALPHA_1, CLAMP_1, TEX0_1 and TEX1_1 just
+ * before, through VU1_addGSregister, and the routine's setup (func_0038C750) between. When
+ * the capture proves all of that, the strip is recorded natively (openrac_frame_strip) from the same
+ * arrays, with the view context's fog line and colour, and the list gets nothing; otherwise the
+ * game's routine runs as it did. */
+void func_L01_00408AAC__game(int count, int positions, int colours, int uvs, int flag);
+void func_L01_00407588__game(void);
+
+void func_L01_00407588(void) {
+    const gaddr list = at_copy(&kVeldin, kVeldin.list_pointer);
+    const gaddr before = GREF(gaddr, list);
+    func_L01_00407588__game();
+    rac3_effect_state_advance(&s_effects, list, before, GREF(gaddr, list));
+}
+
+static float context_float(gaddr offset) {
+    float v;
+    memcpy(&v, G(at_copy(&kVeldin, kVeldin.view_context) + offset), sizeof v);
+    return v;
+}
+
+/* OPENRAC_RAC3_STRIP_TRACE: how many strips went native and why the others did not, every 256 calls
+ * (docs/port/DEBUGGING.md). */
+static unsigned s_strip_count[4];
+
+static void strip_traced(int outcome) {
+    static int on = -1;
+    if (on < 0) {
+        on = openrac_env_string("OPENRAC_RAC3_STRIP_TRACE") != NULL;
+    }
+    if (on && (++s_strip_count[outcome] & 0xFFu) == 0) {
+        fprintf(
+            stderr,
+            "rac3 strips: native %u, no proven state %u, no effect image %u, refused %u\n",
+            s_strip_count[0],
+            s_strip_count[1],
+            s_strip_count[2],
+            s_strip_count[3]
+        );
+    }
+}
+
+static int strip_native(int count, int positions, int colours, int uvs, gaddr list) {
+    if (count < 3 || count > (int)OPENRAC_STRIP_MOST_VERTICES || !openrac_frame_native()) {
+        return 0;
+    }
+    openrac_frame_strip_desc d;
+    memset(&d, 0, sizeof d);
+    uint64_t tex0 = 0;
+    if (!rac3_effect_strip_material(&s_effects, list, GREF(gaddr, list), &d.material, &tex0)) {
+        strip_traced(1);
+        return 0;
+    }
+    if (!rac3_effect_image(tex0, &d.image)) {
+        strip_traced(2);
+        return 0;
+    }
+    const gaddr context = at_copy(&kVeldin, kVeldin.view_context);
+    d.count = (uint32_t)count;
+    d.position = (const float*)G((gaddr)positions);
+    d.st = (const float*)G((gaddr)uvs);
+    d.rgba = (const uint32_t*)G((gaddr)colours);
+    d.flags = OPENRAC_STRIP_FOG | OPENRAC_STRIP_CHAIN_DEPTH;
+    /* UpdateViewContext's fog line (the view context's +0x220, +0x1AC, +0x23C, +0x238; the setup
+     * unpacks it to the strip program) and FOGCOL (+0x250, +0x254, +0x258, DrawFrame's own set). */
+    d.fog[0] = context_float(0x220);
+    d.fog[1] = context_float(0x1AC);
+    d.fog[2] = context_float(0x23C);
+    d.fog[3] = context_float(0x238);
+    d.fog_colour = (GREF(uint32_t, context + 0x250) & 0xFFu)
+                   | (GREF(uint32_t, context + 0x254) & 0xFFu) << 8
+                   | (GREF(uint32_t, context + 0x258) & 0xFFu) << 16;
+    anchor_at(list);
+    const int taken = openrac_frame_strip(&d);
+    strip_traced(taken ? 0 : 3);
+    return taken;
+}
+
+void func_L01_00408AAC(int count, int positions, int colours, int uvs, int flag) {
+    const gaddr list = at_copy(&kVeldin, kVeldin.list_pointer);
+    if (strip_native(count, positions, colours, uvs, list)) {
+        return;
+    }
+    const gaddr before = GREF(gaddr, list);
+    func_L01_00408AAC__game(count, positions, colours, uvs, flag);
+    rac3_effect_state_advance(&s_effects, list, before, GREF(gaddr, list));
+}
+
+/* OPENRAC_UI_SKIP naming rac3_effect_masks: the masks keep their older way while the capture runs
+ * on, to compare the two in one program (docs/port/DEBUGGING.md). */
+static int masks_skipped(void) {
+    const char* list = openrac_env_string("OPENRAC_UI_SKIP");
+    return list != NULL && strstr(list, "rac3_effect_masks") != NULL;
+}
+
+/* An alpha-fail mask (rac3_effect_mask_material: the refraction masks before their frame copy)
+ * drawn with a native material, its image the one EffectTex0 named for its TEX0. 0: the quad
+ * keeps its older way. */
+static int draw_mask(const openrac_game_quad* q, gaddr list) {
+    const rac3_quad_words words = {q->clamp, q->tex0, q->tex1, q->alpha};
+    openrac_game_material_quad m;
+    memset(&m, 0, sizeof(m));
+    if (!rac3_effect_mask_material(&s_effects, list, GREF(gaddr, list), &words, &m.material)
+        || !rac3_effect_image(q->tex0, &m.image) || masks_skipped()) {
+        return 0;
+    }
+    memcpy(m.corner, q->corner, sizeof(m.corner));
+    memcpy(m.rgba, q->rgba, sizeof(m.rgba));
+    memcpy(m.st, q->st, sizeof(m.st));
+    m.id = q->id;
+    m.parent = q->parent;
+    m.attachment = q->attachment;
+    return openrac_game_material_effect_quad(&m);
+}
+
 /*
  * DrawWorldQuad (0x00407E28, Going Commando's func_00280B90, the same 608 bytes): the draw
  * callbacks' world quad. a0 a quad record as Going Commando's: four corners (+0x00), four RGBA words
  * (+0x40), four ST pairs (+0x50), then CLAMP_1, TEX0_1, TEX1_1 and ALPHA_1 (+0x70..+0x88); a1, when
- * set, a matrix the corners go through first. The window draws it in the world, with the TEST and
- * ZBUF in effect at its marker (rac2/host/render.c's world_quad).
+ * set, a matrix the corners go through first. The window draws it in the world: an alpha-fail
+ * mask whose state the capture proves with a native material (draw_mask), any other with the TEST
+ * and ZBUF in effect at its marker (rac2/host/render.c's world_quad).
  */
 /* The loading flight's state (0x002D2008 in the boot program, the level's copy of it on a flight
  * that leaves a planet: loading.c), 0 outside a flight. Its +0 is the destination's picture, which
@@ -490,12 +619,15 @@ void rac3_world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, g
          * kMaximumEffectStep). */
         q.id = 0x20000000u | ((s_trail_record >> 4) & 0x1FFFFFFFu);
     }
-    openrac_game_effect_quad(&q);
-    const uint32_t marker = openrac_game_effect_quad_marker();
-    if (marker != 0) {
-        anchor_at(list);
-        openrac_frame_effect_quad(marker);
+    if (!draw_mask(&q, list)) {
+        openrac_game_effect_quad(&q);
+        const uint32_t marker = openrac_game_effect_quad_marker();
+        if (marker != 0) {
+            anchor_at(list);
+            openrac_frame_effect_quad(marker);
+        }
     }
+    rac3_effect_state_quad(&s_effects);
 }
 
 int func_L01_00407E28(int a0, int a1) {

@@ -340,8 +340,8 @@ level packer's output is per version too, since it replaces that disc's
 sectors. The installed launcher's bundle (tools/bundle_standalone.py) carries
 none of these actions yet, and its header hides Mods.
 
-The unverified ones ran from a shell on macOS with real discs and Godot
-4.7.2 (before OpenRAC Editor) (extract into a new folder, the refusal of an existing one, the
+The unverified ones ran from a shell on macOS with real discs and OpenRAC Editor
+(extract into a new folder, the refusal of an existing one, the
 headless import, packing on each disc, exporting, importing and stacking a
 PAL pack onto both discs' levels, the tests); none has been run from the
 desktop app yet. The extractor needs Python 3.10 or newer, which is why
@@ -408,3 +408,13 @@ These are not the launcher's to settle alone ([CONTRIBUTING.md](../../CONTRIBUTI
 | A game's build commands or output paths | its actions' `args`, `artifact` and `docs`                                                                           |
 | A Rust command or type                  | `src/lib/api.ts` and `src/lib/mock.ts`; a type: also `src/lib/generated/` (regenerated, ARCHITECTURE.md)             |
 | The website's colours or cards          | `src/app.css`, `src/lib/themes.ts` ([STYLE.md](STYLE.md))                                                            |
+
+## Structured action input
+
+An action may set `freeOption: true` when its `{option}` is structured input
+rather than a choice from `options`. The value is passed as one argument,
+without a shell, and the receiving tool validates its schema. Other actions
+keep the enumerated-option check. Audio recipe creation uses this for its
+name, sound selection, speed and volume. The stack action receives `--disc`
+when the selected version has an identified disc, so recipes can prepare
+private replacements without adding a disc requirement to ordinary packs.

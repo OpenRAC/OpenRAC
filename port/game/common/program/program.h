@@ -18,6 +18,7 @@
 
 #include "openrac/guest.h"
 #include "program/options.h"
+#include "program/picture_lists.h"
 
 namespace openrac::program {
 
@@ -32,6 +33,12 @@ extern gaddr g_chain;
 // A vertical blank was waited for since the last frame was sent: a frame sent with none ends at
 // the send instead (openrac_game_dma_send).
 extern bool g_vsync_since_kick;
+
+// The lists of a picture the game said spans its sends (openrac_game_picture_spans_sends), and
+// whether the vertical blank running now is one a send made inside such a picture: the window draws
+// nothing at it (program/picture_lists.h).
+extern PictureLists g_picture_lists;
+extern bool g_send_within_picture;
 
 // The program has a window (--window) and the renderer draws the game's frames; false without one
 // (no window asked for, or a program built without it).

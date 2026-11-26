@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (c) 2026 the OpenRAC contributors
+# Retained inspected VU0 candidates: conservative diagnostic snapshot, not an allow list.
+# Re-evaluate with native lowering, ABI comparison and generated-C compilation before removal.
+# name	reason
+func_0012FE78	Implicit register input: $vf9.xyzw read before the function writes it
+func_0012FED8	Implicit register input: $vf4.xyzw read before the function writes it
+func_0012FF08	Implicit register input: $vf6.xyzw read before the function writes it
+func_00388638	Existing assembly shadow still required; no C replacement proved
+func_0038D270	Implicit register input: $vf3.w read before the function writes it
+func_0038D460	ABI review: argument 2 register kind or width changed
+func_0038DA68	ABI review: argument count changed
+func_00397A18	ABI review: argument 8 register kind or width changed
+func_003BFE80	ABI review: argument 4 register kind or width changed; argument 10 register kind or width changed; argument 12 register kind or width changed; argument 13 register kind or width changed
+func_003C5110	ABI review: argument count changed
+func_003D2160	Microprogram with an implicit vector-register calling convention; not inline-only VU0
+func_003D30F8	Implicit register input: $vf8.yzw read before the function writes it
+func_L01_003E5638	ABI review: return register kind changed, including void
+func_L01_00446780	ABI review: argument 2 register kind or width changed; argument 5 register kind or width changed; argument 6 register kind or width changed; argument 7 register kind or width changed; argument 8 register kind or width changed; argument 9 register kind or width changed
+func_L01_0044C870	ABI review: return register kind changed, including void
+func_L01_00474078	ABI review: argument 3 register kind or width changed; argument 4 register kind or width changed; argument 5 register kind or width changed; argument 6 register kind or width changed; argument 7 register kind or width changed; argument 9 register kind or width changed; argument 10 register kind or width changed; argument 11 register kind or width changed
+func_L06_0042B660	ABI review: return register kind changed, including void; argument 1 register kind or width changed; argument 3 register kind or width changed
+func_L07_003AF2B8	ABI review: return register kind changed, including void
+func_L18_00352350	ABI review: return register kind changed, including void
+func_L39_00573DE0	ABI review: return register kind changed, including void
+func_L39_005FF0B8	ABI review: argument 1 register kind or width changed; argument 5 register kind or width changed

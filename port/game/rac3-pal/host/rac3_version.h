@@ -26,4 +26,7 @@
 /* The boot executable SYSTEM.CNF starts, which leaving multiplayer starts again. */
 #define RAC3_BOOT_FILE "SCES_524.56"
 
+/* Frontbin's program-record entry, independent of the boot program's function map (measured). */
+#define RAC3_FRONTBIN_ENTRY 0x00381250u
+
 #endif /* OPENRAC_RAC3_VERSION_H */

@@ -394,7 +394,7 @@ if __name__ == "__main__":
 
 
 class PreviewTests(unittest.TestCase):
-    """A modder's textures shown in the editor's Godot projects, and taken back out."""
+    """A modder's textures shown in OpenRAC Editor's level projects, and taken back out."""
 
     def test_preview_and_undo(self):
         with tempfile.TemporaryDirectory() as temp:

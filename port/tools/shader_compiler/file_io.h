@@ -5,6 +5,7 @@
 #pragma once
 #include <filesystem>
 #include <span>
+#include <string>
 #include <vector>
 
 #include "renderer/vulkan/pipelines/shader_package.h"
@@ -12,6 +13,8 @@
 namespace openrac::shader_compiler {
 // Publishes changed bytes atomically; identical files keep their timestamps.
 void write_file(const std::filesystem::path& path, std::span<const char> bytes);
+// The cache file name of one compilation result.
+[[nodiscard]] std::string cache_name(vkgl::ShaderKey key);
 // Missing or damaged entries return no bytes and are compiled again.
 [[nodiscard]] std::vector<char> read_cached_program(
     const std::filesystem::path& output, vkgl::ShaderKey key

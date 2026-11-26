@@ -1,0 +1,12 @@
+# At the end of a job that restored the Mesa shader cache: in develop's merge queue, a cache the
+# restore did not find goes to .github/actions/cache-out. A push saves it itself (actions/cache).
+name: Hand on the Mesa shader cache
+description: In develop's merge queue, keep a new Mesa shader cache for cache-handoff.yml
+runs:
+  using: composite
+  steps:
+    - if: env.OPENRAC_MESA_SAVE_KEY != ''
+      uses: ./.github/actions/cache-out
+      with:
+        path: ${{ env.MESA_SHADER_CACHE_DIR }}
+        key: ${{ env.OPENRAC_MESA_SAVE_KEY }}
