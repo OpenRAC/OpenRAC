@@ -349,3 +349,45 @@ Open, in the order they bit:
   that keeps asm/ and baserom/): a tree with another session's edits fails hostgen with "its signature takes 0".
   `OPENRAC_RAC3_PAL_RETAIL_IMAGE` must be a file nobody removes. `sudo gdb -batch -p PID` works for
   `break mp_func_00120048 if buffer >= $gsp + 0xC0 ...` (do not name a gdb variable `$gs`: it is a register).
+
+## 8. Static sweep for the remaining 8-player assumptions, 2026-11-26
+
+Method (no fleet): the retail assembly of the core (`I5BOOTN`, 0x190000-0x1A8000), level 39 and map 40 (the other
+maps are copies of the same code, so every map site below is found in all 14 by matching the instruction window)
+was scanned for (a) `slti`/`sltiu` 7/8/9 and `li 7`/`li 8` + `bgez` loop bounds that are not in `mp/wide.json`,
+(b) a register holding the settings object (`lw 0x241640` / `-0x6980($gp)`) or the net block (`0x1A5CD0`) that
+forms an element address (`addiu`/`addu`) with no site within 16 instructions, and (c) loop bounds beside sited
+loads. Raw lists: 523 unsited bound-looking instructions in the three programs (most are jump-table range checks
+and state constants), 176 in functions that touch the settings or net tables, 51 of them beside sited loads, plus
+16 + 12 unsited element addresses in levels 39 and 40 and 13 in the core. Reviewed by hand, the real ones:
+
+Fixed (sites added, 115 in all; `mp/wide.json`):
+- **core 0x0019A868..0x0019A8F0** (5 `ea GS_RESERVED`): the session-add handler's walk over the slots' reservation
+  words (settings + 0x100, 2 bytes a slot, up to `net+0x134` slots) had no sites, so for slots 8 and up it read and
+  wrote the next table (GS_VALUE_A, per-mode values from the join request). Its account walk (0x0019A7A0) was sited.
+- **level 39, five "which slot is mine" searches** (`bound` at 0x0068D724, 0x006A0404, 0x006A5D34, 0x006CBE44,
+  0x006D4F64): loops over `GS_CLIENT` whose loads were sited but whose limit was still `slti 8`, so a console in
+  slot 8 or up never found its own slot (found = -1) in the staging, name and skin handlers.
+- **name and clan formatting, 7 sites in level 39 and in each of the 14 maps (105)**: the in-game HUD name tag
+  (clan `value GS_CLAN` and name `value GS_NAME` handed to the tag's sprintf and strcpy; 39 0x00635D04/08/24, 40
+  0x00507BFC/C00/C1C), the kill messages (39 0x0066FD74, 0x0066FDA0, 0x0066FE4C) and the score caption's name
+  copy (39 0x0066690C): the element pointers into the settings' 16-byte names and 8-byte clans were formed from
+  the slot index with no site, so slots 8 and up printed whatever lies at settings + 0x80 + 8 * slot: the `[(nul]`
+  of the HUD tags. The earlier clan-sprintf miss (0x0019ABF4) was the same class.
+
+Port side (same PR): a START path for rooms past 8 (the pad's Start button, or Up from the first row of the native
+list, `wide_start` in `host/mp_ui.c`: the game's cursor moves to its START widget, and Start presses it when the
+game's own START byte is set; a greyed START plays the refusal), a scroll bar on a table longer than its page, and
+the list's `joined/MAX` count (`openrac_mp_ui_table_capacity`).
+
+Left at 8 on purpose or not reachable (still listed, none touched):
+- level 39's staging widget loops (0x006C30A0 row widgets, 0x006C1730 draw, 0x006C20B0 update: their rows are the
+  native list), the results screen loops (0x006A6938, 0x006A74F8, 0x006A83B8, 0x00670D90: widened by the end-results
+  wrap), bit-mask loops over a byte (0x006C4568, 0x0069AEF0), the ratings table of 11 entries (0x006C4148: 0x28-byte
+  entries indexed by account, an 11-entry table that 24 distinct accounts would overflow), the voice countdowns.
+- Per-frame scans over the players array that count down from 7 (`li 7 ... bgez`) with an unsited counter in 39 and
+  the maps (e.g. 40 0x00426B88, 0x00488794, 0x00539BB0, 0x0054B12C; 39 0x00667AB0, 0x0066CDB0, 0x005BA044,
+  0x00677A14): they look at players 0-7 only, so effects that test every player (proximity, damage areas) skip
+  players 8 and up. Not changed: the pointer walks start at the array's end, so a bound and a span site must change
+  together and cannot be proven without a run; check these first if a past-8 match shows players ignored by effects.
+- 0x006C3670/0x006AF09C compare a count from `func_006CC238` (the lobby's player count) with 8; left.
