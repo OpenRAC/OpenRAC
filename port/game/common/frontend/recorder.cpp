@@ -193,7 +193,8 @@ bool strip(std::span<const std::uint8_t> ram, const openrac_frame_strip_desc& d)
     const bool untextured = (d.material.flags & OPENRAC_MATERIAL_UNTEXTURED) != 0;
     const bool fogged = (d.flags & OPENRAC_STRIP_FOG) != 0;
     // The untextured shader has no fog line.
-    if ((d.flags & ~(OPENRAC_STRIP_LIQUID | OPENRAC_STRIP_FOG)) != 0 || (untextured && fogged)) {
+    if ((d.flags & ~(OPENRAC_STRIP_LIQUID | OPENRAC_STRIP_FOG | OPENRAC_STRIP_CHAIN_DEPTH)) != 0
+        || (untextured && fogged)) {
         return false;
     }
     const std::optional<renderer::EffectState> state = effect_state(d.material);
@@ -205,6 +206,7 @@ bool strip(std::span<const std::uint8_t> ram, const openrac_frame_strip_desc& d)
     out.untextured = untextured;
     out.liquid = (d.flags & OPENRAC_STRIP_LIQUID) != 0;
     out.fogged = fogged;
+    out.chain_depth = (d.flags & OPENRAC_STRIP_CHAIN_DEPTH) != 0;
     std::copy(d.fog, d.fog + 4, out.fog.begin());
     out.fog_colour = d.fog_colour & 0xFFFFFFu;
     if (!untextured) {

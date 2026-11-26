@@ -181,6 +181,7 @@ enum class Var : std::uint16_t {
     Rac3Next,
     Rac3PortReady,
     Rac3Profile,
+    Rac3StripTrace,
     Reach,
     Record,
     RenderGraphDump,

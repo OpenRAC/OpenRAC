@@ -65,7 +65,7 @@ void rac3_anchor_levels(void);
 
 /* The strip routine (func_003D3A24, hand-written: count, positions, colours, ST, 1), translated from
  * its instructions; game_protos.h may declare it without its parameters. */
-typedef int (*StripRoutine)(int count, int positions, int colours, int uvs, int flag);
+typedef void (*StripRoutine)(int count, int positions, int colours, int uvs, int flag);
 #define STRIP_ROUTINE ((StripRoutine)func_L01_00408AAC)
 /* The VU1 upload (func_003A9390: VU address, source, quadwords). */
 #define VU_UPLOAD func_L01_004C5A98
