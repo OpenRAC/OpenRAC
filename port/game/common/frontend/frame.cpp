@@ -745,8 +745,10 @@ std::vector<std::uint8_t> direct_packets(
                         const renderer::UiImage& image = recording->images[r.image];
                         std::size_t at = 0;
                         while (at < effect_images->size()
-                               && !((*effect_images)[at].hash == image.hash
-                                    && (*effect_images)[at].image == image.image)) {
+                               && !(
+                                   (*effect_images)[at].hash == image.hash
+                                   && (*effect_images)[at].image == image.image
+                               )) {
                             ++at;
                         }
                         if (at == effect_images->size()) {
@@ -3448,9 +3450,12 @@ TickPackets capture_2d_path(
     );
     static int haze_logged = 0;
     const bool log_haze = haze_log && haze_logged < 12
-                          && std::ranges::any_of(strips, [](const renderer::EffectStrip& s) {
-                                 return s.frame_copy || ((s.alpha & 0xFF) == 0x54);
-                             });
+                          && std::ranges::any_of(
+                              strips,
+                              [](const renderer::EffectStrip& s) {
+                                  return s.frame_copy || ((s.alpha & 0xFF) == 0x54);
+                              }
+                          );
     if (log_haze) {
         ++haze_logged;
         log::info(
@@ -3467,9 +3472,9 @@ TickPackets capture_2d_path(
             if (!near_copy) {
                 continue;
             }
-            const renderer::EffectVertex v0 =
-                s.count > 0 && s.first < strip_vertices.size() ? strip_vertices[s.first]
-                                                               : renderer::EffectVertex{};
+            const renderer::EffectVertex v0 = s.count > 0 && s.first < strip_vertices.size()
+                                                  ? strip_vertices[s.first]
+                                                  : renderer::EffectVertex{};
             log::info(
                 "  strip {}: count {} tex0 {:#x} alpha {:#x} test {:#x} copy {} uploads {} "
                 "noblend {} v0 ({:.3f} {:.3f} {:.3f}) st ({:.3f} {:.3f}) rgba {:#010x}",
@@ -3495,12 +3500,18 @@ TickPackets capture_2d_path(
         renderer::frame_copy_haze(strips, strip_vertices, k.haze);
     }
     if (log_haze) {
-        log::info("  -> {} haze patches, {} strips left", k.haze.size() - haze_before, strips.size());
+        log::info(
+            "  -> {} haze patches, {} strips left", k.haze.size() - haze_before, strips.size()
+        );
         for (std::size_t i = haze_before; i < k.haze.size(); ++i) {
             const auto& p = k.haze[i];
             log::info(
                 "  patch ({:.2f} {:.2f} {:.2f}) radius {:.3f} strength {:.4f}",
-                p[0], p[1], p[2], p[3], p[4]
+                p[0],
+                p[1],
+                p[2],
+                p[3],
+                p[4]
             );
         }
     }

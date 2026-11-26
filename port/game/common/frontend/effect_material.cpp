@@ -12,11 +12,10 @@ namespace openrac::frontend {
 namespace {
 
 // Every flag bit openrac/material.h names.
-constexpr std::uint32_t kKnownFlags = OPENRAC_MATERIAL_BLEND | OPENRAC_MATERIAL_DEPTH_WRITE
-                                      | OPENRAC_MATERIAL_TEXTURE_ALPHA | OPENRAC_MATERIAL_LINEAR_MAG
-                                      | OPENRAC_MATERIAL_LINEAR_MIN | OPENRAC_MATERIAL_REPEAT_S
-                                      | OPENRAC_MATERIAL_REPEAT_T | OPENRAC_MATERIAL_UNTEXTURED
-                                      | OPENRAC_MATERIAL_MIPMAP;
+constexpr std::uint32_t kKnownFlags =
+    OPENRAC_MATERIAL_BLEND | OPENRAC_MATERIAL_DEPTH_WRITE | OPENRAC_MATERIAL_TEXTURE_ALPHA
+    | OPENRAC_MATERIAL_LINEAR_MAG | OPENRAC_MATERIAL_LINEAR_MIN | OPENRAC_MATERIAL_REPEAT_S
+    | OPENRAC_MATERIAL_REPEAT_T | OPENRAC_MATERIAL_UNTEXTURED | OPENRAC_MATERIAL_MIPMAP;
 
 // The games' unit of a weight: 0x80 is 1.0.
 constexpr float kUnit = 128.0f;
