@@ -31,10 +31,10 @@
 #include <string.h>
 
 #include "draw_owner.h"
-#include "game_protos.h"
-#include "rac2.h"
 #include "game/common/lib/effect_texture.h"
+#include "game_protos.h"
 #include "openrac/game_host.h"
+#include "rac2.h"
 
 /* The effect textures' uploads this frame: their count and the records GetEffectTex writes
  * (render.c's). */
@@ -71,9 +71,9 @@ enum {
 #define LIST_BEFORE_MOBYS(list) ((list) == 3u || (list) == 4u)
 
 static struct {
-    gaddr end;       /* where the last append the capture saw ended */
-    uint32_t known;  /* kKnown*: the registers set since the last append it did not see */
-    int fog_known;   /* the view's fog was put into VU1 memory since then */
+    gaddr end;      /* where the last append the capture saw ended */
+    uint32_t known; /* kKnown*: the registers set since the last append it did not see */
+    int fog_known;  /* the view's fog was put into VU1 memory since then */
     uint64_t tex0, tex1, clamp, alpha, test;
     uint32_t pixels, clut; /* tex0's effect texture, 0 when it has none */
     float fog[4];
@@ -227,8 +227,8 @@ static int material_of_state(openrac_material* m) {
     m->alpha_test = ate ? kAlphaTests[(test >> 1) & 7u] : OPENRAC_MATERIAL_TEST_ALWAYS;
     m->alpha_reference = ate ? (uint8_t)(test >> 4) : 0;
     m->alpha_fail = ate ? kAlphaFails[(test >> 12) & 3u] : OPENRAC_MATERIAL_FAIL_NOTHING;
-    m->depth_test = ((test >> 16) & 1u) != 0 ? kDepthTests[(test >> 17) & 3u]
-                                             : OPENRAC_MATERIAL_DEPTH_ALWAYS;
+    m->depth_test =
+        ((test >> 16) & 1u) != 0 ? kDepthTests[(test >> 17) & 3u] : OPENRAC_MATERIAL_DEPTH_ALWAYS;
     m->combine = kCombines[(s.tex0 >> 35) & 3u];
     m->writes = OPENRAC_MATERIAL_WRITE_COLOUR;
     const unsigned mmin = (unsigned)((s.tex1 >> 6) & 7u);
@@ -276,7 +276,17 @@ static int image_of_state(openrac_game_ui_image* image) {
 
 /* OPENRAC_STRIP_TRACE: every 500 strips the counts of those drawn natively and those that went the
  * game's way, by the first thing missing (stderr, `[strips]` lines). */
-enum { kWhyList, kWhyState, kWhyFog, kWhyShape, kWhyMaterial, kWhyImage, kWhyRefused, kWhyCount };
+enum {
+    kWhyList,
+    kWhyState,
+    kWhyFog,
+    kWhyShape,
+    kWhyMaterial,
+    kWhyImage,
+    kWhyRefused,
+    kWhyCount
+};
+
 static unsigned s_native, s_why[kWhyCount];
 
 static void trace(int why) {
@@ -301,8 +311,14 @@ static void trace(int why) {
             stderr,
             "[strips] native %u; game's way: not before the mobys %u, state unknown %u, no fog %u, "
             "count %u, material %u, image %u, refused %u\n",
-            s_native, s_why[kWhyList], s_why[kWhyState], s_why[kWhyFog], s_why[kWhyShape],
-            s_why[kWhyMaterial], s_why[kWhyImage], s_why[kWhyRefused]
+            s_native,
+            s_why[kWhyList],
+            s_why[kWhyState],
+            s_why[kWhyFog],
+            s_why[kWhyShape],
+            s_why[kWhyMaterial],
+            s_why[kWhyImage],
+            s_why[kWhyRefused]
         );
     }
 }
