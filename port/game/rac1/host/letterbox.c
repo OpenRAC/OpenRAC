@@ -77,6 +77,9 @@ static int alt_state_proved(gaddr before) {
     for (gaddr a = before; a >= 16u && before - a < 0x10000u; a -= 16u) {
         if (GREF(uint32_t, a) == 0x30000003u && GREF(uint32_t, a + 12u) == 0x50000003u) {
             const gaddr packet = GREF(gaddr, a + 4u);
+            if (packet < 16u || packet > GUEST_RAM_SIZE - sizeof ALT_PACKET) {
+                return 0; /* an unset or wild pointer names no packet */
+            }
             for (int i = 0; i < 12; ++i) {
                 if (GREF(uint32_t, packet + (gaddr)i * 4u) != ALT_PACKET[i]) {
                     return 0;
@@ -106,10 +109,12 @@ void func_001F5148(void) {
      * checked below, per frame. Shrinking: the HUD's callbacks run first through pointers, a
      * level's own code, and were measured on Blarg in play only; elsewhere the packet stays. */
     if (enabled) {
-        if (!alt_state_proved(before)) {
+        const gaddr start = openrac_frame_ram_cursor(before);
+        if (start == UINT32_MAX || !alt_state_proved(start)) {
             return;
         }
-    } else if (!(shrinking && GREF(int, CURRENT_LEVEL) == BLARG && GREF(int, LEVEL_MODE) == PLAY)) {
+    } else if (!shrinking || GREF(int, OPENRAC_DATA(CURRENT_LEVEL)) != BLARG
+               || GREF(int, LEVEL_MODE) != PLAY) {
         return;
     }
 
