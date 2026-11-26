@@ -70,8 +70,10 @@ static void pass_material(openrac_material* m, uint8_t fix) {
     m->depth_test = OPENRAC_MATERIAL_DEPTH_NEARER_OR_EQUAL;
     m->combine = OPENRAC_MATERIAL_MODULATE;
     m->writes = OPENRAC_MATERIAL_WRITE_COLOUR;
-    m->flags = OPENRAC_MATERIAL_DEPTH_WRITE | OPENRAC_MATERIAL_BLEND | OPENRAC_MATERIAL_TEXTURE_ALPHA | OPENRAC_MATERIAL_LINEAR_MAG
-               | OPENRAC_MATERIAL_LINEAR_MIN | OPENRAC_MATERIAL_REPEAT_S | OPENRAC_MATERIAL_REPEAT_T;
+    m->flags = OPENRAC_MATERIAL_DEPTH_WRITE | OPENRAC_MATERIAL_BLEND
+               | OPENRAC_MATERIAL_TEXTURE_ALPHA | OPENRAC_MATERIAL_LINEAR_MAG
+               | OPENRAC_MATERIAL_LINEAR_MIN | OPENRAC_MATERIAL_REPEAT_S
+               | OPENRAC_MATERIAL_REPEAT_T;
 }
 
 /* The font program's fog: the F line font_queue_vu_state copies out of the view context (+0x210
@@ -92,7 +94,9 @@ static void fog_line(openrac_frame_strip_desc* d) {
 
 /* The list's entries as draw_textured_effect_list draws them. 0 when the window does not take the
  * textures or the call (nothing was recorded), so the caller runs the game's. */
-static int draw_effect_list(gaddr list, int count, int first_texture, int second_texture, gaddr cursor) {
+static int draw_effect_list(
+    gaddr list, int count, int first_texture, int second_texture, gaddr cursor
+) {
     openrac_game_ui_image first, second;
     if (!openrac_frame_native() || count <= 0 || !effect_image(first_texture, &first)
         || !effect_image(second_texture, &second)) {
@@ -115,7 +119,9 @@ static int draw_effect_list(gaddr list, int count, int first_texture, int second
         if (n <= 0 || (unsigned)n > MOST_VERTICES) {
             continue;
         }
-        func_L12_002677B4(n, (int)GREF(gaddr, list + 0x10u), (int)GREF(gaddr, list + 0x18u), (int)SCRATCH_ST);
+        func_L12_002677B4(
+            n, (int)GREF(gaddr, list + 0x10u), (int)GREF(gaddr, list + 0x18u), (int)SCRATCH_ST
+        );
         d.count = (uint32_t)n;
         d.position = (const float*)G(GREF(gaddr, list + 0x10u));
         d.st = (const float*)G(GREF(gaddr, list + 0x14u));
