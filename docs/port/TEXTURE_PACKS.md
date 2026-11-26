@@ -141,8 +141,9 @@ because only some GPUs read them.
 **SVG.** The game draws it at four times the texture's size (at most 4096 a
 side). Give it the texture's shape (the same `viewBox` ratio). Only shapes,
 fills, strokes and gradients are drawn, so turn text into paths. Images,
-fonts, links and scripts are not read, and the launcher refuses an SVG with
-them. Up to 4 MB. Not for photos or painted textures.
+fonts, links and scripts are not drawn. The launcher refuses an SVG with a
+script or a link to another file; PNG and JPEG pictures kept inside the file
+(Inkscape does this) are fine. Up to 16 MB. Not for photos or painted textures.
 
 **Size and speed.** The game reads each picture from disk once. A level's
 pictures are read while it loads, several at a time. HUD, menu and effect

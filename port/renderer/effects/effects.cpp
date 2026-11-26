@@ -665,11 +665,14 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
         // A quad that samples an off-screen target the 2D path drew (g_offscreen_textures): its
         // coordinates over the TEX0's size become the target texture's (offscreen_target_st).
         // A native quad's image is its own, whatever its zero words would name.
-        const bool target = !q.native && offscreen_texture(q.tex0, q.tbp) != 0;
+        // A frame-copy quad samples the pass's native snapshot (frame_copy_st) instead.
+        const bool target = !q.native && !q.frame_copy && offscreen_texture(q.tex0, q.tbp) != 0;
         // The strip's two triangles, 0-1-2 and 1-2-3 (the faces are not culled).
         for (const int k : order) {
-            const auto [s, t] = target ? offscreen_target_st(q.tex0, q.st[k][0], q.st[k][1])
-                                       : std::array<float, 2>{q.st[k][0], q.st[k][1]};
+            const auto [s, t] =
+                q.frame_copy ? frame_copy_st(q.st[k][0], q.st[k][1], state.target.picture_scale_x)
+                : target     ? offscreen_target_st(q.tex0, q.st[k][0], q.st[k][1])
+                             : std::array<float, 2>{q.st[k][0], q.st[k][1]};
             m_vertices.push_back(
                 {q.corner[k][0],
                  q.corner[k][1],
@@ -793,11 +796,16 @@ void EffectRenderer::render_depth(const FrameInput& input, RenderState& state) {
 }
 
 bool EffectRenderer::draws_frame_copy(const FrameInput& input) const {
-    return std::ranges::any_of(input.strips, [&](const EffectStrip& strip) {
+    const auto strip_copy = [&](const EffectStrip& strip) {
         return strip.frame_copy && strip.count >= 3
                && static_cast<std::size_t>(strip.first) + strip.count <= input.strip_vertices.size()
                && draws(strip, input);
-    });
+    };
+    const auto quad_copy = [&](const EffectQuad& quad) {
+        return quad.frame_copy && draws(quad, input);
+    };
+    return std::ranges::any_of(input.strips, strip_copy)
+           || std::ranges::any_of(input.effects, quad_copy);
 }
 
 void EffectRenderer::snapshot_frame_copy(const RenderTarget& target) {

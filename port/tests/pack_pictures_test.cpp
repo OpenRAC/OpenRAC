@@ -179,6 +179,14 @@ void check_svg() {
     std::ofstream(folder / "half.svg") << half;
     const auto loaded = pack_pictures::load_svg(folder / "half.svg", 8, 4);
     CHECK(loaded && loaded->width == 32 && loaded->height == 16);
+    // An editor's file with a large hidden picture (Inkscape keeps them) still draws its shapes.
+    std::ofstream(
+        folder / "editor.svg"
+    ) << R"(<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 10 10"><image style="display:none" width="10" height="10" xlink:href="data:image/png;base64,)"
+      << std::string(std::size_t{5} << 20, 'A')
+      << R"("/><rect width="5" height="10" fill="#ff0000"/></svg>)";
+    const auto editor = pack_pictures::load_svg(folder / "editor.svg", 8, 4);
+    CHECK(editor && near(at(*editor, 4, 8), {255, 0, 0, 255}, 0));
     std::ofstream(folder / "big.svg") << half << std::string(pack_pictures::kMaxSvgBytes, ' ');
     CHECK(!pack_pictures::load_svg(folder / "big.svg", 8, 4));
     CHECK(!pack_pictures::load_ktx2(folder / "missing.ktx2", BlockFormat::None));

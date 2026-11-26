@@ -37,16 +37,19 @@ constexpr double kLowLatencyLagTicks = 0.0;
 // The time from which between() draws no more frames for the kept tick. `next_tick`: when the next
 // tick is due; `lag`: how many ticks of `period` the scene runs behind; `cost`, `interval` and
 // `last_swap` as for shown_at. With a lag: the next tick plus the lag. Without one (low-latency
-// frames): the refresh the next tick's own frame is shown at, so the refresh before it still gets
-// a frame (else a 120 Hz display showed one frame a tick); the next tick itself when the refreshes
-// are not known.
+// frames, the render thread): the refresh the next tick's own frame is shown at, so the refresh
+// before it still gets a frame (else a 120 Hz display showed one frame a tick). When the swaps do
+// not tell the refreshes (Vulkan), that frame is taken to come `first_shown` seconds after its
+// tick, as the last tick's own frame did, less half a refresh so the two keep apart; 0: the next
+// tick itself.
 std::chrono::steady_clock::time_point between_limit(
     std::chrono::steady_clock::time_point next_tick,
     std::chrono::duration<double> period,
     double lag,
     double cost,
     double interval,
-    std::chrono::steady_clock::time_point last_swap
+    std::chrono::steady_clock::time_point last_swap,
+    double first_shown = 0.0
 );
 
 // How far the scene is from the last tick's to the kept one's at the refresh `display`, from 0 to
