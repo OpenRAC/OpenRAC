@@ -361,7 +361,7 @@ loads. Raw lists: 523 unsited bound-looking instructions in the three programs (
 and state constants), 176 in functions that touch the settings or net tables, 51 of them beside sited loads, plus
 16 + 12 unsited element addresses in levels 39 and 40 and 13 in the core. Reviewed by hand, the real ones:
 
-Fixed (sites added, 115 in all; `mp/wide.json`):
+Fixed (sites added, 125 in all; `mp/wide.json`):
 - **core 0x0019A868..0x0019A8F0** (5 `ea GS_RESERVED`): the session-add handler's walk over the slots' reservation
   words (settings + 0x100, 2 bytes a slot, up to `net+0x134` slots) had no sites, so for slots 8 and up it read and
   wrote the next table (GS_VALUE_A, per-mode values from the join request). Its account walk (0x0019A7A0) was sited.
@@ -385,11 +385,9 @@ Left at 8 on purpose or not reachable (still listed, none touched):
   native list), the results screen loops (0x006A6938, 0x006A74F8, 0x006A83B8, 0x00670D90: widened by the end-results
   wrap), bit-mask loops over a byte (0x006C4568, 0x0069AEF0), the ratings table of 11 entries (0x006C4148: 0x28-byte
   entries indexed by account, an 11-entry table that 24 distinct accounts would overflow), the voice countdowns.
-- Per-frame scans over the players array that count down from 7 (`li 7 ... bgez`) with an unsited counter in 39 and
-  the maps (e.g. 40 0x00426B88, 0x00488794, 0x00539BB0, 0x0054B12C; 39 0x00667AB0, 0x0066CDB0, 0x005BA044,
-  0x00677A14): they look at players 0-7 only, so effects that test every player (proximity, damage areas) skip
-  players 8 and up. Not changed: the pointer walks start at the array's end, so a bound and a span site must change
-  together and cannot be proven without a run; check these first if a past-8 match shows players ignored by effects.
+- Per-frame scans over the players array that count down from 7 (`li 7 ... bgez`) with the body's loads sited: the
+  one that was missed (map 40 0x00426B88, the same function in maps 41-45 and 50-53) now has a `bound` (10 sites); the
+  other `li 7`/`li 8` hits are return codes, not loops.
 - 0x006C3670/0x006AF09C compare a count from `func_006CC238` (the lobby's player count) with 8; left.
 
 ### 2026-11-26 (night): the first 9-player tests, and the map-start crash that stops them
