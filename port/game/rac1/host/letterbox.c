@@ -2,18 +2,21 @@
  * Copyright (c) 2026 the OpenRAC contributors
  *
  * Ratchet & Clank PAL v2.00: the letterbox bars of Blarg's (level 6) frame draw as the frame
- * recorder's depth-tested rectangles (docs/port/RAC1_COVERS.md). The proof of the caller state is
- * the level-6 one there; other versions leave this out (RAC1_OMIT_func_001F5148).
+ * recorder's depth-tested rectangles (docs/port/RAC1_COVERS.md). Other versions leave this out
+ * (RAC1_OMIT_func_001F5148).
  *
  * draw_letterbox_bars (func_001F5148) runs as the game's C, once, every time: it steps the height
- * and appends the bars' packet. Only where the state the packet draws in is known on level 6 is
- * that packet taken back and the two bars recorded at the cursor it began at, with its own depth
- * (0xFFFFF3 of the 24-bit buffer, tested greater-or-equal and written) and colour (unblended
- * black, alpha 128): while the bars are enabled (update_hud returns before drawing: proved from the
- * C), and while they shrink in play (game mode 0: the HUD's callbacks run first and left the same
- * state in the in-game check). The shrinking frames of the freeze dialog (game mode 4), other
- * levels, no window, OPENRAC_UI_REPLAY and OPENRAC_UI_SKIP naming this function keep the packet.
+ * and appends the bars' packet. Only where the state the packet draws in is proved is that packet
+ * taken back and the two bars recorded at the cursor it began at, with its own depth (0xFFFFF3 of
+ * the 24-bit buffer, tested greater-or-equal and written) and colour (unblended black, alpha 128).
+ * Proved: while the bars are enabled, in every level and in play and the freeze dialog alike (the
+ * frame renderer's vu1_gs_regs_alt packet, byte for byte the same in all 19 level images, sets
+ * TEST and ALPHA right before the HUD; update_hud returns at once while enabled; this is checked
+ * on the list per frame). Measured only: the shrinking frames in play on Blarg (level 6). The
+ * shrinking frames elsewhere (their HUD callbacks are level code), no window, OPENRAC_UI_REPLAY
+ * and OPENRAC_UI_SKIP naming this function keep the packet.
  */
+#include <stdint.h>
 #include <string.h>
 
 #include "openrac/frame.h"
@@ -47,6 +50,47 @@ static int letterbox_skipped(void) {
     return list != NULL && strstr(list, RAC1_NAME(func_001F5148)) != NULL;
 }
 
+/* The packet vu1_gs_regs_alt (func_00234F40) sends: 48 bytes in every level's data (read from
+ * each of the 19 level images of the PAL disc: byte for byte the same, at a different offset). A
+ * GIF tag (one packed A+D list of two writes, EOP) and the writes TEST_1 = 0x5380B (alpha test
+ * GEQUAL with reference 0x80, failing pixels write RGB only, DATE off, depth test GEQUAL) and
+ * ALPHA_1 = 0x44 (source over). */
+static const uint32_t ALT_PACKET[12] =
+    {0x00008001u,
+     0x20000000u,
+     0x000000EEu,
+     0x00000000u,
+     0x0005380Bu,
+     0x00000000u,
+     0x00000047u,
+     0x00000000u,
+     0x00000044u,
+     0x00000000u,
+     0x00000042u,
+     0x00000000u};
+
+/* True when the DMA ref tag vu1_gs_regs_alt appended (0x30000003 .. 0x50000003) sits before the
+ * HUD's output and names that packet, and nothing between it and the bars is a register write
+ * the HUD could have used: the HUD's own packets are drawn through DrawRectOverlay,
+ * DrawTexturedQuad and FontPrintWindow only (docs/port/RAC1_COVERS.md). */
+static int alt_state_proved(gaddr before) {
+    for (gaddr a = before; a >= 16u && before - a < 0x10000u; a -= 16u) {
+        if (GREF(uint32_t, a) == 0x30000003u && GREF(uint32_t, a + 12u) == 0x50000003u) {
+            const gaddr packet = GREF(gaddr, a + 4u);
+            if (packet < 16u || packet > GUEST_RAM_SIZE - sizeof ALT_PACKET) {
+                return 0; /* an unset or wild pointer names no packet */
+            }
+            for (int i = 0; i < 12; ++i) {
+                if (GREF(uint32_t, packet + (gaddr)i * 4u) != ALT_PACKET[i]) {
+                    return 0;
+                }
+            }
+            return 1;
+        }
+    }
+    return 0;
+}
+
 void func_001F5148(void) {
     const gaddr cursor = OPENRAC_DATA(LIST_CURSOR);
     const gaddr before = GREF(gaddr, cursor);
@@ -55,14 +99,22 @@ void func_001F5148(void) {
     const int shrinking = !enabled && GREF(int, OPENRAC_DATA(BARS_HEIGHT)) > 0;
     func_001F5148__game();
 
-    /* Only on Blarg, and not when OPENRAC_UI_SKIP asks for the packet. */
-    if (GREF(int, OPENRAC_DATA(CURRENT_LEVEL)) != BLARG || letterbox_skipped()) {
+    if (letterbox_skipped()) {
         return;
     }
 
-    /* The known states: enabled (no HUD before the bars), or shrinking in play (the HUD's
-     * callbacks first, then the same state at the bars); the freeze dialog keeps its packet. */
-    if (!enabled && !(shrinking && GREF(int, LEVEL_MODE) == PLAY)) {
+    /* The known states. Enabled, in any level and either game mode (play, the freeze dialog):
+     * the frame renderer resets TEST and ALPHA with vu1_gs_regs_alt right before the HUD, and
+     * update_hud returns at once while the bars are enabled; the packet that reset sends is
+     * checked below, per frame. Shrinking: the HUD's callbacks run first through pointers, a
+     * level's own code, and were measured on Blarg in play only; elsewhere the packet stays. */
+    if (enabled) {
+        const gaddr start = openrac_frame_ram_cursor(before);
+        if (start == UINT32_MAX || !alt_state_proved(start)) {
+            return;
+        }
+    } else if (!shrinking || GREF(int, OPENRAC_DATA(CURRENT_LEVEL)) != BLARG
+               || GREF(int, LEVEL_MODE) != PLAY) {
         return;
     }
 
