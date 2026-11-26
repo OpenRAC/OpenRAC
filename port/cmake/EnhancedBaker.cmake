@@ -85,6 +85,7 @@ if(OPENRAC_PROBE_BAKER)
     target_compile_definitions(openrac-enhanced-baker PRIVATE OPENRAC_VULKAN=1)
   endif()
   openrac_warnings(openrac-enhanced-baker)
+  openrac_windows_version_info(openrac-enhanced-baker "OpenRAC Enhanced graphics baker")
   if(Python3_FOUND AND NOT ANDROID)
     add_test(NAME enhanced_water_sources COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/tools/baker/test_water_sources.py"
