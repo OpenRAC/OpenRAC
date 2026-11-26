@@ -1085,7 +1085,7 @@ mod tests {
         let record: String = tiers.iter().map(|b| format!("{b:02x}")).collect();
         let here = ngpp_records(&tmp.path().join("mod-data-a"));
         fs::create_dir_all(here.mod_data.join("ng-plus-plus")).unwrap();
-        let text = format!("1111111111111111 {}\n{clock} {record}\n", "00".repeat(56));
+        let text = format!("ngpp-tiers 4\n1111111111111111 {}\n{clock} {record}\n", "00".repeat(56));
         fs::write(here.mod_data.join("ng-plus-plus/tiers.txt"), &text).unwrap();
 
         let m = export_card(&from, PAL, None, "0.10.1", &file, &here).unwrap();
@@ -1103,7 +1103,7 @@ mod tests {
         assert_eq!(read(&to, "save1.bin.moddata"), read(&from, "save1.bin.moddata"));
         assert_eq!(read(&to, "save1.bin"), read(&from, "save1.bin"));
         let back = fs::read_to_string(there.mod_data.join("ng-plus-plus/tiers.txt")).unwrap();
-        assert_eq!(back, format!("{clock} {record}\n"));
+        assert_eq!(back, format!("ngpp-tiers 4\n{clock} {record}\n"), "the layout marker comes with the record");
         let read_back = crate::mod_save_data::read(
             &there.mod_data,
             "ng-plus-plus",
@@ -1113,8 +1113,9 @@ mod tests {
         )
         .unwrap();
         assert!(read_back.found);
-        // No marker, so layout 1: its RYNO II step 2 reads as step 4 of layout 4.
-        assert_eq!(read_back.fields[0].value, 4, "the RYNO II's step in layout 4");
+        // The record is the exported one's, unmoved (a file with no marker would read as layout 1,
+        // and its RYNO II step 2 as step 4).
+        assert_eq!(read_back.fields[0].value, 2, "the RYNO II's step as exported");
 
         // Exported again from there: the same records.
         let again = tmp.path().join("again.zip");
@@ -1144,8 +1145,102 @@ mod tests {
             SaveImportChoice { replace_all: false, slots: vec![SaveSlotRef { folder: FOLDER.into(), slot_index: 1 }] };
         import_into(&to, PAL, &file, &one, &there).unwrap();
         let merged = fs::read_to_string(there.mod_data.join("ng-plus-plus/tiers.txt")).unwrap();
-        // The editor's write also put the layout marker in the file.
-        assert_eq!(merged, format!("2222222222222222 {}\nngpp-tiers 4\n{clock} {record}\n", "01".repeat(56)));
+        // The editor's write put the layout marker first, and the merge kept it.
+        assert_eq!(merged, format!("ngpp-tiers 4\n2222222222222222 {}\n{clock} {record}\n", "01".repeat(56)));
+    }
+
+    /// The tiers file of a computer in `layout` (4 with its marker, 1 with none), with a line of
+    /// its own save.
+    fn tiers_file(layout: u32, own: &[u8; 56]) -> String {
+        let hex = |b: &[u8]| b.iter().map(|x| format!("{x:02x}")).collect::<String>();
+        let marker = if layout > 1 { format!("ngpp-tiers {layout}\n") } else { String::new() };
+        format!("{marker}3333333333333333 {}\n", hex(own))
+    }
+
+    /// Slot 4 (index 3) of a Going Commando card played with NG++, exported alone and imported on
+    /// another computer: onto an empty card, onto a card with saves of its own, into another slot,
+    /// and where the tiers file is missing or in an older layout. The save's bytes and the tiers
+    /// come back exactly, and the other saves' lines are the card's.
+    #[test]
+    fn slot_four_with_ngpp_tiers_round_trips_to_any_card() {
+        const RAC2: &str = "SCES_516.07";
+        let oozla = include_bytes!("../tests/fixtures/rac2/save-oozla.bin");
+        let clock = crate::save_transfer::save_clock(oozla).expect("the fixture's clock");
+        let key = clock_hex(&clock);
+        let folder = card_folder_name(RAC2).unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let from = tmp.path().join("a");
+        fs::create_dir_all(from.join(&folder)).unwrap();
+        fs::write(from.join(&folder).join("icon.sys"), b"icon").unwrap();
+        fs::write(from.join(&folder).join("save3.bin"), oozla).unwrap();
+
+        // The tiers as the mod writes them now (layout 4): Zodiac at Alpha (4), RYNO II at Alpha
+        // (4) with the started mark, the armour and the ship's tiers.
+        let mut tiers = [0u8; 56];
+        tiers[43] = 0x84;
+        tiers[44] = 0x84;
+        tiers[30] = 0x83;
+        tiers[54] = 2;
+        tiers[55] = 3;
+        let hex = |b: &[u8]| b.iter().map(|x| format!("{x:02x}")).collect::<String>();
+        let here = ngpp_records(&tmp.path().join("mod-a"));
+        fs::create_dir_all(here.mod_data.join("ng-plus-plus")).unwrap();
+        let own = [7u8; 56];
+        fs::write(
+            here.mod_data.join("ng-plus-plus/tiers.txt"),
+            format!("{}4444444444444444 {}\n{key} {}\n", "ngpp-tiers 4\n", hex(&own), hex(&tiers)),
+        )
+        .unwrap();
+        let file = tmp.path().join("slot4.zip");
+        let m = export_card(&from, RAC2, Some(3), "1.1.0", &file, &here).unwrap();
+        assert_eq!(m.mod_records.len(), 1);
+        assert_eq!((m.mod_records[0].slot_index, m.mod_records[0].data.as_str()), (3, hex(&tiers).as_str()));
+
+        let one = |i: usize| SaveImportChoice {
+            replace_all: false,
+            slots: vec![SaveSlotRef { folder: folder.clone(), slot_index: i }],
+        };
+        let all = SaveImportChoice { replace_all: true, slots: vec![] };
+        let check = |there: &RecordFiles| {
+            let back =
+                crate::mod_save_data::read(&there.mod_data, "ng-plus-plus", "NG++", &there.mods[0].1, &clock).unwrap();
+            assert!(back.found);
+            // The raw record, whole, as exported.
+            let text = fs::read_to_string(there.mod_data.join("ng-plus-plus/tiers.txt")).unwrap();
+            assert!(text.starts_with("ngpp-tiers 4\n"), "{text}");
+            assert_eq!(text.matches("ngpp-tiers").count(), 1);
+            assert!(text.lines().any(|l| l == format!("{key} {}", hex(&tiers))), "{text}");
+        };
+        // (case, the layout of the tiers file there, replace all)
+        let cases: [(&str, Option<u32>, bool); 5] = [
+            ("empty card, no tiers file", None, false),
+            ("empty card, replace all", None, true),
+            ("card with saves, tiers file layout 4", Some(4), false),
+            ("card with saves, tiers file layout 1", Some(1), false),
+            ("card with saves, tiers file layout 2", Some(2), false),
+        ];
+        for (name, layout, replace) in cases {
+            let to = tmp.path().join(name.replace([' ', ','], "_"));
+            let there = ngpp_records(&tmp.path().join(format!("mod-{}", name.replace([' ', ','], "_"))));
+            fs::create_dir_all(there.mod_data.join("ng-plus-plus")).unwrap();
+            let theirs = [9u8; 56];
+            if let Some(l) = layout {
+                fs::create_dir_all(to.join(&folder)).unwrap();
+                fs::write(to.join(&folder).join("save0.bin"), oozla).unwrap();
+                fs::write(there.mod_data.join("ng-plus-plus/tiers.txt"), tiers_file(l, &theirs)).unwrap();
+            }
+            let choice = if replace { all.clone() } else { one(3) };
+            import_into(&to, RAC2, &file, &choice, &there).unwrap_or_else(|e| panic!("{name}: {e}"));
+            assert_eq!(fs::read(to.join(&folder).join("save3.bin")).unwrap(), oozla, "{name}");
+            check(&there);
+            if layout.is_some() {
+                // The target's own save and its tiers line stay (a layout 1 or 2 file is moved
+                // whole to layout 4 first, so its line is read as such there).
+                assert_eq!(fs::read(to.join(&folder).join("save0.bin")).unwrap(), oozla, "{name}");
+                let text = fs::read_to_string(there.mod_data.join("ng-plus-plus/tiers.txt")).unwrap();
+                assert!(text.contains("3333333333333333 "), "{name}: the card's own line");
+            }
+        }
     }
 
     /// A record in a file is data, never a path: a mod id or file name that would leave the mods'

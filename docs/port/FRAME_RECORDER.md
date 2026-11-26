@@ -146,8 +146,18 @@ error before unsafe effect execution. These are open integration blockers, not o
 claims of multiplayer pixel parity. View snapshots, per-view moby/effect geometry and arbitrary
 interleaved colour streams still need their own ownership and runtime proof.
 
-`openrac_frame_strip` (vertices, ST, RGBA, material, fog line) is reserved for P5 with P4's
-material; the effect strips still come from the chain until then.
+`openrac_frame_strip(const openrac_frame_strip_desc*)` (vertices, ST, RGBA, a native
+`openrac_material`, the image as the game keeps it, the fog line) records `FrameOp::Strip`: the
+world effect strip with its whole state, taking nothing from the list around it. The record owns
+copies of the vertices and the image (`FrameRecording::strips`, `strip_vertices`, `images`). The
+window splices it at its anchor into the chain walk (`direct_packets`) and appends an
+`EffectStrip` with `native` set, in order with the chain's own strips; `OPENRAC_STRIP_LIQUID` draws
+it with the world's liquids before the shrubs and the mobys. `EffectRenderer` draws it through the
+same `apply_native` as a native quad (`OPENRAC_MATERIAL_MIPMAP` asks for a mip chain made from the
+image). 0 is returned (the caller draws the game's way) without a window, with
+`OPENRAC_UI_REPLAY`, or for a count, material or image out of range. First producer: rac3's open
+water plane (`rac3-pal/host/water_plane.c`, Florana, Marcadia, Daxx and nine more levels); the other
+strips still come from the chain.
 
 ## 4. The transition: anchors instead of markers
 
