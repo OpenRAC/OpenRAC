@@ -649,11 +649,15 @@ jobs:
       - name: Check the shader compiler cache
         id: shader-cache-new
         if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
+        env:
+          RESTORED: ${{ steps.shader-cache.outputs.cache-matched-key }}
         run: |
           changed=true
           { ls port/build/enhanced/generated/shader_package/.cache 2>/dev/null || true; } |
             sha256sum | cmp -s - "$RUNNER_TEMP/shader-cache.list" && changed=false
           echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          entries=$({ ls port/build/enhanced/generated/shader_package/.cache 2>/dev/null || true; } | wc -l)
+          echo "::notice title=shader cache::$entries entries, restored ${RESTORED:-none}, save: $changed"
       - name: Save the shader compiler cache
         if: steps.shader-cache-new.outputs.changed == 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
