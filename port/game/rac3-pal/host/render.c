@@ -19,6 +19,7 @@
  */
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "effect_state.h"
@@ -450,6 +451,27 @@ static float context_float(gaddr offset) {
     return v;
 }
 
+/* OPENRAC_STRIP_TRACE: how many strips went native and why the others did not, every 256 calls
+ * (docs/port/DEBUGGING.md). */
+static unsigned s_strip_count[4];
+
+static void strip_traced(int outcome) {
+    static int on = -1;
+    if (on < 0) {
+        on = openrac_env_string("OPENRAC_STRIP_TRACE") != NULL;
+    }
+    if (on && (++s_strip_count[outcome] & 0xFFu) == 0) {
+        fprintf(
+            stderr,
+            "rac3 strips: native %u, no proven state %u, no effect image %u, refused %u\n",
+            s_strip_count[0],
+            s_strip_count[1],
+            s_strip_count[2],
+            s_strip_count[3]
+        );
+    }
+}
+
 static int strip_native(int count, int positions, int colours, int uvs, gaddr list) {
     if (count < 3 || count > (int)OPENRAC_STRIP_MOST_VERTICES || !openrac_frame_native()) {
         return 0;
@@ -457,8 +479,12 @@ static int strip_native(int count, int positions, int colours, int uvs, gaddr li
     openrac_frame_strip_desc d;
     memset(&d, 0, sizeof d);
     uint64_t tex0 = 0;
-    if (!rac3_effect_strip_material(&s_effects, list, GREF(gaddr, list), &d.material, &tex0)
-        || !rac3_effect_image(tex0, &d.image)) {
+    if (!rac3_effect_strip_material(&s_effects, list, GREF(gaddr, list), &d.material, &tex0)) {
+        strip_traced(1);
+        return 0;
+    }
+    if (!rac3_effect_image(tex0, &d.image)) {
+        strip_traced(2);
         return 0;
     }
     const gaddr context = at_copy(&kVeldin, kVeldin.view_context);
@@ -477,7 +503,9 @@ static int strip_native(int count, int positions, int colours, int uvs, gaddr li
                    | (GREF(uint32_t, context + 0x254) & 0xFFu) << 8
                    | (GREF(uint32_t, context + 0x258) & 0xFFu) << 16;
     anchor_at(list);
-    return openrac_frame_strip(&d);
+    const int taken = openrac_frame_strip(&d);
+    strip_traced(taken ? 0 : 3);
+    return taken;
 }
 
 void func_L01_00408AAC(int count, int positions, int colours, int uvs, int flag) {
