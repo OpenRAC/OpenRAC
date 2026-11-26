@@ -15,8 +15,9 @@
  * reads them in a moment, so the files count as read here only once LOAD_SECONDS of the game's
  * passes (a pass is a tick, 50 a second: 0x003BDFB0 adds one to the scene's +0x34 a pass) have
  * gone by. The game's own code then plays its laps, ends the one playing, and plays the approach
- * (a lap of 122 ticks) at its normal speed; nothing is stretched or forced. OPENRAC_LOAD_SECONDS
- * sets the duration (0 loads at once: the approach follows the first lap).
+ * (a lap of 122 ticks) at its normal speed; nothing is stretched or forced.
+ * OPENRAC_RAC3_LOAD_SECONDS sets the duration (0 loads at once: the approach follows the first
+ * lap).
  *
  * Start skips the flight while Skip cutscenes is on, as Going Commando's port skips its flights
  * (rac2/host/tools.c flight_skip): the hold is dropped, and once the level's files are read the lap
@@ -55,12 +56,12 @@
 #define LOAD_SECONDS 10.0
 #define PASSES_PER_SECOND 50
 
-/* The passes the files take to read: OPENRAC_LOAD_SECONDS, else LOAD_SECONDS. */
+/* The passes the files take to read: OPENRAC_RAC3_LOAD_SECONDS, else LOAD_SECONDS. */
 static int load_passes(void) {
     static int passes = -1;
     if (passes < 0) {
         double seconds = LOAD_SECONDS;
-        const char* v = openrac_env_string("OPENRAC_LOAD_SECONDS");
+        const char* v = openrac_env_string("OPENRAC_RAC3_LOAD_SECONDS");
         if (v != NULL && *v != 0) {
             seconds = atof(v);
         }
