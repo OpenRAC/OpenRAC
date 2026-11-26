@@ -665,6 +665,14 @@ at its own addresses; the levels' copy of the ship's glass is wrapped too (`func
 catalogue's frontbin row `func_003A7AF8`), and their planet quads go through the levels'
 DrawWorldQuad, `func_L01_00407E28`.
 
+The loading screen is the game's table row for the trip (level_load, `func_003BD030`'s rules: the
+Phoenix to a Vid-comic level and back is row 7, `value` 6 at `0x0016C580 + 0x2E`): a full-screen
+picture and two turning sprites, with no moby pass for the world to split at. `host/tools.c`
+(`openrac_game_loading_draws_world`) says so, and the window draws that 2D over the loading world's
+clear instead of under it (it was black for the whole load). A trip no rule names (a level that is
+not the Phoenix asking for a Vid-comic one, or one asking for itself) takes the default row 8, which
+the game draws black.
+
 Between ticks the ship and the flight's camera move fast: in the approach (its ticks stretched
 2.5 times, `host/loading.c`) more than the 4 units a moby (8 for the camera) may move in a tick and
 still be drawn part way (`frontend/geometry.cpp`), so they were drawn where each tick left them,

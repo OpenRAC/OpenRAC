@@ -180,6 +180,17 @@ int rac3_level_flight(void) {
     return current >= 0 && current < RAC3_LEVELS && current != level ? 0 : -1;
 }
 
+/* openrac_game_loading_draws_world: the transition the game chose (level_load's table row, its
+ * `value` at 0x0016C580 + 0x2E, core data) is the flight, whose ship and stars come in a moby pass
+ * of their own, unless it is the Vid-comic one (value 6: the Phoenix to a Vid-comic level and
+ * back), a full-screen picture and two turning sprites that no world is under. */
+#define LOADING_VALUE (RAC3_ADDR(0x0016C580u) + 0x2Eu)
+#define LOADING_VIDCOMIC 6
+
+static int loading_draws_world(void) {
+    return GREF(int16_t, LOADING_VALUE) != LOADING_VIDCOMIC;
+}
+
 /* openrac_game_mode: the loaded level's mode word; none outside a level (the front end's word is
  * openrac_front_end.game_mode). play.c's phase reads it too. */
 int rac3_level_mode(uint32_t* mode);
@@ -478,6 +489,7 @@ void rac3_install_tools(void) {
     openrac_game_skip = rac3_loading_skip;
     openrac_game_mode = rac3_level_mode;
     openrac_game_flight = rac3_level_flight;
+    openrac_game_loading_draws_world = loading_draws_world;
     rac3_loading_install();
     openrac_game_bolts = bolts;
     openrac_game_skip_buttons = skip_buttons;

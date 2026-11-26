@@ -1,20 +1,24 @@
-# A dev release, started by hand (Actions, dev release, Run workflow). It puts develop's current
+# A dev release, started by hand (Actions, dev_release, Run workflow). It puts develop's current
 # commit on the branch release/dev and opens (or updates) a pull request from it to master, with
-# what develop adds since master. That pull request builds everything: checks.yml (hostgen, every
-# game in every version, Windows) and launcher.yml (every system's installers, kept as the run's
-# artifacts). When it is green, merge it with "Create a merge commit": the push to master publishes
-# those same installers on the Development channel at once, nothing is built again (launcher.yml).
-# A game that fails here is fixed on develop and this is run again.
+# what develop adds since master. The pull request itself runs only the lint jobs. Add it to the
+# merge queue ("Merge when ready"): master's queue runs everything, checks.yml (hostgen, every game
+# in every version, Windows) and launcher.yml (every system's installers), and publishes the
+# installers on the Development channel once all of it is green. Only then does it merge (a merge
+# commit). A game that fails there is fixed on develop and this is run again.
 #
 # release/dev is develop's tree with master as a second parent (git merge -s ours): master only
 # ever takes develop's work, so the pull request never conflicts (a release's version bump on
 # master, say) and the merge is exactly what was built.
 #
-# The branch is a snapshot: later merges to develop do not start the long checks again until the
-# next run. GitHub starts no pull_request checks for a pull request opened with the workflow's own
-# token, so this job starts checks and launcher on release/dev by hand (workflow_dispatch): their
-# results sit on the pull request's commit, under the same names. No extra token needed.
-name: dev release
+# The branch is a snapshot: later merges to develop reach master only with the next run. GitHub
+# starts no pull_request checks for a pull request opened with the workflow's own token, so this
+# job starts checks and launcher on release/dev by hand (workflow_dispatch): the lint runs and
+# every other check master requires reports skipped on the pull request's commit, so it can join
+# the queue. No extra token needed.
+name: dev_release
+# A unique title for each run: the run number and who started it.
+run-name: >-
+  ${{ format('dev_release #{0} · by {1}', github.run_number, github.actor) }}
 
 on:
   workflow_dispatch:
@@ -29,8 +33,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  pull-request:
-    name: Open the pull request to master
+  open_release_pr:
+    name: open_release_pr
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
@@ -64,8 +68,8 @@ jobs:
                   print(f"## {title}\n")
                   print("\n".join(f"- {item}" for item in items) + "\n")
           print("## Merging\n")
-          print("Merge with **Create a merge commit** once every check is green. The push to master "
-                "builds the launcher's dev release.")
+          print("Add this to the merge queue (**Merge when ready**). The queue builds everything, "
+                "publishes the launcher on the Development channel and then merges.")
           PY
           cat "$RUNNER_TEMP/body.md"
       - name: The branch and its pull request
@@ -83,6 +87,6 @@ jobs:
           else
             gh pr create --base master --head release/dev --title "$title" --body-file "$RUNNER_TEMP/body.md"
           fi
-          # Every check, every game and version, Windows; every system's installers.
+          # The lint, and the checks master requires (skipped here: its queue runs them).
           gh workflow run checks.yml --ref release/dev
           gh workflow run launcher.yml --ref release/dev

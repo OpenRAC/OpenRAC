@@ -93,6 +93,12 @@ static inline int moby_chain(int a0, int a1) {
     return 0;
 }
 
+/* Level 39's own copy (the menu's, which START's loading ship runs): its code writes the DMA tag chain's
+ * registers in chain mode, which the port's scratchpad copies do not model. */
+int mp_func_L39_005B0AE0(int a0, int a1) {
+    return moby_chain(a0, a1);
+}
+
 static inline int sky_draw_shell(int shell) {
     return rac3_sky_draw_shell(shell, L39(MAP_SKY_MATRIX));
 }

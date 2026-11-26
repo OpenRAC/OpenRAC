@@ -973,6 +973,18 @@ int openrac_frame_ui_quad(const struct openrac_game_ui_rect* quad) {
     });
 }
 
+int openrac_frame_strip(const openrac_frame_strip_desc* strip) {
+    return c_boundary::call("openrac_frame_strip", 0, [&]() -> int {
+#ifdef OPENRAC_FRONTEND
+        if (g_window && strip != nullptr) {
+            return frontend::recorder::strip(game_ram(), *strip) ? 1 : 0;
+        }
+#endif
+        (void)strip;
+        return 0;
+    });
+}
+
 void openrac_frame_effect_quad(uint32_t marker) {
     OPENRAC_RECORD("openrac_frame_effect_quad", effect_quad(marker));
     (void)marker;
