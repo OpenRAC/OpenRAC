@@ -23,8 +23,12 @@
 
 /* The game's memory: the console's 32 MiB, of which the test writes the first kilobyte. */
 static uint8_t* memory;
+static uint8_t scratchpad[GUEST_SCRATCHPAD_SIZE];
 
 static void* test_guest(gaddr address) {
+    if (address >= GUEST_SCRATCHPAD && address - GUEST_SCRATCHPAD < GUEST_SCRATCHPAD_SIZE) {
+        return scratchpad + (address - GUEST_SCRATCHPAD);
+    }
     CHECK(address < GUEST_RAM_SIZE);
     return memory + address;
 }
@@ -67,6 +71,11 @@ int main(void) {
     CHECK(strcmp(out, "<(null)>") == 0);
     CHECK(format(out, sizeof out, "<%s>", (int)0x7FFFFFF0) == 8);
     CHECK(strcmp(out, "<(null)>") == 0);
+
+    /* Text in the scratchpad, where the save notice of Up Your Arsenal's message box is built. */
+    strcpy((char*)scratchpad + 0x10, "Progress is saving.");
+    CHECK(format(out, sizeof out, "%s%c%s", GUEST_SCRATCHPAD + 0x10, '\n', 0x100) == 23);
+    CHECK(strcmp(out, "Progress is saving.\nYes") == 0);
 
     /* The output is cut to the buffer and terminated. */
     CHECK(format(out, 5, "%s%s", 0x100, 0x100) == 4);
