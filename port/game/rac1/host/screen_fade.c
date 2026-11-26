@@ -109,6 +109,23 @@ void func_001FB848(void) {
 }
 #endif
 
+#if !RAC1_OMIT(func_001FB8A8)
+/* append_palette_transfer_packet (func_001FB8A8): the DMA call of fs_aa_transfer_packet, which copies
+ * the large buffer into the small one the display reads (16 textured sprites, 32 pixels wide, read
+ * from the large buffer's block with the draw environment pointed at the small one) and then writes
+ * two points with alpha 0 at the large buffer's block 0. Its callers are the boot's loading loop and
+ * the picture after it (func_001E99D8), the space transition (func_00233308's wait for the next
+ * planet) and the transition's loop (func_001EBB48); the level's frame loop uses AA_BlurPass
+ * instead, which is not sent either. The window draws the frame it recorded and keeps neither
+ * buffer, so with a window the packet is not sent, as AA_BlurPass's. */
+void func_001FB8A8(void) {
+    if (openrac_frame_native() && !skipped(RAC1_NAME(func_001FB8A8))) {
+        return;
+    }
+    func_001FB8A8__game();
+}
+#endif
+
 #if !RAC1_OMIT(func_001F5368)
 #define SCREEN_EXTENT RAC1_ADDR(0x0013E600u)
 /* The game's vertical-sync counter (game_frame_counter): one step a displayed frame. */
