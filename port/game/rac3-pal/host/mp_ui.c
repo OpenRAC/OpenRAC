@@ -213,6 +213,7 @@ int rac3_mp_net_toggle_ready(void);                     /* mp_net.c: READY of a 
 
 static openrac_mp_ui* g_ui;  /* the native screens' context, made at the first lobby frame */
 static int g_described;      /* 1 once a description (the vanilla one at least) is in force */
+static int g_vanilla = 1;    /* 1 while the vanilla description is the one in force */
 static int g_bound = -1;     /* the game screen id the open native screen sits on, -1 none */
 static gaddr g_screen;       /* that game screen's object */
 static int g_hidden;         /* 1 while a popup covers the screen: the native one steps aside */
@@ -223,11 +224,22 @@ static int g_text_pass;      /* 1 in the pass after the elements: text only, els
 static int g_modal_layer;    /* 1 while the modal layer draws */
 
 /* The vanilla description: the game's own lists, a column of names, as many rows as the game's
- * list widget shows. No staging screen: the game's own rows stay. */
+ * list widget shows. Its staging room and scoreboard are bound only in a room of more than eight
+ * players (g_vanilla), where the game's eight rows cannot show everyone: the players with their
+ * team, skin and ready tick (and the room's count against its limit), the scores with a scroll
+ * bar past a page. A server's description, or OPENRAC_RAC3_MP_UI, replaces all of it. */
 static const char VANILLA_DESCRIPTION[] =
     "{\"schema\": 1, \"name\": \"Up Your Arsenal\", \"screens\": ["
     "{\"id\": \"game_list\", \"columns\": [{\"field\": \"name\", \"width\": 100}],"
-    " \"items\": [{\"kind\": \"table\", \"key\": \"games\", \"action\": \"game:join\"}]}]}";
+    " \"items\": [{\"kind\": \"table\", \"key\": \"games\", \"action\": \"game:join\"}]},"
+    "{\"id\": \"staging\", \"columns\": [{\"field\": \"name\", \"width\": 34},"
+    " {\"field\": \"team\", \"width\": 14}, {\"field\": \"skin\", \"width\": 32},"
+    " {\"field\": \"ready\", \"width\": 20}],"
+    " \"items\": [{\"kind\": \"table\", \"key\": \"players\", \"action\": \"game:select\"}]},"
+    "{\"id\": \"scoreboard\", \"columns\": [{\"field\": \"name\", \"width\": 40},"
+    " {\"field\": \"score\", \"width\": 15}, {\"field\": \"kills\", \"width\": 15},"
+    " {\"field\": \"deaths\", \"width\": 15}, {\"field\": \"team\", \"width\": 15}],"
+    " \"items\": [{\"kind\": \"table\", \"key\": \"scores\"}]}]}";
 
 /* ---- The skin: the game's font, bar and sounds ---- */
 
@@ -406,7 +418,7 @@ static void describe_from_file(void) {
     static char json[DESCRIPTION_BYTES];
     const size_t size = fread(json, 1, sizeof json, file);
     fclose(file);
-    openrac_mp_ui_describe(g_ui, json, size);
+    g_vanilla = !openrac_mp_ui_describe(g_ui, json, size) && g_vanilla;
 }
 
 /* Makes the context and gives it the vanilla description, once. Returns 0 without memory. */
@@ -682,6 +694,11 @@ static void open_for(int id, gaddr screen) {
     if (name == NULL) {
         return;
     }
+    /* The vanilla description's staging room and scoreboard are for the wide rooms alone. */
+    if (g_vanilla && (id == SCREEN_STAGING || id == SCREEN_RESULTS)
+        && rac3_mp_wide_slots() <= GS_SLOTS) {
+        return;
+    }
     float area[4];
     /* The results screen's eight rows: 230 + 21r pixels down, header 208 (L39_006A69C0's tables). */
     if (id == SCREEN_RESULTS) {
@@ -863,10 +880,14 @@ static int wide_host(void) {
  * `event` is then replaced by the one the game gets. */
 static int wide_start(int mgr, int* event) {
     const int32_t current = GREF(int32_t, (gaddr)mgr + MGR_CURRENT);
-    if (!g_on_staging || current < 0 || !wide_host() || g_screen == 0) {
+    if (!g_on_staging || current < 0 || !wide_host()) {
         return 0;
     }
-    const int32_t focus = GREF(int32_t, g_screen + SCREEN_FOCUS);
+    const gaddr screen = GREF(gaddr, (gaddr)mgr + MGR_SCREENS + 4u * (gaddr)current);
+    if (screen == 0) {
+        return 0;
+    }
+    const int32_t focus = GREF(int32_t, screen + SCREEN_FOCUS);
     const int up_from_top = *event == GAME_UP && g_ui != NULL && g_bound == SCREEN_STAGING
                             && !openrac_mp_ui_modal(g_ui) && focus == STAGING_NAME_WIDGET
                             && openrac_mp_ui_cursor(g_ui) == 0;
@@ -878,7 +899,7 @@ static int wide_start(int mgr, int* event) {
     int ready;
     const int enabled = wide_all_ready(GREF(gaddr, GAME_SETTINGS), &ready);
     fprintf(stderr, "[info] rac3: online: START (port path): %s\n", enabled ? "enabled" : "greyed");
-    mp_func_L39_0068B2F8((int)g_screen, STAGING_START_WIDGET, 0);
+    mp_func_L39_0068B2F8((int)screen, STAGING_START_WIDGET, 0);
     if (up_from_top || !enabled) {
         /* Only the cursor goes there (or START refuses); Cross is pressed on a Start button alone. */
         mp_func_L39_00688340(enabled || up_from_top ? SOUND_MOVE : SOUND_DENIED, 0, 0);
@@ -1061,6 +1082,7 @@ int rac3_mp_ui_describe(const char* json, size_t size) {
         return 0;
     }
     g_bound = -1;
+    g_vanilla = 0;
     return 1;
 }
 
