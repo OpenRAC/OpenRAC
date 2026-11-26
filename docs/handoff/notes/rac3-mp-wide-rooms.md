@@ -483,3 +483,32 @@ a0 0,0,0,1,1,1) is in `~/RACSwarm/k4-mp/out/h-t9f/gdb.out` on box1 while it last
   +0xA8, +0xC8, +0xE8, read by map 40's `00544DF0`, `004AEBF0`) and `D_0024845C`, `D_00248500`, `D_00249FC0`
   in `003C8FF0`, `0053E1A8`: each loop's bound is widened and its tables are not; an in-object `u8 buf[8]` on
   the stack (`004255A0`, `00431768`) is written by slot.
+
+### 2026-11-26 (evening): lifted limits so far, the 16-player hang's current place, and the pool census
+
+Grown through `mp/wide.json` and `host/mp_wide.c` (port memory, entries 8-23 of each per-slot table, cleared with each
+program; sizes are the game's old / the port's new):
+
+| What | Old | New |
+|---|---|---|
+| Remote players' structs (`D_00315040` in map 40, 0x4DC0 each) | 8 | 24 |
+| Effect descriptor pool (`D_00265140`, 0x40 each; two a hero; `func_L39_005AAD08`) | 24 | 40 |
+| Hero marker mobys (`D_00249450`) | 8 | 24 |
+| Per-slot sdata words `D_002410F8`, `D_00249790`-like, 0x80-byte slot records `D_00290178`, 0x1C-byte state records `D_003AA6E0` | 8 | 24 |
+| Profile mode bytes (`D_001A5810 + 0xA4`) | 8 | 24 |
+| The game mode's records behind `D_00357260 + 0x20C` (nine arrays) | 8 | 24 |
+| Sensitivity tables `D_001A58D0/5930/5990` ([3][8], row-aware `rowoff` site) | 8 per row | 24 per row |
+| Two stack `u8 buf[8]` arrays written by slot (`scratch` site) | 8 | writes of slots 8+ go to a scratch |
+
+Where the 16-player match stops now: the host hangs in `func_L40_0047BD28` (the hand-written effect set-up the descriptor
+`func_L39_005AAE60` calls, a scratchpad/DMA routine) at the 19th effect descriptor: the first 18 draws (9 heroes, two each) go
+through, the 19th spins in its wait on a scratchpad word (`0x70002FF0 + ...`, a handshake with its own DMA). The pool is not full
+(19 of 24 used), so the limit is in that routine's scratchpad layout or the port's SPR emulation, not the pool's size. Not yet found.
+
+Census of fixed-size limits (a heuristic scan of map 40's asm for loops bounded by 12-2048 over a static table with a
+shifted stride: 269 functions, `pools.py` in ~/RACSwarm/k4-scan): the limit values that recur are 40 (111 functions,
+nearly all over `D_003BFE20`, the 0x100-byte moby array), 24 (45), 16 (15), 12, 32, 64, 17, 52. Of these only the effect pool
+(24) is a pool the number of players fills; the 40 is the maps' moby array capacity (a moby limit that more players use
+faster: not lifted yet), and the 16/32/64 ones are mostly scratch lists and per-frame draw lists. Particle, projectile,
+sound-voice, HUD and net-queue limits have not been traced: each needs its own allocator read and its own table sites (or a
+host replacement through libraries.tsv, as rac1's particle pool in `hand/game_particle_allocate.c`).
