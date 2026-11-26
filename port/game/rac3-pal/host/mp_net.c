@@ -2319,6 +2319,17 @@ static void dme_deliver(void) {
             (int)dme.buf,
             dme.inbox[i].len
         );
+        if (net_log() && dme.inbox[i].len > 8 && dme.inbox[i].data[0] == 2
+            && dme.inbox[i].data[1] == 17 && src >= 8) {
+            const gaddr st = rac3_mp_wide_settings(0xF0u, src), cl = rac3_mp_wide_settings(0xE0u, src);
+            fprintf(
+                stderr,
+                "[info] rac3: online: after slot update from client %d: state %d client %d\n",
+                src,
+                st != 0 ? (int)GREF(int16_t, st) : -99,
+                cl != 0 ? (int)GREF(int16_t, cl) : -99
+            );
+        }
     }
 }
 
