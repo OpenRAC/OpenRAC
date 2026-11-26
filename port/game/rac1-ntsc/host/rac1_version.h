@@ -449,6 +449,10 @@ int rac1_ntsc_ship_menu_game(gaddr menu, int unused);
 #define func_001FFFB8__game game_FUN_001ff780__game
 #define func_L00_0023B140 game_FUN_L00_0023a7a8
 #define func_L00_0023B140__game game_FUN_L00_0023a7a8__game
+#define func_00217EE8 game_FUN_00217048
+#define func_00217F68 game_FUN_002170c8
+#define func_00218188 game_FUN_002172c0
+#define func_002181F0 game_FUN_00217328
 #define func_0021A610 game_FUN_002196b8
 #define func_0021A610__game game_FUN_002196b8__game
 #define func_L00_002781D8 game_FUN_L00_002772c0

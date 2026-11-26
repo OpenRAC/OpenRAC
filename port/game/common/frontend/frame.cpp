@@ -1428,7 +1428,10 @@ void log_mobys_near_hero(std::span<const std::uint8_t> ram, const host::GameStat
             float sphere[4];
             float t = 0.0f;
             std::memcpy(sphere, b, sizeof sphere);
-            std::memcpy(&t, b + 0x54, 4);
+            const std::uint32_t anim = g->render.profile->moby_anim_fields();
+            const std::uint32_t update_at = g->render.profile->moby_update();
+            const std::uint32_t pvars_at = g->render.profile->moby_pvars();
+            std::memcpy(&t, b + anim + 4, 4);
             log::info(
                 "moby {} class {} at {:#x}: state {} mode {:#06x} seq {} frame {} t {:.2f} "
                 "pos {:.2f} {:.2f} {:.2f} dist {:.2f} radius {:.2f} "
@@ -1438,16 +1441,16 @@ void log_mobys_near_hero(std::span<const std::uint8_t> ram, const host::GameStat
                 m.address,
                 b[0x20],
                 static_cast<unsigned>(b[0x34] | b[0x35] << 8),
-                b[0x52],
-                b[0x50],
+                b[anim + 2],
+                b[anim],
                 t,
                 m.matrix[12],
                 m.matrix[13],
                 m.matrix[14],
                 d,
                 sphere[3],
-                word_at(ram, m.address + 0x74),
-                word_at(ram, m.address + 0x78),
+                word_at(ram, m.address + update_at),
+                word_at(ram, m.address + pvars_at),
                 b[0x30],
                 b[0x31],
                 static_cast<unsigned>(b[0x32] | b[0x33] << 8)
@@ -2583,8 +2586,9 @@ TickMobys pose_mobys(
             // The hero, for bring-up: where he is and what his animation fields and pose say.
             const auto pose = scene::moby_palette(ram, m.address);
             const std::uint8_t* b = ram.data() + m.address;
+            const std::uint32_t anim = g->render.profile->moby_anim_fields();
             float t = 0.0f;
-            std::memcpy(&t, b + 0x54, 4);
+            std::memcpy(&t, b + anim + 4, 4);
             bool finite = !pose.empty();
             for (const auto& f : pose) {
                 for (const auto& row : f) {
@@ -2601,10 +2605,10 @@ TickMobys pose_mobys(
                 m.matrix[13],
                 m.matrix[14],
                 m.matrix[0],
-                b[0x52],
-                b[0x50],
-                b[0x53],
-                b[0x51],
+                b[anim + 2],
+                b[anim],
+                b[anim + 3],
+                b[anim + 1],
                 t,
                 pose.size(),
                 joints,
