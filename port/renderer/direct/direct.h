@@ -247,6 +247,7 @@ public:
 
     // The off-screen targets drawn to and not since overwritten by a transfer (their GS block).
     const std::vector<std::uint32_t>& offscreen_blocks() const { return m_offscreen; }
+
     // The GS blocks recorded panels (TargetBegin) were drawn through, with the panel's id.
     const std::vector<std::pair<std::uint32_t, std::uint32_t>>& panel_aliases() const {
         return m_panel_alias;

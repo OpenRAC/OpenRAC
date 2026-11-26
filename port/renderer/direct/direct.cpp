@@ -1807,7 +1807,8 @@ DirectVertex GifInterpreter::convert(const GsVertex& v) const {
         out.s = u / static_cast<float>(kOffscreenPixels);
         out.t = 1.0f - w / static_cast<float>(kOffscreenPixels);
         out.q = 1.0f;
-    } else if (attributes().tme && is_colour_format(c.tex0.psm) && frame_source(c.tex0.tbp0, frame_x, frame_y)) {
+    } else if (attributes().tme && is_colour_format(c.tex0.psm)
+               && frame_source(c.tex0.tbp0, frame_x, frame_y)) {
         // A texel of the frame: its pixel, over the frame's size; the copy of the render target
         // the draw samples has its first row at the bottom, as GL keeps it.
         const float u = attributes().fst ? static_cast<float>(v.u) / 16.0f
@@ -1857,9 +1858,10 @@ void GifInterpreter::ensure_draw() {
         // block's TEXs from here on, in place of any block target drawn there before.
         if (m_recorded_target != 0 && is_offscreen(c.frame)) {
             const std::uint32_t block = c.frame.fbp * 32;
-            const auto at = std::find_if(m_panel_alias.begin(), m_panel_alias.end(), [&](const auto& a) {
-                return a.first == block;
-            });
+            const auto at =
+                std::find_if(m_panel_alias.begin(), m_panel_alias.end(), [&](const auto& a) {
+                    return a.first == block;
+                });
             if (at == m_panel_alias.end()) {
                 m_panel_alias.emplace_back(block, m_recorded_target);
             } else {

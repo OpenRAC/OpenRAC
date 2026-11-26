@@ -1198,19 +1198,23 @@ void recorded_panel_takes_the_streams() {
     };
     constexpr std::uint32_t kBlock = 0x2000;
     GifBuilder inside;
-    inside.ad({{gs::kFrame1, std::uint64_t{kBlock / 32} | (std::uint64_t{4} << 16)},
-               {gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
-               {gs::kRgbaq, rgbaq(0xFF, 0, 0, 0x80)},
-               {gs::kXyz2, xyz2(0, 0, 0)},
-               {gs::kXyz2, xyz2(16, 16, 0)}});
+    inside.ad(
+        {{gs::kFrame1, std::uint64_t{kBlock / 32} | (std::uint64_t{4} << 16)},
+         {gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+         {gs::kRgbaq, rgbaq(0xFF, 0, 0, 0x80)},
+         {gs::kXyz2, xyz2(0, 0, 0)},
+         {gs::kXyz2, xyz2(16, 16, 0)}}
+    );
     GifBuilder after;
-    after.ad({{gs::kFrame1, std::uint64_t{0}},
-              {gs::kTex0_1, openrac::test::tex0(kBlock, 4, gs::kPsmct32, 8, 8, true)},
-              {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
-              {gs::kUv, openrac::test::uv(0, 0)},
-              {gs::kXyz2, xyz2(0, 0, 0)},
-              {gs::kUv, openrac::test::uv(16, 16)},
-              {gs::kXyz2, xyz2(8, 8, 0)}});
+    after.ad(
+        {{gs::kFrame1, std::uint64_t{0}},
+         {gs::kTex0_1, openrac::test::tex0(kBlock, 4, gs::kPsmct32, 8, 8, true)},
+         {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+         {gs::kUv, openrac::test::uv(0, 0)},
+         {gs::kXyz2, xyz2(0, 0, 0)},
+         {gs::kUv, openrac::test::uv(16, 16)},
+         {gs::kXyz2, xyz2(8, 8, 0)}}
+    );
     std::vector<std::uint8_t> stream = direct(inside);
     const std::size_t second = stream.size();
     const std::vector<std::uint8_t> two = direct(after);
