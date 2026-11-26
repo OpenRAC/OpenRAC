@@ -2926,7 +2926,8 @@
       "func_L52_0054D1D8": "int (int)",
       "func_L52_0044DB48": "int (int)",
       "func_L53_0054A8C0": "int (int)",
-      "func_L53_0044B708": "int (int)"
+      "func_L53_0044B708": "int (int)",
+      "func_L39_006C30A0": "int (int)"
     },
     "cop0_count": true,
     "wide": "wide.json"

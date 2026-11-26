@@ -886,19 +886,18 @@ int mp_func_L39_00686138(int mgr, int pad) {
     return 0;
 }
 
-/* The host's START (the staging update, L39_006C30A0): enabled when the ready players it counts, slots
- * 1 to 7 and itself, are all the players (GameSettings +0x178). In a room of more than 8 the count
- * is over every slot. The screen's byte (+0x2A8) is the game's own; this sets it from the count
- * over all slots after the game's update has set it from the first eight. */
-static void wide_start_enabled(int mgr) {
+/* The staging room's per-frame check (L39_006C30A0, which its event handler runs before it reads the
+ * START byte): the host's START is enabled when the ready players it counts, slots 1 to 7 and itself,
+ * are all the players (GameSettings +0x178). In a room of more than 8 the game's byte (screen +0x2A8)
+ * is set again from the count over every slot, right after the game set it from the first eight. */
+int mp_func_L39_006C30A0(int screen_object) {
+    const int result = mp_func_L39_006C30A0__game(screen_object);
     const gaddr gs = GREF(gaddr, GAME_SETTINGS);
-    const int32_t now = GREF(int32_t, (gaddr)mgr + MGR_CURRENT);
-    if (gs == 0 || rac3_mp_wide_slots() <= GS_SLOTS || now < 0
-        || GREF(int32_t, (gaddr)mgr + MGR_IDS + 4u * (gaddr)now) != SCREEN_STAGING
+    const gaddr screen = (gaddr)screen_object;
+    if (gs == 0 || rac3_mp_wide_slots() <= GS_SLOTS
         || GREF(uint8_t, RAC3_MADDR(0x001A5CD0u) + 0x168u) == 0) {
-        return;
+        return result;
     }
-    const gaddr screen = GREF(gaddr, (gaddr)mgr + MGR_SCREENS + 4u * (gaddr)now);
     int ready = 1;
     for (int slot = 1; slot < rac3_mp_wide_slots(); slot++) {
         if (GREF(int16_t, settings_at(gs, GS_CLIENTS, 2u, slot)) != -1
@@ -918,6 +917,7 @@ static void wide_start_enabled(int mgr) {
             ready == GREF(int32_t, gs + 0x178u) ? "enabled" : "greyed"
         );
     }
+    return result;
 }
 
 /* The screen manager's update (L39_006862D0): afterwards, the native screen follows the game's. */
@@ -928,7 +928,6 @@ int mp_func_L39_006862D0(int mgr) {
             now >= 0 && GREF(int32_t, (gaddr)mgr + MGR_IDS + 4u * (gaddr)now) == SCREEN_STAGING;
     }
     const int result = mp_func_L39_006862D0__game(mgr);
-    wide_start_enabled(mgr);
     /* Without memory there are no native screens; the game's run as ever. */
     if (!make_ui()) {
         return result;
