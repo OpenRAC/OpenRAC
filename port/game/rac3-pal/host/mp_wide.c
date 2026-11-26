@@ -33,6 +33,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "openrac/game_host.h"
@@ -210,6 +211,13 @@ int rac3_mp_wide_slots(void) {
 
 /* A bound of the game's over its slots (8; 7 for "the last slot", ...): the room's. */
 int rac3_mp_wide_bound(int game) {
+    static int trace = -1, shown;
+    if (trace < 0) {
+        trace = getenv("OPENRAC_RAC3_WIDE_TRACE") != NULL;
+    }
+    if (trace && (game == 7 || game == 6) && shown++ < 400) {
+        fprintf(stderr, "[info] rac3: wide: bound(%d) = %d\n", game, game + wide_slots - WIDE_GAME);
+    }
     return game + wide_slots - WIDE_GAME;
 }
 
@@ -294,7 +302,17 @@ uint32_t rac3_mp_wide_address(uint32_t address, int table) {
         }
         return wide_object + wide_object_offset(table) + rel - WIDE_GAME * stride;
     }
-    return wide_extension(table) + rel - WIDE_GAME * stride;
+    {
+        static int trace = -1, shown;
+        if (trace < 0) {
+            trace = getenv("OPENRAC_RAC3_WIDE_TRACE") != NULL;
+        }
+        const gaddr out = wide_extension(table) + rel - WIDE_GAME * stride;
+        if (trace && table == WIDE_MAP_PLAYERS && shown++ < 300) {
+            fprintf(stderr, "[info] rac3: wide: players[%u] = %08x\n", rel / stride, GREF(uint32_t, out));
+        }
+        return out;
+    }
 }
 
 /* A new session: the port's net-block entries 8-23 cleared as the game clears its own. */
