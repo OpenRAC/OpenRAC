@@ -391,3 +391,33 @@ Left at 8 on purpose or not reachable (still listed, none touched):
   players 8 and up. Not changed: the pointer walks start at the array's end, so a bound and a span site must change
   together and cannot be proven without a run; check these first if a past-8 match shows players ignored by effects.
 - 0x006C3670/0x006AF09C compare a count from `func_006CC238` (the lobby's player count) with 8; left.
+
+### 2026-11-26 (night): the first 9-player tests, and the map-start crash that stops them
+
+Harness (kept on box1/box2 under `~/RACSwarm/k4-mp`, moving to `~/RACSwarm/build/OpenRAC`): `fleet.sh N TAG` starts a host
+on box1 (GPU, one screenshot every 300 frames) and N-1 no-render joiners, scripted by `press.py` (login; CREATE with
+PLAYERS right x(N-8) and TIMED once; joiners QUICK PLAY and READY with `OPENRAC_RAC3_PORT_READY=1`; the host READY, then
+the Start button). The Server ran on the Mac (`KEEP_ALIVE_IDLE_SECONDS=240`, `FAMILY_PARTY_SIZES=rac3-pal-1:24`).
+Disc data: the extracted `iso_data/rac3` (with `sectors.tsv`) is needed, not just the boot file.
+
+Proven with 9 players (host + 8 joiners, all on box1, build of this branch):
+- the room fills, every console reaches READY ("9 ready of 9 players: START enabled", header "PLAYER 9/9");
+- the native staging list (vanilla description, now bound past 8 players) lines up under the game's headings, shows
+  the count `9/9` and a scroll bar; the host's **Start button reaches START** (`START (port path): enabled`), the
+  match starts and every console loads map 40. (The first try found that the game's START byte is set after the event
+  is read; the port now counts the room's readiness itself.)
+
+Not proven: the match. All 9 consoles die together at the map's first ticks (frame ~13150) with `SIGSEGV at game
+address 0x4014EB4C`, a store in `func_L40_0053D0A0` (`sw 0x787878, 0x78(r3)`, called by `004EEB68`, `003DB0E8`,
+`00493A20`, `004CE660`): that function walks the 0x340-byte entries of `D_0033BE40` (a 16-entry array, count at
+`-0x1DC8($gp)`) and takes the player pointer at entry + 0x2D0; for entry 4 that word holds the float bits
+0x4014EAD4. A watchpoint on that word (gdb, `$b = openrac_guest_base`, `watch *(unsigned*)($b+0x33CE10)`) saw four
+writes: the marker's own init (`func_L40_005390B8`, a valid pointer), a clear (`func_L40_0045D4C0`, a 0x4DC0-byte
+memset of a0 = 0x33BE40 from `00534D30`/`0050C780`), then two float stores by `func_L40_00504C70` (this = 0x33BE40,
+fields +0x110/+0x114 are sticks). So `D_0033BE40` is used as one big object (0x4DC0 bytes) by the pad/hero code and as an
+array of 0x340-byte marker entries by `005390B8`/`0053D0A0`: the marker array's entry 4 overlaps what the hero code
+writes. **It reproduces on the build from before this branch (baseline `04ae121f`, 9 players) and does not happen with 8
+players (the match ran 13 minutes), so it is not from the sites above.** Open: find why a 9th player makes
+`005390B8` take entries past the first four (its caller `003FE8B8`, a0 = 0/1, a1 = player mobys, lifetime 3000), or
+whether 8 players already use five or more entries only at other times; the 5390B8 call list (6 calls at the crash:
+a0 0,0,0,1,1,1) is in `~/RACSwarm/k4-mp/out/h-t9f/gdb.out` on box1 while it lasts.
