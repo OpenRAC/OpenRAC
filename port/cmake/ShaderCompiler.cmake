@@ -164,11 +164,14 @@ if(OPENRAC_SHADER_PACKAGE)
     # Reuse the parent's pinned dependency sources, with independent native build files.
     get_cmake_property(shader_variables VARIABLES)
     foreach(variable IN LISTS shader_variables)
-      if(variable MATCHES "^([a-zA-Z0-9_]+)_SOURCE_DIR$" AND IS_DIRECTORY "${${variable}}")
-        string(TOUPPER "${CMAKE_MATCH_1}" dependency)
-        if(NOT dependency MATCHES "^(FETCHCONTENT|OPENRAC_PORT|CMAKE)")
-          list(APPEND host_args "-DFETCHCONTENT_SOURCE_DIR_${dependency}:PATH=${${variable}}")
-        endif()
+      # Read only *_SOURCE_DIR values: reading every variable trips CMake 4's
+      # deprecated-variable policy (CMP0218).
+      if(NOT variable MATCHES "^([a-zA-Z0-9_]+)_SOURCE_DIR$")
+        continue()
+      endif()
+      string(TOUPPER "${CMAKE_MATCH_1}" dependency)
+      if(IS_DIRECTORY "${${variable}}" AND NOT dependency MATCHES "^(FETCHCONTENT|OPENRAC_PORT|CMAKE)")
+        list(APPEND host_args "-DFETCHCONTENT_SOURCE_DIR_${dependency}:PATH=${${variable}}")
       endif()
     endforeach()
     if(CMAKE_HOST_WIN32)
@@ -178,7 +181,7 @@ if(OPENRAC_SHADER_PACKAGE)
     endif()
     ExternalProject_Add(openrac_shader_compiler_host
       SOURCE_DIR "${PROJECT_SOURCE_DIR}" BINARY_DIR "${host_dir}"
-      CMAKE_GENERATOR Ninja CMAKE_ARGS ${host_args}
+      CMAKE_GENERATOR Ninja CMAKE_ARGS ${host_args} "-DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>"
       BUILD_COMMAND "${CMAKE_COMMAND}" --build <BINARY_DIR> --target openrac-shader-compiler
       BUILD_BYPRODUCTS "${host_executable}" BUILD_ALWAYS TRUE INSTALL_COMMAND "")
     set(compiler "${host_executable}")
