@@ -2338,6 +2338,12 @@ static void name_fix(gaddr data, int len) {
     }
     memset(G(data + at), 0, 16);
     snprintf((char*)G(data + at), 16, "%s", net_login.name);
+    /* Its skin was never set either (stale bytes of the name): the first skin. */
+    if (channel == CHANNEL_ROOM_JOIN_REQUEST) {
+        GREF(uint16_t, data + 2u + 0x2Cu) = 0;
+    } else {
+        GREF(uint8_t, data + 2u + 0x05u) = 0;
+    }
 }
 
 #define END_MESSAGE_BYTES 0x68 /* channel 5's message */
@@ -3616,6 +3622,50 @@ static int dme_send_one(int dest, int cls, int id, int len, int data) {
     GREF(uint8_t, buf + 1) = (uint8_t)id;
     memcpy(G(buf + 2), G(data), (size_t)len);
     return dme_relay(dest, buf, len + 2);
+}
+
+/* READY (Circle) of a player whose slot is past the game's eight: the staging screen's own widgets
+ * stop at eight rows, so such a player has no row for the cursor and the game never sends the slot
+ * update. The port sends it, as the game does (L39_006D4ED8): channel 17, state 6 (ready) or 0, the
+ * slot's team, skin, name and clan. Returns 1 when the press was this console's to take. */
+int rac3_mp_net_toggle_ready(void) {
+    const gaddr gs = GREF(gaddr, RAC3_MADDR(0x00241640u));
+    const int me = room_index_of(srv.session);
+    const member* host = room_member(room.host);
+    /* OPENRAC_RAC3_PORT_READY=1 takes every slot's READY this way: a client too slow to draw runs
+     * several game ticks in the window frame of one press, and the game's own READY (which reads
+     * the pressed button each tick) sends ready, then unready, again and again. */
+    const int all = openrac_env_string("OPENRAC_RAC3_PORT_READY") != NULL;
+    if (gs == 0 || me < 0 || host == NULL || rac3_mp_wide_slots() <= 8) {
+        return 0;
+    }
+    for (int slot = all ? 0 : 8; slot < rac3_mp_wide_slots(); slot++) {
+        const gaddr client = rac3_mp_wide_settings(0x0E0u, slot);
+        if (client == 0 || GREF(int16_t, client) != me) {
+            continue;
+        }
+        const gaddr state = rac3_mp_wide_settings(0x0F0u, slot);
+        const int next = GREF(int16_t, state) >= 6 ? 0 : 6;
+        fprintf(stderr, "[info] rac3: online: READY of slot %d: state %d\n", slot, next);
+        if (room.host == srv.session) {
+            GREF(int16_t, state) =
+                (int16_t)next; /* the host's own slot: published with the object */
+            return 1;
+        }
+        static gaddr buf;
+        if (buf == 0) {
+            buf = openrac_guest_static(0x40);
+        }
+        memset(G(buf), 0, 0x40);
+        GREF(uint8_t, buf + 4) = (uint8_t)GREF(int16_t, rac3_mp_wide_settings(0x0D0u, slot));
+        GREF(uint8_t, buf + 5) = (uint8_t)GREF(int16_t, rac3_mp_wide_settings(0x0C0u, slot));
+        GREF(uint8_t, buf + 6) = (uint8_t)next;
+        memcpy(G(buf + 7), G(rac3_mp_wide_settings(0x000u, slot)), 16);
+        memcpy(G(buf + 0x17), G(rac3_mp_wide_settings(0x080u, slot)), 4);
+        dme_send_one(room_index_of(room.host), 2, CHANNEL_SLOT_UPDATE, 0x20, (int)buf);
+        return 1;
+    }
+    return 0;
 }
 
 int mp_func_0014AAB0(int conn, int a, int b) {
