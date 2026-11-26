@@ -252,6 +252,14 @@ typedef void (*openrac_rac3_Hud_DrawMarkers)(int32_t player);
 #define OPENRAC_RAC3_SIG_Moby_MeleeAtJoint "i32(u32,i32,f32,i32,f32,f32,i32,i32,i32)"
 typedef int32_t (*openrac_rac3_Moby_MeleeAtJoint)(uint32_t attacker, int32_t joint, float radius, int32_t flags, float distance, float scale, int32_t first, int32_t second, int32_t mode);
 
+/* Moby_UpdateCollisionSphere: Updates an indexed collision sphere using a guest vector and two
+ * scale parameters. The moby collision pointer must refer to compatible writable sphere
+ * records. PAL catalogue lists a copy in all 49 levels; Veldin 0x00439790, Florana 0x004119C8,
+ * Marcadia 0x00448F10. Hooks must preserve this requirement when forwarding. */
+#define OPENRAC_RAC3_HOOK_Moby_UpdateCollisionSphere "Moby_UpdateCollisionSphere"
+#define OPENRAC_RAC3_SIG_Moby_UpdateCollisionSphere "void(u32,i32,u32,f32,f32)"
+typedef void (*openrac_rac3_Moby_UpdateCollisionSphere)(uint32_t moby, int32_t index, uint32_t vector, float fa, float fb);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus

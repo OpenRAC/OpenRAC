@@ -30,6 +30,7 @@ type HookPoint =
     | "rac3.player.switch_item"
     | "rac3.hud.markers.draw"
     | "rac3.combat.melee_at_joint"
+    | "rac3.moby.update_collision_sphere"
     | "Bolt_Collect"
     | "Bolt_SpawnPickup"
     | "Bolt_SpawnPickups"
@@ -48,6 +49,7 @@ type HookPoint =
     | "Moby_MeleeAtJoint"
     | "Moby_PostHit"
     | "Moby_RecordDeath"
+    | "Moby_UpdateCollisionSphere"
     | "Vendor_BuildList"
     | "Vendor_Price"
     | "Vendor_StockAdd"
@@ -107,6 +109,8 @@ type Hero_SwitchItemFn = (slot: number) -> ()
 type Hud_DrawMarkersFn = (player: number) -> ()
 -- rac3.combat.melee_at_joint (Moby_MeleeAtJoint) i32(u32,i32,f32,i32,f32,f32,i32,i32,i32): Runs a ball damage query at an attacker's joint (ball_damage_pushed_at_joint), passing flags into the query before collision filtering. Returns the query's result. The PAL catalogue lists this function in levels 1, 2, 4-10, 12, 13, 16, 18-24 and 26-29; it does not list it in 3, 11, 14, 17 or 30-36.
 type Moby_MeleeAtJointFn = (attacker: number, joint: number, radius: number, flags: number, distance: number, scale: number, first: number, second: number, mode: number) -> number
+-- rac3.moby.update_collision_sphere (Moby_UpdateCollisionSphere) void(u32,i32,u32,f32,f32): Updates an indexed collision sphere using a guest vector and two scale parameters. The moby collision pointer must refer to compatible writable sphere records. PAL catalogue lists a copy in all 49 levels; Veldin 0x00439790, Florana 0x004119C8, Marcadia 0x00448F10. Hooks must preserve this requirement when forwarding.
+type Moby_UpdateCollisionSphereFn = (moby: number, index: number, vector: number, fa: number, fb: number) -> ()
 
 declare openrac: {
     game: string,

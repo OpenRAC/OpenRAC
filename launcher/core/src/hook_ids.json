@@ -793,6 +793,7 @@
    "Moby_MeleeAtJoint": "rac3.combat.melee_at_joint",
    "Moby_PostHit": "rac3.combat.post_hit",
    "Moby_RecordDeath": "rac3.moby.record_death",
+   "Moby_UpdateCollisionSphere": "rac3.moby.update_collision_sphere",
    "Vendor_BuildList": "rac3.vendor.build_list",
    "Vendor_Price": "rac3.vendor.price",
    "Vendor_StockAdd": "rac3.vendor.stock_add",

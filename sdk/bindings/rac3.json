@@ -354,6 +354,23 @@
         "ntsc": "func_L01_00443790"
       },
       "about": "Runs a ball damage query at an attacker's joint (ball_damage_pushed_at_joint), passing flags into the query before collision filtering. Returns the query's result. The PAL catalogue lists this function in levels 1, 2, 4-10, 12, 13, 16, 18-24 and 26-29; it does not list it in 3, 11, 14, 17 or 30-36."
+    },
+    {
+      "id": "rac3.moby.update_collision_sphere",
+      "name": "Moby_UpdateCollisionSphere",
+      "signature": "void(u32,i32,u32,f32,f32)",
+      "params": [
+        "moby",
+        "index",
+        "vector",
+        "fa",
+        "fb"
+      ],
+      "symbols": {
+        "pal": "func_L01_00439790",
+        "ntsc": "func_L01_004366B0"
+      },
+      "about": "Updates an indexed collision sphere using a guest vector and two scale parameters. The moby collision pointer must refer to compatible writable sphere records. PAL catalogue lists a copy in all 49 levels; Veldin 0x00439790, Florana 0x004119C8, Marcadia 0x00448F10. Hooks must preserve this requirement when forwarding."
     }
   ]
 }

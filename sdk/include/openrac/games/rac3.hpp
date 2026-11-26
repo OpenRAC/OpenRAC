@@ -203,6 +203,14 @@ struct Moby_MeleeAtJoint {
     using fn = int32_t (*)(uint32_t, int32_t, float, int32_t, float, float, int32_t, int32_t, int32_t);
 };
 
+// Updates an indexed collision sphere using a guest vector and two scale parameters. The moby collision pointer must refer to compatible writable sphere records. PAL catalogue lists a copy in all 49 levels; Veldin 0x00439790, Florana 0x004119C8, Marcadia 0x00448F10. Hooks must preserve this requirement when forwarding.
+struct Moby_UpdateCollisionSphere {
+    static constexpr const char* id = "rac3.moby.update_collision_sphere";
+    static constexpr const char* name = "Moby_UpdateCollisionSphere";
+    static constexpr const char* signature = "void(u32,i32,u32,f32,f32)";
+    using fn = void (*)(uint32_t, int32_t, uint32_t, float, float);
+};
+
 namespace hooks {
     namespace bolt {
         using collect = rac3::Bolt_Collect;
@@ -228,6 +236,7 @@ namespace hooks {
     }  // namespace level
     namespace moby {
         using record_death = rac3::Moby_RecordDeath;
+        using update_collision_sphere = rac3::Moby_UpdateCollisionSphere;
     }  // namespace moby
     namespace player {
         using death_done = rac3::Hero_DeathDone;
