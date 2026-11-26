@@ -10,8 +10,6 @@ name: checks
 run-name: >-
   ${{ github.event_name == 'pull_request'
       && github.event.pull_request.title
-  || github.ref == 'refs/heads/release/dev'
-      && format('checks #{0} · dev release PR · lint', github.run_number)
   || github.event_name == 'merge_group'
       && format('checks #{0} · queue → {1}', github.run_number, endsWith(github.event.merge_group.base_ref, '/master') && 'master' || 'develop')
   || github.event_name == 'push'
