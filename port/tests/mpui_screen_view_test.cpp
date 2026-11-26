@@ -41,6 +41,8 @@ public:
     void highlight(const Rect& rect) override { highlights.push_back(rect); }
 
     void rect(const Rect& /*rect*/, std::uint32_t rgba) override {
+        rect_colours.push_back(rgba);
+
         // The panel's field is the one rectangle drawn in the fill colour.
         if (rgba == FILL_COLOUR) {
             ++panels;
@@ -60,6 +62,7 @@ public:
     std::vector<float> text_y;       // Each text's top.
     std::vector<Rect> highlights;    // Every highlight bar drawn.
     std::vector<Sound> sounds;       // Every sound played.
+    std::vector<std::uint32_t> rect_colours;  // The colour of every rectangle drawn, in order.
     int panels = 0;                  // Panels drawn.
 };
 
@@ -233,7 +236,13 @@ void test_drawing_a_long_list() {
     fill_players(model, 24);
     ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::OVERLAY);
     view.draw(skin, model);
-    CHECK(skin.panels == 0);
+
+    // An overlay has no panel; the only fill-coloured rectangle is the scroll bar's track, and its
+    // thumb (the edge colour) follows it.
+    CHECK(skin.panels == 1);
+    CHECK(skin.rect_colours.size() == 2);
+    CHECK(skin.rect_colours.size() == 2 && skin.rect_colours[0] == FILL_COLOUR);
+    CHECK(skin.rect_colours.size() == 2 && skin.rect_colours[1] == EDGE_COLOUR);
     CHECK(skin.texts[0] == "STAGING");
     CHECK(skin.highlights.size() == 1);
     bool counted = false;
