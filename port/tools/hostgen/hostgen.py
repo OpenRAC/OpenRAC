@@ -49,7 +49,7 @@ import variant_check  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import LEVEL_SHORT_MISS, Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, users_of_vu0_assembly, canon, cname, index_unit, prototype, inherit_results, uninherit_void_results, unbacked_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
+from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, users_of_vu0_assembly, vu0_moves, _vu0_op, canon, cname, index_unit, prototype, inherit_results, uninherit_void_results, unbacked_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
 import program as program_module  # noqa: E402  (its NAME_PREFIX)
 
 HERE = Path(__file__).resolve().parent
@@ -891,6 +891,8 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         "problems": {r.unit: r.problems for r in reports if r.problems},
         "stubbed": {f.name: f.reason for f in stubbed},
         "inline_assembly_skipped": {f.name: ", ".join(f.asm_skipped) for f in translated if f.asm_skipped},
+        "inline_assembly_unsupported": {f.name: sorted(set(f.asm_unsupported)) for f in translated
+                                        if getattr(f, "asm_unsupported", None)},
         "functions_from_assembly": len(stage.translated),
         "from_assembly": {r.name: r.source for r in stage.translated},
         "assembly_unsupported": dict(sorted(stage.unsupported.items())),
@@ -1626,6 +1628,8 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
     # is left out and the function is a stub, which the assembly stage then writes, reading those
     # registers as parameters.
     program.from_assembly = set(cfg.get("from_assembly", []))
+    # VU0 inline assembly in the C (vu0asm.py) flushes as the assembly's translation does.
+    program.vu_flush = bool((cfg.get("asm") or {}).get("vu_flush"))
     for sym in sorted(program.from_assembly):
         f = program.functions.get(sym)
         if f is not None and f.unit is not None and not f.static:
@@ -2040,7 +2044,18 @@ class SortedPickler(pickle._Pickler):
     dispatch[frozenset] = save_set
 
 
-def main(argv: list[str] | None = None) -> int:
+def vu0_refusals(reports: list[UnitReport]) -> frozenset[str]:
+    """The functions (static helpers included) whose VU0 inline assembly lower.py did not write as C:
+    a statement vu0asm.py refused (a stub, or a barrier on named registers), or VU0 instructions
+    it skipped."""
+    return frozenset(f.name for r in reports for f in r.functions
+                     if getattr(f, "asm_unsupported", None)
+                     or any(_vu0_op(op) for op in f.asm_skipped))
+
+
+def main(argv: list[str] | None = None, vu0_refused: frozenset[str] | None = None) -> int:
+    """VU0_REFUSED: hostgen.json "vu0_assembly_from_retail"'s second translation, the functions
+    whose VU0 inline assembly the first did not write as C (vu0_refusals)."""
     global RELEASE
     args = parse_arguments(argv)
     cfg = load_config(args.game)
@@ -2085,6 +2100,9 @@ def main(argv: list[str] | None = None) -> int:
              "names": cfg["names"], "groups": cfg["groups"], "prefix": cfg.get("prefix", "")}
 
     program = new_program(cfg, source)
+    # The first translation writes every VU0 statement it can as C (vu0asm.py); those it cannot move
+    # their functions to the assembly in a second one (users_of_vu0_assembly).
+    program.vu0_refused = vu0_refused or frozenset()
     problems = override_problems(root, replacements, overridden)
     try:
         host_rows = configure_program(program, args, cfg, source)
@@ -2114,6 +2132,15 @@ def main(argv: list[str] | None = None) -> int:
     state["program"] = program
     with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(state,)) as ex:
         reports = list(ex.map(_lower_one, units))
+    if cfg.get("vu0_assembly_from_retail") and vu0_refused is None:
+        refused = vu0_refusals(reports)
+        moves = vu0_moves(program, refused)
+        if moves:
+            # Their C would skip VU0 instructions: translated again with those functions left to their
+            # assembly. Listed in hostgen.json "from_assembly", they cost no second translation.
+            print(f"hostgen: {len(moves)} function(s) whose VU0 inline assembly is not C, translated again "
+                  f"from their assembly: {', '.join(sorted(moves))}", file=sys.stderr)
+            return main(argv, refused)
 
     summary = write_outputs(out, args, cfg, program, units, reports, problems, host_rows, used, overridden,
                             inherited, asm_stage, asm_results)

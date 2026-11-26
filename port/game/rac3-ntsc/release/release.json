@@ -635,6 +635,10 @@
       "is": "001DBCE4",
       "why": "between the same code's 0x001DBCA0 and 0x001DBCBC, both moved by +0x40 (NTSC-U 0x001DBCE0, 0x001DBCFC)"
     },
+    "L01:001DBCC8": {
+      "is": "001DBD08",
+      "why": "the glow builder's lbu of the blur byte: PAL func_L01_004DDE98 reads 0x001DBCC8, NTSC-U func_L01_004DA1B8 (the same code) reads 0x001DBD08 at the same two places; the glow block moved by +0x40"
+    },
     "L01:001DF97C": {
       "is": "001DF9FC",
       "why": "the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x68, 2 of 2 places agree"
@@ -871,6 +875,10 @@
       "is": "00245D34",
       "why": "between the same code's 0x00245BB0 and 0x00245BCC, both moved by +0x180 (NTSC-U 0x00245D30, 0x00245D4C)"
     },
+    "L39:00245BD8": {
+      "is": "00245D58",
+      "why": "the glow builder's lbu of the blur byte: PAL level 39 func_L39_0060D7F0 reads 0x00245BD8, NTSC-U's builder (and every map's copy, e.g. func_L51_004F0918) reads 0x00245D58 at the same two places; the glow block moved by +0x180"
+    },
     "L39:0024BD00": {
       "is": "0024BE00",
       "why": "the same instruction of the same code: func_L39_0059C910 (NTSC-U func_L39_0059B580) +0x4, 2 of 2 places agree"
@@ -914,6 +922,14 @@
     "L39:002961C0": {
       "is": "002962C0",
       "why": "between the same code's 0x00294FC0 and 0x002965C0, both moved by +0x100 (NTSC-U 0x002950C0, 0x002966C0)"
+    },
+    "L01:001DF980": {
+      "is": "001DFA00",
+      "why": "between the same code's 0x001DF97C and 0x001DF984, both moved by +0x80 (NTSC-U 0x001DF9FC, 0x001DFA04)"
+    },
+    "L01:001E7C80": {
+      "is": "001E7D00",
+      "why": "between the same code's 0x001E7880 and 0x001E8480, both moved by +0x80 (NTSC-U 0x001E7900, 0x001E8500)"
     },
     "L01:001E0D70": {
       "is": "001E0DF0",
@@ -990,6 +1006,126 @@
     "L02:001E00EC": {
       "is": "001E016C",
       "why": "the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0xAC, 1 of 1 places agree"
+    },
+    "L39:0024CE20": {
+      "is": "0024CF20",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 30 of 30 places agree"
+    },
+    "L39:00352940": {
+      "is": "00352A40",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 23 of 23 places agree"
+    },
+    "L40:00249330": {
+      "is": "002494B0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L40:00357260": {
+      "is": "003573E0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L41:00249530": {
+      "is": "002496B0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L41:003573A0": {
+      "is": "00357520",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L42:00249420": {
+      "is": "002495A0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L42:0034F2A0": {
+      "is": "0034F420",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L43:002492A0": {
+      "is": "00249420",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L43:0034F120": {
+      "is": "0034F2A0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L44:00249320": {
+      "is": "002494A0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L44:0034F160": {
+      "is": "0034F2E0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L45:002492A0": {
+      "is": "00249420",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L45:0034F120": {
+      "is": "0034F2A0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L46:00248EA0": {
+      "is": "00249020",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree"
+    },
+    "L46:0035FCE0": {
+      "is": "0035FE60",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree"
+    },
+    "L47:00248FA0": {
+      "is": "00249120",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree"
+    },
+    "L47:0035FE20": {
+      "is": "0035FFA0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree"
+    },
+    "L48:00248FA0": {
+      "is": "00249120",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree"
+    },
+    "L48:0035FE60": {
+      "is": "0035FFE0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree"
+    },
+    "L49:00248FA0": {
+      "is": "00249120",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree"
+    },
+    "L49:0035FDE0": {
+      "is": "0035FF60",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree"
+    },
+    "L50:00249330": {
+      "is": "002494B0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L50:00368260": {
+      "is": "003683E0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L51:00249530": {
+      "is": "002496B0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L51:003683A0": {
+      "is": "00368520",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L52:00249420": {
+      "is": "002495A0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L52:003602A0": {
+      "is": "00360420",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L53:002492A0": {
+      "is": "00249420",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L53:00360120": {
+      "is": "003602A0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
     }
   },
   "mp_hostgen": {
@@ -1048,10 +1184,6 @@
     "0x00242824": {
       "is": "0x002429A4",
       "why": "level 39's (and the maps') pointer to the palette handles, beside 0x00242820: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00)"
-    },
-    "0x00230000": {
-      "is": "0x00230000",
-      "why": "the screen whose size (+0x150, +0x152) SetScissor keeps its rectangle within: PAL mp_func_00299218 and NTSC-U mp_func_002991F8, the same instructions, both read 0x00230150 and 0x00230152"
     },
     "0x002412DC": {
       "is": "0x0024145C",

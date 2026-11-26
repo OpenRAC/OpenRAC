@@ -40,6 +40,7 @@
 #include "platform/input.h"
 #include "platform/window.h"
 #include "renderer/effects/haze.h"
+#include "renderer/effects/screen_effect.h"
 #include "renderer/effects/shadows.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/renderer.h"
@@ -120,6 +121,8 @@ struct Kept {
     std::vector<renderer::WaterImpulse> water_impulses;
     std::vector<renderer::EffectQuad> effects;
     std::vector<renderer::ImageUpload> effect_uploads;
+    // The images the tick's native quads sample (EffectQuad::image), decoded when they were drawn.
+    std::vector<renderer::UiImage> effect_images;
     // The last tick's corners of each effect quad with an id (EffectQuad::id), when that tick was
     // the one before (GameProfile::interpolates_effect_quads): a frame between ticks moves the
     // quad from them (scene_hud.cpp). The tick the effects were kept on (Kept::frame).
@@ -280,6 +283,8 @@ struct SceneRenderState {
     };
 
     std::array<SplitView, renderer::kFrameViews> split_views;
+    // Post-pass resources belong to the renderer/context; their sources are individual view pictures.
+    renderer::ScreenEffects split_screen_effects;
     scene::LevelData level;
     scene::LevelScene scene;
     DebugCamera debug_camera;
@@ -371,6 +376,8 @@ struct State {
     // The world effect quads the game drew since the last frame (effect_quad).
     std::vector<renderer::EffectQuad> effects;
     std::vector<renderer::ImageUpload> effect_uploads;  // the quads' textures (EffectQuad::uploads)
+    // The native quads' images (material_quad, EffectQuad::image), read when each was drawn.
+    std::vector<renderer::UiImage> effect_images;
     // The sky shells the game drew since the last frame, with their matrices (sky_shell).
     std::array<renderer::Mat4, 8> sky_shells{};
     unsigned sky_shell_mask = 0;

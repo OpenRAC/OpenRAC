@@ -156,6 +156,10 @@ if(OPENRAC_SHADER_PACKAGE)
       "-DPython3_EXECUTABLE:FILEPATH=${Python3_EXECUTABLE}")
     if(APPLE)
       list(APPEND host_args "-DCMAKE_OSX_ARCHITECTURES:STRING=${CMAKE_HOST_SYSTEM_PROCESSOR}")
+    elseif(CMAKE_HOST_UNIX)
+      # The tool opens no window: a Linux host without X11 or Wayland headers (the Android
+      # build's runner) still configures SDL, which otherwise stops there.
+      list(APPEND host_args "-DSDL_UNIX_CONSOLE_BUILD:BOOL=ON")
     endif()
     # Reuse the parent's pinned dependency sources, with independent native build files.
     get_cmake_property(shader_variables VARIABLES)

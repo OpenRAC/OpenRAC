@@ -145,6 +145,7 @@
 #define RAC2_LADDR_00_0x00255BA0u 0x00255B20u /* the release's build */
 #define RAC2_LADDR_00_0x00262570u 0x002624F0u /* the release's build */
 /* Constants of the game's code (RAC2_K): the same instruction's in this release. */
+#define RAC2_K_PICTURE_TOP 0 /* the lines the 416-line picture sits below the top of the 2D screen (NTSC: none) */
 #define RAC2_K_CAMERA_CURSOR 0x2D8 /* v1.01 0x2A8; func_0033C738 as func_0033D780: 4 instructions */
 #define RAC2_K_HELP_0 0x2C3C /* v1.01 0x2DA6; word 0 of the table at 0x00265270 (v1.01's 0x002652B0) */
 #define RAC2_K_HELP_1 0x2C3D /* v1.01 0x2DA7; word 1 of the table at 0x00265270 (v1.01's 0x002652B0) */

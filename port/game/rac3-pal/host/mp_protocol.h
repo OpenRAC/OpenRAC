@@ -268,6 +268,10 @@ enum rac3_mp_relay_kind {
     /* OBJECT_GAME_SETTINGS_WIDE: slots 8-23 of the settings object's arrays (host/mp_wide.c), sent
      * just before the settings object itself, and only in a room of more than 8 players. */
     RELAY_OBJECT_WIDE = 4,
+    /* Slots 8-23 of the channel 5 end message's arrays (mode +0x18, +0x198, +0x38, +0x48, +0x50):
+     * u8 the room's width, then each array's entries for slots 8 up (host/mp_wide.c), sent just
+     * before the end message itself, only in a room of more than 8 players. */
+    RELAY_MATCH_END_WIDE = 5,
 };
 
 #endif /* OPENRAC_RAC3_MP_PROTOCOL_H */

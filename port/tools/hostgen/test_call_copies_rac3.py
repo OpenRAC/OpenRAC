@@ -212,6 +212,29 @@ class Vu0AssemblyFromRetail(unittest.TestCase):
             "func_L01_003D1DA8", Signature.of(ctype.parse("void (int)")), "src/levels/a.c", vu0_asm=("vcallms", "qmfc2.i"))
         self.assertEqual(users_of_vu0_assembly(program), {})
 
+    def test_after_a_translation_only_what_it_could_not_write_as_c_moves(self):
+        # vu0asm.py writes VU0 statements as C; the second translation (hostgen.py vu0_refusals) moves
+        # only the functions whose statements it refused or skipped, a static helper's callers among them.
+        from program import users_of_vu0_assembly, vu0_helpers
+        helper = {"kind": "FunctionDecl", "name": "vec_div", "inner": [
+            {"kind": "GCCAsmStmt", "asmString": "lqc2 $vf1, 0(%1)\nvdiv $Q, $vf1x, $vf1y"}]}
+        caller = {"kind": "FunctionDecl", "inner": [
+            {"kind": "DeclRefExpr", "referencedDecl": {"kind": "FunctionDecl", "name": "vec_div"}}]}
+        self.assertEqual(vu0_helpers(caller, {"vec_div": helper}), ("vec_div",))
+        sig = Signature.of(ctype.parse("void (int)"))
+        names = ("func_L01_0040E408", "func_L01_0040E3C0", "func_L01_0040E388")
+        program = Program()
+        program.places = {n: [(1, int(n[-8:], 16))] for n in names}
+        program.functions[names[0]] = Function(names[0], sig, "src/levels/a.c", vu0_asm=("lqc2", "vdiv"))
+        program.functions[names[1]] = Function(names[1], sig, "src/levels/a.c", vu0_asm=("lqc2", "vdiv"),
+                                               vu0_via=("vec_div",))
+        program.functions[names[2]] = Function(names[2], sig, "src/levels/a.c", vu0_asm=("lqc2", "vadd.xyz"))
+        program.vu0_refused = frozenset()
+        self.assertEqual(users_of_vu0_assembly(program), {})
+        program.vu0_refused = frozenset({names[0], "vec_div"})
+        self.assertEqual(sorted(users_of_vu0_assembly(program)), [names[1], names[0]])
+        self.assertEqual(program.functions[names[2]].unit, "src/levels/a.c")
+
 
 class VoidTailLeftToAssembly(unittest.TestCase):
     """inherit_results runs before the assembly stage. Annihilation Nation's func_L07_003B6E98 ends in

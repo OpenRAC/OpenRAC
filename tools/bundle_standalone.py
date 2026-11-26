@@ -82,6 +82,10 @@ KEEP = PLAY + MODS
 # the levels the port draws, the level editor's projects, and the packed levels.
 MOD_FOLDERS = (("{root}/assets/port/", "port"), ("assets/port/", "port"), ("assets/levels/", "levels"),
                ("{root}/assets/packed/", "packed"), ("assets/packed/", "packed"))
+
+# Audio authoring is independent of the level-editor action registry.
+MODS += ("audio-recipe",)
+KEEP += ("audio-recipe",)
 # Where the carried copy writes instead of the checkout's assets/port/<game>/<version>. {data} is the
 # game's, shared by its versions: each version's levels are <data>/port/<version>, which is also where
 # the program looks without --levels.

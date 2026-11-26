@@ -25,10 +25,11 @@
 #include "openrac/guest.h"
 #include "openrac/picture.h"
 #include "rac3_coll_line.h"
+#include "rac3_screen.h"
+#include "rac3_version.h"
 
 /* host/mp_fixes.c: the flags a map's collision line runs with (wall sniping's fix). */
 int rac3_mp_fix_coll_flags(int map, int from, int flags, int moby);
-#include "rac3_version.h"
 
 /* A global of level 39's program, in the map loaded now. */
 #define L39(a) OPENRAC_LDATA(39, (gaddr)(a))
@@ -64,16 +65,27 @@ static inline int wad_decompress(int source, int destination) {
     return openrac_wad_routine(source, destination, "Up Your Arsenal");
 }
 
-/* The screen glow's packets are left out as the single-player levels' are (render.c); the word
- * each sets for the frame is kept. */
+/* The screen glow and the second effect, drawn natively as the single-player levels' are
+ * (screen.c), from the map's copy of level 39's globals: the glow word, the blur byte 0x24 after
+ * it, the list pointer. */
+static Rac3Glow map_glow(void) {
+    const Rac3Glow g =
+        {L39(MAP_GLOW_WORD), L39(RAC3_LADDR(39, 0x00245BD8u)), L39(MAP_LIST_POINTER)};
+    return g;
+}
+
 static inline int glow_copy(void) {
-    GREF(int32_t, L39(MAP_GLOW_WORD)) = 0x6000;
-    return 0;
+    const Rac3Glow g = map_glow();
+    return rac3_screen_glow(&g);
 }
 
 static inline int glow_add(void) {
-    GREF(int32_t, L39(MAP_GLOW_WORD)) = 0;
-    return 0;
+    const Rac3Glow g = map_glow();
+    return rac3_screen_glow_end(&g);
+}
+
+static inline int soften(void) {
+    return rac3_screen_soften(L39(MAP_LIST_POINTER));
 }
 
 static inline int moby_chain(int a0, int a1) {
@@ -198,7 +210,7 @@ static void view_layout_after(int layout) {
         return glow_add();                                                                         \
     }                                                                                              \
     int mp_func_L##m##_##effect2(void) {                                                           \
-        return 0;                                                                                  \
+        return soften();                                                                           \
     }                                                                                              \
     int mp_func_L##m##_##tfrag(void) {                                                             \
         return func_L39_005F4690();                                                                \
