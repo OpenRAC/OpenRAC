@@ -209,6 +209,7 @@ if(OPENRAC_SHADER_PACKAGE AND OPENRAC_SHARED_SHADER_PACKAGE AND NOT OPENRAC_IOS)
   set_target_properties(openrac_shader_package PROPERTIES OUTPUT_NAME openrac-shaders)
   if(WIN32)
     target_compile_definitions(openrac_shader_package PRIVATE "OPENRAC_SHADER_PACKAGE_API=__declspec(dllexport)")
+    openrac_windows_version_info(openrac_shader_package "OpenRAC Vulkan shaders")
   else()
     target_compile_definitions(openrac_shader_package PRIVATE
       "OPENRAC_SHADER_PACKAGE_API=__attribute__((visibility(\"default\")))")
