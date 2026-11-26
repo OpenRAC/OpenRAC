@@ -2330,6 +2330,13 @@ static void dme_deliver(void) {
  * the same name to the staging room (which sends the second one's "leave"). */
 static void clan_fix(gaddr data, int len) {
     const int channel = GREF(uint8_t, data + 1);
+    if (net_log() && GREF(uint8_t, data) == 2 && channel == CHANNEL_ROOM_JOIN_REQUEST) {
+        fprintf(stderr, "[info] rac3: online: join request %d bytes:", len);
+        for (int k = 0; k < len; k++) {
+            fprintf(stderr, " %02x", GREF(uint8_t, data + (gaddr)k));
+        }
+        fprintf(stderr, "\n");
+    }
     const uint32_t at = channel == CHANNEL_ROOM_JOIN_REQUEST ? 2u + 0x50u : 2u + 0x17u;
     if (GREF(uint8_t, data) != 2
         || (channel != CHANNEL_ROOM_JOIN_REQUEST && channel != CHANNEL_SLOT_UPDATE)
