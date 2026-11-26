@@ -94,8 +94,14 @@ static void log_scene(unsigned frame) {
     char line[160];
     char* at = line;
     char* const end = line + sizeof line;
-    at += snprintf(at, (size_t)(end - at), "count=%d\texcl=%d\tplaying=%d\ttable=",
-                   (int)u32_at(SCENE_COUNT), (int)u32_at(SCENE_EXCLUDED), (int)u32_at(SCENE_PLAYING));
+    at += snprintf(
+        at,
+        (size_t)(end - at),
+        "count=%d\texcl=%d\tplaying=%d\ttable=",
+        (int)u32_at(SCENE_COUNT),
+        (int)u32_at(SCENE_EXCLUDED),
+        (int)u32_at(SCENE_PLAYING)
+    );
     for (unsigned i = 0; i < 10u && at < end; ++i) {
         at += snprintf(at, (size_t)(end - at), i ? ",%d" : "%d", (int)u32_at(SCENE_TABLE + 4u * i));
     }
