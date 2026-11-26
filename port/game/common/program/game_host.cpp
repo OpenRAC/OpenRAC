@@ -894,6 +894,11 @@ void openrac_frame_end(void) {
     OPENRAC_RECORD("openrac_frame_end", end());
 }
 
+void openrac_frame_list_begin(gaddr root) {
+    OPENRAC_RECORD("openrac_frame_list_begin", list_begin(openrac_frame_ram_cursor(root)));
+    (void)root;
+}
+
 void openrac_frame_anchor(gaddr list_cursor) {
     OPENRAC_RECORD("openrac_frame_anchor", anchor(list_cursor));
     (void)list_cursor;
@@ -963,6 +968,36 @@ void openrac_frame_fill(const float* rect, uint32_t rgba, int blend) {
     (void)rect;
     (void)rgba;
     (void)blend;
+}
+
+int openrac_frame_fill_depth(
+    const float* rect,
+    uint32_t rgba,
+    int blend,
+    uint32_t depth,
+    int depth_bits,
+    int depth_test,
+    unsigned writes
+) {
+    return c_boundary::call("openrac_frame_fill_depth", 0, [&]() -> int {
+#ifdef OPENRAC_FRONTEND
+        // Only a window records it; without one the caller keeps the game's own drawing.
+        if (g_window) {
+            const bool drawn = frontend::recorder::fill_depth(
+                rect, rgba, blend, depth, depth_bits, depth_test, writes
+            );
+            return drawn ? 1 : 0;
+        }
+#endif
+        (void)rect;
+        (void)rgba;
+        (void)blend;
+        (void)depth;
+        (void)depth_bits;
+        (void)depth_test;
+        (void)writes;
+        return 0;
+    });
 }
 
 void openrac_frame_clear(uint32_t rgba, int what) {
@@ -1035,6 +1070,51 @@ void openrac_frame_target_end(void) {
 void openrac_frame_scissor(const float* rect) {
     OPENRAC_RECORD("openrac_frame_scissor", scissor(rect));
     (void)rect;
+}
+
+void openrac_frame_world_shrubs(void) {
+    OPENRAC_RECORD("openrac_frame_world_shrubs", placement(renderer::FrameOp::WorldShrubs, 0, 0));
+}
+
+void openrac_frame_effect_parent(uint32_t attachment) {
+    OPENRAC_RECORD(
+        "openrac_frame_effect_parent", placement(renderer::FrameOp::EffectParent, attachment, 0)
+    );
+    (void)attachment;
+}
+
+void openrac_frame_effect_parent_position(uint32_t attachment) {
+    OPENRAC_RECORD(
+        "openrac_frame_effect_parent_position",
+        placement(renderer::FrameOp::EffectParent, attachment, 1)
+    );
+    (void)attachment;
+}
+
+void openrac_frame_hud_side(int side, unsigned how) {
+    OPENRAC_RECORD(
+        "openrac_frame_hud_side",
+        placement(renderer::FrameOp::HudSide, static_cast<std::uint32_t>(side), how)
+    );
+    (void)side;
+    (void)how;
+}
+
+void openrac_frame_wide(int on) {
+    OPENRAC_RECORD("openrac_frame_wide", placement(renderer::FrameOp::Wide, on != 0 ? 1u : 0u, 0));
+    (void)on;
+}
+
+void openrac_frame_picture_band(int on) {
+    OPENRAC_RECORD(
+        "openrac_frame_picture_band",
+        placement(renderer::FrameOp::PictureBand, on != 0 ? 1u : 0u, 0)
+    );
+    (void)on;
+}
+
+void openrac_frame_last_frame(void) {
+    OPENRAC_RECORD("openrac_frame_last_frame", placement(renderer::FrameOp::LastFrame, 0, 0));
 }
 
 void openrac_frame_screen(float width, float height) {

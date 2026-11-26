@@ -54,6 +54,7 @@ the window scales them to the target's pixels.
 |---|---|
 | `openrac_frame_begin()` | starts a new recording (optional: the window also closes one at each tick it captures) |
 | `openrac_frame_anchor(gaddr list_cursor)` | transitional (§4): the game's display-list write pointer the next commands belong at; 0 for none |
+| `openrac_frame_anchor_at(gaddr cursor_word)` | reads a readable game word holding that pointer; normalizes RAM aliases, accepts active expanded RAM, and leaves invalid/null/unaligned pointers unreachable rather than unanchored |
 | `openrac_frame_world(layers)` | the world (sky, terrain, ties, shrubs: `OPENRAC_DRAW_*`) is drawn here; the 2D before it goes under the world |
 | `openrac_frame_world_mobys()` | the world's moby pass starts here; effect strips sent before it are drawn before the mobys |
 | `openrac_frame_mobys(list, count)` | a moby list drawn with a camera of its own, into the current target (a panel, or the screen over a menu's world); nonzero when the window draws it |
@@ -61,6 +62,7 @@ the window scales them to the target's pixels.
 | `openrac_frame_ui_quad(const openrac_game_ui_rect*)` | transitional: the older UiQuad record (TEX0, CLAMP), drawn in the 2D state in effect where it lands, as before. Retired by P4 |
 | `openrac_frame_effect_quad(index)` | transitional: the world effect quad `index` (from `openrac_game_effect_quad_marker`) takes the alpha test and depth mode in effect here. Retired by P4 (materials on the record) |
 | `openrac_frame_fill(rect, rgba, blend)` | a flat rectangle (fades, letterbox bars, darkening); `rect` NULL for the whole target, which on a wide picture is the whole window |
+| `openrac_frame_fill_depth(rect, rgba, blend, depth, depth_bits, depth_test, writes)` | a flat rectangle as `_fill` with a depth of its own, for a cover whose depth later drawing tests: `depth` in the units of a `depth_bits`-bit buffer (16, 24 or 32, bigger nearer), tested by `OPENRAC_DEPTH_ALWAYS` / `_GEQUAL` / `_GREATER` against the target's depth; where it passes, the `OPENRAC_WRITE_*` colour channels and, with `OPENRAC_WRITE_DEPTH`, the depth are written. Into the current target, cut to the current scissor. 1 drawn; 0 (no window, `OPENRAC_UI_REPLAY`, a value out of range): the caller draws the game's way |
 | `openrac_frame_clear(rgba, what)` | clears the target's colour and/or depth (`OPENRAC_CLEAR_COLOUR`, `_DEPTH`) |
 | `openrac_frame_picture(id, rect, rgba, blend)` | draws a picture the port holds (a snapshot, or one set with `_picture_set`) over `rect`; `rect` NULL: the whole picture area, and with `OPENRAC_PICTURE_WHOLE` in `blend`'s high bits the whole target (a backdrop's sides on a wide window) |
 | `openrac_frame_picture_image(const openrac_game_ui_image*, rect, rgba, blend)` | a full-screen or large picture straight from the game's own data (menu backgrounds, loading pictures, the multiplayer menus' city pictures): decoded once per content into a normal texture, no GS image transfer |
@@ -144,9 +146,16 @@ command is then **spliced** before the first tag (searching forward from the pre
 whose address equals its anchor. A command whose anchor is found nowhere is dropped: the list
 never reached that place (a list sent again and cut short, as the loading screen's while it reads the
 disc), just as a marker written there would not have been in it. A command with no anchor goes where
-the one before it went.
+the one before it went, including being dropped. A later reachable anchor can resume the recording.
 The splice is an offset into the window's own 2D stream, kept beside it (`FrameSplice`), never bytes
 in it.
+
+Tag addresses are compared in the direct RAM view. Search order is chain walk order, not address
+order: texture paging can allocate uploads after draw data and splice them before it. Several
+native commands can share one unchanged cursor, including the eventual terminating tag. An anchor
+found only before the preceding successful placement still drops its command. Diagnostics count
+actual placement drops and name the first eight commands, their anchors and the selected recording
+when reporting a partial match; they do not draw the dropped commands.
 
 The walk applies the transitional semantics at the splice points exactly where the markers applied
 them: `World` gives the split before the world, `WorldMobys` closes the early strips, `Mobys`
@@ -187,7 +196,10 @@ in the interpreter only because it shares its draw list) builds draws from comma
 recorded and residual draws merge in one ordered list and one flush. `UiItem`s are drawn by
 `native_item` from their own state (the usual 2D blend, no depth, the image's texture or its distance
 field for glyphs); fills, clears and pictures by `native_rect`; a snapshot is a draw of no vertices
-that copies the target as drawn so far into the picture's texture.
+that copies the target as drawn so far into the picture's texture. A plain fill neither tests nor
+writes depth. A depth fill's value is placed as a residual vertex's (`depth_clip`: `z / (2^bits -
+1)` in the pass's clip range), so a rectangle at the game's own Z meets the packets' depth exactly;
+a depth clear writes the far value (0, clip -1 in the 2D pass).
 
 Images: `openrac_frame_ui_item` and `openrac_frame_picture_image` resolve the game image on the game
 thread through `frontend::recorder::set_image_resolver` (the 2D layer's content-hash cache,
@@ -217,7 +229,9 @@ into drawing is shared.
   the HUD side width); the native-resolution scale is the back end's (items are in game pixels,
   drawn at the target's resolution, glyphs from the distance field).
 - **Fades and letterbox**: `openrac_frame_fill` over the whole target; the fade's level and the bars'
-  height come from the game's own counters, read by the adapter.
+  height come from the game's own counters, read by the adapter. Where later drawing tests the
+  depth the bars wrote (rac1's level 6), `openrac_frame_fill_depth` with the producer's depth, test
+  and write mask (docs/port/RAC1_COVERS.md).
 - **Pictures and frame copies**: `openrac_frame_snapshot` / `_picture` / `_picture_image` /
   `_picture_set`. **Full-screen pictures are in scope for every game**: the rac2 and rac3 menu
   backgrounds (rac3 `host/picture.c`, rac2 `host/picture.c`), the multiplayer menus' moving city
@@ -277,8 +291,16 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
 
 | Game | On the recorder | Still markers in its list |
 |---|---|---|
-| rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening and the letterbox bars as colour-only quads, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4); `host/movie.c`: each movie frame as a port picture (`picture_set` / `picture`, its backdrop across a wider window); `host/mp_maps.c`: the split-screen maps' views (§3.1); `host/mp_ui.c` and `host/mp_maps.c` write no marker of their own (the multiplayer screens and maps draw through `ui2d.c`, `hud.c` and `render.c`) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6) |
-| rac1, rac2 | nothing yet | all (R1) |
+| rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening and the letterbox bars as colour-only quads, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6), `mp_ui.c`, `mp_maps.c`, `movie.c` (P2) |
+| rac1 | `render_native.c`: world, shrubs boundary and positive-count moby lists; `ui2d.c`: transitional `ui_quad` records; `hud.c`: picture-band and whole-target placement (HUD side placement uses the game's coordinates); `letterbox.c` (PAL v2.00 only): level 6's letterbox bars as depth-writing fills | water surface/UV scopes (`water_surfaces.c`, per-version `water.c`); boot-picture uploads and their residual draws; frame copies, blur, fades, clears and strips remain packet consumers |
+| rac2 | `render.c`: world, world-moby boundary, positive-count moby lists and effect-quad state placement; `ui2d.c`: transitional `ui_quad` records; `hud.c`: HUD side placement; `wide_view.c`: effect-parent scopes, including position-only scopes | `picture.c`: whole-target, saved-frame and credits-world markers; movie pictures/overlays, scissor, off-screen targets and strips remain packet consumers |
+
+This is a recorder hand-off milestone, not the full R1-R3 audit scope. No rac1/rac2 adapter to the
+shared native 2D core, residual-picture conversion or native strip conversion is implied by these
+rows. `openrac_frame_effect_parent_position` keeps a strip's world-space orientation while following
+the delayed parent's move; `openrac_frame_effect_parent` follows its axes too. Both scopes end at 0.
+RAC1 PAL title's reported two dropped commands out of three still need an identified runtime trace;
+the old aggregate warning alone does not identify them.
 
 ## 9. Tests
 
@@ -288,6 +310,10 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
   matches an older recording; anchors matched against a
   chain's tags and spliced in order (late list, resent list, missing anchor); recordings kept and
   chosen as the window does.
+- `frame_anchor_test`: C-contract cursor reads with synthetic addresses: direct and aliased RAM,
+  expanded RAM, null/invalid/unaligned pointers and the last complete tag.
+- Recorder placement regressions cover dropped unanchored followers, non-monotonic texture-paging
+  addresses, forward-only rejection, unchanged cursors and the terminating tag.
 - `renderer_direct_test` / `renderer_gif_test`: the native `DrawState` (blend presets and the GS
   translation give the same GL factors as before; the double draw), and the executor drawing a fill
   and a UiItem with no packets.
