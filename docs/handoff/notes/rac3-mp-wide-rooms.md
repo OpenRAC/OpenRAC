@@ -275,5 +275,30 @@ the tick, the net and the scripted pad at full speed: a no-render client uses ab
 software-GL one, and its window-frame counter (`OPENRAC_PRESS`) is the same, so scripts written for rendering clients
 run unchanged. A room's fleet: host and one joiner render (box1, levels extracted with
 `extractor/extract.py port DISC assets/port/rac3/pal`, `--levels`), the rest do not (box1 up to 10, the Mac, box2).
-`HOSTGEN_JOBS` sets hostgen's default worker count (a box's memory). `OPENRAC_RAC3_WIDE_TRACE=1` logs the players
-array's fill and the loops' bounds.
+`HOSTGEN_JOBS` sets hostgen's default worker count (a box's memory).
+
+### Where the 16/24-player match stands (end of the 2026-11-25/26 session)
+
+Proven: a 10-player room (host + 9 joiners, spread over box1 and the Mac) loads map 40, every console passes the start
+barrier (all ten slots at state 8, the host's included), draws the world with the other heroes, and plays (a 2-player
+run on the same build shows bots moving and shooting). Not yet seen: the match clock running (the timer 1 feed is in,
+untested in a full match), the 0x82 end message and the scoreboard for a wide room (the host's end path did run once
+in a corrupted 16-player run: "the end message's slots 8+ sent", "results for slots 8-15").
+
+Open, in the order they bit:
+- **The server's keep-alive** (`KEEP_ALIVE_IDLE_SECONDS`, 30 s, "covers a map load") dropped a host whose map load
+  took longer than that on a loaded box: "Session (host) stopped sending, dropping it", then the joiners' "the party
+  is gone". The test Server runs with 240.
+- **A fatal error at START in a 12-player run** (host, level 39, frame 22051): `func_L39_005B0AE0 at 005B0BD0 reached
+  the scratchpad DMA register 1000D400`, with the host's own slot at state 0 (not ready) when START was pressed: the
+  scripted host READY had been undone (a drifted press), so this may be the greyed-START path, not the wide code.
+  Not diagnosed.
+- **The map's clock**: see above; whether the 5-minute limit now ends a match is the next thing to run.
+- **Clan tags** still print "[(nul]" in the HUD name tags: the slot update's clan copy now goes through the wide
+  table (0x0019A628), but the "(null)" text itself (the game's sprintf of a null clan) comes from the senders'
+  messages; `clan_fix` (dme_relay) did not catch it in the join request (the request is logged under
+  OPENRAC_RAC3_NET_LOG=1 to find the bytes).
+- **The staging list** keeps the game's 8 rows: a server description with a `staging` screen
+  (`~/RACSwarm/k3-ui/rac3-pal-1.json` in the test Server's UI_DIRECTORY, columns name/clan/team/skin/ready on the
+  `players` table) makes it native with the scroll marks; not yet looked at.
+- NTSC-U carry of the new sites (release_carry_rac3.py) not run.
