@@ -171,6 +171,7 @@ enum class Var : std::uint16_t {
     Rac3Chains,
     Rac3FlightLog,
     Rac3Hero,
+    Rac3LoadSeconds,
     Rac3MaxPlayers,
     Rac3MenuLog,
     Rac3Mobys,
