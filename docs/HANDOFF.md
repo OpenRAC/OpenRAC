@@ -88,7 +88,7 @@ See its README. Matching needs the SN toolchain set up as its docs describe; you
 you want to decompile functions (which also shrinks the code the port still translates from the
 retail binary, section 2.3).
 
-## 2. Where things stand (2026-11-25)
+## 2. Where things stand (2026-11-26)
 
 Words used below: a **PR** is a pull request on GitHub; the **frame recorder** is our native
 replacement for the PlayStation's drawing hardware; **hostgen** is the tool that turns the retail
@@ -207,23 +207,57 @@ newer, up to 1.39).
 - PAL report (`games/rac3/decomp/progress`): **16,067 of 16,589 functions** (96.85%), 87.1% fuzzy code match, 540 of 584 units complete.
 - NTSC-U report: **15,590 of 16,582 functions** (94.02%), 521 of 572 units complete.
 - **Catalogue root fix** (decomp commits 7453660c, 0bf00a6a): `copy_groups()` in `tools/level_catalogue.py` files a level's copies of identical code by their callers' call sites. This removed the per-level workarounds in OpenRAC (#917).
-- Pin moved by #762, #840, #841, #842, #880, #881, #889, #917; **#921 (landing)** moves it to 7a8149b8 with #156 and the NTSC-U carry.
+- Pin moved by #762, #840, #841, #842, #880, #881, #889, #917, #921, #940 and #945 (now ea0af1e4, with #157–#159 and the multiplayer levels' fix).
 
-### 2.7 Landing (in the merge queue or waiting on CI)
+### 2.7 Merged on 2026-11-26
 
-These have passed review and will merge on their own once checks are green. Test them after they land.
+Up Your Arsenal (rac3)
+
+| PR | What it did | What to look for |
+|---|---|---|
+| #941 | The Vid-comic loading screen (Phoenix to the comic levels) draws its picture instead of black | Captain Qwark's head shows while a comic level loads |
+| #951 | Text the game builds in scratch memory prints, so the "Progress is saving" notice no longer reads "(null) Continue" | New Game: the save notice shows its full text |
+| #943 | Every strip the game builds by hand (liquids, glints, lasers) is drawn natively when its state is proved | Florana's and Koros's liquids look as before; the water edge on Florana now has the water's own fog |
+| #923, #924 | The weapon upgrade screen is no longer blank; no "Enter Password" popup on the Phoenix | Upgrade a weapon; board the Phoenix |
+| #922, #925, #950 | Rooms past 8 players: READY and START, the map's start barrier and per-frame loops, the match clock in every multiplayer match, clients that run without drawing (`OPENRAC_NO_RENDER=1`) | A 10-player room loads map 40 and plays (no wider room has finished a match yet, section 4) |
+| #940, #945 | rac3-decomp pins: the seven functions #917 broke match again; the multiplayer menu and maps (levels 39–53) now build byte for byte | Nothing visible |
+
+Ratchet & Clank (rac1) and Going Commando (rac2): drawing moved off the PlayStation's packets
+
+| PR | What it did | What to look for |
+|---|---|---|
+| #928 | rac1's screen tint and anti-aliasing pass; rac2's title pictures | Fades, underwater tint and pause dimming look as before |
+| #933 | rac1's FadeToBlack, screen stripes and frame copy | Fades to black, the pause menu's background |
+| #932 | rac1's Hoven and Oltanis reflective effects (PAL v2.00) | Oltanis ice and Hoven look as before |
+| #934 | rac2's level water and seas (Oozla, Notak, Tabora, Joba, Boldan, Snivelak, Damosel) | Water looks as before |
+| #938 | Recorded panels: rac1's vendor and pause panels, rac2's panels | Vendor monitors and pause pages look as before |
+
+Launcher
+
+| PR | What it did | What to look for |
+|---|---|---|
+| #944 | NG++ progress survives a save export and import (the tiers file keeps its layout marker) | Export a slot on one PC, import it on another: weapon, armour and ship tiers are kept |
+
+Also merged: #700 (audio recipes, llesieur99), #779, #781, #789, #790, #809, #819, #887, #891, #909
+(section 2.2 to 2.5 describe them), and nickyyOO's CI changes (#942: lint on pull requests, builds
+and tests in the merge queue).
+
+rac3-decomp: TheBoso's #159 (13 level functions) merged. PAL is at **16,119 of 16,589 functions**;
+levels 1–36 and 39–53 all build byte for byte.
+
+### 2.8 Merged later on 2026-11-26
 
 | PR | What it does | What to look for |
 |---|---|---|
-| #783 | rac3 native UI rest: textures by the game's tables, Widget3D from the posed mesh, fade fill, HUD placement as item data | Menus, pause menu, HUD edges, memory-card icon and the fade look unchanged |
-| #781 | rac3 rooms past 8 players, step 2: the 9th joiner is rejected properly, second-range table sites | A 9th player cannot slip in; 8-player matches unchanged |
-| #819 | P10b: VU0 inline assembly as native C on locals (PAL 767 to 599 forced assembly routes) | No visible change; games build and run |
-| #789 | P12/P14 native kernel and pads (already merged) | Pads and start-up still work |
-| #790 | P4b/P5/P6 effects: frame copies and screen effects done natively | Haze and Nitro effects (not confirmed; section 4) |
-| #700 | Audio recipes: shareable sound packs prepared from your own disc (desktop, RAC1 PAL) | Mods > Audio: make a recipe, enable it, hear it |
-| #921 | rac3-decomp pin 7a8149b8 (14 level functions, NTSC-U carry) | Nothing visible |
-| #887 | Android launcher CI: host shader compiler without X11 | Android build is green |
-| #891 | rac2 flight ship paint (above) | See 2.3 |
+| #963 | rac3's fade to black and the frame's copy onto itself drawn natively (from #952, closed as included); effect quads and font pages found by the game's own tables, not by GS memory addresses | Level start and end fades; menus, HUD and text look as before |
+| #961 | rac3's loading flight plays all its laps at normal speed (no slowed approach); `OPENRAC_RAC3_LOAD_SECONDS` sets the load time (default 10, 0 for instant) | New Game: three laps, then Veldin at normal speed |
+| #949 | rac1's panel clears and the monitors' depth clear drawn natively (PAL v2.00) | Vendor monitors and pause menu |
+| #948 | rac2 panel log; docs on which screens reach #938's wrappers | Nothing visible |
+| #967 | Rooms past 8 (with #959, closed as included): the menu level's own draw copies replaced (no crash at START); the clan text no longer overwrites the host's client and state tables, so a 16-player room reaches staging with every name | A 16-player room shows "PLAYER 16/16"; START is not reachable yet (section 4) |
+| #965 | rac3 builds again on a machine with the disc (three wrapper signatures) | Nothing visible |
+| #966 | rac2 compiles again (an include order #934 swapped) | Nothing visible |
+
+Closed as already in develop: #931 (through #932, #934 and #943), #952 (through #963), #959 (through #967).
 
 ## 3. What to test
 
@@ -233,6 +267,10 @@ format 21 from #891), and old exports must be redone.
 
 **Up Your Arsenal**
 - [ ] Start New Game on PAL and NTSC-U: loading flight shows stars and the planet; Start skips it.
+- [ ] New Game: the save notice reads "Progress is saving...", not "(null) Continue" (#951).
+- [ ] The first flight plays three laps, then Veldin at normal speed (no slow approach). Note which lap is the Solana galaxy shot.
+- [ ] Phoenix to a comic level: the loading screen shows Captain Qwark's head, not black (#941).
+- [ ] Upgrade a weapon: the upgrade screen shows the weapon (#923).
 - [ ] Veldin: the dropship is there and opaque; thruster haze is round; no crash on message boxes.
 - [ ] Water on Florana and other river levels looks like water and does not shimmer.
 - [ ] Phoenix: no password popup; the "Enter ship" box shows its text.
@@ -246,6 +284,7 @@ format 21 from #891), and old exports must be redone.
 - [ ] Siberius cart and Zodiac or drone off-screen targeting.
 - [ ] Flight ship wings match the selected paint.
 - [ ] NG++ on all three discs: Ice Gun stream, Bouncer speed, popups clear after 2.5 s, armour visor accent.
+- [ ] NG++ save transfer (#944, needs a launcher release with it): export a slot on one PC and import it on another; tiers are kept. A slot imported before #944 has shifted tiers: import it again from the source PC.
 - [ ] Mouse look, weapon keys and the Keyboard and mouse pause page.
 
 **Ratchet & Clank**
@@ -263,16 +302,16 @@ Report bugs with the launcher's crash file or a screenshot.
 
 | Area | What is unfinished | Where to start |
 |---|---|---|
-| rac3 rooms past 8 | The 9th-joiner fix is in (#781); the match results, the match's end and NTSC-U widening are not done | [rac3-mp-wide-rooms.md](handoff/notes/rac3-mp-wide-rooms.md) |
-| rac3 Solana sequence | The first flight's galaxy sequence: the boot flight has no first-flight variant (probably the New Game intro movie, sector 18444); not confirmed | [rac3-port-NO-EMULATION-STATUS.md](handoff/notes/rac3-port-NO-EMULATION-STATUS.md) |
-| rac3 blank weapon slot | Blank first-weapon slot after loading a save, one report; not reproduced in six runs | same note |
-| #790 effects | Haze and Nitro checks not confirmed in a real run | PR description, audit P4b/P5/P6 |
-| Recorder for rac1/rac2 | R1–R3 runs not finished (#779 is in; rac1's title screen drops nothing, traced 2026-11-26) | [FRAME_RECORDER.md](port/FRAME_RECORDER.md) |
-| Misfiled multiplayer rows | Five `func_L39_*` rows for maps 40–53 (func_L01_00436070, 00443948, 004AA948, 004AAD58, 004D2470) pair through `level_copies`, not names | [rac3-port-NO-EMULATION-STATUS.md](handoff/notes/rac3-port-NO-EMULATION-STATUS.md) |
+| rac3 rooms past 8 | A 16-player room reaches staging with every name (#967), but no room past 8 has played a match to the scoreboard: the stock staging list has 8 rows, so the cursor cannot reach START (needs a port-side START path, as READY has); the list shows stale rows after a scroll and has no scroll bar; the clock, the end message, the scoreboard and 24 players are untested | [rac3-mp-wide-rooms.md](handoff/notes/rac3-mp-wide-rooms.md), #959 |
+| rac3 Solana lap | The first flight picks its laps at random from four scenes; which one is the Solana galaxy shot is not identified (hidden runs draw no scene) | #961; `func_003C10B0`, `func_003BE0F0` |
+| rac3 blank weapon slot | Blank first-weapon slot after loading a save; one report, not reproduced in eleven runs | [rac3-port-NO-EMULATION-STATUS.md](handoff/notes/rac3-port-NO-EMULATION-STATUS.md) |
+| #790 effects | Haze on level 12 draws natively (logged); the Veldin dropship haze and the Nitro Launcher's ring are unseen in a run | PR description, audit P4b/P5/P6 |
+| Fully native drawing | rac3: what still reaches the GS interpreter is the first frames of boot, each list's draw environment and clear, the strip setup, Holostar's box, and textures keyed by the 64-bit TEX0 word. rac1: the panels' draw environment, what the vendor and pause passes draw inside panels, small copy sprites, the letterbox outside level 6. rac2: fades and tints, a few sprites and strips, weapon beams and ribbons; #938's rac2 wrappers are not reached by any screen found so far. Then P7/P8: the display-list walk and the GS interpreter go | [audit](handoff/notes/rac3-port-no-emulation-audit.md), [SCREEN_EFFECTS.md](port/SCREEN_EFFECTS.md) |
+| CI without a disc | hostgen's signature checks run only when translating from the disc, so CI cannot see them (#965 fixed three); build with a disc before landing hostgen.json or pin changes | `port/game/rac3-pal/hostgen.json` |
+| Misfiled multiplayer rows | Five `func_L39_*` rows for maps 40–53 (func_L01_00436070, 00443948, 004AA948, 004AAD58, 004D2470) pair through `level_copies`, not names; harmless now that every level builds | [rac3-port-NO-EMULATION-STATUS.md](handoff/notes/rac3-port-NO-EMULATION-STATUS.md) |
 | NTSC-U-only twins | `func_L01_0037DC70` and `func_L39_004B5BE8` exist only in NTSC-U | rac3-decomp notes |
-| No-emulation packages | P2 (markers, per-player views), P4b/P5/P6, P10b, P11, P12, then P7/P8 (DMA-chain walk, GS interpreter) | [audit](handoff/notes/rac3-port-no-emulation-audit.md) |
 | Hub | Server not deployed: the launcher defaults to `hub.openrac.dev:7177` and nothing runs there; set `REGION` and `SERVER_NAME`, tag a Server release | Server `docs/README.md` |
-| Decomp matching | rac3-decomp: 522 PAL and 992 NTSC-U functions are still unmatched; about 90% of rac3's code by size is still translated from the retail binary | rac3-decomp README and CONTRIBUTING |
+| Decomp matching | rac3-decomp: 470 PAL and about 1,000 NTSC-U functions are still unmatched, mostly large; the translated code behind them is unproven and the likeliest source of odd behaviour | rac3-decomp README and CONTRIBUTING |
 
 Other open PRs (not part of this wrap-up): #912, #918, #907, #901, #865, #655, #639, #867 (drafts
 and feature work from other contributors); check `gh pr list --state open` for anything newer.
