@@ -232,9 +232,10 @@ static const char VANILLA_DESCRIPTION[] =
     "{\"schema\": 1, \"name\": \"Up Your Arsenal\", \"screens\": ["
     "{\"id\": \"game_list\", \"columns\": [{\"field\": \"name\", \"width\": 100}],"
     " \"items\": [{\"kind\": \"table\", \"key\": \"games\", \"action\": \"game:join\"}]},"
-    "{\"id\": \"staging\", \"columns\": [{\"field\": \"name\", \"width\": 34},"
-    " {\"field\": \"team\", \"width\": 14}, {\"field\": \"skin\", \"width\": 32},"
-    " {\"field\": \"ready\", \"width\": 20}],"
+    "{\"id\": \"staging\", \"columns\": [{\"field\": \"name\", \"width\": 28},"
+    " {\"field\": \"skill\", \"width\": 12}, {\"field\": \"voice\", \"width\": 11},"
+    " {\"field\": \"team\", \"width\": 17}, {\"field\": \"skin\", \"width\": 24},"
+    " {\"field\": \"ready\", \"width\": 8}],"
     " \"items\": [{\"kind\": \"table\", \"key\": \"players\", \"action\": \"game:select\"}]},"
     "{\"id\": \"scoreboard\", \"columns\": [{\"field\": \"name\", \"width\": 40},"
     " {\"field\": \"score\", \"width\": 15}, {\"field\": \"kills\", \"width\": 15},"
@@ -710,11 +711,14 @@ static void open_for(int id, gaddr screen) {
         /* The eight name rows of the staging room, 0.648 + (n - 3) * 0.412 / 9 of the picture's
          * height, from the left of the names to the ready ticks (L39_006C1730). */
         const float game_line = 0.412f / 9.0f * PICTURE_H;
-        const int rows = rac3_mp_wide_slots() > 16 ? 16 : rac3_mp_wide_slots();
-        g_line = rows > GS_SLOTS ? game_line * (float)GS_SLOTS / (float)rows : game_line;
+        /* A room of more than eight shows up to twelve rows and a line for its count, in the
+         * height of the game's eight; a longer list scrolls. */
+        const int wide = rac3_mp_wide_slots() > GS_SLOTS;
+        const int rows = rac3_mp_wide_slots() > 12 ? 12 : rac3_mp_wide_slots();
+        g_line = wide ? game_line * (float)GS_SLOTS / (float)(rows + 1) : game_line;
         area[0] = 50.0f, area[2] = 412.0f;
         area[1] = (0.648f - 3.0f * 0.412f / 9.0f) * PICTURE_H - game_line * 0.5f;
-        area[3] = g_line * (float)(rows > GS_SLOTS ? rows : GS_SLOTS);
+        area[3] = wide ? g_line * (float)(rows + 1) : g_line * (float)GS_SLOTS;
     } else {
         const gaddr list = widget(screen, LIST_WIDGET);
         int32_t shown = GREF(int32_t, list + LIST_ROWS_SHOWN);

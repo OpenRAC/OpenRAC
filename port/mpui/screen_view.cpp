@@ -287,8 +287,11 @@ std::vector<Placed> ScreenView::layout(const Skin& skin, const Model& model) con
             place.shown_rows = std::max<std::size_t>(std::min(wanted, fit_rows), 1);
             const std::size_t count = table == nullptr ? 0 : table->rows().size();
 
-            // Without a headings line, a list longer than its page gives a row to its page count.
-            if (headings == 0.0f && count > place.shown_rows && place.shown_rows > 1) {
+            // Without a headings line, a list longer than its page, or one with a limit to show
+            // ("joined/MAX"), gives a row to its page count.
+            const bool counted =
+                count > place.shown_rows || (table != nullptr && table->capacity() > 0);
+            if (headings == 0.0f && counted && place.shown_rows > 1) {
                 --place.shown_rows;
                 place.rect.h += line;
             }
