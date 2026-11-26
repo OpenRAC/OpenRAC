@@ -17,8 +17,8 @@
 
 #define WIDE_CAMERA OPENRAC_DATA(RAC2_ADDR(0x001B5200u))
 #define WIDE_VIEW OPENRAC_DATA(RAC2_ADDR(0x001B9040u))
-#include "rac2.h"
 #include "../../common/lib/wide_view_lists.h"
+#include "rac2.h"
 
 static const unsigned char* g_fix_liquids;
 static const unsigned char* g_fix_orbs;
@@ -90,23 +90,48 @@ static void run_callbacks(uint32_t list, gaddr count_at, gaddr functions, gaddr 
 }
 
 static void run_first(void) {
-    run_callbacks(1, OPENRAC_DATA(RAC2_ADDR(0x001B1608u)), OPENRAC_DATA(RAC2_ADDR(0x001B9E40u)), OPENRAC_DATA(RAC2_ADDR(0x001B9F40u)));
+    run_callbacks(
+        1,
+        OPENRAC_DATA(RAC2_ADDR(0x001B1608u)),
+        OPENRAC_DATA(RAC2_ADDR(0x001B9E40u)),
+        OPENRAC_DATA(RAC2_ADDR(0x001B9F40u))
+    );
 }
 
 static void run_second(void) {
-    run_callbacks(2, OPENRAC_DATA(RAC2_ADDR(0x001B160Cu)), OPENRAC_DATA(RAC2_ADDR(0x001BA040u)), OPENRAC_DATA(RAC2_ADDR(0x001BA140u)));
+    run_callbacks(
+        2,
+        OPENRAC_DATA(RAC2_ADDR(0x001B160Cu)),
+        OPENRAC_DATA(RAC2_ADDR(0x001BA040u)),
+        OPENRAC_DATA(RAC2_ADDR(0x001BA140u))
+    );
 }
 
 static void run_third(void) {
-    run_callbacks(3, OPENRAC_DATA(RAC2_ADDR(0x001B1610u)), OPENRAC_DATA(RAC2_ADDR(0x001BA240u)), OPENRAC_DATA(RAC2_ADDR(0x001BA340u)));
+    run_callbacks(
+        3,
+        OPENRAC_DATA(RAC2_ADDR(0x001B1610u)),
+        OPENRAC_DATA(RAC2_ADDR(0x001BA240u)),
+        OPENRAC_DATA(RAC2_ADDR(0x001BA340u))
+    );
 }
 
 static void run_fourth(void) {
-    run_callbacks(4, OPENRAC_DATA(RAC2_ADDR(0x001B1614u)), OPENRAC_DATA(RAC2_ADDR(0x001BA440u)), OPENRAC_DATA(RAC2_ADDR(0x001BA540u)));
+    run_callbacks(
+        4,
+        OPENRAC_DATA(RAC2_ADDR(0x001B1614u)),
+        OPENRAC_DATA(RAC2_ADDR(0x001BA440u)),
+        OPENRAC_DATA(RAC2_ADDR(0x001BA540u))
+    );
 }
 
 static void run_fifth(void) {
-    run_callbacks(5, OPENRAC_DATA(RAC2_ADDR(0x001B1638u)), OPENRAC_DATA(RAC2_ADDR(0x001B1618u)), OPENRAC_DATA(RAC2_ADDR(0x001B1628u)));
+    run_callbacks(
+        5,
+        OPENRAC_DATA(RAC2_ADDR(0x001B1638u)),
+        OPENRAC_DATA(RAC2_ADDR(0x001B1618u)),
+        OPENRAC_DATA(RAC2_ADDR(0x001B1628u))
+    );
 }
 
 void func_0027CE18(void) {
