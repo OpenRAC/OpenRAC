@@ -45,7 +45,7 @@ const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
 /// The kinds of still picture a pack holds, by file extension.
 const STILL_KINDS: &[&str] = &["png", "ktx2", "svg"];
 /// The largest SVG (port/renderer/textures/pack_pictures.h, kMaxSvgBytes).
-const MAX_SVG: usize = 4 * 1024 * 1024;
+const MAX_SVG: usize = 16 * 1024 * 1024;
 const KTX2_MAGIC: &[u8] = &[0xAB, b'K', b'T', b'X', b' ', b'2', b'0', 0xBB, b'\r', b'\n', 0x1A, b'\n'];
 /// The largest picture side and texel count the game reads (pack_pictures.h).
 const MAX_SIDE: u64 = 8192;
@@ -614,7 +614,7 @@ fn ktx2_problem(bytes: &[u8]) -> Option<&'static str> {
 /// other programs a player opens it in, too.
 fn svg_problem(bytes: &[u8]) -> Option<&'static str> {
     if bytes.len() > MAX_SVG {
-        return Some("is larger than 4 MB");
+        return Some("is larger than 16 MB");
     }
     let Ok(text) = std::str::from_utf8(bytes) else { return Some("is not an SVG (not UTF-8 text)") };
     let lower = text.to_ascii_lowercase();

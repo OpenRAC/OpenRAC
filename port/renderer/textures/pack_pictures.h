@@ -31,9 +31,10 @@ inline constexpr int kMaxSide = 8192;
 inline constexpr std::uint64_t kMaxTexels = std::uint64_t{4096} * 4096;
 
 // The largest files read: a KTX2 holds at most an uncompressed picture of kMaxTexels (with room
-// for its mips), an SVG is text.
+// for its mips). An SVG is text, but an editor's file may hold hidden images (Inkscape keeps
+// embedded reference pictures), which take room and are not drawn.
 inline constexpr std::uintmax_t kMaxKtx2Bytes = std::uintmax_t{128} << 20;
-inline constexpr std::uintmax_t kMaxSvgBytes = std::uintmax_t{4} << 20;
+inline constexpr std::uintmax_t kMaxSvgBytes = std::uintmax_t{16} << 20;
 
 // A KTX2 file's bytes: its first mip level in RGBA8 and, when `blocks` names a format and the file
 // is UASTC or ETC1S with sides that are multiples of 4, all its levels in that format too (the

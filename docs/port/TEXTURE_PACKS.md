@@ -142,7 +142,7 @@ because only some GPUs read them.
 side). Give it the texture's shape (the same `viewBox` ratio). Only shapes,
 fills, strokes and gradients are drawn, so turn text into paths. Images,
 fonts, links and scripts are not read, and the launcher refuses an SVG with
-them. Up to 4 MB. Not for photos or painted textures.
+them. Up to 16 MB. Not for photos or painted textures.
 
 **Size and speed.** The game reads each picture from disk once. A level's
 pictures are read while it loads, several at a time. HUD, menu and effect
