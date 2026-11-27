@@ -586,7 +586,6 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_RAC3_MP_UI` | path | Up Your Arsenal online play: a UI description file (schema 1, [MULTIPLAYER_UI.md](MULTIPLAYER_UI.md)) the native lobby screens use in place of the vanilla one, until a server sends its own. For trying a description without a server. | `port/game/rac3-pal/host/mp_ui.c` |
 | `OPENRAC_RAC3_MP_UI_MOCK` | `N` | Up Your Arsenal online play: `N` made-up players after the room's own in the native staging and score lists, to try their paging past eight rows. | `port/game/rac3-pal/host/mp_ui.c` |
 | `OPENRAC_RAC3_NET_LOG` | any but empty or 0 | Up Your Arsenal online play: every Medius request and reply of the port's lobby and every game room packet, in the log. | `port/game/rac3-pal/host/mp_net.c` |
-| `OPENRAC_RAC3_PORT_READY` | any but empty or 0 | Up Your Arsenal online, rooms past 8 players: every slot's READY (Circle on the staging screen) is taken by the port, which sends the slot update itself; by default only the slots past the game's eight are. For clients too slow to draw, whose game ticks several times in a press. | `port/game/rac3-pal/host/mp_net.c` |
 | `OPENRAC_RAC3_PROFILE` | `NAME[:PASSWORD]` | Up Your Arsenal online play, for scripted runs: a profile in the first slot when the card has none, and the PROFILES screen logs in with it once (the editor needs the on-screen keyboard). | `port/game/rac3-pal/host/mp_net.c` |
 | `OPENRAC_RAC3_STRIP_TRACE` | any (set) | Up Your Arsenal: every 256 hand-built strips the levels' strip routine is given, a `rac3 strips` line on stderr: how many went to the window as native strip records, how many the game's way for want of proven GS state, of an effect image, or because the window refused (`OPENRAC_UI_REPLAY`, no window). | `port/game/rac3-pal/host/render.c` |
 | `OPENRAC_DEPTH_REUSE_OFF` | any (set) | Profiling reference: the GTAO prepass's depth is discarded before the world's colour pass instead of being reused. | `port/renderer/renderer.cpp` |
@@ -646,6 +645,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | Variable | Value | What it does | Read in |
 | --- | --- | --- | --- |
 | `OPENRAC_CLANG` | path to a `clang` binary | The Clang that hostgen uses to read the decompilation's C. Without it, hostgen takes the first of `clang`, `clang-18`, `clang-17`, `clang-19`, `clang-20` on `PATH`. | `port/tools/hostgen/clangast.py` |
+| `OPENRAC_PRIORITY` | `normal` | The build (`tools/build_port.py`), the level export (`extractor/extract.py port`, the launcher's Get the levels ready) and the lighting bake keep the priority they were started with, instead of going below normal with every program they start. Below normal leaves the desktop usable, but on a CPU with performance and efficiency cores Windows can keep such work on the efficiency cores even with nothing else running. Any other value, or none, lowers it. With `OPENRAC_BUILD_JOBS=all` or `OPENRAC_EXTRACT_JOBS=all` no thread is kept back either. | `tools/openrac_common/background.py` |
 
 ### Vulkan uniform and descriptor submission
 

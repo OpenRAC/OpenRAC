@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "mpui/description.h"
@@ -104,6 +105,13 @@ public:
 
     // Returns the value a choice item shows now (0 for any other item).
     int value(std::size_t item) const;
+
+    // Sets the value the choice item `key` shows (clamped to its choices), as the binding knows it.
+    // False when the screen has no such choice.
+    bool set_value(std::string_view key, int value);
+
+    // Sets the text of the text item `key`. False when the screen has no such text.
+    bool set_text(std::string_view key, std::string_view text);
 
 private:
     // Moves the cursor back onto the row it was on before `model` changed, and into range.

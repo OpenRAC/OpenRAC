@@ -272,6 +272,13 @@ enum rac3_mp_relay_kind {
      * u8 the room's width, then each array's entries for slots 8 up (host/mp_wide.c), sent just
      * before the end message itself, only in a room of more than 8 players. */
     RELAY_MATCH_END_WIDE = 5,
+    /* The port's room (host/mp_room.c), from its host to every member: u8 version (1), u8 the
+     * room's width, u8 count, then per player u8 DME client, u8 READY, s16 team, s16 skin (little
+     * endian), clan[8], name[16]. Sent when it changes, when the members change, and every 3 s. */
+    RELAY_ROOM_STATE = 6,
+    /* A member's request to the host's room: u8 op (1: a slot's change), u8 the sender's local
+     * slot, s16 team, s16 skin, s16 slot state (0 joined, 6 ready). */
+    RELAY_ROOM_REQUEST = 7,
 };
 
 #endif /* OPENRAC_RAC3_MP_PROTOCOL_H */

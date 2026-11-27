@@ -33,6 +33,7 @@
 #include "mods.h"
 #include "openrac/guest.h"
 #include "renderer/textures/sharp_cells.h"
+#include "renderer/ui/overlay_images.h"
 
 // The game's calls into the mods' world (game_host.h), set while mods are loaded.
 int (*openrac_game_moby_update)(std::int32_t slot, int phase) = nullptr;
@@ -1189,6 +1190,10 @@ void drop_figures(const openrac_mod* mod) {
     // Its sharper cells (openrac_api.sharp_cells); null is the built-ins', which stay.
     if (mod != nullptr) {
         renderer::sharp_cells::set(mod, {});
+    }
+    // Its overlay pictures (openrac_api.overlay_image_create); they are kept through level loads.
+    if (mod != nullptr) {
+        renderer::ui::overlay_images::drop(mod);
     }
     // Its motors (openrac_api.set_motors) stop; the game's and the other mods' play on.
     if (mod != nullptr && g_host != nullptr && g_host->drop_motors != nullptr) {

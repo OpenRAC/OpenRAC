@@ -155,7 +155,12 @@ OPENRAC_EE_INLINE void openrac_spr_copy(
         return;
     }
     for (k = 0; k < n; k++) {
-        openrac_u32 memory = (*madr + 16u * k) & 0x01FFFFF0u;
+        /* Main memory: the 32 MB of RAM (the uncached mirrors drop to it), or the port's own regions
+         * (GUEST_PORT 0xE0..., GUEST_PORT_LOW 0x50..., GUEST_PORT_WORLDS 0x58...) where a table the
+         * port grew for the game keeps what a transfer reads, whole. */
+        openrac_u32 memory = *madr + 16u * k;
+        memory = ((memory >> 28) == 0xEu || (memory >> 28) == 0x5u) ? (memory & ~15u)
+                                                                    : (memory & 0x01FFFFF0u);
         openrac_u32 spr = 0x70000000u + ((*sadr + 16u * k) & 0x3FF0u);
         for (j = 0; j < 16u; j += 8u) {
             if (to_spr) {

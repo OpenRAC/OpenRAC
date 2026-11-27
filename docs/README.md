@@ -26,6 +26,7 @@ Where to find what. Start with the first table.
 | [port/WORKFLOW.md](port/WORKFLOW.md) | From a player's report to a fix and a release |
 | [port/BACKFILL.md](port/BACKFILL.md) | Which functions to fill in with C for the port, and the check that says they are right |
 | [port/KNOWN_ISSUES.md](port/KNOWN_ISSUES.md) | Bugs that are understood and guarded but not properly fixed yet |
+| [port/ANTIVIRUS.md](port/ANTIVIRUS.md) | What to do when an antivirus flags an OpenRAC file |
 | [port/SETTINGS.md](port/SETTINGS.md), [port/DEBUGGING.md](port/DEBUGGING.md) | The settings file and where it lives; options and variables for debugging |
 | [port/RENDERER.md](port/RENDERER.md), [port/VU_PROGRAMS.md](port/VU_PROGRAMS.md) | How the game builds a frame; its vector unit programs |
 | [port/MODS.md](port/MODS.md), [port/ANDROID.md](port/ANDROID.md) | The mod SDK; the Android build |

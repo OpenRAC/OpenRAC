@@ -485,7 +485,9 @@ function(openrac_add_game config)
   file(GLOB frontend_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/frontend/*.cpp")
   # debug/: the debug overlay's panels and the menu; with a window only.
   file(GLOB debug_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/debug/*.cpp")
+  string(JSON program_title GET "${json}" title)
   foreach(target IN LISTS targets)
+    openrac_windows_version_info(${target} "OpenRAC - ${program_title}")
     if(OPENRAC_${ID}_ASM_PART)
       set_target_properties(${target} PROPERTIES ENABLE_EXPORTS ON)
       # program/asm_part.cpp: this program looks for the part (a build with the disc has none).

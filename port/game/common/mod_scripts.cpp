@@ -822,6 +822,21 @@ int api_menu_option_set(lua_State* L) {
     return 1;
 }
 
+// Interface 1.42: the version of the mod `id` when it is loaded, else nil. During the scripts' first
+// run only the mods loaded before this one are; from the first on_frame every mod that loaded is.
+int api_mod_loaded(lua_State* L) {
+    State* s = state_of(L);
+    const char* id = luaL_checkstring(L, 1);
+    const char* version =
+        s->services.mod_version != nullptr ? s->services.mod_version(id) : nullptr;
+    if (version != nullptr) {
+        lua_pushstring(L, version);
+    } else {
+        lua_pushnil(L);
+    }
+    return 1;
+}
+
 // Interface 1.31: the label of the pad's button `button` (an OPENRAC_PAD_* bit) for the player's
 // device now, and its kind: "playstation", "letters" or "keys"; nil, nil for no single button.
 int api_button_label(lua_State* L) {
@@ -1057,6 +1072,7 @@ void push_openrac(lua_State* L, State* s) {
     set_function(L, "button_label", api_button_label);
     set_function(L, "set_motors", api_set_motors);
     set_function(L, "menu_option_set", api_menu_option_set);
+    set_function(L, "mod_loaded", api_mod_loaded);
     set_function(L, "take_input", api_take_input);
     set_function(L, "capture_mouse", api_capture_mouse);
     set_function(L, "touch_define", api_touch_define);
