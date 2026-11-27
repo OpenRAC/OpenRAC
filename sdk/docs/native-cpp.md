@@ -50,6 +50,8 @@ OPENRAC_MOD_CPP("my-mod", "0.1.0", load)
 | `take_input(devices)` (1.2) | during load: `OPENRAC_INPUT_KEYBOARD` turns the port's own keyboard table off |
 | `capture_mouse(on)` (1.2) | the cursor captured or let go |
 | `openrac::bind_from_name(name)`, `openrac::bind_name(bind)` | a key, button or wheel direction by its name (`"KeyW"`, `"MouseLeft"`) |
+| `mods()`, `find(id)`, `loaded(id)` (1.14) | the loaded mods, one by its id ([mods that work together](mods-together.md)) |
+| `provide(name, version, table)`, `service<T>(name, min_version)`, `on_mods_loaded(callable)`, `has_services()` (1.42) | services between mods ([mods that work together](mods-together.md)) |
 
 The hook point types (`openrac::rac1::Hero_TurnToHeading`, ...) are in
 `openrac/games/rac1.hpp`, generated from OpenRAC's hook table; see the

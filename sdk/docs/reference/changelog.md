@@ -4,6 +4,12 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.42
+
+What mods offer each other: a mod's services, tables of its own found by name and version (service_provide, service_find, openrac_service), and a call once every mod has loaded (on_mods_loaded).
+
+Members: `on_mods_loaded`, `service_provide`, `service_find`.
+
 ## 1.41
 
 Pictures of a mod's own for its overlay, drawn turned, tinted and kept in shape, and a call of the overlay under the game's 2D (overlay_image_create, overlay_image_destroy, openrac_overlay.image, image_quad, layer, aspect, OPENRAC_OVERLAY_UNDER_HUD).

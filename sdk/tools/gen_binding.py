@@ -677,6 +677,8 @@ def luau_types(b: dict) -> str:
     out.append("    set_motors: (port: number, small_motor: boolean, large_motor: number) -> boolean,")
     out.append("    -- interface 1.37: an option of the port's menu greyed out or made usable, by its name (menu-options.md)")
     out.append("    menu_option_set: (option: string, state: \"on\" | \"off\" | \"default\") -> boolean,")
+    out.append("    -- interface 1.42: the version of another mod when it is loaded, else nil")
+    out.append("    mod_loaded: (id: string) -> string?,")
     if b["moby"] is not None:
         out.append("    -- experimental: a moby's pvars by name, from the behaviour catalogue")
         out.append("    pvars: (moby: number) -> { [string]: number }?,")
