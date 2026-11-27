@@ -66,17 +66,30 @@ once.
 
 ## Versions
 
-You never choose the version. `bump_api.py` reads the last release (the
-highest `sdk-v1.M.P` tag of OpenRAC/OpenRAC) and finds the open minor:
+You never choose the version. The interface's version lives in one place:
+`OPENRAC_MOD_API_MAJOR` and `OPENRAC_MOD_API_MINOR` in `openrac_mod.h`. The
+CMake package and the launcher read it from there, and nothing else holds a
+copy.
+
+SDK releases follow one rule: the patch is a dev release, the minor is a
+stable one.
+
+- A push to master (a dev release) publishes `sdk-v1.M.P`: the next patch of
+  the last stable minor `M`, when the SDK archive changed.
+- A stable launcher's tag (`launcher-v*`) publishes `sdk-v1.N.0` when the
+  interface grew since the last stable release.
+
+`bump_api.py` reads the last stable release (the highest `sdk-v1.M.0` tag of
+OpenRAC/OpenRAC) and finds the open minor:
 
 - `1.M+1` if your tree adds to the interface since that tag: a table member,
-  or a new type, field or macro in `openrac_mod.h` or `keys.h`. Two pull
-  requests that both add something get the same `1.M+1`, so they never
+  or a new type, field or macro in `openrac_mod.h` or `keys.h`. Every pull
+  request until the next stable release gets the same `1.M+1`, so they never
   renumber each other.
 - `1.M` otherwise. Hook points (`games/*.h`), C++ helpers and docs are not a
   minor.
 
-`bump_api.py` with no arguments sets the minor in every place, the new
+`bump_api.py` with no arguments sets the minor in the header, the new
 members' `since` in `members.tsv`, their `Since 1.N.` in the header and the
 `api_minor >= N` of the `mod.hpp` checks that read them. Then it regenerates
 the locks and `sdk/docs/reference/`.
@@ -86,12 +99,10 @@ one paragraph that names the new members. `bump_api.py minor --note "..."`
 writes it (the name is your branch's last part, or `--name`). The changelog
 is built from these notes, so two pull requests never edit the same text.
 
-CI publishes the SDK (`sdk.yml`) when a release reaches master and the SDK
-changed: a new minor as `1.<minor>.0`, otherwise the next patch. If that run
-failed, run the `sdk` workflow on master with "release". A tag
-`sdk-v<version>` pushed by hand still works.
+If a release run failed, run the `sdk` workflow on master with "release". A
+tag `sdk-v<version>` pushed by hand still works.
 
-If a release came out while your pull request was open, `bump_api.py --check`
+If a stable release came out while your pull request was open, `bump_api.py --check`
 fails after you merge develop in: your additions now belong to the next minor.
 Run `bump_api.py`: it moves them, moves your note too, and prints the other
 lines that still name the old minor (comments, the Luau types) for you to

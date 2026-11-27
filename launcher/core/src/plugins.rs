@@ -19,11 +19,53 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 /// The mod interface this launcher's port has: `OPENRAC_MOD_API_MAJOR` and `_MINOR` of
-/// `sdk/include/openrac/openrac_mod.h`. Change them with it.
-pub const API_MAJOR: u32 = 1;
-pub const API_MINOR: u32 = 42;
+/// `sdk/include/openrac/openrac_mod.h`, read from it when the launcher is built.
+pub const API_MAJOR: u32 = header_define(b"OPENRAC_MOD_API_MAJOR");
+pub const API_MINOR: u32 = header_define(b"OPENRAC_MOD_API_MINOR");
 /// The interface a script mod needs at least: 1.1, the first with scripts (MODS.md, section 11).
 pub const SCRIPT_API_MINOR: u32 = 1;
+
+const MOD_HEADER: &[u8] = include_bytes!("../../../sdk/include/openrac/openrac_mod.h");
+
+/// The number of the header's line `#define <name> <number>`; a build error when there is none.
+const fn header_define(name: &[u8]) -> u32 {
+    let text = MOD_HEADER;
+    let mut i = 0;
+    while i < text.len() {
+        // At a line's start: "#define ", the name, a space, then digits.
+        if i == 0 || text[i - 1] == b'\n' {
+            let mut j = i;
+            let mut ok = true;
+            let prefix = b"#define ";
+            let mut k = 0;
+            while ok && k < prefix.len() {
+                ok = j < text.len() && text[j] == prefix[k];
+                j += 1;
+                k += 1;
+            }
+            k = 0;
+            while ok && k < name.len() {
+                ok = j < text.len() && text[j] == name[k];
+                j += 1;
+                k += 1;
+            }
+            if ok && j < text.len() && text[j] == b' ' {
+                j += 1;
+                let mut value = 0u32;
+                let start = j;
+                while j < text.len() && text[j].is_ascii_digit() {
+                    value = value * 10 + (text[j] - b'0') as u32;
+                    j += 1;
+                }
+                if j > start {
+                    return value;
+                }
+            }
+        }
+        i += 1;
+    }
+    panic!("openrac_mod.h has no such #define")
+}
 
 /// The names a keybind setting's binds take (interface 1.2): `sdk/include/openrac/keys.h`'s table,
 /// keys by position as the web's `KeyboardEvent.code` names them, then the mouse's buttons and the

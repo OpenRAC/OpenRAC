@@ -1,46 +1,48 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 the OpenRAC contributors
-"""The SDK's version: worked out from the last release, never chosen by hand.
+"""The SDK's version: worked out from the releases, never chosen by hand.
 
-    python3 sdk/tools/bump_api.py                      set every place to the right version
-    python3 sdk/tools/bump_api.py minor --note "..."   add a note for the next minor, then the same
-    python3 sdk/tools/bump_api.py --check              write nothing; fail when something is off
-    python3 sdk/tools/bump_api.py --release-version    the version a release of this tree gets
-    python3 sdk/tools/bump_api.py --versions           each SDK and launcher release's interface
+    python3 sdk/tools/bump_api.py                               set the version (and what follows it)
+    python3 sdk/tools/bump_api.py minor --note "..."            add a note for the open minor, then the same
+    python3 sdk/tools/bump_api.py --check                       write nothing; fail when something is off
+    python3 sdk/tools/bump_api.py --release-version [--stable]  the version a release of this tree gets
+    python3 sdk/tools/bump_api.py --versions                    each SDK and launcher release's interface
 
-The last release is the highest tag sdk-v1.M.P of OpenRAC/OpenRAC. Develop has one open minor:
+Releases are the tags sdk-v<major>.M.P of OpenRAC/OpenRAC, made by CI (.github/workflows/sdk.yml):
+
+    <major>.M.0   a stable release, made for a stable launcher (a launcher-v* tag)
+    <major>.M.P   a dev release (P > 0), made for each release merged to master
+
+The first release of a major is <major>.0.0. Develop has one open minor, from the last stable M:
 
     M + 1   when this tree adds to the interface since that tag: a new table member, or a new row
-            in types.lock or macros.lock from openrac_mod.h or keys.h, or a note in sdk/changes/1.<M+1>/
+            in types.lock or macros.lock from openrac_mod.h or keys.h, or a note in
+            sdk/changes/<major>.<M+1>/
     M       otherwise (rows from games/*.h, hook points, are not a minor)
 
 Every pull request that adds something joins the open minor, so two of them pick the same number
-and never renumber each other. The minor closes when CI releases it (.github/workflows/sdk.yml,
-on master); the next addition opens M + 2 by itself. A release whose tree has no new minor gets
-the next patch, 1.M.(P+1), when anything that goes into the archive changed.
+and never renumber each other. Dev releases carry it as patches of M (their headers already say
+M + 1); the next stable release closes it as <major>.<M+1>.0.
 
-The minor is in: openrac_mod.h (OPENRAC_MOD_API_MINOR), sdk/VERSION (MAJOR.MINOR),
-sdk/cmake/OpenRACModConfigVersion.cmake, launcher/core/src/plugins.rs (API_MINOR) and the two
-templates' sdk.lock (1.<minor>.0; package_sdk.py writes the exact version into the archive's
-copies). Run with no arguments, the tool sets those, the `since` of the members new since the tag
-(sdk/api/members.tsv), their "Since 1.N." in the header, the `api_minor >= N` of the mod.hpp checks
-that read them, and moves notes from a released minor's folder, then runs gen_api_lock.py and
-gen_reference.py. It prints the lines added since the tag that still name the closed minor, to be
-looked at by hand.
+The minor is in one place, openrac_mod.h's OPENRAC_MOD_API_MINOR: the CMake package and the
+launcher read it there, and package_sdk.py writes the release's version into the archive. Run with
+no arguments, the tool sets it, the `since` of the members new since the stable tag
+(sdk/api/members.tsv), their "Since <major>.N." in the header, the `api_minor >= N` of the mod.hpp
+checks that read them and the port's stubs, and moves notes from a released minor's folder, then
+runs gen_api_lock.py and gen_reference.py. It prints the lines added since the tag that still name
+the closed minor, to be looked at by hand.
 
-Notes: each change of the interface adds sdk/changes/1.<open minor>/<name>.md, one paragraph that
-names the new members; the changelog (gen_reference.py) puts them together.
+Notes: each change of the interface adds sdk/changes/<major>.<open minor>/<name>.md, one paragraph
+that names the new members; the changelog (gen_reference.py) puts them together. The first minor of
+a major, <major>.0, is the whole table: it needs no note and no Since of its own.
 
-A new major (2.0) starts with a tag sdk-v2.0.0 made by hand: the tool reads the header's major's tags.
-
-Tags come from `git ls-remote` of OpenRAC_SDK_REPO (default https://github.com/OpenRAC/OpenRAC);
+Tags come from `git ls-remote` of OPENRAC_SDK_REPO (default https://github.com/OpenRAC/OpenRAC);
 OPENRAC_SDK_OFFLINE=1 uses the local tags only. Stdlib only.
 """
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
 import subprocess
@@ -54,14 +56,9 @@ ROOT = Path(__file__).resolve().parents[2]
 HEADER = Path("sdk/include/openrac/openrac_mod.h")
 KEYS = Path("sdk/include/openrac/keys.h")
 CPP = Path("sdk/include/openrac/mod.hpp")
-VERSION = Path("sdk/VERSION")
-CMAKE = Path("sdk/cmake/OpenRACModConfigVersion.cmake")
-LAUNCHER = Path("launcher/core/src/plugins.rs")
-LOCKS = (Path("sdk/template/sdk.lock"), Path("sdk/template-script/sdk.lock"))
 MEMBERS = Path("sdk/api/members.tsv")
 API_LOCKS = ("openrac_api.lock", "types.lock", "macros.lock")
 CHANGES = Path("sdk/changes")
-URL = "https://github.com/OpenRAC/OpenRAC/releases/download/sdk-v{v}/openrac-mod-sdk-{v}.zip"
 REPO = "https://github.com/OpenRAC/OpenRAC"
 TAG = re.compile(r"^sdk-v(\d+)\.(\d+)\.(\d+)$")
 LAUNCHER_TAG = re.compile(r"^launcher-v(\d+)\.(\d+)\.(\d+)$")
@@ -97,38 +94,11 @@ def header_api(root: Path) -> tuple[int, int]:
             int(found(r"^#define OPENRAC_MOD_API_MINOR (\d+)$", text, HEADER).group(1)))
 
 
-def places(root: Path) -> dict[str, str]:
-    """The version each place says."""
-    out = {
-        str(HEADER): "{}.{}".format(*header_api(root)),
-        str(VERSION): read(root, VERSION).strip(),
-        str(CMAKE): found(r'^set\(PACKAGE_VERSION "([\d.]+)"\)$', read(root, CMAKE), CMAKE).group(1),
-        str(LAUNCHER): "{}.{}".format(
-            found(r"^pub const API_MAJOR: u32 = (\d+);$", read(root, LAUNCHER), LAUNCHER).group(1),
-            found(r"^pub const API_MINOR: u32 = (\d+);$", read(root, LAUNCHER), LAUNCHER).group(1)),
-    }
-    for lock in LOCKS:
-        data = json.loads(read(root, lock))
-        out[str(lock)] = data.get("version", "")
-        out[f"{lock} url"] = data.get("url", "")
-    return out
-
-
-def problems(root: Path, minor: int | None = None) -> list[str]:
-    """Where the places disagree with the header's minor (or with `minor`, the one they should say)."""
-    p = places(root)
-    major = header_api(root)[0]
-    want = f"{major}.{minor if minor is not None else header_api(root)[1]}"
-    out = []
-    for where in (HEADER, VERSION, CMAKE, LAUNCHER):
-        if p[str(where)] != want:
-            out.append(f"{where} says {p[str(where)]}, the interface is {want}")
-    for lock in LOCKS:
-        if p[str(lock)] != f"{want}.0":
-            out.append(f"{lock} pins {p[str(lock)]}, want {want}.0")
-        if p[f"{lock} url"] != URL.format(v=f"{want}.0"):
-            out.append(f"{lock}: its url is not the {want}.0 release's")
-    return out
+def problems(root: Path, minor: int) -> list[str]:
+    """Whether the header says the minor it should (the one place that holds it: the CMake package,
+    the launcher and the archive read it there)."""
+    major, have = header_api(root)
+    return [] if have == minor else [f"{HEADER} says {major}.{have}, the interface is {major}.{minor}"]
 
 
 def lock_rows(text: str) -> list[str]:
@@ -162,11 +132,12 @@ def is_core(lock: str, key: str, core: tuple[set[str], set[str]]) -> bool:
 
 
 def notes(root: Path, minor: int) -> dict[str, str]:
-    """The notes of a minor: sdk/changes/1.<minor>/<name>.md, by path."""
-    folder = root / CHANGES / f"1.{minor}"
+    """The notes of a minor: sdk/changes/<major>.<minor>/<name>.md, by path."""
+    name = f"{header_api(root)[0]}.{minor}"
+    folder = root / CHANGES / name
     if not folder.is_dir():
         return {}
-    return {(CHANGES / f"1.{minor}" / p.name).as_posix(): p.read_text(encoding="utf-8").strip()
+    return {(CHANGES / name / p.name).as_posix(): p.read_text(encoding="utf-8").strip()
             for p in sorted(folder.glob("*.md"))}
 
 
@@ -174,7 +145,7 @@ def note_folders(root: Path) -> dict[int, list[str]]:
     out: dict[int, list[str]] = {}
     folder = root / CHANGES
     for d in sorted(folder.iterdir()) if folder.is_dir() else []:
-        m = re.fullmatch(r"1\.(\d+)", d.name)
+        m = re.fullmatch(rf"{header_api(root)[0]}\.(\d+)", d.name)
         if d.is_dir() and m:
             out[int(m.group(1))] = [(CHANGES / d.name / p.name).as_posix() for p in sorted(d.glob("*.md"))]
     return out
@@ -252,17 +223,27 @@ class Release:
     ref: str
 
 
-def last_release(root: Path, major: int) -> Release | None:
-    best = None
+def releases(root: Path, major: int) -> list[tuple[tuple[int, int, int], str]]:
+    """The sdk-v<major>.*.* tags, lowest first."""
+    out = []
     for tag in all_tags(root, "sdk-v*"):
         m = TAG.match(tag)
         if m and int(m.group(1)) == major:
-            v = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
-            if best is None or v > best[0]:
-                best = (v, tag)
-    if best is None:
+            out.append(((int(m.group(1)), int(m.group(2)), int(m.group(3))), tag))
+    return sorted(out)
+
+
+def last_release(root: Path, major: int, stable: bool = True) -> Release | None:
+    """The highest stable release (patch 0, made for a stable launcher), or with stable=False the
+    highest of any kind."""
+    tags = [t for t in releases(root, major) if t[0][2] == 0 or not stable]
+    if not tags:
         return None
-    return Release(best[1], best[0], fetch_tag(root, best[1]))
+    return Release(tags[-1][1], tags[-1][0], fetch_tag(root, tags[-1][1]))
+
+
+def tag_text(release: Release) -> str:
+    return f"{release.tag} is the last release" if release.tag else f"no sdk-v{release.version[0]}.* release yet"
 
 
 @dataclass
@@ -277,16 +258,15 @@ class State:
 
 def state(root: Path) -> State:
     major = header_api(root)[0]
-    release = last_release(root, major)
-    if release is None:
-        raise SystemExit(f"no sdk-v{major}.*.* tag in {repo_url()} (or here, offline)")
+    # No release of this major yet: as if one of minor -1 had nothing, so the open minor is 0.
+    release = last_release(root, major) or Release("", (major, -1, 0), "")
     rel_minor = release.version[1]
     core = core_names(root)
     errors: list[str] = []
     new_rows: dict[str, list[str]] = {}
     new_members: list[str] = []
     for lock in API_LOCKS:
-        old_text = show(root, release.ref, f"sdk/api/{lock}")
+        old_text = show(root, release.ref, f"sdk/api/{lock}") if release.ref else ""
         if old_text is None:
             raise SystemExit(f"{release.tag} has no sdk/api/{lock}")
         old = {lock_key(lock, r) for r in lock_rows(old_text)}
@@ -302,17 +282,21 @@ def state(root: Path) -> State:
             new_members = added
     # Notes in the folder of a minor that is released already, but not in that release: they belong
     # to the open minor (a branch made before the release).
-    released_notes = {p for p in git(root, "ls-tree", "-r", "-z", "--name-only", release.ref, "--",
-                                      CHANGES.as_posix(), check=False).stdout.split("\0") if p.endswith(".md")}
+    # A stable release from before sdk/changes/ (sdk-v1.42.0) has none: the old minors' notes, moved
+    # there from the header, are those of its first dev release that has notes; until one does, they
+    # are not a branch's.
+    released_notes: set[str] = set()
+    for version, tag in releases(root, major) if release.ref else []:
+        if version[:2] == release.version[:2] and not released_notes:
+            released_notes = {p for p in git(root, "ls-tree", "-r", "-z", "--name-only", fetch_tag(root, tag), "--",
+                                              CHANGES.as_posix(), check=False).stdout.split("\0") if p.endswith(".md")}
     misplaced: list[str] = []
     for minor, paths in note_folders(root).items():
-        # A release from before sdk/changes/ (sdk-v1.42.0) has none: the old minors' notes, moved
-        # there from the header, are not a branch's.
         if minor <= rel_minor and released_notes:
             misplaced += [p for p in paths if p not in released_notes]
         elif minor > rel_minor + 1:
-            errors.append(f"{CHANGES}/1.{minor}/: the open minor is 1.{rel_minor + 1} at most "
-                          f"({release.tag} is the last release)")
+            errors.append(f"{CHANGES}/{major}.{minor}/: the open minor is {major}.{rel_minor + 1} at most "
+                          f"({tag_text(release)})")
     grows = any(new_rows.values()) or bool(notes(root, rel_minor + 1)) or bool(misplaced)
     return State(release, rel_minor + 1 if grows else rel_minor, new_members, new_rows, misplaced, errors)
 
@@ -345,12 +329,12 @@ def member_comment(header: str, name: str) -> tuple[int, int] | None:
 
 
 def header_since(root: Path, names: list[str]) -> dict[str, str | None]:
-    """Each member's "Since 1.N" in its comment (None for no comment or no Since)."""
+    """Each member's "Since <major>.N" in its comment (None for no comment or no Since)."""
     header = read(root, HEADER)
     out: dict[str, str | None] = {}
     for name in names:
         span = member_comment(header, name)
-        m = re.findall(r"\bSince (1\.\d+)\b", header[span[0]:span[1]]) if span else []
+        m = re.findall(r"\bSince (\d+\.\d+)\b", header[span[0]:span[1]]) if span else []
         out[name] = m[-1] if m else None
     return out
 
@@ -374,13 +358,14 @@ PORT_STUBS = Path("port/game/common/mod_api")
 
 
 def stub_since(root: Path, names: set[str]) -> list[tuple[Path, int, int, str, str]]:
-    """The "// openrac_api.<name>. Since 1.N." lines new_api.py writes above a member's port side:
+    """The "// openrac_api.<name>. Since <major>.N." lines new_api.py writes above a member's port side:
     (file, start, end of N's digits, name, N) for the members in `names`."""
     out = []
     folder = root / PORT_STUBS
+    major = header_api(root)[0]
     for path in sorted(folder.glob("*.cpp")) if folder.is_dir() else []:
         text = path.read_text(encoding="utf-8")
-        for m in re.finditer(r"// openrac_api\.(\w+)\. Since 1\.(\d+)\.", text):
+        for m in re.finditer(rf"// openrac_api\.(\w+)\. Since {major}\.(\d+)\.", text):
             if m.group(1) in names:
                 out.append((path.relative_to(root), m.start(2), m.end(2), m.group(1), m.group(2)))
     return out
@@ -390,6 +375,7 @@ def check(root: Path, st: State) -> list[str]:
     """Everything that is not as the open minor wants it."""
     out = list(st.errors)
     want = st.open_minor
+    M = st.release.version[0]
     in_lock = {lock_key("openrac_api.lock", r) for r in lock_rows(read(root, Path("sdk/api/openrac_api.lock")))}
     unlocked = [n for n in member_since(root) if n not in in_lock]
     if unlocked:
@@ -398,33 +384,35 @@ def check(root: Path, st: State) -> list[str]:
     out += [f"{p}: run python3 sdk/tools/bump_api.py" for p in problems(root, want)]
     since = member_since(root)
     for name in st.new_members:
-        if since.get(name) != f"1.{want}":
-            out.append(f"{MEMBERS}: {name} is since {since.get(name)}, but it is new in 1.{want} "
-                       f"(not in {st.release.tag}): run python3 sdk/tools/bump_api.py")
-    for name, s in header_since(root, st.new_members).items():
-        if s != f"1.{want}":
-            out.append(f"{HEADER}: {name}'s comment says {'Since ' + s if s else 'no Since'}, want Since 1.{want}"
+        if since.get(name) != f"{M}.{want}":
+            out.append(f"{MEMBERS}: {name} is since {since.get(name)}, but it is new in {M}.{want} "
+                       f"({tag_text(st.release)}): run python3 sdk/tools/bump_api.py")
+    # The first minor of a major is the whole table: only members after it need their own Since.
+    for name, s in header_since(root, st.new_members if st.release.ref else []).items():
+        if s != f"{M}.{want}":
+            out.append(f"{HEADER}: {name}'s comment says {'Since ' + s if s else 'no Since'}, want Since {M}.{want}"
                        + (": run python3 sdk/tools/bump_api.py" if s else ""))
     for _, _, n in cpp_checks(root, set(st.new_members)):
         if int(n) != want:
-            out.append(f"{CPP}: a check of a member new in 1.{want} reads api_minor >= {n}: "
+            out.append(f"{CPP}: a check of a member new in {M}.{want} reads api_minor >= {n}: "
                        "run python3 sdk/tools/bump_api.py")
     for path, _, _, name, n in stub_since(root, set(st.new_members)):
         if int(n) != want:
-            out.append(f"{path}: api_{name} says Since 1.{n}, want 1.{want}: run python3 sdk/tools/bump_api.py")
+            out.append(f"{path}: api_{name} says Since {M}.{n}, want {M}.{want}: run python3 sdk/tools/bump_api.py")
     for p in st.misplaced:
-        out.append(f"{p}: 1.{p.split('/')[2][2:]} is released ({st.release.tag}), this note is not in it: "
-                   f"run python3 sdk/tools/bump_api.py (moves it to {CHANGES}/1.{want}/)")
-    if want > st.release.version[1]:
+        out.append(f"{p}: {p.split('/')[2]} is released ({st.release.tag}), this note is not in it: "
+                   f"run python3 sdk/tools/bump_api.py (moves it to {CHANGES}/{M}.{want}/)")
+    # The first minor of a major is the whole table: it needs no note.
+    if want > st.release.version[1] and st.release.ref:
         text = " ".join([*notes(root, want).values(),
                          *((root / p).read_text(encoding="utf-8") for p in st.misplaced)])
         if not text.strip():
-            out.append(f"1.{want} adds to the interface ({describe(st)}) but has no note: "
+            out.append(f"{M}.{want} adds to the interface ({describe(st)}) but has no note: "
                        f"python3 sdk/tools/bump_api.py minor --note \"what it adds (names)\"")
         else:
             missing = [n for n in st.new_members if not re.search(rf"\b{re.escape(n)}\b", text)]
             if missing:
-                out.append(f"{CHANGES}/1.{want}/: no note names {', '.join(missing)}: "
+                out.append(f"{CHANGES}/{M}.{want}/: no note names {', '.join(missing)}: "
                            "add it to your note (python3 sdk/tools/bump_api.py minor --note ...)")
     for path in notes(root, want):
         if not NOTE_NAME.match(Path(path).stem):
@@ -444,40 +432,21 @@ def describe(st: State) -> str:
 # ---- Setting it right ----
 
 def set_places(root: Path, minor: int) -> list[str]:
-    major = header_api(root)[0]
-    v = f"{major}.{minor}"
-    edits = {
-        HEADER: (r"^#define OPENRAC_MOD_API_MINOR \d+$", f"#define OPENRAC_MOD_API_MINOR {minor}"),
-        CMAKE: (r'^set\(PACKAGE_VERSION "[\d.]+"\)$', f'set(PACKAGE_VERSION "{v}")'),
-        LAUNCHER: (r"^pub const API_MINOR: u32 = \d+;$", f"pub const API_MINOR: u32 = {minor};"),
-    }
-    changed = []
-    for path, (pattern, line) in edits.items():
-        text = read(root, path)
-        new = re.sub(pattern, line, text, count=1, flags=re.M)
-        if new != text:
-            write(root, path, new)
-            changed.append(str(path))
-    if read(root, VERSION).strip() != v:
-        write(root, VERSION, v + "\n")
-        changed.append(str(VERSION))
-    for lock in LOCKS:
-        data = json.loads(read(root, lock))
-        if data.get("version") != f"{v}.0" or data.get("url") != URL.format(v=f"{v}.0"):
-            data["version"] = f"{v}.0"
-            data["url"] = URL.format(v=f"{v}.0")
-            data["sha256"] = ""
-            write(root, lock, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-            changed.append(str(lock))
-    return changed
+    text = read(root, HEADER)
+    new = re.sub(r"^#define OPENRAC_MOD_API_MINOR \d+$", f"#define OPENRAC_MOD_API_MINOR {minor}", text, count=1, flags=re.M)
+    if new == text:
+        return []
+    write(root, HEADER, new)
+    return [str(HEADER)]
 
 
 def fix(root: Path, st: State) -> list[str]:
     """Sets every place, the new members' since, their header Since and mod.hpp checks, and moves
     misplaced notes. Returns what it changed."""
     want = st.open_minor
+    M = st.release.version[0]
     changed = []
-    folder = root / CHANGES / f"1.{want}"
+    folder = root / CHANGES / f"{M}.{want}"
     for p in st.misplaced:
         src = root / p
         dst = folder / src.name
@@ -496,8 +465,8 @@ def fix(root: Path, st: State) -> list[str]:
         lines = read(root, MEMBERS).split("\n")
         for i, line in enumerate(lines):
             c = line.split("\t")
-            if line and not line.startswith("#") and len(c) >= 3 and c[0] in new and c[2] != f"1.{want}":
-                c[2] = f"1.{want}"
+            if line and not line.startswith("#") and len(c) >= 3 and c[0] in new and c[2] != f"{M}.{want}":
+                c[2] = f"{M}.{want}"
                 lines[i] = "\t".join(c)
         text = "\n".join(lines)
         if text != read(root, MEMBERS):
@@ -508,7 +477,7 @@ def fix(root: Path, st: State) -> list[str]:
     for name in st.new_members:
         span = member_comment(out, name)
         last = None
-        for last in re.finditer(r"\bSince 1\.(\d+)\b", out[span[0]:span[1]]) if span else ():
+        for last in re.finditer(rf"\bSince {M}\.(\d+)\b", out[span[0]:span[1]]) if span else ():
             pass
         if last is not None and int(last.group(1)) != want:
             # Only the last "Since" (the member's own; an earlier one may name another item's).
@@ -541,12 +510,13 @@ def stale_lines(root: Path, st: State) -> list[str]:
     """Lines added since the tag that name the minor the tag closed, when this tree is in the next:
     a "Since 1.M" or `api_minor >= M` there is most likely this branch's own, and wrong."""
     closed = st.release.version[1]
-    if st.open_minor == closed:
+    M = st.release.version[0]
+    if st.open_minor == closed or not st.release.ref:
         return []
     diff = git(root, "diff", "-U0", "--no-color", st.release.ref, "--", "sdk", "port/game/common",
                "launcher/core/src", check=False).stdout
     out, path, line_no = [], "", 0
-    pattern = re.compile(rf"\b1\.{closed}\b(?!\.\d)|api_minor\s*(>=|<|>|<=|==)\s*{closed}\b")
+    pattern = re.compile(rf"\b{M}\.{closed}\b(?!\.\d)|api_minor\s*(>=|<|>|<=|==)\s*{closed}\b")
     for line in diff.splitlines():
         if line.startswith("+++ "):
             path = line[6:] if line.startswith("+++ b/") else ""
@@ -561,6 +531,7 @@ def stale_lines(root: Path, st: State) -> list[str]:
 
 
 def add_note(root: Path, minor: int, note: str, name: str) -> Path:
+    M = header_api(root)[0]
     if not NOTE_NAME.match(name):
         raise SystemExit(f"--name {name!r}: lower case letters, digits, '.', '-' and '_'")
     text = " ".join(note.split())
@@ -569,7 +540,7 @@ def add_note(root: Path, minor: int, note: str, name: str) -> Path:
     if not text.endswith("."):
         text += "."
     text = text[0].upper() + text[1:]
-    path = root / CHANGES / f"1.{minor}" / f"{name}.md"
+    path = root / CHANGES / f"{M}.{minor}" / f"{name}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     old = path.read_text(encoding="utf-8").strip() if path.exists() else ""
     put(path, (old + "\n\n" if old else "") + text + "\n")
@@ -601,15 +572,26 @@ def archived(path: str) -> bool:
     return any(rel == part or rel.startswith(part + "/") for part in package_sdk.PARTS)
 
 
-def release_version(root: Path, st: State) -> str | None:
-    """The version a release of this tree gets, None when nothing in the archive changed."""
-    major, minor, patch = st.release.version
-    if st.open_minor > minor:
-        return f"{major}.{st.open_minor}.0"
-    changed = git(root, "diff", "--name-only", "-z", st.release.ref, "--", "sdk", "docs/port").stdout.split("\0")
-    if any(archived(p) for p in changed if p):
-        return f"{major}.{minor}.{patch + 1}"
-    return None
+def release_version(root: Path, st: State, stable: bool = False) -> str | None:
+    """The version a release of this tree gets, None when there is nothing to release.
+
+    The first release of a major is <major>.0.0. A stable one (a stable launcher's) is the open
+    minor's <major>.<open>.0 when the interface grew since the last stable, else none. A dev one is
+    the next patch of the last stable minor when anything in the archive changed since the last
+    release of either kind; its headers already say the open minor."""
+    major, minor = st.release.version[0], st.release.version[1]
+    latest = last_release(root, major, stable=False)
+    if latest is None:
+        return f"{major}.0.0"
+    if not st.release.ref:
+        raise SystemExit(f"{latest.tag} is released but no sdk-v{major}.*.0: the first release is {major}.0.0")
+    if stable:
+        return f"{major}.{st.open_minor}.0" if st.open_minor > minor else None
+    changed = git(root, "diff", "--name-only", "-z", latest.ref, "--", "sdk", "docs/port").stdout.split("\0")
+    if not any(archived(p) for p in changed if p):
+        return None
+    patch = max(v[2] for v, _ in releases(root, major) if v[1] == minor) + 1
+    return f"{major}.{minor}.{patch}"
 
 
 def versions(root: Path) -> str:
@@ -662,6 +644,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--name", help="the note's file name (default: the git branch's last part)")
     ap.add_argument("--check", action="store_true", help="write nothing; fail when something is off")
     ap.add_argument("--release-version", action="store_true", help="print the version a release gets ('' for none)")
+    ap.add_argument("--stable", action="store_true", help="with --release-version: a stable launcher's release")
     ap.add_argument("--versions", action="store_true", help="print each release's interface")
     ap.add_argument("--no-regen", action="store_true", help="do not run gen_api_lock.py and gen_reference.py")
     ap.add_argument("--root", type=Path, default=ROOT, help=argparse.SUPPRESS)
@@ -683,6 +666,7 @@ def main(argv: list[str] | None = None) -> int:
         # The locks first: what the headers have now (new_api.py does not write them).
         write_locks(root)
     st = state(root)
+    M = st.release.version[0]
     if args.check or args.release_version:
         found_problems = check(root, st)
         for p in found_problems:
@@ -690,9 +674,9 @@ def main(argv: list[str] | None = None) -> int:
         if found_problems:
             return 1
         if args.release_version:
-            print(release_version(root, st) or "")
+            print(release_version(root, st, args.stable) or "")
         else:
-            print(f"SDK interface 1.{st.open_minor} in every place (last release {st.release.tag})")
+            print(f"SDK interface {M}.{st.open_minor} in every place ({tag_text(st.release)})")
         return 0
     if st.errors:
         for e in st.errors:
@@ -711,9 +695,9 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_regen:
         regen(root, "gen_api_lock.py", "gen_reference.py")
     for line in stale_lines(root, st):
-        print(f"look at: {line}  (1.{st.release.version[1]} is released: new things are 1.{st.open_minor})")
+        print(f"look at: {line}  ({M}.{st.release.version[1]} is released: new things are {M}.{st.open_minor})")
     st = state(root)
-    print(f"SDK interface 1.{st.open_minor} (last release {st.release.tag})")
+    print(f"SDK interface {M}.{st.open_minor} ({tag_text(st.release)})")
     left = check(root, st)
     for p in left:
         print(f"still to do: {p}", file=sys.stderr)

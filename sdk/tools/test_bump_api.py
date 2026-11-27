@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import contextlib
 import io
-import json
 import os
 import subprocess
 import tempfile
@@ -69,16 +68,10 @@ class Repo(unittest.TestCase):
             bump_api.HEADER: HEADER,
             bump_api.KEYS: "#define OPENRAC_KEY_COUNT_X 1\n",
             bump_api.CPP: CPP,
-            bump_api.VERSION: "1.3\n",
-            bump_api.CMAKE: '# x\nset(PACKAGE_VERSION "1.3")\n',
-            bump_api.LAUNCHER: "pub const API_MAJOR: u32 = 1;\npub const API_MINOR: u32 = 3;\n",
             bump_api.MEMBERS: MEMBERS,
             Path("sdk/docs/guide.md"): "A guide.\n",
             Path("sdk/tools/other.py"): "# not in the archive\n",
         }
-        for lock in bump_api.LOCKS:
-            files[lock] = json.dumps({"about": "x", "version": "1.3.0", "url": bump_api.URL.format(v="1.3.0"),
-                                      "sha256": ""}, indent=2) + "\n"
         for name, rows in LOCKS.items():
             files[Path("sdk/api") / name] = lock_text(rows)
         for path, text in files.items():
@@ -167,23 +160,19 @@ class OpenMinorTest(Repo):
         self.add_member("glow", "1.4")
         code, _, err = self.run_tool("--check")
         self.assertEqual(code, 1)
-        self.assertIn("sdk/VERSION says 1.3, the interface is 1.4", err)
-        # The tool sets every place, then only the note is left.
+        self.assertIn("openrac_mod.h says 1.3, the interface is 1.4", err)
+        # The tool sets the header, then only the note is left.
         code, out, err = self.run_tool()
         self.assertEqual(code, 1)
         self.assertIn("has no note", err)
-        for where, want in ((bump_api.VERSION, "1.4\n"), (bump_api.CMAKE, 'set(PACKAGE_VERSION "1.4")')):
-            self.assertIn(want, self.text(where))
         self.assertIn("#define OPENRAC_MOD_API_MINOR 4\n", self.text(bump_api.HEADER))
-        self.assertIn("API_MINOR: u32 = 4;", self.text(bump_api.LAUNCHER))
-        lock = json.loads(self.text(bump_api.LOCKS[0]))
-        self.assertEqual((lock["version"], lock["sha256"]), ("1.4.0", ""))
-        self.assertIn("sdk-v1.4.0/openrac-mod-sdk-1.4.0.zip", lock["url"])
         code, out, err = self.run_tool("minor", "--note", "a moby's glow (glow)")
         self.assertEqual(code, 0, err)
         self.assertEqual(self.text("sdk/changes/1.4/glow.md"), "A moby's glow (glow).\n")
         self.assertEqual(self.run_tool("--check")[0], 0)
-        self.assertEqual(self.run_tool("--release-version")[1], "1.4.0\n")
+        # A dev release is a patch of the last stable minor; the stable one closes 1.4.
+        self.assertEqual(self.run_tool("--release-version")[1], "1.3.1\n")
+        self.assertEqual(self.run_tool("--release-version", "--stable")[1], "1.4.0\n")
 
     def test_a_note_must_name_each_new_member(self) -> None:
         self.add_member("glow", "1.4", places=4)
@@ -199,13 +188,13 @@ class OpenMinorTest(Repo):
     def test_two_branches_pick_the_same_minor(self) -> None:
         self.add_member("glow", "1.4")
         self.run_tool("minor", "--note", "glow (glow)")
-        one = {p: self.text(p) for p in (bump_api.VERSION, bump_api.CMAKE, bump_api.LAUNCHER, *bump_api.LOCKS)}
+        one = bump_api.header_api(self.root)
         self.commit("glow")
         self.git("checkout", "-q", "-b", "feature/dim", "sdk-v1.3.0")
         self.added = []
         self.add_member("dim", "1.4")
         self.run_tool("minor", "--note", "dim (dim)")
-        two = {p: self.text(p) for p in one}
+        two = bump_api.header_api(self.root)
         self.assertEqual(one, two)  # the same edits: git merges them without a conflict
 
     def test_a_branch_from_before_a_release_moves_to_the_next_minor(self) -> None:
@@ -243,7 +232,8 @@ class OpenMinorTest(Repo):
         self.assertFalse((self.root / "sdk/changes/1.4/dim.md").exists())
         self.assertTrue((self.root / "sdk/changes/1.4/glow.md").exists())
         self.assertEqual(self.run_tool("--check")[0], 0)
-        self.assertEqual(self.run_tool("--release-version")[1], "1.5.0\n")
+        self.assertEqual(self.run_tool("--release-version")[1], "1.4.1\n")
+        self.assertEqual(self.run_tool("--release-version", "--stable")[1], "1.5.0\n")
 
     def test_hook_points_are_not_a_minor(self) -> None:
         # games/*.h rows: a hook point's signature macro and type.
@@ -279,7 +269,38 @@ class OpenMinorTest(Repo):
         code, _, err = self.run_tool("--check")
         self.assertIn("the interface is 1.4", err)
         self.assertEqual(self.run_tool()[0], 0)
-        self.assertEqual(self.run_tool("--release-version")[1], "1.4.0\n")
+        self.assertEqual(self.run_tool("--release-version", "--stable")[1], "1.4.0\n")
+
+    def test_dev_releases_are_patches_until_the_next_stable(self) -> None:
+        self.add_member("glow", "1.4", places=4)
+        self.put("sdk/changes/1.4/glow.md", "Glow (glow).\n")
+        self.commit("glow")
+        self.assertEqual(self.run_tool("--release-version")[1], "1.3.1\n")
+        self.git("tag", "sdk-v1.3.1")
+        # A dev release does not close the minor: the next addition joins 1.4 too.
+        self.add_member("dim", "1.4")
+        self.put("sdk/changes/1.4/dim.md", "Dim (dim).\n")
+        self.assertEqual(self.run_tool("--check")[0], 0)
+        self.assertEqual(self.run_tool("--release-version")[1], "1.3.2\n")
+        self.commit("dim")
+        self.git("tag", "sdk-v1.4.0")  # the stable launcher's release
+        self.assertEqual(self.run_tool("--release-version", "--stable")[1], "\n")  # nothing new
+        self.assertEqual(self.run_tool("--release-version")[1], "\n")
+        self.put("sdk/docs/guide.md", "After the stable.\n")
+        self.assertEqual(self.run_tool("--release-version")[1], "1.4.1\n")
+        self.assertEqual(self.run_tool("--release-version", "--stable")[1], "\n")
+
+    def test_a_major_starts_at_0(self) -> None:
+        for tag in self.git("tag").split():
+            self.git("tag", "-d", tag)
+        self.put(bump_api.HEADER, self.text(bump_api.HEADER).replace("API_MINOR 3", "API_MINOR 0"))
+        self.put(bump_api.MEMBERS, MEMBERS.replace("1.3", "1.0"))
+        self.put(bump_api.CPP, CPP.replace("m_api->api_minor >= 3\n               && ", ""))
+        self.assertEqual(self.run_tool("--check")[:2], (0, "SDK interface 1.0 in every place (no sdk-v1.* release yet)\n"))
+        self.assertEqual(self.run_tool("--release-version")[1], "1.0.0\n")
+        self.assertEqual(self.run_tool("--release-version", "--stable")[1], "1.0.0\n")
+        self.put(bump_api.HEADER, self.text(bump_api.HEADER).replace("API_MINOR 0", "API_MINOR 3"))
+        self.assertIn("says 1.3, the interface is 1.0", self.run_tool("--check")[2])
 
     def test_old_minors_notes_before_the_first_release_with_them(self) -> None:
         # sdk-v1.3.0 has no sdk/changes/: the old minors' notes moved out of the header are not a
@@ -293,7 +314,10 @@ class OpenMinorTest(Repo):
         self.git("tag", "sdk-v1.3.1")
         # Once a release has them, a new note in a released minor's folder is a branch's: moved.
         self.put("sdk/changes/1.3/late.md", "Late.\n")
-        self.assertIn("1.3 is released (sdk-v1.3.1)", self.run_tool("--check")[2])
+        self.assertIn("1.3 is released (sdk-v1.3.0)", self.run_tool("--check")[2])
+        self.assertEqual(self.run_tool()[0], 0)
+        self.assertTrue((self.root / "sdk/changes/1.4/late.md").exists())
+        self.assertTrue((self.root / "sdk/changes/1.3/notes.md").exists())
 
     def test_rows_the_release_has_must_be_here(self) -> None:
         self.put("sdk/api/types.lock", lock_text(LOCKS["types.lock"][:1]))
@@ -301,7 +325,7 @@ class OpenMinorTest(Repo):
         self.assertEqual(code, 1)
         self.assertIn("merge develop into this branch first", err)
         self.assertNotEqual(self.run_tool()[0], 0)  # nothing written
-        self.assertEqual(self.text(bump_api.VERSION), "1.3\n")
+        self.assertEqual(bump_api.header_api(self.root), (1, 3))
 
     def test_no_note_folder_past_the_open_minor(self) -> None:
         self.put("sdk/changes/1.5/x.md", "X.\n")
@@ -325,7 +349,7 @@ class OpenMinorTest(Repo):
 
     def test_patch_and_note_use(self) -> None:
         self.assertEqual(self.run_tool("patch")[0], 0)
-        self.assertEqual(self.text(bump_api.VERSION), "1.3\n")
+        self.assertEqual(bump_api.header_api(self.root), (1, 3))
         self.assertEqual(self.run_tool("patch", "--note", "x")[0], 2)
         self.assertEqual(self.run_tool("minor")[0], 2)
         self.assertEqual(self.run_tool("--note", "x")[0], 2)
@@ -337,22 +361,20 @@ class OpenMinorTest(Repo):
         self.put("sdk/docs/guide.md", "New.\n")
         self.assertEqual(self.run_tool("--release-version")[1], "1.3.11\n")
 
-    def test_no_release_at_all(self) -> None:
-        for tag in self.git("tag").split():
-            self.git("tag", "-d", tag)
-        self.assertEqual(self.run_tool("--check")[0], 2)
+    def test_a_dev_release_without_a_stable_one(self) -> None:
+        self.git("tag", "-d", "sdk-v1.3.0")
+        self.git("tag", "sdk-v1.3.4")
+        self.assertNotEqual(self.run_tool("--release-version")[0], 0)
 
-    def test_places_disagree(self) -> None:
-        self.put(bump_api.CMAKE, 'set(PACKAGE_VERSION "1.2")\n')
-        self.assertEqual(bump_api.problems(self.root), [f"{bump_api.CMAKE} says 1.2, the interface is 1.3"])
+    def test_the_header_disagrees(self) -> None:
+        self.put(bump_api.HEADER, self.text(bump_api.HEADER).replace("API_MINOR 3", "API_MINOR 2"))
+        self.assertEqual(bump_api.problems(self.root, 3), [f"{bump_api.HEADER} says 1.2, the interface is 1.3"])
         self.assertEqual(self.run_tool("--check")[0], 1)
         self.assertEqual(self.run_tool()[0], 0)
-        self.assertEqual(bump_api.problems(self.root), [])
+        self.assertEqual(bump_api.problems(self.root, 3), [])
 
 
 class RealRepoTest(unittest.TestCase):
-    def test_places_agree(self) -> None:
-        self.assertEqual(bump_api.problems(bump_api.ROOT), [])
 
     def test_archived_is_what_package_sdk_takes(self) -> None:
         root = bump_api.package_sdk.ROOT

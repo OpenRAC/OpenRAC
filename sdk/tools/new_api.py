@@ -9,8 +9,8 @@
 
 It writes the parts that always look the same (docs/port/MOD_API.md says why each is there):
 
-    sdk/include/openrac/openrac_mod.h          the member, last in openrac_api, "Since 1.<open>."
-    sdk/api/members.tsv                        its row: area, 1.<open>, experimental (or --stable)
+    sdk/include/openrac/openrac_mod.h          the member, last in openrac_api, "Since <major>.<open>."
+    sdk/api/members.tsv                        its row: area, <major>.<open>, experimental (or --stable)
     port/game/common/mod_api/internal.h        the declaration of api_<name>
     port/game/common/mod_api/<area>.cpp        api_<name>, a stub that does nothing yet
     port/game/common/mods.cpp                  g_api.<name> = api_<name>;
@@ -154,10 +154,11 @@ def add_call(root: Path, area: str, name: str, returns: str, params: str, about:
         raise SystemExit(f"{MEMBERS}: {name} is already a member")
     if re.search(rf"\bapi_{name}\b", internal + mods):
         raise SystemExit(f"api_{name} is already in the port's code")
-    minor_at = re.search(r"^#define OPENRAC_MOD_API_MINOR (\d+)$", header, re.M)
-    if not minor_at or "} openrac_api;" not in header:
-        raise SystemExit(f"{HEADER}: no OPENRAC_MOD_API_MINOR or no openrac_api")
-    since = f"1.{open_minor(root, int(minor_at.group(1)))}"
+    major_at = re.search(r"^#define OPENRAC_MOD_API_MAJOR (\d+)$", header, re.M)
+    if not major_at or "} openrac_api;" not in header:
+        raise SystemExit(f"{HEADER}: no OPENRAC_MOD_API_MAJOR or no openrac_api")
+    major = int(major_at.group(1))
+    since = f"{major}.{open_minor(root, major)}"
 
     # Every file is worked out before any is written, so a refusal leaves the tree as it was.
     end = header.index("} openrac_api;")
@@ -180,18 +181,16 @@ def add_call(root: Path, area: str, name: str, returns: str, params: str, about:
     return since
 
 
-def open_minor(root: Path, header_minor: int) -> int:
-    """The minor a new member joins: the one after the last release (bump_api.py)."""
+def open_minor(root: Path, major: int) -> int:
+    """The minor a new member joins: the one after the last stable release (bump_api.py), 0 before
+    the major's first."""
     try:
-        release = bump_api.last_release(root, 1)
-    except SystemExit as e:
-        release = None
-        print(f"warning: {e}", file=sys.stderr)
-    if release is None:
-        print(f"warning: no SDK release found; guessed 1.{header_minor + 1} (bump_api.py --check tells)",
-              file=sys.stderr)
-        return header_minor + 1
-    return release.version[1] + 1
+        release = bump_api.last_release(root, major)
+    except SystemExit as e:  # the tags could not be read (no network for a shallow clone)
+        minor = bump_api.header_api(root)[1] + 1
+        print(f"warning: {e}; guessed {major}.{minor} (bump_api.py --check tells)", file=sys.stderr)
+        return minor
+    return release.version[1] + 1 if release else 0
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -16,9 +16,13 @@ import package_sdk  # noqa: E402
 class PackageSdk(unittest.TestCase):
     def test_version_is_the_interfaces(self):
         api = package_sdk.interface()
-        self.assertEqual(package_sdk.version(), f"{api}.0")
+        major, minor = (int(x) for x in api.split("."))
+        self.assertEqual(package_sdk.version(), "dev")
         self.assertEqual(package_sdk.version(release=f"{api}.7"), f"{api}.7")
-        for bad in (f"{api}", f"{api}.x", "1.0.0" if api != "1.0" else "1.1.0", f"{api}.1-dev"):
+        if minor > 0:  # a dev release: a patch of the last stable minor, with the open minor's headers
+            self.assertEqual(package_sdk.version(release=f"{major}.{minor - 1}.3"), f"{major}.{minor - 1}.3")
+        for bad in (f"{api}", f"{api}.x", f"{major + 1}.0.0", f"{major - 1}.0.0", f"{major}.{minor + 1}.0",
+                    f"{api}.1-dev"):
             self.assertRaises(SystemExit, package_sdk.version, release=bad)
 
     def test_the_archive_says_its_version(self):

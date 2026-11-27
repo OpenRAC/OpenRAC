@@ -28,8 +28,10 @@ from pathlib import Path, PurePosixPath
 
 MANIFEST = "openrac-mod.json"
 FORMAT = 2
-# The interface's major versions this SDK knows (openrac_mod.h, OPENRAC_MOD_API_MAJOR).
-API_MAJORS = {1}
+# The interface's major version this SDK knows: openrac_mod.h's OPENRAC_MOD_API_MAJOR, beside this tool.
+_MOD_H = Path(__file__).resolve().parent.parent / "include" / "openrac" / "openrac_mod.h"
+API_MAJORS = {int(m.group(1)) for m in [re.search(r"^#define OPENRAC_MOD_API_MAJOR (\d+)$", _MOD_H.read_text(), re.M)
+                                        if _MOD_H.is_file() else None] if m}
 # The first interface with script mods: 1.1.
 SCRIPT_API = (1, 1)
 # What a script mod's archive carries of its folder, beside the manifest and its scripts.
