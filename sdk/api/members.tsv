@@ -1,5 +1,5 @@
 # The openrac_api members: each one's area, the minor that added it and its status (sdk/tools/gen_api_lock.py checks this file covers every member, in order).
-# status: stable (kept and kept working through 1.x), experimental (what it does may change in a minor, with a note in the header's history; its signature is locked), deprecated:<member> (kept and working; new mods use <member>).
+# status: stable (kept and kept working through 1.x), experimental (what it does may change in a minor, with a note in sdk/changes/; its signature is locked), deprecated:<member> (kept and working; new mods use <member>).
 # member	area	since	status
 size	core	1.0	stable
 api_major	core	1.0	stable

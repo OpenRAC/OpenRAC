@@ -1078,16 +1078,17 @@ No copy of OpenRAC is needed to use it: each version is published as one
 archive, `openrac-mod-sdk-<version>.zip`, on the release `sdk-v<version>`
 of OpenRAC/OpenRAC, with its SHA-256 ([sdk.yml](../../.github/workflows/sdk.yml),
 [package_sdk.py](../../sdk/tools/package_sdk.py)). Its version is the
-interface's, `MAJOR.MINOR`, and a patch number for fixes to the SDK itself
-(`sdk/VERSION`): the SDK 1.0.x builds mods for interface 1.0. The archive is
-the same bytes wherever it is made, so a mod's build can pin the version and
-its hash (openrac-mods does: `sdk.lock`).
+interface's, `MAJOR.MINOR`, and a patch number for other SDK changes: the
+SDK 1.0.x builds mods for interface 1.0. The archive is the same bytes
+wherever it is made, so a mod's build can pin the version and its hash
+(openrac-mods does: `sdk.lock`).
 
-To add a call to the table, follow [MOD_API.md](https://github.com/OpenRAC/OpenRAC/blob/master/docs/port/MOD_API.md).
-To change the version, run `python3 sdk/tools/bump_api.py minor --note "..."`
-for new table members, or `patch` for other changes mods see (such as hook
-points). It updates all six places that hold the version, and `--check` (CI)
-fails when they differ.
+Nobody picks the version or pushes a tag. `sdk/tools/bump_api.py` works the
+version out from the last release: anything new in the interface joins the
+next minor, and every pull request that adds something gets that same minor.
+When a release reaches master, CI publishes the SDK if it changed: a new minor
+as `1.<minor>.0`, anything else as the next patch. To add a call to the table,
+follow [MOD_API.md](https://github.com/OpenRAC/OpenRAC/blob/master/docs/port/MOD_API.md).
 
 ```sh
 unzip openrac-mod-sdk-1.0.0.zip

@@ -13,7 +13,8 @@ writes, from what the SDK ships, so that the reference never drifts from it:
     by-area.md       api/members.tsv with the header: the table's members by area, the minor that
                      added each, its status, and which games' ports give it (read from the port's
                      code: port/game/common/mod_api/ and each game's host play table)
-    changelog.md     the header's minor history and api/members.tsv: what each minor added
+    changelog.md     the header's minor history, the notes in changes/ and api/members.tsv: what
+                     each minor added
     hooks-<game>.md  bindings/<game>.json: the hook points (ids and aliases when the table has them),
                      the fields exposed to scripts, and the behaviour catalogue when the table names
                      one (experimental)
@@ -573,6 +574,14 @@ def minor_history(header_text: str) -> dict[int, str]:
     return out
 
 
+def minor_notes(sdk: Path, minor: int) -> list[str]:
+    """A minor's notes, sdk/changes/1.<minor>/*.md (bump_api.py minor --note), in name order. The
+    header's history stops at the minor before the first of them."""
+    folder = sdk / "changes" / f"1.{minor}"
+    return [" ".join(p.read_text(encoding="utf-8").split()) for p in sorted(folder.glob("*.md"))
+            if p.read_text(encoding="utf-8").strip()] if folder.is_dir() else []
+
+
 def changelog_page(sdk: Path) -> str:
     header = (sdk / "include" / "openrac" / "openrac_mod.h").read_text(encoding="utf-8")
     history = minor_history(header)
@@ -580,7 +589,7 @@ def changelog_page(sdk: Path) -> str:
     added: dict[int, list[str]] = {}
     for m in read_members(sdk):
         added.setdefault(int(m["since"].split(".")[1]), []).append(m["name"])
-    out = [HEADER.format(source="sdk/include/openrac/openrac_mod.h and sdk/api/members.tsv"),
+    out = [HEADER.format(source="sdk/include/openrac/openrac_mod.h, sdk/changes/ and sdk/api/members.tsv"),
            "# What each interface minor added\n\n",
            "Newest first. A mod built for a minor loads on every port with that minor or a newer one.\n\n"]
     for n in range(minor, -1, -1):
@@ -589,6 +598,8 @@ def changelog_page(sdk: Path) -> str:
             out.append("The first table.\n\n")
         elif history.get(n):
             out.append(history[n][0].upper() + history[n][1:] + ".\n\n")
+        for note in minor_notes(sdk, n):
+            out.append(note + "\n\n")
         if added.get(n):
             out.append("Members: " + ", ".join(f"`{x}`" for x in added[n]) + ".\n\n")
         else:

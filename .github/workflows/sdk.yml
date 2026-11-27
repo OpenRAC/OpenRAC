@@ -3,10 +3,16 @@
 # checks its tools and that the docs' API reference is current (gen_reference.py), builds the
 # template (C++) and the example (C) and runs the C++ layer's test on Windows (MSVC), Linux (GCC)
 # and macOS (Clang), and builds the two for Android (the NDK), from the archive alone, unpacked
-# away from the checkout; the archive is the run's artifact. A tag
-# `sdk-v<version>` (sdk/VERSION, whose MAJOR.MINOR is the interface's) also publishes it, with its
-# SHA-256, on a release of that name, which mods pin (OpenRAC/openrac-mods). The archive is the same
-# bytes wherever it is made, so the pin holds.
+# away from the checkout; the archive is the run's artifact.
+#
+# Releases need no hand-made tag. A push to master (a release merged from develop) publishes the
+# archive on the release sdk-v<version> when the SDK changed since the last one: bump_api.py
+# --release-version gives 1.<minor>.0 for a new interface minor, else the next patch. The tag is
+# made by that release, on the pushed commit, so the SDK comes out with the launcher build that
+# has its interface. Run workflow with "release" does the same for another branch. A tag
+# sdk-v<version> pushed by hand still publishes that version. A release is never the repository's
+# Latest. Mods pin the archive's SHA-256 (OpenRAC/openrac-mods); the archive is the same bytes
+# wherever it is made, so the pin holds.
 #
 # Every action is pinned to a commit, as in launcher.yml.
 name: sdk
@@ -36,19 +42,28 @@ on:
   pull_request:
     paths: *paths
   workflow_dispatch:
+    inputs:
+      release:
+        description: Publish the SDK of this branch if it changed since the last release
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
   group: sdk-${{ github.ref }}
-  cancel-in-progress: true
+  # A run on master may publish: the next one waits for it, so a release is never cut in half.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
   sdk_archive:
     name: sdk_archive
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      release: ${{ steps.release.outputs.release }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/decomp-sources
@@ -64,7 +79,8 @@ jobs:
       - name: The API reference is what the sources give
         # sdk/docs/reference is generated from the headers, the bindings and the type files.
         run: python3 sdk/tools/gen_reference.py --check
-      - name: Every place says the same SDK version (bump_api.py)
+      - name: The SDK's version is the one the last release gives (bump_api.py)
+        # Reads the sdk-v* tags of OpenRAC/OpenRAC and the last one's locks.
         run: python3 sdk/tools/bump_api.py --check
       - name: The ABI only grows (sdk/api locks)
         run: python3 sdk/tools/gen_api_lock.py --check
@@ -73,13 +89,33 @@ jobs:
         run: |
           git fetch --depth=1 origin "${{ github.base_ref }}"
           python3 sdk/tools/gen_api_lock.py --check --against FETCH_HEAD
-      - name: Make the archive
-        run: python3 sdk/tools/package_sdk.py -o dist
-      - name: A tag names the archive's version
-        if: startsWith(github.ref, 'refs/tags/sdk-v')
+      - name: The version, and whether this run publishes it
+        id: release
+        env:
+          PUBLISH: >-
+            ${{ github.repository == 'OpenRAC/OpenRAC'
+                && ((github.event_name == 'push' && github.ref == 'refs/heads/master')
+                    || (github.event_name == 'workflow_dispatch' && inputs.release)) }}
         run: |
-          want="${GITHUB_REF_NAME#sdk-v}"
-          test -f "dist/openrac-mod-sdk-$want.zip" || { echo "::error::$GITHUB_REF_NAME, but sdk/VERSION is $(cat sdk/VERSION)"; exit 1; }
+          if [[ "$GITHUB_REF" == refs/tags/sdk-v* ]]; then
+            version="${GITHUB_REF_NAME#sdk-v}"
+            release=true
+          else
+            # Empty when nothing in the archive changed since the last release.
+            version=$(python3 sdk/tools/bump_api.py --release-version)
+            release=$([ "$PUBLISH" = true ] && [ -n "$version" ] && echo true || echo false)
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          if [ "$release" = true ]; then
+            echo "::notice::This run publishes the SDK $version (sdk-v$version)."
+          elif [ "$PUBLISH" = true ]; then
+            echo "::notice::The SDK did not change since its last release: nothing to publish."
+          fi
+      - name: Make the archive
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: python3 sdk/tools/package_sdk.py -o dist ${VERSION:+--version "$VERSION"}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: openrac-mod-sdk
@@ -152,7 +188,7 @@ jobs:
 
   sdk_release:
     name: sdk_release
-    if: startsWith(github.ref, 'refs/tags/sdk-v')
+    if: needs.sdk_archive.outputs.release == 'true'
     needs: [sdk_archive, sdk_build]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -163,15 +199,35 @@ jobs:
         with:
           name: openrac-mod-sdk
           path: dist
-      - name: Publish the archive on the tag's release
+      - name: Publish the archive on its release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.sdk_archive.outputs.version }}
         run: |
-          version="${GITHUB_REF_NAME#sdk-v}"
+          tag="sdk-v$VERSION"
+          test -f "dist/openrac-mod-sdk-$VERSION.zip" || { echo "::error::no dist/openrac-mod-sdk-$VERSION.zip"; exit 1; }
           sha=$(cut -d' ' -f1 dist/*.sha256)
-          notes="The OpenRAC mod SDK $version, for the mod interface ${version%.*} (docs/port/MODS.md). SHA-256 of the archive: $sha"
+          interface="${VERSION%.*}"
+          if [ "${VERSION##*.}" = 0 ]; then
+            needs="Mods built for it need OpenRAC with mod interface $interface: the Development channel from this release on, and stable launchers from the next one."
+          else
+            needs="Mods built for it load in every OpenRAC with mod interface $interface or newer."
+          fi
+          notes="The OpenRAC mod SDK $VERSION, for the mod interface $interface (docs/port/MODS.md). $needs SHA-256 of the archive: $sha"
           # Never the repository's latest release: installed launchers look for their updates at
           # releases/latest/download/latest.json, which only a launcher-v release carries.
-          gh release create "$GITHUB_REF_NAME" --title "Mod SDK $version" --notes "$notes" --target "$GITHUB_SHA" \
+          # A draft first, published once every file is on it: the tag (made on publish, on the
+          # run's commit when it does not exist yet) never names a release with files missing.
+          state=$(gh release view "$tag" --json isDraft -q '.isDraft' 2>/dev/null || echo none)
+          if [ "$state" = false ]; then
+            echo "::error::$tag is published already: a published release is never changed"
+            exit 1
+          elif [ "$state" = true ]; then
+            # A draft left by a run that stopped, maybe for an older commit: made again for this one.
+            gh release delete "$tag" --yes
+          fi
+          gh release create "$tag" --draft --title "Mod SDK $VERSION" --notes "$notes" --target "$GITHUB_SHA" \
             --latest=false dist/*
+          gh release edit "$tag" --draft=false --latest=false
+          echo "::notice::Published $tag."

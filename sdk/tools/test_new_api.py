@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 import new_api
@@ -40,8 +41,15 @@ class NewApiTest(unittest.TestCase):
         for path, text in files.items():
             (self.root / path).parent.mkdir(parents=True, exist_ok=True)
             (self.root / path).write_text(text)
+        # The last release, sdk-v1.4.0, as a local tag: a new member joins 1.5.
+        self.env = unittest.mock.patch.dict(os.environ, {"OPENRAC_SDK_OFFLINE": "1"})
+        self.env.start()
+        git = ["git", "-C", str(self.root), "-c", "user.name=t", "-c", "user.email=t@t"]
+        for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "x"], ["tag", "sdk-v1.4.0"]):
+            subprocess.run(git + args, check=True, capture_output=True)
 
     def tearDown(self) -> None:
+        self.env.stop()
         self.tmp.cleanup()
 
     def add(self, *args: str) -> int:

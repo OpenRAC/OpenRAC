@@ -2,6 +2,7 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Tests of package_sdk.py: python3 -m unittest discover -s sdk/tools"""
 import hashlib
+import json
 import sys
 import tempfile
 import unittest
@@ -14,8 +15,27 @@ import package_sdk  # noqa: E402
 
 class PackageSdk(unittest.TestCase):
     def test_version_is_the_interfaces(self):
-        v = package_sdk.version()
-        self.assertRegex(v, r"^\d+\.\d+\.\d+$")
+        api = package_sdk.interface()
+        self.assertEqual(package_sdk.version(), f"{api}.0")
+        self.assertEqual(package_sdk.version(release=f"{api}.7"), f"{api}.7")
+        for bad in (f"{api}", f"{api}.x", "1.0.0" if api != "1.0" else "1.1.0", f"{api}.1-dev"):
+            self.assertRaises(SystemExit, package_sdk.version, release=bad)
+
+    def test_the_archive_says_its_version(self):
+        # VERSION and the templates' sdk.lock name the release the archive is, whatever the tree says.
+        v = package_sdk.interface() + ".7"
+        with tempfile.TemporaryDirectory() as a:
+            archive = package_sdk.write(Path(a), release=v)
+            self.assertEqual(archive.name, f"openrac-mod-sdk-{v}.zip")
+            z = zipfile.ZipFile(archive)
+            top = f"openrac-mod-sdk-{v}/"
+            self.assertEqual(z.read(top + "VERSION").decode(), v + "\n")
+            for template in package_sdk.TEMPLATES:
+                lock = json.loads(z.read(f"{top}{template}/sdk.lock"))
+                self.assertEqual(lock["version"], v)
+                self.assertEqual(lock["url"], package_sdk.URL.format(v=v))
+                self.assertEqual(lock["sha256"], "")
+                self.assertIn("about", lock)
 
     def test_archive_is_whole_and_the_same_bytes_each_time(self):
         with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:

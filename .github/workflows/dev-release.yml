@@ -72,6 +72,11 @@ jobs:
                 "publishes the launcher on the Development channel and then merges.")
           PY
           cat "$RUNNER_TEMP/body.md"
+      - name: The SDK's version is right
+        # Master's sdk workflow publishes the SDK this release has (sdk.yml): a minor that a pull
+        # request merged with after the last SDK release would stop it there, after the launcher.
+        if: steps.notes.outputs.count != '0'
+        run: python3 sdk/tools/bump_api.py --check
       - name: The branch and its pull request
         if: steps.notes.outputs.count != '0'
         env:

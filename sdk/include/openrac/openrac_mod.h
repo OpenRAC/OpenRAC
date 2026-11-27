@@ -40,7 +40,9 @@ extern "C" {
 #define OPENRAC_MOD_API_MAJOR 1
 
 /* The interface's minor version, which this header describes. It grows when
- * something is added at the end of the table. 1.1 added script mods (the table
+ * something is added at the end of the table. The minors after the last one
+ * below are not listed here: their notes are in sdk/changes/, and
+ * docs/reference/changelog.md lists every minor. 1.1 added script mods (the table
  * is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's
  * picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of
  * the game and a Vulkan device made with the mod (a VR headset, docs/views.md),

@@ -75,6 +75,8 @@ your own.
 
 ## Releases
 
-Each SDK version is released as `sdk-v<version>` on OpenRAC/OpenRAC. SDK
-releases are never marked Latest, because the launcher updates from the Latest
-release and ignores releases that are not its own.
+Each SDK version is released as `sdk-v<version>` on OpenRAC/OpenRAC. CI makes
+the release when an OpenRAC release with a changed SDK reaches master, so the
+SDK comes out together with a launcher that loads its mods. SDK releases are
+never marked Latest, because the launcher updates from the Latest release and
+ignores releases that are not its own.

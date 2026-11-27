@@ -54,19 +54,52 @@ python3 sdk/tools/new_api.py world moby_glow \
     --params "openrac_mod* mod, uint32_t moby, float strength" \
     --about "Makes a moby glow (0 to 1, 0 stops). Returns OPENRAC_OK, or OPENRAC_E_UNKNOWN if the moby is gone."
 # 2. By hand: the body of api_moby_glow, the game part, the C++ wrapper, a test.
-# 3. Update the version, the locks and the reference.
+# 3. Write the changelog note, then set the version, the locks and the reference.
 python3 sdk/tools/bump_api.py minor --note "a moby's glow (moby_glow)"
 ```
 
 `new_api.py` writes the member, its `members.tsv` row, the declaration, a stub
 and the `g_api` line. The stub returns `OPENRAC_E_UNKNOWN`, and `by-area.md`
 lists the call as working on no game until you remove the stub's TODO line.
-For several calls in one minor, run `new_api.py` once for each, then run
-`bump_api.py minor` once.
+For several calls, run `new_api.py` once for each, then `bump_api.py minor`
+once.
 
-`bump_api.py` updates the version in all six places and regenerates the locks
-and `sdk/docs/reference/`. For other changes that mods see, such as new hook
-points or a new C++ helper, use `bump_api.py patch`.
+## Versions
+
+You never choose the version. `bump_api.py` reads the last release (the
+highest `sdk-v1.M.P` tag of OpenRAC/OpenRAC) and finds the open minor:
+
+- `1.M+1` if your tree adds to the interface since that tag: a table member,
+  or a new type, field or macro in `openrac_mod.h` or `keys.h`. Two pull
+  requests that both add something get the same `1.M+1`, so they never
+  renumber each other.
+- `1.M` otherwise. Hook points (`games/*.h`), C++ helpers and docs are not a
+  minor.
+
+`bump_api.py` with no arguments sets the minor in every place, the new
+members' `since` in `members.tsv`, their `Since 1.N.` in the header and the
+`api_minor >= N` of the `mod.hpp` checks that read them. Then it regenerates
+the locks and `sdk/docs/reference/`.
+
+Each change of the interface needs a note: `sdk/changes/1.<minor>/<name>.md`,
+one paragraph that names the new members. `bump_api.py minor --note "..."`
+writes it (the name is your branch's last part, or `--name`). The changelog
+is built from these notes, so two pull requests never edit the same text.
+
+CI publishes the SDK (`sdk.yml`) when a release reaches master and the SDK
+changed: a new minor as `1.<minor>.0`, otherwise the next patch. If that run
+failed, run the `sdk` workflow on master with "release". A tag
+`sdk-v<version>` pushed by hand still works.
+
+If a release came out while your pull request was open, `bump_api.py --check`
+fails after you merge develop in: your additions now belong to the next minor.
+Run `bump_api.py`: it moves them, moves your note too, and prints the other
+lines that still name the old minor (comments, the Luau types) for you to
+check by hand.
+
+Two pull requests that both add members still meet at the end of the table.
+Keep both, develop's first. In `sdk/api/*.lock` and `sdk/docs/reference/`
+take develop's side, then run `bump_api.py`: it writes them again.
 
 ## Naming
 
@@ -84,7 +117,7 @@ points or a new C++ helper, use `bump_api.py patch`.
 
 A new member starts as `experimental` (use `new_api.py --stable` if it copies
 an existing pattern). Its behaviour may still change in a minor, with a note
-in the header's history. Its signature may not change. After a release where
+in `sdk/changes/`. Its signature may not change. After a release where
 mods used it, it becomes `stable`. A replaced member keeps working, and its row
 says `deprecated:<new member>`.
 

@@ -119,6 +119,27 @@ class Reference(unittest.TestCase):
                                         {"name": "log", "type": "(...any) -> ()", "about": "the log"}])
 
 
+class Changelog(unittest.TestCase):
+    def test_notes_of_later_minors(self):
+        # The header's history stops at 1.2; 1.3's notes are files in changes/1.3/, in name order.
+        with tempfile.TemporaryDirectory() as tmp:
+            sdk = Path(tmp)
+            (sdk / "include" / "openrac").mkdir(parents=True)
+            (sdk / "include" / "openrac" / "openrac_mod.h").write_text(
+                "/* The interface's minor version. 1.1 added script mods, and 1.2 the keyboard\n"
+                " * (keys).\n */\n#define OPENRAC_MOD_API_MINOR 3\n")
+            (sdk / "api").mkdir()
+            (sdk / "api" / "members.tsv").write_text(
+                "size\tcore\t1.0\tstable\nkeys\tinput\t1.2\tstable\nb\tcore\t1.3\texperimental\n"
+                "a\tcore\t1.3\texperimental\n")
+            (sdk / "changes" / "1.3").mkdir(parents=True)
+            (sdk / "changes" / "1.3" / "zz.md").write_text("Then b (b).\n")
+            (sdk / "changes" / "1.3" / "aa.md").write_text("First a\n(a).\n")
+            page = gen_reference.changelog_page(sdk)
+            self.assertIn("## 1.3\n\nFirst a (a).\n\nThen b (b).\n\nMembers: `b`, `a`.\n\n## 1.2\n\n"
+                          "The keyboard (keys).\n\nMembers: `keys`.", page)
+
+
 class Docs(unittest.TestCase):
     PAGES = ["README.md", "getting-started.md", "manifest.md", "settings.md", "hooks.md", "scripts.md",
              "native-c.md", "native-cpp.md", "packaging-and-releases.md", "install-from-link.md",
