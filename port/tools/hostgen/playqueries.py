@@ -120,7 +120,8 @@ def build(source: Path, catalogue: Path, version: str, view=None):
             raise ValueError("Gameplay query count changed: " + key + " " + version)
         if view is not None:
             body = re.sub(r"\b" + re.escape(row["definition"]) + r"(?=\s*\()", row["symbol"], body, count=1)
-            body = view.text(body)
+            # The unit's own names too (a call the release made to its own copy), as prep does for the file.
+            body = view.text(body, row["source"])
         if not prep.defines(body, row["symbol"]):
             body = re.sub(r"\b" + re.escape(row["definition"]) + r"(?=\s*\()", row["symbol"], body, count=1)
         out[row["symbol"]] = "/* Native gameplay query points; GPL-3.0-or-later. */\n" + body
