@@ -512,3 +512,100 @@ nearly all over `D_003BFE20`, the 0x100-byte moby array), 24 (45), 16 (15), 12, 
 faster: not lifted yet), and the 16/32/64 ones are mostly scratch lists and per-frame draw lists. Particle, projectile,
 sound-voice, HUD and net-queue limits have not been traced: each needs its own allocator read and its own table sites (or a
 host replacement through libraries.tsv, as rac1's particle pool in `hand/game_particle_allocate.c`).
+
+## 9. The native room (2026-11-26 night): the lobby's source of truth
+
+Up to here the lobby side was the game's 8-row staging code patched site by site, with port-side
+READY and START paths beside it. The lobby is now a module of the port's own,
+`host/mp_room.c` (`mp_room.h`), which owns the room for up to 24 players; the game's lobby code and
+its 8-row tables are no longer where a slot's player, READY or START come from. The match side is
+unchanged: every match-side site of `mp/wide.json` stays.
+
+### 9.1 What the room owns, and from where
+
+| What | Source | Where it lives |
+|---|---|---|
+| Who is in the room, their session and account name | the Server's room protocol: PARTY_INFO, PARTY_JOINED, PARTY_LEFT, PARTY_SLOTS, PARTY_HOST_CHANGED, PARTY_END (`mp_net.c` calls `rac3_room_members_changed`) | `room.players[client]`, keyed by DME client index (the Server's stable slot) |
+| The settings slot each client plays in | DME's admission: the core's session-add handler (0x0019A6F8), which also fills the net block's per-slot tables (NET_CLIENT_BY_SLOT, NET_SLOT_BY_CLIENT, ...) that the match reads. The room reads the settings' client words each frame | `room.slot_client[slot]` |
+| Name, clan, team, skin, READY | the room: a new player starts with its account name and the admission's clan, team and skin; then its own choices | `room.players[client]` |
+| READY, team, skin changes | Circle on the staging screen, the native player dialog, and the game's own slot update (L39_006D4ED8, now answered by the room): the host's room applies them; a joiner sends `RELAY_ROOM_REQUEST` to the host | the host's room |
+| The room every console shows | `RELAY_ROOM_STATE` from the host: on a change, on any membership change, and every 150 DME updates (a late or lossy console catches up) | each console's `room.players` |
+| START | the host's: the Start button, or Cross on the game's START widget; refused unless every joiner is ready (the host counts as ready, as the game's own count does) | `rac3_room_start` |
+| The countdown | the game's own: START sets the match start time (settings +0x174, now + 4 s); the room shows `STARTING IN n` from it and the room clock (net + 0x128) | `rac3_room_countdown` |
+| Host migration | PARTY_HOST_CHANGED: the new host's room already holds the last state it was sent and becomes the one that decides and sends. The game's own staging leaves on a host change (its DME host callback), so in practice a host leaving still ends the room | |
+| Results and scoreboard | the results block the map's end routine leaves (and the port's companions past 8, `rac3_mp_wide_end_results`), captured when level 39's results screen opens | `room.results` |
+
+The rule kept from the game: a new player in the room clears every joiner's READY (a fresh vote).
+In a team mode (the settings' team-play flag, +0x19D) the room puts a new player on the smaller of
+the two teams; the admission gives every joiner its own pick, which left a whole Siege room on one
+team.
+
+### 9.2 The handoff to the match
+
+The host's room writes the settings object (OBJECT_GAME_SETTINGS, and OBJECT_GAME_SETTINGS_WIDE
+past slot 8) that the map and the match read:
+
+- in the staging room, every frame, each filled slot's name, clan, team, skin, and state 0/6 for
+  READY (only the states 0 and 6: START, the map's states and a leave or kick stay the game's);
+  a write that changes nothing sends nothing, as the settings go out when their bytes change;
+- at START, all of it again for every slot, every joiner at state 6, and the player count
+  (+0x178) checked against the room's (a warning and the room's count if they differ); the game's
+  own START (slot 0 state 7, the start time) follows in the same frame, so one publish carries both.
+
+From these the maps build the rest themselves when they load, through the match-side sites: the
+remote players' structs and OBJECT_PLAYER_DATA (team from the settings), the players array, the
+game mode's per-player records and team records. Those are each program's own memory, cleared at
+a program change, so the room cannot write them before the map runs; it writes what they are
+built from.
+
+### 9.3 Wire
+
+Two relay kinds of the port (`mp_protocol.h`), through the Server's PACKET_RELAY like the others;
+the Server relays them unread, so no Server change:
+
+- `RELAY_ROOM_STATE` (6), host to all: u8 version 1, u8 width, u8 count, then per player u8 DME
+  client, u8 READY, s16 team, s16 skin, clan[8], name[16];
+- `RELAY_ROOM_REQUEST` (7), a member to the host: u8 op 1 (a slot's change), u8 the sender's local
+  slot, s16 team, s16 skin, s16 state (0 joined, 6 ready). The host applies a request only to the
+  sender's own slots. A state the room does not hold (a leave) still goes as the game's channel 17
+  slot update, which the host's core handler (0x0019A4D0) applies.
+
+### 9.4 The screens
+
+`mp_ui.c` draws the room (rows by slot, keyed by client) on the staging screen and the room's
+results on the scoreboard, in every room on the PAL disc (not only past 8). The vanilla description
+is built when the lobby is up (its skin choices are the game's own skin names) and adds:
+
+- a `status` text under the staging list (`READY n/m`, `PRESS START` for the host, `STARTING IN n`);
+- a `player` screen, opened modally by Cross on the player's own row: TEAM (team modes only), SKIN,
+  READY, BACK; its choices show the room's values.
+
+The core gained three generic calls for that (openrac/mp_ui.h): `openrac_mp_ui_open_modal`,
+`openrac_mp_ui_set_value` (a choice's value) and `openrac_mp_ui_set_text` (a text item with a
+`key`, which the schema now allows on text items). A server's description replaces the vanilla
+one; one without a `player` screen leaves Cross on the own row to the game's dialog (first eight
+rows).
+
+### 9.5 Lobby-side sites dropped (15, level 39)
+
+The room answers these four functions of level 39's staging code (`mp/libraries.tsv` wraps in
+`mp_room.c`, carried to NTSC-U), so their sites are gone from `mp/wide.json`:
+
+| Function | What the game did | Sites dropped |
+|---|---|---|
+| L39_006D4ED8 | a slot's change (READY, team, skin, leave): the host wrote the settings, a joiner sent channel 17 | 006D4F64 bound; 006D4F7C ea GS_CLIENT; 006D4FEC ea GS_NAME; 006D5020, 006D5034 ea GS_CLAN; 006D5048 ea GS_TEAM; 006D5054 ea GS_SKIN; 006D505C ea GS_STATE |
+| L39_006C4788 | the staging row of this console's n-th slot | 006C47C0 ea GS_CLIENT; 006C47E0 bound |
+| L39_006C46F0 | the slot of a staging row (by the row widget's name text, which has no widget past row 8) | 006C4734 ea GS_CLIENT; 006C4760 bound |
+| L39_006C45C8 | whether a staging row is this console's, and which of its slots | 006C4640, 006C4694 ea GS_CLIENT; 006C46B4 bound |
+
+Each wrap falls back to the game's own code outside a room (offline, NTSC-U, whose tables stay 8),
+where the game's 8 slots are all there is. Also gone, port side: `wide_start` and
+`wide_all_ready` (mp_ui.c), `rac3_mp_net_toggle_ready` and `OPENRAC_RAC3_PORT_READY` (READY is the
+room's on every console now).
+
+Kept on purpose (lobby side, still the game's): the staging screen's per-frame check L39_006C30A0
+(its READY branch for split-screen local players and its join answers; the START byte it sets is
+the room's, through its wrap), the staging handler L39_006C1730 and row fill L39_006C20B0, the
+team dialog L39_006CBC70 / L39_006C38E0 (no longer opened from the native list when the
+description has a `player` screen), the CREATE page, and every core site (DME admission, the slot
+update handler 0x0019A4D0 that takes the maps' state 8).

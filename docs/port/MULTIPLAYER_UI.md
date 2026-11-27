@@ -97,7 +97,7 @@ project, https://github.com/Horizon-Private-Server/horizon-server and its UYA pl
 reference only; no code was taken). OpenRAC's descriptions carry them as data, never as code.
 
 Actions are a closed set: `back`, `open:<screen>`, `game:<name>` (the binding's own: `join`,
-`ready`, `start`, `leave`, `team`, `create`), `server:<key>` (sends `UI ACTION key value` to the
+`select`, `ready`, `team`, `skin`, `start`, `leave`, `create`), `server:<key>` (sends `UI ACTION key value` to the
 server). Screens with an id the binding knows (`game_list`, `staging`, `scoreboard`) sit on the
 game's screen; others are extra native screens opened by `open:` or shown on a hook (`on`).
 
@@ -134,12 +134,21 @@ score lists, to try their paging past eight rows before the game's tables hold m
 | 0x005D69C0 GUI element render | place the native cursor's bar (the game's own element) before it, print the native text after it |
 
 Bound screens: staging (0x21: the player rows, widgets 0xF+n..0x57+n, become a `PlayerList` of up
-to 24, from tNW_GameSettings for slots 0-7 and the port's room for the rest), the two game lists
-(0x0F, 0x19: widget 8 becomes a `Table` of the lobby's records), later the end-of-match
-scoreboard. Actions reuse the game's own controls: JOIN on native row k sets the game list's
-cursor (widget vtable +0x88) and focus (screen+0x290 = 8), then injects Cross, so the game's own
-join path runs; ready, team and start do the same on the staging widgets. Nothing calls the lobby's
-internals directly.
+to 24 from the port's room, `host/mp_room.c`), the two game lists (0x0F, 0x19: widget 8 becomes a
+`Table` of the lobby's records) and the end-of-match scoreboard. JOIN on native row k sets the game
+list's cursor (widget vtable +0x88) and focus (screen+0x290 = 8), then injects Cross, so the game's
+own join path runs.
+
+The staging room and the scoreboard are the room's, in every room on the PAL disc: its players
+(their names, clans, teams, skins and READY), READY on Circle, START (the Start button, or Cross on
+the game's START widget, which the room grants when every joiner is ready and then hands to the
+game's own START), the countdown and the results. The room's design is in
+[rac3-mp-wide-rooms.md](../handoff/notes/rac3-mp-wide-rooms.md) section 9. The binding's game
+actions for it: `game:select` on a staging row (the player's own row opens the description's
+`player` screen modally), `game:team` and `game:skin` (choices, their value the room's) and
+`game:ready`. A text item with a `key` is one the binding writes: the staging screen's `status`
+(`READY n/m`, `STARTING IN n`). For these the contract has `openrac_mp_ui_open_modal`,
+`openrac_mp_ui_set_value` (what a choice shows) and `openrac_mp_ui_set_text`.
 
 The end-of-match scoreboard is level 39's results screen (0x12), which the map hands its results in
 a core block (0x001FD7E8): with a description's `scoreboard` screen its rows become a `scores`
