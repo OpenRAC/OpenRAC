@@ -44,7 +44,8 @@ class NewApiTest(unittest.TestCase):
         # The last release, sdk-v1.4.0, as a local tag: a new member joins 1.5.
         self.env = unittest.mock.patch.dict(os.environ, {"OPENRAC_SDK_OFFLINE": "1"})
         self.env.start()
-        git = ["git", "-C", str(self.root), "-c", "user.name=t", "-c", "user.email=t@t"]
+        git = ["git", "-C", str(self.root), "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false",
+               "-c", "tag.gpgsign=false", "-c", "core.hooksPath=/dev/null"]
         for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "x"], ["tag", "sdk-v1.4.0"]):
             subprocess.run(git + args, check=True, capture_output=True)
 

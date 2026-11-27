@@ -46,6 +46,11 @@ LOCKS = {
 MEMBERS = "# member\tarea\tsince\tstatus\nsize\tcore\t1.0\tstable\nold\tcore\t1.3\tstable\n"
 
 
+# A contributor's own git settings (signing, hooks) must not reach the test repositories.
+GIT_CONFIG = ("-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false",
+              "-c", "core.hooksPath=/dev/null")
+
+
 def lock_text(rows: list[str]) -> str:
     return "# Generated.\n" + "".join(r + "\n" for r in rows)
 
@@ -84,7 +89,7 @@ class Repo(unittest.TestCase):
         self.git("checkout", "-q", "-b", "feature/glow")
 
     def git(self, *args: str) -> str:
-        return subprocess.run(["git", "-C", str(self.root), "-c", "user.name=t", "-c", "user.email=t@t", *args],
+        return subprocess.run(["git", "-C", str(self.root), *GIT_CONFIG, *args],
                               check=True, capture_output=True, text=True).stdout
 
     def commit(self, message: str) -> None:
@@ -275,6 +280,20 @@ class OpenMinorTest(Repo):
         self.assertIn("the interface is 1.4", err)
         self.assertEqual(self.run_tool()[0], 0)
         self.assertEqual(self.run_tool("--release-version")[1], "1.4.0\n")
+
+    def test_old_minors_notes_before_the_first_release_with_them(self) -> None:
+        # sdk-v1.3.0 has no sdk/changes/: the old minors' notes moved out of the header are not a
+        # branch's, so they open nothing and move nowhere.
+        self.put("sdk/changes/1.2/notes.md", "The keyboard (keys).\n")
+        self.put("sdk/changes/1.3/notes.md", "The pointer.\n")
+        self.assertEqual(self.run_tool("--check")[0], 0)
+        self.assertEqual(self.run_tool()[0], 0)
+        self.assertTrue((self.root / "sdk/changes/1.3/notes.md").exists())
+        self.commit("notes")
+        self.git("tag", "sdk-v1.3.1")
+        # Once a release has them, a new note in a released minor's folder is a branch's: moved.
+        self.put("sdk/changes/1.3/late.md", "Late.\n")
+        self.assertIn("1.3 is released (sdk-v1.3.1)", self.run_tool("--check")[2])
 
     def test_rows_the_release_has_must_be_here(self) -> None:
         self.put("sdk/api/types.lock", lock_text(LOCKS["types.lock"][:1]))

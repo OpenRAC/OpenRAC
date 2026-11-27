@@ -1,0 +1,1 @@
+What OpenRAC Editor's levels need: the pack's folder, the game's language, the camera's field of view, the HUD hidden, the music's volume, any moby's joints and sounds, the picture's air, slow motion, ties hidden, animated props and a moby's spawn id.

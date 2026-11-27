@@ -1,0 +1,1 @@
+The hero moved by a mod (his update a hook point, his pose set), the collision triangles around a place, props (meshes of the mod's drawn in the level), sounds of the mod's own, the camera set by a mod, heat haze drawn over the picture and text in the game's HUD.

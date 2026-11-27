@@ -97,6 +97,11 @@ Run `bump_api.py`: it moves them, moves your note too, and prints the other
 lines that still name the old minor (comments, the Luau types) for you to
 check by hand.
 
+A pull request that passed its checks just before a release and merged just
+after it brings the old minor to develop. `dev_release` then stops at its
+first step (`bump_api.py --check`): run `bump_api.py` on develop in a small
+pull request, then start the release again.
+
 Two pull requests that both add members still meet at the end of the table.
 Keep both, develop's first. In `sdk/api/*.lock` and `sdk/docs/reference/`
 take develop's side, then run `bump_api.py`: it writes them again.

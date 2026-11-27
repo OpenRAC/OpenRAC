@@ -13,8 +13,7 @@ writes, from what the SDK ships, so that the reference never drifts from it:
     by-area.md       api/members.tsv with the header: the table's members by area, the minor that
                      added each, its status, and which games' ports give it (read from the port's
                      code: port/game/common/mod_api/ and each game's host play table)
-    changelog.md     the header's minor history, the notes in changes/ and api/members.tsv: what
-                     each minor added
+    changelog.md     the notes in changes/ and api/members.tsv: what each minor added
     hooks-<game>.md  bindings/<game>.json: the hook points (ids and aliases when the table has them),
                      the fields exposed to scripts, and the behaviour catalogue when the table names
                      one (experimental)
@@ -549,34 +548,8 @@ def area_page(sdk: Path) -> str:
     return "".join(out).rstrip() + "\n"
 
 
-def minor_history(header_text: str) -> dict[int, str]:
-    """The header's history of the minor, "1.N what it added", split by minor."""
-    start = header_text.index("/* The interface's minor version")
-    body = _strip_block(header_text[start:header_text.index("*/", start) + 2])
-    body = " ".join(body.split())
-    out: dict[int, str] = {}
-    pos = 0
-    n = 1
-    places = []
-    while True:
-        m = re.compile(rf"\b1\.{n}\b").search(body, pos)
-        if not m:
-            break
-        places.append((n, m.start(), m.end()))
-        pos = m.end()
-        n += 1
-    for i, (n, s, e) in enumerate(places):
-        end = places[i + 1][1] if i + 1 < len(places) else len(body)
-        text = body[e:end].strip().rstrip(",.").strip()
-        text = re.sub(r"(,\s*and|,)$", "", text).strip()
-        text = re.sub(r"^added\s+", "", text)
-        out[n] = text
-    return out
-
-
 def minor_notes(sdk: Path, minor: int) -> list[str]:
-    """A minor's notes, sdk/changes/1.<minor>/*.md (bump_api.py minor --note), in name order. The
-    header's history stops at the minor before the first of them."""
+    """A minor's notes, sdk/changes/1.<minor>/*.md (bump_api.py minor --note), in name order."""
     folder = sdk / "changes" / f"1.{minor}"
     return [" ".join(p.read_text(encoding="utf-8").split()) for p in sorted(folder.glob("*.md"))
             if p.read_text(encoding="utf-8").strip()] if folder.is_dir() else []
@@ -584,20 +557,17 @@ def minor_notes(sdk: Path, minor: int) -> list[str]:
 
 def changelog_page(sdk: Path) -> str:
     header = (sdk / "include" / "openrac" / "openrac_mod.h").read_text(encoding="utf-8")
-    history = minor_history(header)
     minor = int(re.search(r"^#define OPENRAC_MOD_API_MINOR (\d+)$", header, re.M).group(1))
     added: dict[int, list[str]] = {}
     for m in read_members(sdk):
         added.setdefault(int(m["since"].split(".")[1]), []).append(m["name"])
-    out = [HEADER.format(source="sdk/include/openrac/openrac_mod.h, sdk/changes/ and sdk/api/members.tsv"),
+    out = [HEADER.format(source="sdk/changes/ and sdk/api/members.tsv"),
            "# What each interface minor added\n\n",
            "Newest first. A mod built for a minor loads on every port with that minor or a newer one.\n\n"]
     for n in range(minor, -1, -1):
         out.append(f"## 1.{n}\n\n")
         if n == 0:
             out.append("The first table.\n\n")
-        elif history.get(n):
-            out.append(history[n][0].upper() + history[n][1:] + ".\n\n")
         for note in minor_notes(sdk, n):
             out.append(note + "\n\n")
         if added.get(n):

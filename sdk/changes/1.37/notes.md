@@ -1,0 +1,1 @@
+The pads' motors driven by a mod as the game's libvib drives them, each motor the stronger of the game's and the mods' (set_motors), and an option of the port's menu greyed out or made usable by a mod, by name (menu_option_set).

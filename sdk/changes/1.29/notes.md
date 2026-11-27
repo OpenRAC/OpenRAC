@@ -1,0 +1,1 @@
+The hero's weapons and their shots: a shot fired, fired again and ended, a shot the game runs made from a mod, a weapon's look, a moby frozen or slowed and a weapon's record (on_weapon_fire, weapon_refire, on_shot_end, moby_spawn_live, weapon_look, moby_status, weapon_record).

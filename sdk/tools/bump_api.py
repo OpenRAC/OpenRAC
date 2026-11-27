@@ -32,6 +32,8 @@ looked at by hand.
 Notes: each change of the interface adds sdk/changes/1.<open minor>/<name>.md, one paragraph that
 names the new members; the changelog (gen_reference.py) puts them together.
 
+A new major (2.0) starts with a tag sdk-v2.0.0 made by hand: the tool reads the header's major's tags.
+
 Tags come from `git ls-remote` of OpenRAC_SDK_REPO (default https://github.com/OpenRAC/OpenRAC);
 OPENRAC_SDK_OFFLINE=1 uses the local tags only. Stdlib only.
 """
@@ -73,7 +75,13 @@ def read(root: Path, path: Path) -> str:
 
 
 def write(root: Path, path: Path, text: str) -> None:
-    (root / path).write_text(text, encoding="utf-8")
+    put(root / path, text)
+
+
+def put(path: Path, text: str) -> None:
+    """Written with \\n line ends on every system, as git has the files."""
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
 
 
 def found(pattern: str, text: str, where: Path) -> re.Match:
@@ -294,11 +302,13 @@ def state(root: Path) -> State:
             new_members = added
     # Notes in the folder of a minor that is released already, but not in that release: they belong
     # to the open minor (a branch made before the release).
-    released_notes = set(git(root, "ls-tree", "-r", "--name-only", release.ref, "--", CHANGES.as_posix(),
-                             check=False).stdout.split())
+    released_notes = {p for p in git(root, "ls-tree", "-r", "-z", "--name-only", release.ref, "--",
+                                      CHANGES.as_posix(), check=False).stdout.split("\0") if p.endswith(".md")}
     misplaced: list[str] = []
     for minor, paths in note_folders(root).items():
-        if minor <= rel_minor:
+        # A release from before sdk/changes/ (sdk-v1.42.0) has none: the old minors' notes, moved
+        # there from the header, are not a branch's.
+        if minor <= rel_minor and released_notes:
             misplaced += [p for p in paths if p not in released_notes]
         elif minor > rel_minor + 1:
             errors.append(f"{CHANGES}/1.{minor}/: the open minor is 1.{rel_minor + 1} at most "
@@ -473,8 +483,7 @@ def fix(root: Path, st: State) -> list[str]:
         dst = folder / src.name
         folder.mkdir(parents=True, exist_ok=True)
         if dst.exists():
-            dst.write_text(dst.read_text(encoding="utf-8").rstrip() + "\n\n" + src.read_text(encoding="utf-8"),
-                           encoding="utf-8")
+            put(dst, dst.read_text(encoding="utf-8").rstrip() + "\n\n" + src.read_text(encoding="utf-8"))
             src.unlink()
         else:
             src.rename(dst)
@@ -563,7 +572,7 @@ def add_note(root: Path, minor: int, note: str, name: str) -> Path:
     path = root / CHANGES / f"1.{minor}" / f"{name}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     old = path.read_text(encoding="utf-8").strip() if path.exists() else ""
-    path.write_text((old + "\n\n" if old else "") + text + "\n", encoding="utf-8")
+    put(path, (old + "\n\n" if old else "") + text + "\n")
     return path
 
 
