@@ -3359,6 +3359,7 @@ pub fn run() {
             controls_copy,
             android::pick_disc,
             android::pick_zip,
+            android::pick_memory_card,
             android::show_files,
             android::gpu_drivers,
             android::gpu_driver_import,
