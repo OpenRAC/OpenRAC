@@ -3864,6 +3864,21 @@ class Preparation(unittest.TestCase):
         self.assertIn("g = n + 1;", out)
         self.assertIn("g = i;", out)
 
+    def test_an_override_gets_the_files_cast_macros_written_out(self):
+        # The file's cast macro is not in the override's own text: it is written out there too,
+        # so its record gets a name (Going Commando v2.00's race selection menu, a play query).
+        src = prep.prepare("#define S32_AT(p,o) (((struct { char pad[o]; int v; } *)(p))->v)\n"
+                           "void f(char *m)\n"
+                           "{\n"
+                           "    S32_AT(m, 0x10) = 1;\n"
+                           "}\n")
+        used: set[str] = set()
+        out = prep.use_overrides(src, {"f": "void f(char *m)\n{\n    S32_AT(m, 0x10) = 2;\n}\n"}, used)
+        tail = out.split("(overrides) */\n", 1)[1]
+        self.assertNotIn("S32_AT", tail)
+        self.assertIn("struct openrac_cast_", tail)
+        self.assertIn("char pad[0x10]", tail)
+
     def test_wide_cast_is_named(self):
         """A 128-bit integer as a type name becomes openrac_ti: Clang drops the attribute there."""
         src = ("*(int __attribute__((mode(TI))) *)a = *(unsigned int __attribute__((mode(TI))) *)(b + 0x10);\n"
