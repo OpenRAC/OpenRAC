@@ -1030,6 +1030,9 @@ void draw_kept(bool first, bool held) try {
     g->window->drawable_size(output->window_width, output->window_height);
     output->aspect = picture_aspect(output->window_width, output->window_height);
     output->box = frame_box(output->window_width, output->window_height, output->aspect);
+    // The mods' drawing under the game's 2D (interface 1.41), here on the window thread where their
+    // overlay callbacks run; the renderer draws it before the HUD (scene_frame.cpp).
+    mod_overlay::record_under_hud(output->overlay_phase, output->aspect, output->under_hud);
     debug_overlay::begin(first, g_held, output->alpha, g->kept->frame);
     pacing.last_alpha = output->alpha;
     if (first) {

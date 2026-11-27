@@ -210,8 +210,8 @@ for every callback the HUD can run.
 
 Limits, not proved here (the first two keep the packet):
 
-- The freeze dialog's shrinking frames (game mode 4): not measured.
-- Other levels: only level 6's caller state was read.
+- The freeze dialog's shrinking frames (game mode 4): not measured. Its enabled frames are native (same argument).
+- Other levels: the enabled edge is native in every level since round 3 (the alt packet is the same bytes in all 19 level images; `letterbox.c` checks it on the list each frame). Shrinking frames stay on level 6 in play; elsewhere the HUD's callbacks (level code) were not read.
 - The memory-card handlers `Menu_RunStateHandler` runs after the bars, not
   inspected for PRIM or RGBAQ reads.
 - What the static proof does not cover (functions still in assembly, the three

@@ -40,6 +40,7 @@
 #include <deque>
 #include <exception>
 #include <functional>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -158,6 +159,50 @@ inline bool overlay_has_set_blend(const openrac_overlay* overlay) {
 // blend it does not have (the last one stays). Since 1.33.
 inline bool overlay_set_blend(const openrac_overlay* overlay, std::uint32_t blend) {
     return overlay_has_set_blend(overlay) && overlay->set_blend(overlay->context, blend) != 0;
+}
+
+// Whether `overlay` has 1.41's members (image, image_quad, layer, aspect): the port that made it
+// says so in `size`. Check it before overlay_image, overlay_image_quad or a read of those members.
+// Since 1.41.
+inline bool overlay_has_images(const openrac_overlay* overlay) {
+    return overlay != nullptr
+           && overlay->size >= offsetof(openrac_overlay, aspect) + sizeof(overlay->aspect)
+           && overlay->image != nullptr && overlay->image_quad != nullptr;
+}
+
+// Which call this is: OPENRAC_OVERLAY_LAYER_TOP (over the finished frame), or
+// OPENRAC_OVERLAY_LAYER_UNDER_HUD (under the game's 2D, for a mod that asked with
+// OPENRAC_OVERLAY_UNDER_HUD). A port before 1.41 only has the top. Since 1.41.
+inline std::uint32_t overlay_layer(const openrac_overlay* overlay) {
+    return overlay_has_images(overlay) ? overlay->layer : OPENRAC_OVERLAY_LAYER_TOP;
+}
+
+// Draws the mod's picture `image` centred on (x, y), `w` by `h` in the picture's units down (it
+// keeps its shape: w == h is square as shown), turned `angle` radians counter-clockwise, each texel
+// times `rgba` (0xRRGGBBAA). False for a port without it. Since 1.41.
+inline bool overlay_image(
+    const openrac_overlay* overlay, int image, float x, float y, float w, float h,
+    float angle = 0.0f, std::uint32_t rgba = 0xFFFFFFFFu
+) {
+    if (!overlay_has_images(overlay)) {
+        return false;
+    }
+    overlay->image(overlay->context, image, x, y, w, h, angle, rgba);
+    return true;
+}
+
+// Draws the mod's picture `image` over four corners (`xy`: top left, top right, bottom left,
+// bottom right, in the picture's 512 x 448 units) from the places `uv` (0 to 1 from its top left).
+// False for a port without it. Since 1.41.
+inline bool overlay_image_quad(
+    const openrac_overlay* overlay, int image, const float xy[8], const float uv[8],
+    std::uint32_t rgba = 0xFFFFFFFFu
+) {
+    if (!overlay_has_images(overlay)) {
+        return false;
+    }
+    overlay->image_quad(overlay->context, image, xy, uv, rgba);
+    return true;
 }
 
 // The keyboard and mouse for the tick about to run (interface 1.2, openrac_input): a view of the
@@ -2477,6 +2522,23 @@ public:
         return out;
     }
 
+    // Since 1.14 (in the layer since SDK 1.42): the loaded mod `id` as mods() lists it, none when
+    // it is not loaded (not installed, switched off, refused or failed) or the port cannot list
+    // mods. During load only the mods loaded before this one are there: ask in on_mods_loaded()
+    // (1.42) or later.
+    std::optional<ModEntry> find(std::string_view id) const {
+        for (ModEntry& e : mods()) {
+            if (e.id == id) {
+                return std::move(e);
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    // Since 1.14: whether the mod `id` is loaded, as find() says.
+    bool loaded(std::string_view id) const { return find(id).has_value(); }
+
     // Since 1.14: the settings of the mod `index` as it reads them this run.
     std::vector<ModSetting> mod_settings(int index) const {
         std::vector<ModSetting> out;
@@ -3035,6 +3097,39 @@ public:
         return has_slot14(offsetof(openrac_api, moby_uid)) && m_api->moby_uid != nullptr ? m_api->moby_uid(slot) : -1;
     }
 
+    // Since 1.41: whether the port keeps pictures of the mod's for its overlay
+    // (overlay_image_create, overlay_image_destroy; drawn with overlay_image()).
+    bool has_overlay_images() const {
+        return m_api->api_minor >= 41
+               && m_api->size >= offsetof(openrac_api, overlay_image_destroy) + sizeof(void*);
+    }
+
+    // Since 1.41: keeps a copy of a `width` x `height` RGBA picture (top row first, straight
+    // alpha), smooth or by the nearest pixel, for the mod's overlay. Its id (1 or more), or 0 when
+    // refused (see openrac_api.overlay_image_create) or the port has no such call.
+    int overlay_image_create(
+        int width, int height, const std::uint8_t* rgba, bool smooth = true
+    ) const {
+        if (!has_overlay_images()) {
+            return 0;
+        }
+        openrac_overlay_image image{};
+        image.size = sizeof image;
+        image.width = width;
+        image.height = height;
+        image.rgba = rgba;
+        image.flags = smooth ? OPENRAC_OVERLAY_IMAGE_SMOOTH : 0u;
+        const int id = m_api->overlay_image_create(m_handle, &image);
+        return id > 0 ? id : 0;
+    }
+
+    // Since 1.41: lets go of the mod's picture `image`. False for one that is not the mod's or a
+    // port without the call.
+    bool overlay_image_destroy(int image) const {
+        return has_overlay_images()
+               && m_api->overlay_image_destroy(m_handle, image) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.36: whether the port draws sharper pictures of cells the mod paints in a 2D-layer
     // texture (sharp_cells).
     bool has_sharp_cells() const {
@@ -3073,6 +3168,68 @@ public:
     bool menu_option_set(const char* option, int state) const {
         return has_slot14(offsetof(openrac_api, menu_option_set))
                && m_api->menu_option_set(m_handle, option, state) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.42: whether the port carries services between mods (provide(), service()) and calls
+    // on_mods_loaded().
+    bool has_services() const {
+        return m_api->api_minor >= 42
+               && m_api->size >= offsetof(openrac_api, service_find) + sizeof(void*);
+    }
+
+    // Since 1.42: calls `callable()` once, after every mod's load and before the game's first tick:
+    // where find() and service() see every mod that loaded. Nothing is taken there (hooks,
+    // callbacks, services). Throws openrac::Error when refused or the port has no such call: check
+    // has_services() first to run on older ports. Only during load.
+    template <class F>
+    void on_mods_loaded(F&& callable) {
+        if (!has_services()) {
+            throw Error("on_mods_loaded: requires interface 1.42");
+        }
+
+        // As in on_frame, the port holds the address of the stored callable.
+        auto& stored = m_frames.emplace_back(std::forward<F>(callable));
+
+        // The port refuses a callback once load is over.
+        if (m_api->on_mods_loaded(m_handle, &detail::frame_thunk, &stored) != OPENRAC_OK) {
+            throw Error("on_mods_loaded: refused (only during load)");
+        }
+    }
+
+    // Since 1.42: offers `table` to other mods as the service `name` ("<this mod's id>/<name>"),
+    // `version` 1 up. `table` is a plain C struct whose first member is its uint32_t size, kept
+    // unchanged where it is until the program ends (a static). Only during load. False when refused
+    // (another form of name, a version of 0, a name offered already, after load) or the port has no
+    // services.
+    template <class T>
+    bool provide(const char* name, std::uint32_t version, const T& table) const {
+        static_assert(std::is_trivially_copyable_v<T>, "a service's table is a plain C struct");
+        return has_services()
+               && m_api->service_provide(
+                      m_handle, name, version, &table, static_cast<std::uint32_t>(sizeof(T))
+                  ) == OPENRAC_OK;
+    }
+
+    // Since 1.42: the service `name` of `min_version` or above, as its provider's table `T`; null
+    // for none, an older one or a port without services. `version`, when given, gets the version
+    // offered (0 for none), an older one's too. A provider's older table is shorter than a newer
+    // `T`: check its size before using a member it may not have. Ask in on_mods_loaded() or later,
+    // and keep the pointer: it stays valid until the program ends.
+    template <class T>
+    const T* service(
+        const char* name, std::uint32_t min_version = 1, std::uint32_t* version = nullptr
+    ) const {
+        openrac_service found{};
+        found.size = sizeof found;
+        const int result = has_services()
+                               ? m_api->service_find(m_handle, name, min_version, &found)
+                               : OPENRAC_E_UNKNOWN;
+
+        if (version != nullptr) {
+            *version = found.version;
+        }
+
+        return result == OPENRAC_OK ? static_cast<const T*>(found.table) : nullptr;
     }
 
     // Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1:

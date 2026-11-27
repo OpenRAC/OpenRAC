@@ -4,4 +4,9 @@ export type IndexRequire = { id: string,
 /**
  * `>=X.Y.Z`, `=X.Y.Z`, or none.
  */
-version: string | null, };
+version: string | null, 
+/**
+ * A pack's values for this mod's settings, by key (`{"camera": "rac2"}`): applied when the
+ * pack is installed or updated, never over a value the player chose (index_apply.rs).
+ */
+settings?: Record<string, unknown>, };

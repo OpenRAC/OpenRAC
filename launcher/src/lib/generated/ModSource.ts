@@ -36,4 +36,10 @@ skip?: string,
 /**
  * A mod pack's mods (index `type: pack`): removing the pack removes the ones it brought.
  */
-members?: Array<string>, };
+members?: Array<string>, 
+/**
+ * A mod pack's values for its mods' settings, by mod id, then by key, as the version recorded
+ * gave them (checked against each mod's manifest). A value in plugins.json still equal to one
+ * of these is the pack's, not the player's: the pack's next version may change it.
+ */
+settings?: Record<string, Record<string, unknown>>, };

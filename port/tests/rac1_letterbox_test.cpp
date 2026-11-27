@@ -6,6 +6,7 @@
 // list cursor, level, game mode, screen extent) live in the fixture; the cursor values are
 // invented RAM addresses, and no packet byte is read or written.
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -34,6 +35,12 @@ constexpr std::size_t kModeWord = 6;    // 0, play, unless a test sets it
 // Invented reached list positions; the bars' packet is 0x80 bytes (draw_letterbox_bars).
 constexpr gaddr kList = 0x16000;
 constexpr gaddr kPacket = 0x80;
+// The fixture's memory covers the list; the frame renderer's vu1_gs_regs_alt DMA ref tag sits just
+// before the list cursor and names the packet at kAlt (letterbox.c's proof of the bars' state).
+constexpr std::size_t kWords = 0x18000 / sizeof(std::uint32_t);
+constexpr gaddr kTag = kList - 0x20, kAlt = 0x10000;
+constexpr std::array<std::uint32_t, 12> kAltPacket =
+    {0x00008001u, 0x20000000u, 0xEEu, 0u, 0x0005380Bu, 0u, 0x47u, 0u, 0x44u, 0u, 0x42u, 0u};
 constexpr int kBlarg = 6, kKerwan = 3;
 constexpr std::uint32_t kFull = 24;            // the bars' largest height
 constexpr std::uint32_t kBarDepth = 0xFFFFF3;  // draw_letterbox_bars' vertex depth
@@ -45,12 +52,12 @@ Fixture* g_fixture = nullptr;
 
 // Owns the game words, the recorder and the synthetic operation's bookkeeping.
 struct Fixture {
-    std::array<std::uint32_t, 16> words{};  // the mapped game words
-    FrameRecorder recorder;                 // the actual recording implementation
-    int game_calls = 0;                     // how often the original operation ran
-    gaddr appended = kPacket;               // what the synthetic operation appends when it draws
-    bool window = true;                     // whether openrac_frame_fill_depth draws
-    std::string skip;                       // OPENRAC_UI_SKIP
+    std::vector<std::uint32_t> words = std::vector<std::uint32_t>(kWords);  // the mapped game words
+    FrameRecorder recorder;    // the actual recording implementation
+    int game_calls = 0;        // how often the original operation ran
+    gaddr appended = kPacket;  // what the synthetic operation appends when it draws
+    bool window = true;        // whether openrac_frame_fill_depth draws
+    std::string skip;          // OPENRAC_UI_SKIP
 
     // Installs the fixture: Blarg at the 448-line screen by default, the cursor at kList.
     Fixture(int enable, std::uint32_t height, int level = kBlarg, int screen_height = kHeight448) {
@@ -64,6 +71,15 @@ struct Fixture {
         words[kLevelWord] = static_cast<std::uint32_t>(level);
         words[kExtentWord] = kWidth;
         words[kExtentWord + 1] = static_cast<std::uint32_t>(screen_height);
+        set_alt_packet();
+    }
+
+    // Lays down the HUD-preceding reset the wrapper proves the bars' state with.
+    void set_alt_packet() {
+        words[kTag / 4] = 0x30000003u;
+        words[kTag / 4 + 1] = kAlt;
+        words[kTag / 4 + 3] = 0x50000003u;
+        std::copy(kAltPacket.begin(), kAltPacket.end(), words.begin() + kAlt / 4);
     }
 
     // Revokes the borrowed storage before its owner goes.
@@ -141,6 +157,13 @@ void test_shrinking_bars_in_play_are_recorded() {
     CHECK(fixture.words[kCursorWord] == kList && fixture.commands().size() == 2);
 }
 
+// Enabled in another level than Blarg: the reset packet proves the state there too, so recorded.
+void test_enabled_bars_in_other_levels_are_recorded() {
+    Fixture fixture(1, kFull, kKerwan);
+    func_001F5148();
+    CHECK(fixture.words[kCursorWord] == kList && fixture.commands().size() == 2);
+}
+
 // The freeze dialog's shrinking frames (game mode 4) were not measured: they keep the packet. While
 // the bars are enabled its frames are the proved edge, recorded.
 void test_freeze_dialog_shrink_keeps_its_packet() {
@@ -173,10 +196,15 @@ void check_packet_kept(int level, gaddr appended, Setup setup) {
 // Another level, no window, the comparison switch and an unexpected packet keep the packet.
 void test_unproved_cases_keep_their_packet() {
     constexpr gaddr kOtherPacket = 0x40;  // not the bars' packet
-    check_packet_kept(kKerwan, kPacket, [](Fixture&) {});
     check_packet_kept(kBlarg, kPacket, [](Fixture& f) { f.window = false; });
     check_packet_kept(kBlarg, kPacket, [](Fixture& f) { f.skip = "func_001F5800,func_001F5148"; });
     check_packet_kept(kBlarg, kOtherPacket, [](Fixture&) {});
+
+    // The state is not proved: no reset packet on the list, an unset or wild pointer, a changed word.
+    check_packet_kept(kBlarg, kPacket, [](Fixture& f) { f.words[kTag / 4] = 0; });
+    check_packet_kept(kBlarg, kPacket, [](Fixture& f) { f.words[kTag / 4 + 1] = 0; });
+    check_packet_kept(kBlarg, kPacket, [](Fixture& f) { f.words[kTag / 4 + 1] = 0xFFFFFFF0u; });
+    check_packet_kept(kBlarg, kPacket, [](Fixture& f) { f.words[kAlt / 4 + 4] = 0x5380Au; });
 
     // The same while the bars shrink in play.
     check_packet_kept(kKerwan, kPacket, [](Fixture& f) { f.words[kEnableWord] = 0; });
@@ -321,6 +349,7 @@ void openrac_frame_clear(std::uint32_t /*rgba*/, int /*what*/) {
 int main() {
     test_enabled_bars_are_recorded_once();
     test_shrinking_bars_in_play_are_recorded();
+    test_enabled_bars_in_other_levels_are_recorded();
     test_freeze_dialog_shrink_keeps_its_packet();
     test_unproved_cases_keep_their_packet();
     test_aliased_cursor_and_416_lines();
