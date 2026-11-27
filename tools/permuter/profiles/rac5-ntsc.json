@@ -55,5 +55,11 @@
   "keep_work": true,
   "notes": "Requires the RAC5 backend, an external runtime configuration, a precise source glob and prepared private retail assembly. Level C only; no automatic promotion.",
   "candidate_ceiling": 3,
-  "asm_passes": false
+  "asm_passes": false,
+  "structural_passes": [
+    "reverse_cond",
+    "reorder_uninitialized_decls",
+    "guard_return",
+    "while_to_guarded_do"
+  ]
 }

@@ -92,7 +92,7 @@ def cmd_run(args) -> int:
         job.stop()
         job.thread.join(15)
     s = job.snapshot()
-    candidates = s["iterations"] + s["base_candidates"]
+    candidates = max(s.get("attempted_candidates", 0), s["iterations"] + s["base_candidates"])
     print(f"{args.func}: {s['status']}, base {s['base_score']}, best {s['best_score']}, "
           f"total candidates including bases: {candidates}; {s['elapsed']}s; {out / 'result.json'}")
     return 0 if s["status"] != "error" else 1

@@ -35,6 +35,8 @@ A profile is data. Its keys:
   keep_work   retain compiler scratch evidence (default false)
   candidate_ceiling  maximum permitted override of max_candidates (0: no ceiling)
   asm_passes  whether this profile permits the optional empty-asm passes (default true)
+  structural_passes  explicit applicable C rewrites instead of upstream random retry;
+              empty preserves upstream's search. See structural.PASSES.
 
 Placeholders in commands: {func}, {snippet} (the candidate as the checker takes it: the draft's
 declarations, then the function), {decls}, {out}, {tmp} (a directory of the worker's own),
@@ -85,7 +87,16 @@ class Profile:
     keep_work: bool = False
     candidate_ceiling: int = 0
     asm_passes: bool = True
+    structural_passes: list[str] = field(default_factory=list)
     root: Path | None = None
+
+    def __post_init__(self):
+        from .structural import PASSES
+        if (not isinstance(self.structural_passes, list)
+                or any(not isinstance(name, str) or name not in PASSES
+                       for name in self.structural_passes)
+                or len(set(self.structural_passes)) != len(self.structural_passes)):
+            raise ValueError('structural_passes must name distinct supported C passes')
 
     @property
     def checkout(self) -> Path:

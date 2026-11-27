@@ -21,6 +21,7 @@ or an address, which no rewrite moves.
 | `profile.py`, `profiles/*.json` | a game's profile: where a function's C and retail assembly are, how one candidate compiles, what the game's checker says for EXACT |
 | `score.py`, `elf.py` | aligned instruction diffs of a compiled object against the function's splat `.s` |
 | `engine.py` | the native search (rac3-decomp's engine, made game-agnostic): worker processes, live progress, results |
+| `structural.py` | finite C transformations selected only where they apply; an optional alternative to upstream random retry |
 | `accept.py` | the artefacts a result must not have |
 | `runner.py` | the queue runner for the boxes |
 | `test_permuter.py` | the tests: `python3 -m unittest discover -s tools` |
@@ -69,8 +70,16 @@ else the version's submodule under `games/`. Set the variable only for a checkou
 constructor**. A bounded run needs `-j1`, so extra workers cannot multiply the allowance. A profile
 can set a default `max_candidates` and a hard `candidate_ceiling`; an override above that ceiling
 is rejected before preparing the backend. Existing profiles remain unbounded unless they opt in.
-`result.json` reports `candidates_including_base`; a cached score can avoid recompiling a generated
-candidate. `--keep-work`, or a profile's `keep_work`, retains compiler scratch evidence.
+`result.json` reports attempted `candidates_including_base` and
+`completed_candidates_including_base` separately; an interrupted compiler attempt still consumes
+the allowance. A cached score can avoid recompiling a generated candidate. `--keep-work`, or a
+profile's `keep_work`, retains compiler scratch evidence. A base that is already exact ends the
+run without requesting a random seed or another candidate.
+
+The time limit and a manual stop also interrupt retries inside the upstream randomizer. If a
+worker does not finish during the short grace period, the engine stops that worker and its own
+compiler/checker descendants. It does not stop unrelated processes. Cleanup can take a few
+seconds beyond the search deadline, and interrupted work still produces a result receipt.
 
 ### Per game
 
@@ -111,10 +120,22 @@ python3 tools/permuter run rac5/ntsc FUNCTION -j1 --max-candidates 3 --seconds 6
 ```
 
 This profile has a hard ceiling of three candidates, base included, and retains work files by
-default. It never rewrites the RAC5 source tree. Only the upstream `perm_reverse_cond` AST pass
-is enabled initially; the other randomizer weights are zero. The profile sets `asm_passes=false`,
-so it cannot enable the optional empty-asm passes even if the checkout has that patch. The command
-also spells out `--no-asm-passes`.
+default. It never rewrites the RAC5 source tree. Its explicit `structural_passes` replace the
+upstream random-weight search with four finite C transformations:
+
+- reverse an `if` with an `else`, or a ternary, using logical negation and exchanged branches;
+- exchange adjacent uninitialized scalar or pointer declarations without moving initializers,
+  address-taken locals, variable-length arrays or inline tag definitions;
+- turn an eligible returning branch into an early-return guard, retaining lexical scopes;
+- turn a `while` with an eligible pure condition into a guarded `do` loop, retaining the zero-trip
+  case and the original condition evaluations.
+
+Only applicable sites are tried. Each rewrite starts from the original base, and an exhausted
+site list ends normally instead of retrying forever. `result.json` records `applicable_passes`
+and `stop_reasons`. With nonempty `structural_passes`, random weights do not choose the search
+and asm passes are disabled. Other profiles retain upstream search unless they opt in. RAC5
+also sets `asm_passes=false`, so neither its profile nor the explicit `--no-asm-passes` command
+can enable the optional empty-asm passes.
 
 The scope is level C supported by the parser and measured tool route: not C++, the boot or a
 whole-game qualification. Transforms still need semantic, ABI and boundary review, particularly
@@ -125,6 +146,17 @@ is rejected by the backend. Nonzero scores from different diff algorithms need n
 Its cached checker may rerun preprocessing and the source policy to detect changed headers or
 macros. That validation does not run CC1, the assembler or linker again and does not create a new
 source candidate; the candidate ceiling still includes each constructor/source variation.
+
+Run the focused tests with the pinned checkout available as a Python module:
+
+```sh
+PYTHONPATH="tools:$DECOMP_PERMUTER" python3 -m unittest discover -s tools/permuter -p 'test_*.py'
+```
+
+The structural tests require upstream's `perm_pycparser`; they report explicit skips if it is
+absent. With a host GCC installed, the semantic tests compile and execute synthetic C including
+NaN comparisons, side effects, lexical scopes and loop exits. These checks test the tool's
+rewrites; they do not qualify game functions or prove arbitrary C programs equivalent.
 
 ## Accepting a result
 
