@@ -23,10 +23,12 @@ bool ShaderPackage::load_index(Reader& input, std::uint64_t count, std::uint64_t
         ShaderKey key{input.number(), input.number(), input.number()};
         const std::uint64_t size = input.number();
         const std::uint64_t parts = input.number();
+        const auto minimum_parts = size / kChunkBytes + (size % kChunkBytes != 0);
 
+        // Four independently chunked sections add at most three blocks to contiguous chunking.
         if (!input.valid() || !size || size > kMaxShaderBytes || !parts
-            || parts > input.remaining() / kWordBytes
-            || parts != (size + kChunkBytes - 1) / kChunkBytes
+            || parts > input.remaining() / kWordBytes || parts < minimum_parts
+            || parts > minimum_parts + kProgramSections - 1
             || (!m_entries.empty() && m_entries.back().key.key >= key.key)) {
             return false;
         }

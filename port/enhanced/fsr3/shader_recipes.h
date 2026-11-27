@@ -24,6 +24,19 @@ namespace openrac::enhanced::fsr3_detail {
 inline constexpr unsigned kShaderSwitches = (1u << 6) - 1;
 inline constexpr unsigned kHalf = FSR3UPSCALER_SHADER_PERMUTATION_ALLOW_FP16;
 
+// This integration supplies LDR colour, unjittered render-resolution motion and reversed depth.
+inline constexpr unsigned kBasePermutation = FSR3UPSCALER_SHADER_PERMUTATION_LOW_RES_MOTION_VECTORS
+                                             | FSR3UPSCALER_SHADER_PERMUTATION_DEPTH_INVERTED;
+
+// Runtime and package generation share the four Lanczos/sharpening combinations they can select.
+inline constexpr std::array<unsigned, 4> kSupportedPermutations{
+    kBasePermutation,
+    kBasePermutation | FSR3UPSCALER_SHADER_PERMUTATION_USE_LANCZOS_TYPE,
+    kBasePermutation | FSR3UPSCALER_SHADER_PERMUTATION_ENABLE_SHARPENING,
+    kBasePermutation | FSR3UPSCALER_SHADER_PERMUTATION_USE_LANCZOS_TYPE
+        | FSR3UPSCALER_SHADER_PERMUTATION_ENABLE_SHARPENING
+};
+
 inline bool half_history_pass(unsigned pass) {
     return pass == FFX_FSR3UPSCALER_PASS_ACCUMULATE
            || pass == FFX_FSR3UPSCALER_PASS_ACCUMULATE_SHARPEN;

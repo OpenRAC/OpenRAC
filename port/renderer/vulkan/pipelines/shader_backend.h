@@ -17,6 +17,10 @@ std::string vertex_clip_distance(std::string_view source, bool clip_distance);
 bool check_stage_fresh(bool vertex, std::string_view source, std::string& log);
 // Parses a compute stage independently of an archive or renderer context.
 bool check_compute_stage_fresh(std::string_view source, std::string& log);
+// Emits frontend compute instructions for tests that inspect call placement before optimization.
+[[nodiscard]] bool compile_compute_for_analysis(
+    std::string_view source, std::vector<std::uint32_t>& code, std::string& log
+);
 // Compiles, links and reflects a complete GL-shaped graphics or compute program on the CPU.
 bool compile_program_fresh(
     std::string_view vertex,

@@ -112,6 +112,8 @@ public:
 
     bool active() const { return enabled && has_data() && mode != 0; }
 
+    int mode_for_layer(scene::Layer layer, bool all_static_receivers) const;
+
     // Resolves the runtime override, verified level override, then authored travel direction.
     lighting::Float3 sunlight_direction(lighting::Float3 authored) const {
         // The submitted frame clears the runtime override outside enhanced graphics.
@@ -137,6 +139,7 @@ public:
     bool all_volume_bounds = false;  // OPENRAC_PROBE_SPHERES=all: every resident region.
 
 private:
+    int receiver_for_layer(scene::Layer layer, bool all_static_receivers) const;
     EnvironmentLighting m_environment;  // Reflection captures matching the active diffuse bake.
     // Two baked rows share each runtime row before further widening for device height limits.
     static constexpr unsigned kMinimumAtlasTilesX = 128;

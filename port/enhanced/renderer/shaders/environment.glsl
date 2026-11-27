@@ -51,13 +51,32 @@ int environment_row(int mip) {
     for(int i=0;i<mip;++i) row+=environment_pitch(i);
     return row;
 }
-vec3 environment_level(int probe,vec3 direction,int mip,int levels) {
-    vec3 f=environment_face(direction);
-    int size=environment_resolution>>(mip+1);
+vec2 environment_capture_origin(int probe, int levels) {
     int columns=max(environment_columns,1);
-    vec2 origin=vec2((probe%columns)*6*environment_pitch(0),(probe/columns)*environment_row(levels));
-    vec2 pixel=origin+vec2(f.z*float(environment_pitch(mip)),float(environment_row(mip)))+1.+f.xy*float(size);
-    return textureLod(environment_map,pixel/vec2(textureSize(environment_map,0)),0.).rgb;
+    return vec2((probe % columns) * 6 * environment_pitch(0),
+                (probe / columns) * environment_row(levels));
+}
+vec3 environment_level_sample(vec3 face, vec2 origin, int mip, int pitch, int row, vec2 atlas_size) {
+    int size = environment_resolution >> (mip + 1);
+    vec2 pixel = origin + vec2(face.z * float(pitch), float(row)) + 1. + face.xy * float(size);
+    return textureLod(environment_map, pixel / atlas_size, 0.).rgb;
+}
+vec3 environment_level(int probe,vec3 direction,int mip,int levels) {
+    return environment_level_sample(environment_face(direction), environment_capture_origin(probe, levels),
+                                    mip, environment_pitch(mip), environment_row(mip),
+                                    vec2(textureSize(environment_map, 0)));
+}
+vec3 environment_mip_blend(int probe, vec3 direction, int low, int high, int levels, float fraction) {
+    vec3 face = environment_face(direction);
+    vec2 origin = environment_capture_origin(probe, levels);
+    vec2 atlas_size = vec2(textureSize(environment_map, 0));
+    int low_pitch = environment_pitch(low);
+    int low_row = environment_row(low);
+    // Adjacent levels share the row walk. At the last mip both samples use the same row.
+    int high_row = high == low ? low_row : low_row + low_pitch;
+    vec3 c0 = environment_level_sample(face, origin, low, low_pitch, low_row, atlas_size);
+    vec3 c1 = environment_level_sample(face, origin, high, environment_pitch(high), high_row, atlas_size);
+    return mix(c0, c1, fraction);
 }
 vec3 environment_rotation_world(vec3 p,vec4 q) { if(dot(q,q)<.5)q=vec4(0,0,0,1);return p+2.*cross(q.xyz,cross(q.xyz,p)+q.w*p); }
 vec3 environment_rotation_local(vec3 p,vec4 q) { return environment_rotation_world(p,vec4(-q.xyz,q.w)); }
@@ -137,7 +156,8 @@ vec3 environment_specular_surface_frame(vec3 p,vec3 receiver,vec3 geometric_norm
     for(int slot=0;slot<2;++slot) {
         if(best[slot]<0) continue;
         vec3 ray=environment_project(best[slot],p,direction);
-        radiance+=mix(environment_level(environment_capture(best[slot]),ray,low,levels),environment_level(environment_capture(best[slot]),ray,high,levels),fract(lod))*weights[slot];
+        radiance += environment_mip_blend(environment_capture(best[slot]), ray,
+                                          low, high, levels, fract(lod)) * weights[slot];
     }
     radiance/=weights.x+weights.y;
     vec2 coordinate=(vec2(clamp(nv,0.,1.),roughness)*63.+.5);

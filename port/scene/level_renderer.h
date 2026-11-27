@@ -910,6 +910,7 @@ private:
     std::array<float, 4> m_fog_params{0, 255, 255, 255};  // slope, offset, lower, upper clamp
     std::vector<JointColumns> m_palette_data;
     renderer::Shader m_mesh;
+    renderer::Shader m_probe_fallback, m_probe_fallback_solid;
     renderer::Shader m_early_mesh, m_early_solid;
     renderer::Shader m_colour_opaque, m_early_colour_opaque, m_static_translucent,
         m_static_translucent_full, m_static_translucent_early;

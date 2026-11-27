@@ -15,8 +15,9 @@ port/build/release/openrac-shader-compiler --output port/build/release/generated
 
 Outputs are `shader_package_data.cpp` (built into `libopenrac-shaders`), `shaders.bin`, `shaders.json`
 (variant names, keys and sizes), and `shader-compiler.log`. SPIR-V and reflection share LZ4-compressed
-16 KiB blocks; lookup decompresses one requested program. Artifacts and compilation caches stay in
-the build directory. `--version` prints the compiler version and package fingerprint.
+16 KiB blocks, restarting at vertex, fragment, compute and reflection boundaries so different stage
+pairings share identical blocks. Lookup decompresses one requested program. Artifacts and compilation
+caches stay in the build directory. `--version` prints the compiler version and package fingerprint.
 
 ### Recipes and variants
 
@@ -31,6 +32,9 @@ Feature modes and bindless texture capacity remain pipeline specialization const
 already supplies precompiled shaders. Source, recipe, include or compiler changes regenerate the
 package; successful CPU compilations are cached independently of recipe changes.
 
+FSR recipes share runtime's four supported Lanczos/sharpening combinations, retaining FP32 and the
+supported FP16 history paths. Modern-shadow and rigid-prepass recipes require enhanced rendering.
+
 ### Build summary
 
 Each invocation prints and saves total wall time, generation/output time, recipe requests, unique
@@ -42,12 +46,17 @@ tool and compiling generated C++.
 
 ## Depends on
 
-Shared renderer source assembly, glslang compilation/reflection and LZ4 compression. The tool links
-no GPU backend or windowing code. Its source, recipe and package libraries also serve the renderer.
+Shared renderer source assembly, glslang compilation/reflection, SPIRV-Tools performance optimization
+and LZ4 compression. Optimization validates each module and preserves descriptor bindings and
+specialization constants; graphics, compute and native SDK variants use the same passes, including
+development-time compilation. Passes inline helpers, propagate constants, remove dead code and
+eliminate redundant loads. Unlimited scalar replacement and loop expansion are excluded to keep
+variant build costs bounded. The tool links no GPU backend or windowing code. Its source, recipe
+and package libraries also serve the renderer.
 
 ## State and threads
 
-Each invocation owns its recipes, variants, includes and report, and compiles on one thread.
+Each invocation owns its recipes, variants, includes and report, and compiles recipes on worker threads.
 The runtime package borrows the shader library's immutable bytes and decompresses into owned buffers;
 native shader lookups can run concurrently.
 
