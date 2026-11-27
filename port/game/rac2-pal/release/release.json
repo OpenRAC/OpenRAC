@@ -115,6 +115,10 @@
   "MAP_MARKERS": {
    "value": "1",
    "why": "PAL's map (func_PAL_00296870, src/pal/game/00296870-map-g8.c) is v1.01's DrawMapOverlay C, which draws no Mapper markers: the port draws v2.00's (host/map_markers.c)"
+  },
+  "PICTURE_TOP": {
+   "value": "16",
+   "why": "the lines the 416-line picture sits below the top of the 2D screen (PAL: 448 lines)"
   }
  },
  "hand_names": {

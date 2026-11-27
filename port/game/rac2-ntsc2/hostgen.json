@@ -528,10 +528,10 @@
       "int"
     ]
   },
+  "play_queries": "../rac2/play_queries.json",
   "tick_rate": 60,
   "release": {
     "version": "us2",
     "table": "release/release_names.json"
-  },
-  "play_queries": "../rac2/play_queries.json"
+  }
 }

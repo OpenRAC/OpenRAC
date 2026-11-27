@@ -296,6 +296,8 @@ class Release:
         self.release_places: dict[str, dict[int, int]] = {}
         # The decompilation's readable names (names.h): readable name -> the primary's address name.
         self.readable: dict[str, str] = {}
+        # The release's own tag (PAL, US2): its own data names are at its addresses already.
+        self.own_tag: str | None = None
 
     def _readable_of(self) -> dict[str, list[str]]:
         """The primary's address name -> its readable names (self.readable inverted)."""
@@ -384,6 +386,10 @@ class Release:
     def _one(self, m: re.Match) -> str:
         key = core(m.group(1), int(m.group(3)) if m.group(3) else None, int(m.group(4), 16), m.group(2))
         new = self.names.get(key)
+        if new is None and m.group(1) == "D" and self.own_tag and m.group(2) == self.own_tag:
+            # A datum of the release's own the table has no row for (D_PAL_L00_001B0800): its name
+            # states its address in the release, so it is that address without the tag.
+            return m.group(0).replace(f"_{self.own_tag}_", "_", 1)
         if new is None:
             return m.group(0)
         return "FUN" + new[4:] if m.group(1) == "FUN" and new.startswith("func_") else new
@@ -511,6 +517,7 @@ def configured(source: Path, config_dir: Path, cfg: dict) -> Release | None:
     table.readable = primary_aliases(source, cfg)
     if r.get("version") in RAC2_RELEASES:
         table.read_level_local(source, r["version"])
+        table.own_tag = RAC2_RELEASES[r["version"]]["tag"]
     if r.get("splice"):
         table.read_splices(source, r["splice"], RAC1_RELEASES.get(r["version"], {}).get("tag"))
     return table

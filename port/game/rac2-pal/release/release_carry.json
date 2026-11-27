@@ -1,16 +1,16 @@
 {
  "about": "How release_carry.py paired what the primary release's port names: what rests on less than the same code, and what it found nowhere.",
  "counts": {
-  "function: by hand": 32,
+  "function: by hand": 33,
   "function: called": 28,
-  "function: changed": 91,
+  "function: changed": 100,
   "function: found": 28,
-  "function: near": 144,
-  "function: same": 735,
+  "function: near": 152,
+  "function: same": 773,
   "global: aligned": 5,
   "global: between": 16,
   "global: exact": 157,
-  "global: the release's build": 103
+  "global: the release's build": 106
  },
  "functions": {
   "func_001158F8": [
@@ -163,6 +163,11 @@
    "by hand",
    "host C"
   ],
+  "func_002A6AE0": [
+   "func_002A74D8",
+   "changed",
+   "libraries.tsv Moby_CountKill"
+  ],
   "func_002A6C58": [
    "func_002A7650",
    "changed",
@@ -187,6 +192,21 @@
    "func_002B7038",
    "changed",
    "host C"
+  ],
+  "func_002B85F8": [
+   "func_002B91B0",
+   "changed",
+   "host C"
+  ],
+  "func_002B88F0": [
+   "func_002B94A8",
+   "by hand",
+   "host C"
+  ],
+  "func_002CF340": [
+   "func_002D0290",
+   "near",
+   "libraries.tsv Menu_Extras"
   ],
   "func_002D5748": [
    "func_002D6320",
@@ -403,6 +423,11 @@
    "near",
    "host C"
   ],
+  "func_L00_002D5EB8": [
+   "func_L00_002D6408",
+   "changed",
+   "libraries.tsv Hero_UpdateCollectionProgress"
+  ],
   "func_L00_002F7568": [
    "func_L00_002F8C60",
    "changed",
@@ -563,6 +588,11 @@
    "changed",
    "host C"
   ],
+  "func_L03_003D20F8": [
+   "func_L03_003D6298",
+   "changed",
+   "libraries.tsv Moby_EndakoRescue_Update"
+  ],
   "func_L03_003F09C0": [
    "func_L03_003F5090",
    "by hand",
@@ -628,6 +658,11 @@
    "changed",
    "overrides"
   ],
+  "func_L07_003F7048": [
+   "func_L07_003FB840",
+   "near",
+   "libraries.tsv Moby_SiberiusThief_Update"
+  ],
   "func_L08_002CB6E8": [
    "func_L08_002CB6E0",
    "near",
@@ -637,6 +672,11 @@
    "func_L08_003DF830",
    "near",
    "host C"
+  ],
+  "func_L08_003F6E18": [
+   "func_L08_003FB598",
+   "near",
+   "libraries.tsv Moby_TaboraWrench_Update"
   ],
   "func_L08_0040E9B8": [
    "func_L08_004137E8",
@@ -693,6 +733,11 @@
    "near",
    "calls_as"
   ],
+  "func_L12_003B5240": [
+   "func_L12_003B8918",
+   "near",
+   "libraries.tsv Moby_TodanoTrader_Update"
+  ],
   "func_L12_00402B48": [
    "func_L12_004075B8",
    "near",
@@ -703,10 +748,25 @@
    "near",
    "calls_as"
   ],
+  "func_L13_0041CD18": [
+   "func_L13_00421C70",
+   "changed",
+   "libraries.tsv Moby_BoldanCutscene_Update"
+  ],
   "func_L14_003F4F98": [
    "func_L14_003F9660",
    "near",
    "overrides"
+  ],
+  "func_L14_00425CB0": [
+   "func_L14_0042B290",
+   "near",
+   "libraries.tsv Moby_PrisonPlumber_Update"
+  ],
+  "func_L14_004265B8": [
+   "func_L14_0042BC18",
+   "near",
+   "libraries.tsv Moby_PrisonController_Update"
   ],
   "func_L15_0042E1B0": [
    "func_L15_004334B0",
@@ -727,6 +787,11 @@
    "func_L18_003FF850",
    "near",
    "calls_as"
+  ],
+  "func_L18_0043FC70": [
+   "func_L18_004450C8",
+   "changed",
+   "libraries.tsv Moby_HypnomaticPart_Update"
   ],
   "func_L18_00440718": [
    "func_L18_00445BB0",
