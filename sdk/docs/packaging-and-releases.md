@@ -66,4 +66,6 @@ hash, so do not upload archives to a release by hand.
 `tools/fetch_sdk.py` downloads it into `.sdk/` and checks it. A new template's
 lock has no hash yet: the first fetch takes it from the release and writes it
 in; commit `sdk.lock` then. To move to a newer SDK, change its version, address
-and hash (each SDK release's notes give the hash).
+and hash (each SDK release's notes give the hash). Release your mod against a
+stable SDK (`1.N.0`): a dev SDK (`1.N.P`) may have the next interface minor,
+which stable launchers load only from their next release.

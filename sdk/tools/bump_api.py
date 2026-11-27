@@ -610,6 +610,10 @@ def versions(root: Path) -> str:
     for tag in reversed(sort(all_tags(root, "sdk-v*"), TAG)):
         m = TAG.match(tag)
         api = (int(m.group(1)), int(m.group(2)))
+        if int(m.group(3)) > 0:
+            # A dev release's headers may already have the open minor: what they say counts.
+            at = minor_at(fetch_tag(root, tag))
+            api = tuple(map(int, at.split("."))) if at != "-" else api
         first = next((t for t, a in launchers if a != "-" and tuple(map(int, a.split("."))) >= api), None)
         out.append(f"| {tag[5:]} | {api[0]}.{api[1]} | {first[10:] if first else 'none yet (Development channel)'} |")
     return "\n".join(out) + "\n"
