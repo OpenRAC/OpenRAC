@@ -77,6 +77,11 @@ profile's `keep_work`, retains compiler scratch evidence. A base that is already
 run without requesting a random seed or another candidate. Its C is still exported
 as the winning result, so the queue can save it without generating a variant.
 
+`run` already measures its constructor baseline. Use `base` for a standalone diagnosis, rather
+than as a mandatory step before every search. Decide which contextual corrections to try before
+launching: an unchanged source needs one bounded job, not a baseline-only job followed by the
+same baseline again. A separate changed seed still shares the project's total hypothesis budget.
+
 The time limit and a manual stop also interrupt retries inside the upstream randomizer. If a
 worker does not finish during the short grace period, the engine stops that worker and its own
 compiler/checker descendants. It does not stop unrelated processes. Cleanup can take a few
