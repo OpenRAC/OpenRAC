@@ -375,7 +375,8 @@ class OpenMinorTest(Repo):
         # tree is at 1.3: the tool refuses to renumber anything from them.
         self.git("tag", "-d", "sdk-v1.3.0")
         self.git("tag", "sdk-v1.1.0")
-        env = {"OPENRAC_SDK_OFFLINE": "0", "OPENRAC_SDK_REPO": str(self.root / "nowhere")}
+        # Not CI's strict mode (GITHUB_ACTIONS), where an unreadable tag list is an error at once.
+        env = {"OPENRAC_SDK_OFFLINE": "0", "OPENRAC_SDK_REPO": str(self.root / "nowhere"), "GITHUB_ACTIONS": ""}
         with unittest.mock.patch.dict(os.environ, env), \
                 unittest.mock.patch.object(bump_api, "_remote", {}), \
                 unittest.mock.patch.object(bump_api, "_fell_back", False):
