@@ -34,6 +34,12 @@ API_MAJORS = {int(m.group(1)) for m in [re.search(r"^#define OPENRAC_MOD_API_MAJ
                                         if _MOD_H.is_file() else None] if m}
 # The first interface with script mods: 1.1.
 SCRIPT_API = (1, 1)
+def api_major_problem(api: str) -> str:
+    if not API_MAJORS:
+        return f"api: {api}: no include/openrac/openrac_mod.h beside this tool to say the interface"
+    return f"api: {api}: this SDK knows interface {', '.join(f'{x}.x' for x in sorted(API_MAJORS))}"
+
+
 # What a script mod's archive carries of its folder, beside the manifest and its scripts.
 SCRIPT_FILES = re.compile(r"\.(luau|json|md)$", re.IGNORECASE)
 # Folders a script mod's archive never takes (a build, the SDK fetched, a repository's own).
@@ -323,7 +329,7 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
         else:
             major, minor = (int(x) for x in api.split("."))
             if major not in API_MAJORS:
-                errors.append(f"api: {api}: this SDK knows interface {', '.join(f'{x}.x' for x in sorted(API_MAJORS))}")
+                errors.append(api_major_problem(api))
             elif (major, minor) < SCRIPT_API:
                 errors.append(f"api: {api}: script mods need interface {SCRIPT_API[0]}.{SCRIPT_API[1]} or later")
         if not isinstance(scripts, list) or not scripts:
@@ -345,7 +351,7 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
         if not isinstance(api, str) or not API.match(api):
             errors.append("api: MAJOR.MINOR, the interface the mod was built for (required with a plugin)")
         elif int(api.split(".")[0]) not in API_MAJORS:
-            errors.append(f"api: {api}: this SDK knows interface {', '.join(f'{x}.x' for x in sorted(API_MAJORS))}")
+            errors.append(api_major_problem(api))
         if not isinstance(plugin, dict) or not plugin:
             errors.append("plugin: an object of platform: path, with at least one platform")
         else:

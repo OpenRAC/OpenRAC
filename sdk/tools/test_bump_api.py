@@ -277,6 +277,10 @@ class OpenMinorTest(Repo):
         self.commit("glow")
         self.assertEqual(self.run_tool("--release-version")[1], "1.3.1\n")
         self.git("tag", "sdk-v1.3.1")
+        # --versions: a dev release's interface is its header's (1.4 already), a stable one's its tag's.
+        table = self.run_tool("--versions")[1]
+        self.assertIn("| 1.3.1 | 1.4 |", table)
+        self.assertIn("| 1.3.0 | 1.3 |", table)
         # A dev release does not close the minor: the next addition joins 1.4 too.
         self.add_member("dim", "1.4")
         self.put("sdk/changes/1.4/dim.md", "Dim (dim).\n")

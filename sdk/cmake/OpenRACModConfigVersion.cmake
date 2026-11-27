@@ -12,7 +12,7 @@ set(_openrac_major "${CMAKE_MATCH_1}")
 string(REGEX MATCH "MINOR ([0-9]+)" _ "${_openrac_api}")
 set(PACKAGE_VERSION "${_openrac_major}.${CMAKE_MATCH_1}")
 # Another major is a different interface: the headers' ABI changed.
-if(PACKAGE_FIND_VERSION_MAJOR AND NOT PACKAGE_FIND_VERSION_MAJOR EQUAL _openrac_major)
+if(NOT "${PACKAGE_FIND_VERSION_MAJOR}" STREQUAL "" AND NOT PACKAGE_FIND_VERSION_MAJOR EQUAL _openrac_major)
   set(PACKAGE_VERSION_COMPATIBLE FALSE)
 # A newer minor than this SDK's asks for something its headers do not have.
 elseif(PACKAGE_FIND_VERSION VERSION_GREATER PACKAGE_VERSION)

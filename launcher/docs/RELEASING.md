@@ -78,8 +78,8 @@ git tag launcher-vX.Y.Z
 git push origin launcher-vX.Y.Z
 ```
 
-The tag also makes the stable mod SDK (`.github/workflows/sdk.yml`): `sdk-v1.N.0` when the mod
-interface grew since the last stable SDK ([MOD_API.md](../../docs/port/MOD_API.md#versions)).
+The tag also releases the stable mod SDK `sdk-v1.N.0` if the mod interface grew
+([MOD_API.md](../../docs/port/MOD_API.md#versions)).
 
 ### What GitHub Actions does automatically (`.github/workflows/launcher.yml`):
 

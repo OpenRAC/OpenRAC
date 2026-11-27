@@ -3,6 +3,8 @@
 """Tests of package_sdk.py: python3 -m unittest discover -s sdk/tools"""
 import hashlib
 import json
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -24,6 +26,25 @@ class PackageSdk(unittest.TestCase):
         for bad in (f"{api}", f"{api}.x", f"{major + 1}.0.0", f"{major - 1}.0.0", f"{major}.{minor + 1}.0",
                     f"{api}.1-dev"):
             self.assertRaises(SystemExit, package_sdk.version, release=bad)
+
+    @unittest.skipUnless(shutil.which("cmake"), "no cmake")
+    def test_cmake_takes_the_headers_version(self):
+        # OpenRACModConfigVersion.cmake, as find_package(OpenRACMod <version>) runs it.
+        major, minor = (int(x) for x in package_sdk.interface().split("."))
+        cases = {"": True, f"{major}.0": True, f"{major}.{minor}": True, f"{major}.{minor + 1}": False,
+                 f"{major + 1}.0": False, f"{major - 1}.{minor}": False}
+        version_file = package_sdk.SDK / "cmake" / "OpenRACModConfigVersion.cmake"
+        for want, ok in cases.items():
+            with tempfile.TemporaryDirectory() as d:
+                script = Path(d) / "probe.cmake"
+                parts = want.split(".") if want else ["", ""]
+                script.write_text(
+                    f'set(PACKAGE_FIND_VERSION "{want}")\nset(PACKAGE_FIND_VERSION_MAJOR "{parts[0]}")\n'
+                    f'include("{version_file.as_posix()}")\n'
+                    'message("${PACKAGE_VERSION} ${PACKAGE_VERSION_COMPATIBLE}")\n')
+                out = subprocess.run(["cmake", "-P", str(script)], capture_output=True, text=True).stderr.split()
+                self.assertEqual(out[0], f"{major}.{minor}", want)
+                self.assertEqual(out[1] == "TRUE", ok, want)
 
     def test_the_archive_says_its_version(self):
         # VERSION and the templates' sdk.lock name the release the archive is, whatever the tree says.

@@ -217,10 +217,10 @@ jobs:
           tag="sdk-v$VERSION"
           test -f "dist/openrac-mod-sdk-$VERSION.zip" || { echo "::error::no dist/openrac-mod-sdk-$VERSION.zip"; exit 1; }
           sha=$(cut -d' ' -f1 dist/*.sha256)
-          if [[ "$GITHUB_REF" == refs/tags/launcher-v* ]]; then
+          if [ "${VERSION##*.}" = 0 ]; then  # patch 0: a stable release, by a launcher's tag or by hand
             kind="A stable release: mods built for interface $INTERFACE load in the stable launcher made with it, and every newer one."
           else
-            kind="A dev release: mods built for interface $INTERFACE load in the Development channel now, and in stable launchers from the next one."
+            kind="A dev release: mods built for interface $INTERFACE load in every OpenRAC with it or newer (the Development channel has it now)."
           fi
           notes="The OpenRAC mod SDK $VERSION, for the mod interface $INTERFACE (docs/port/MODS.md). $kind SHA-256 of the archive: $sha"
           # Never the repository's latest release: installed launchers look for their updates at

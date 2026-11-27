@@ -66,56 +66,32 @@ once.
 
 ## Versions
 
-You never choose the version. The interface's version lives in one place:
-`OPENRAC_MOD_API_MAJOR` and `OPENRAC_MOD_API_MINOR` in `openrac_mod.h`. The
-CMake package and the launcher read it from there, and nothing else holds a
-copy.
+You never pick a version. It lives only in `openrac_mod.h`
+(`OPENRAC_MOD_API_MAJOR`, `_MINOR`); CMake and the launcher read it there.
 
-SDK releases follow one rule: the patch is a dev release, the minor is a
-stable one.
+- Dev release: each push to master publishes `sdk-v1.M.P`, the next patch of
+  the last stable minor `M`, if the SDK changed.
+- Stable release: a `launcher-v*` tag publishes `sdk-v1.(M+1).0` if the
+  interface grew.
 
-- A push to master (a dev release) publishes `sdk-v1.M.P`: the next patch of
-  the last stable minor `M`, when the SDK archive changed.
-- A stable launcher's tag (`launcher-v*`) publishes `sdk-v1.N.0` when the
-  interface grew since the last stable release.
+Anything new in the interface (a table member, or a type, field or macro in
+`openrac_mod.h` or `keys.h`) joins the open minor `1.M+1`. Every pull request
+until the next stable release shares it. Hook points, C++ helpers and docs
+are not a minor.
 
-`bump_api.py` reads the last stable release (the highest `sdk-v1.M.0` tag of
-OpenRAC/OpenRAC) and finds the open minor:
+Run `bump_api.py` (or `bump_api.py minor --note "..."` to add the note). It
+sets the minor, each new member's `since` and `Since 1.N.`, the `mod.hpp`
+checks, the locks and `sdk/docs/reference/`. Each change of the interface
+needs a note `sdk/changes/1.<minor>/<name>.md` that names the new members.
 
-- `1.M+1` if your tree adds to the interface since that tag: a table member,
-  or a new type, field or macro in `openrac_mod.h` or `keys.h`. Every pull
-  request until the next stable release gets the same `1.M+1`, so they never
-  renumber each other.
-- `1.M` otherwise. Hook points (`games/*.h`), C++ helpers and docs are not a
-  minor.
-
-`bump_api.py` with no arguments sets the minor in the header, the new
-members' `since` in `members.tsv`, their `Since 1.N.` in the header and the
-`api_minor >= N` of the `mod.hpp` checks that read them. Then it regenerates
-the locks and `sdk/docs/reference/`.
-
-Each change of the interface needs a note: `sdk/changes/1.<minor>/<name>.md`,
-one paragraph that names the new members. `bump_api.py minor --note "..."`
-writes it (the name is your branch's last part, or `--name`). The changelog
-is built from these notes, so two pull requests never edit the same text.
-
-If a release run failed, run the `sdk` workflow on master with "release". A
-tag `sdk-v<version>` pushed by hand still works.
-
-If a stable release came out while your pull request was open, `bump_api.py --check`
-fails after you merge develop in: your additions now belong to the next minor.
-Run `bump_api.py`: it moves them, moves your note too, and prints the other
-lines that still name the old minor (comments, the Luau types) for you to
-check by hand.
-
-A pull request that passed its checks just before a stable release and merged
-just after it brings the old minor to develop. `dev_release` then stops at its
-first step (`bump_api.py --check`): run `bump_api.py` on develop in a small
-pull request, then start the release again.
-
-Two pull requests that both add members still meet at the end of the table.
-Keep both, develop's first. In `sdk/api/*.lock` and `sdk/docs/reference/`
-take develop's side, then run `bump_api.py`: it writes them again.
+If a stable release came out while your pull request was open,
+`bump_api.py --check` fails after you merge develop. Run `bump_api.py`: it
+moves your additions and note to the next minor and prints lines to check by
+hand. On a conflict at the end of the table, keep both (develop's first),
+take develop's `sdk/api/*.lock` and `sdk/docs/reference/`, and run
+`bump_api.py`. If `dev_release` stops at `bump_api.py --check`, run
+`bump_api.py` on develop in a small pull request. A failed release run: run
+the `sdk` workflow on master with "release".
 
 ## Naming
 

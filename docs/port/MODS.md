@@ -1078,18 +1078,10 @@ No copy of OpenRAC is needed to use it: each version is published as one
 archive, `openrac-mod-sdk-<version>.zip`, on the release `sdk-v<version>`
 of OpenRAC/OpenRAC, with its SHA-256 ([sdk.yml](../../.github/workflows/sdk.yml),
 [package_sdk.py](../../sdk/tools/package_sdk.py)). A stable SDK
-`1.N.0` builds mods for interface 1.N. A dev SDK `1.N.P` also carries what is
-new since then, for the next minor; its `openrac_mod.h` says which interface
-it has. The archive is the same bytes
-wherever it is made, so a mod's build can pin the version and its hash
-(openrac-mods does: `sdk.lock`).
-
-Nobody picks the version or pushes a tag. `sdk/tools/bump_api.py` works the
-version out from the last release: anything new in the interface joins the
-next minor, and every pull request that adds something gets that same minor.
-A push to master publishes a dev SDK, the next patch of the last stable
-minor, when the SDK changed. A stable launcher's tag publishes the new minor
-as `1.<minor>.0` when the interface grew. To add a call to the table,
+`1.N.0` (made with a stable launcher) has interface 1.N; a dev SDK `1.N.P`
+(made on master) may already have the next minor. The archive is the same
+bytes wherever it is made, so a mod's build can pin it (openrac-mods does:
+`sdk.lock`). To add a call to the table or see how versions are picked,
 follow [MOD_API.md](https://github.com/OpenRAC/OpenRAC/blob/master/docs/port/MOD_API.md).
 
 ```sh
