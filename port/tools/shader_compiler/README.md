@@ -48,11 +48,12 @@ tool and compiling generated C++.
 
 Shared renderer source assembly, glslang compilation/reflection, SPIRV-Tools performance optimization
 and LZ4 compression. Optimization validates each module and preserves descriptor bindings and
-specialization constants; graphics, compute and native SDK variants use the same passes, including
-development-time compilation. Passes inline helpers, propagate constants, remove dead code and
-eliminate redundant loads. Unlimited scalar replacement and loop expansion are excluded to keep
-variant build costs bounded. The tool links no GPU backend or windowing code. Its source, recipe
-and package libraries also serve the renderer.
+specialization constants. Offline and development-time compilation use the same pass list for each
+stage. Passes inline helpers, propagate constants, remove dead code and eliminate redundant loads.
+Fragment shaders omit local multi-store elimination and expression simplification, which caused
+a Lavapipe hang and pixel mismatches in the mixed water and particle test. Unlimited scalar
+replacement and loop expansion are excluded to keep variant build costs bounded. The tool links no
+GPU backend or windowing code. Its source, recipe and package libraries also serve the renderer.
 
 ## State and threads
 
