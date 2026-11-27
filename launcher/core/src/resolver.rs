@@ -56,7 +56,7 @@ pub struct Request<'a> {
 }
 
 /// One mod of the change set.
-#[derive(Debug, Clone, PartialEq, Serialize, ts_rs::TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Default, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct PlannedMod {
     pub id: String,
@@ -79,6 +79,16 @@ pub struct PlannedMod {
     pub hooks: Vec<String>,
     /// Installed but off: turned on.
     pub enable: bool,
+    pub author: String,
+    /// The index's label: "openrac", "verified", "trusted", "unchecked", or "" (an older index).
+    #[ts(type = "\"openrac\" | \"verified\" | \"trusted\" | \"unchecked\" | \"\"")]
+    pub trust: String,
+    /// Who the player trusts by installing it when it is Not checked (IndexMod::trust_key).
+    pub trust_key: String,
+    /// What the scan found this version can reach.
+    pub reach: Vec<String>,
+    /// "ci", "hand", or "" when the index does not say.
+    pub built: String,
     /// A pack's values for its mods' settings, by mod id, then by key (the index's `requires`).
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     #[ts(optional, type = "Record<string, Record<string, unknown>>")]
@@ -160,6 +170,11 @@ pub enum Why {
     },
     /// Only pre-release versions, and they are not allowed.
     OnlyPrerelease,
+    /// Its newest version is held for a person to look at (the scan found something): it is not
+    /// offered until then.
+    Held {
+        version: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, ts_rs::TS)]
@@ -218,6 +233,16 @@ pub struct InstallPlan {
 enum Pick {
     Index(usize),
     Installed(String),
+}
+
+/// The mods of a plan the player must say they trust the author of first: Not checked mods that
+/// run code (native), whose author is not in `trusted` (lower-case logins, Config::trusted_authors).
+pub fn needs_trust<'p>(plan: &'p InstallPlan, trusted: &[String]) -> Vec<&'p PlannedMod> {
+    plan.install
+        .iter()
+        .filter(|m| m.kind == "native" && m.trust == "unchecked")
+        .filter(|m| !trusted.iter().any(|t| t.eq_ignore_ascii_case(&m.trust_key)))
+        .collect()
 }
 
 /// Whether `api` (`MAJOR.MINOR`, or none) loads on a launcher with `have`.
@@ -294,6 +319,9 @@ impl<'a> Resolver<'a> {
             if fits && index.revoked(&m.id, &have.version).is_none() && Self::meets_all(&have.version, wants) {
                 return Ok(Pick::Installed(have.version.clone()));
             }
+        }
+        if let Some(held) = m.held.as_ref().filter(|_| self.installed(&m.id).is_none()) {
+            return Err((Why::Held { version: held.version.clone() }, None));
         }
         let mut order: Vec<usize> = (0..m.versions.len()).collect();
         order.sort_by(|&a, &b| newer(&m.versions[b].version, &m.versions[a].version));
@@ -623,6 +651,11 @@ fn build(r: &Resolver, round: Round) -> InstallPlan {
             impact: m.map(|m| m.impact.clone()).unwrap_or_default(),
             hooks: v.map(|v| v.hooks.clone()).unwrap_or_default(),
             enable: have.is_some_and(|h| !h.enabled),
+            author: m.map(|m| m.author.clone()).unwrap_or_default(),
+            trust: m.map(|m| m.trust.clone()).unwrap_or_default(),
+            trust_key: m.map(IndexMod::trust_key).unwrap_or_default(),
+            reach: v.and_then(|v| v.scan.as_ref()).map(|s| s.labels.clone()).unwrap_or_default(),
+            built: v.and_then(|v| v.built.clone()).unwrap_or_default(),
             settings,
         };
         if planned.kind == "pack" {
@@ -814,6 +847,36 @@ mod tests {
         let asset = plan.install[2].asset.as_ref().unwrap();
         assert_eq!(asset.asset, "lock-strafe-1.2.0-linux-x86_64.zip");
         assert_eq!(asset.sha256.len(), 64);
+    }
+
+    #[test]
+    fn a_held_mod_is_not_offered_but_an_installed_one_stays() {
+        let mut index = fixture();
+        index.mods.iter_mut().find(|m| m.id == "xbox-icons").unwrap().held =
+            Some(crate::index::Held { version: "1.0.4".into(), reasons: vec!["reaches other processes".into()] });
+        let plan = plan_with(&index, &[], STABLE, false, &[want("xbox-icons")]);
+        assert!(plan.blocked);
+        assert_eq!(plan.incompatible[0].why, Why::Held { version: "1.0.4".into() });
+        let plan = plan_with(&index, &[have("xbox-icons", "1.0.3", true)], STABLE, false, &[want("xbox-icons")]);
+        assert!(!plan.blocked, "{plan:#?}");
+    }
+
+    #[test]
+    fn a_not_checked_native_mod_needs_its_author_trusted() {
+        let mut index = fixture();
+        let lock = index.mods.iter_mut().find(|m| m.id == "lock-strafe").unwrap();
+        lock.trust = "unchecked".into();
+        lock.author = "Someone".into();
+        lock.owner = Some(crate::index::Owner { login: "New-Modder".into(), id: Some(7) });
+        lock.versions[0].scan = Some(crate::index::Scan { labels: vec!["Network".into()], new: vec![] });
+        let plan = plan_with(&index, &[], STABLE, false, &[want("lock-strafe")]);
+        let lock = plan.install.iter().find(|m| m.id == "lock-strafe").unwrap();
+        assert_eq!((lock.trust.as_str(), lock.trust_key.as_str()), ("unchecked", "new-modder"));
+        assert_eq!(lock.reach, ["Network"]);
+        assert_eq!(needs_trust(&plan, &[]).len(), 1);
+        assert!(needs_trust(&plan, &["new-modder".into()]).is_empty());
+        // Script mods run in the sandbox: no question.
+        assert!(needs_trust(&plan, &[]).iter().all(|m| m.kind == "native"));
     }
 
     #[test]

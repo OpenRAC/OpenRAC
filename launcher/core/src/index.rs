@@ -26,7 +26,11 @@ pub const FORMAT: u32 = 1;
 
 /// Where the indexes are, in order: the first wins when two list the same id. Settings may name
 /// others (`Config::mod_indexes`).
-pub const INDEXES: &[&str] = &["https://github.com/OpenRAC/openrac-mods/releases/download/index/index.json"];
+pub const INDEXES: &[&str] = &["https://github.com/OpenRAC/openrac-mods/releases/download/index/index.json", COMMUNITY];
+
+/// New Not checked mods, signed with the same key, with a serial of their own. It is published
+/// only while there are such mods, so a failed fetch of it is not an error.
+pub const COMMUNITY: &str = "https://github.com/OpenRAC/openrac-mods/releases/download/index/community.json";
 
 /// The public half of the key openrac-mods' index.yml signs index.json with (minisign key id
 /// 5466767758D8C8D1): base64 of its .pub file, as the updater's `pubkey` is.
@@ -170,7 +174,72 @@ pub struct Version {
     pub files: Vec<String>,
     #[serde(default)]
     pub platforms: BTreeMap<String, Asset>,
+    /// What the scan of a native version's files found it can reach (none: not scanned).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub scan: Option<Scan>,
+    /// The newest native version only: "ci" when the mod's own CI built it from its tag, else "hand".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub built: Option<String>,
 }
+
+/// The scan of a native version (openrac-mods tools/binary_scan.py): what it can reach, and what
+/// of that the version before could not.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "IndexScan")]
+pub struct Scan {
+    /// Some of: Network, Starts programs, Loads code, Executable memory, Clipboard.
+    #[serde(default)]
+    pub labels: Vec<String>,
+    #[serde(default)]
+    pub new: Vec<String>,
+}
+
+/// A mod whose newest version the scan held for a person to look at: hidden from new installs.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "IndexHeld")]
+pub struct Held {
+    pub version: String,
+    #[serde(default)]
+    pub reasons: Vec<String>,
+}
+
+/// The GitHub account a mod's repository belongs to; `id` stays when the account is renamed.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "IndexOwner")]
+pub struct Owner {
+    pub login: String,
+    #[serde(default)]
+    #[ts(type = "number | null")]
+    pub id: Option<u64>,
+}
+
+/// The file with a mod's long texts (readme, changelogs), named with its SHA-256.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "IndexDetailsFile")]
+pub struct DetailsFile {
+    pub asset: String,
+    pub sha256: String,
+}
+
+/// The weekly picks: up to three mod ids per game.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "IndexPicks")]
+pub struct Picks {
+    #[serde(default)]
+    pub week: String,
+    #[serde(default)]
+    pub games: BTreeMap<String, Vec<String>>,
+}
+
+/// The labels, in order of how much OpenRAC checked a mod.
+pub const TRUST: &[&str] = &["openrac", "verified", "trusted", "unchecked"];
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
@@ -232,10 +301,29 @@ pub struct IndexMod {
     /// Newest first.
     #[serde(default)]
     pub versions: Vec<Version>,
+    /// How much OpenRAC checked it: "openrac", "verified", "trusted" or "unchecked". Older
+    /// indexes leave it out ("").
+    #[serde(default)]
+    #[ts(type = "\"openrac\" | \"verified\" | \"trusted\" | \"unchecked\" | \"\"")]
+    pub trust: String,
+    /// The owner of an outside mod's repository.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub owner: Option<Owner>,
+    /// Its newest version is held for review: not offered to new installs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub held: Option<Held>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub details: Option<DetailsFile>,
     /// Not in the file: the media base URL of the index this mod came from, set when indexes
     /// are merged, so each mod's pictures load from its own index.
     #[serde(default)]
     pub media_base: String,
+    /// Not in the file: the folder URL of the index this mod came from (its details file is there).
+    #[serde(default)]
+    pub index_base: String,
 }
 
 impl IndexMod {
@@ -245,6 +333,16 @@ impl IndexMod {
 
     pub fn has_impact(&self, impact: &str) -> bool {
         self.impact.iter().any(|i| i == impact)
+    }
+
+    /// Whether OpenRAC checked it in some way (OpenRAC, Verified or Trusted author).
+    pub fn checked(&self) -> bool {
+        matches!(self.trust.as_str(), "openrac" | "verified" | "trusted")
+    }
+
+    /// Who the player trusts when they install a Not checked mod: the owner's login, else the author.
+    pub fn trust_key(&self) -> String {
+        self.owner.as_ref().map_or_else(|| self.author.clone(), |o| o.login.clone()).to_lowercase()
     }
 
     /// Where to report a problem: its bug tracker, else its repository's issues.
@@ -287,6 +385,9 @@ pub struct ModIndex {
     pub mods: Vec<IndexMod>,
     #[serde(default)]
     pub revoked: Vec<Revoked>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub picks: Option<Picks>,
 }
 
 impl ModIndex {
@@ -317,6 +418,7 @@ pub fn merge(indexes: Vec<ModIndex>) -> ModIndex {
             out.media = index.media.clone();
             out.ports = index.ports.clone();
             out.tags = index.tags.clone();
+            out.picks = index.picks.clone();
         } else if index.expires < out.expires {
             // The merged list is as fresh as its stalest part.
             out.expires = index.expires.clone();
@@ -555,33 +657,110 @@ pub fn fetch(src: &Sources) -> Result<IndexView, ModError> {
     let mut got = Vec::new();
     let mut oldest = u64::MAX;
     let mut last_error = None;
+    let mut main_ok = false;
     for url in &src.urls {
+        let optional = url.ends_with("/community.json");
         match one(src, url, &mut state) {
-            Ok((index, offline, fetched, error)) => {
-                view.offline |= offline;
-                oldest = oldest.min(fetched);
+            Ok((mut index, offline, fetched, error)) => {
                 if let Some(e) = error {
-                    view.newer_format |= e.detail.contains("update the launcher");
                     crate::launcher_log::line(&format!("mod index {url}: {}", e.detail));
-                    view.errors.push(e);
+                    if !optional {
+                        view.newer_format |= e.detail.contains("update the launcher");
+                        view.errors.push(e);
+                    }
                 }
+                if !optional {
+                    view.offline |= offline;
+                    oldest = oldest.min(fetched);
+                }
+                let base = url.rsplit_once('/').map_or(String::new(), |(dir, _)| format!("{dir}/"));
+                for m in &mut index.mods {
+                    m.index_base.clone_from(&base);
+                }
+                main_ok |= !optional;
                 got.push(index);
             }
             Err(e) => {
-                view.newer_format |= e.detail.contains("update the launcher");
                 crate::launcher_log::line(&format!("mod index {url}: {}", e.detail));
-                last_error = Some(e);
+                if !optional {
+                    view.newer_format |= e.detail.contains("update the launcher");
+                    last_error = Some(e);
+                }
             }
         }
     }
     let _ = write_state(&src.cache, &state);
-    if got.is_empty() {
+    if !main_ok {
         return Err(last_error.unwrap_or_else(|| ModError::new(ModErrorKind::Bug, "No mod list is set.")));
     }
     view.index = merge(got);
     view.fetched_at = if oldest == u64::MAX { 0 } else { oldest };
     view.stale = parse_time(&view.index.expires).is_none_or(|t| src.now > t);
     Ok(view)
+}
+
+/// A mod's long texts (`details-<id>.json`): its readme and each version's changelog.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "IndexDetails")]
+pub struct Details {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub readme: String,
+    #[serde(default)]
+    pub versions: Vec<VersionNotes>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "IndexVersionNotes")]
+pub struct VersionNotes {
+    pub version: String,
+    #[serde(default)]
+    pub changelog: String,
+}
+
+/// A mod's details file, fetched when first needed and kept by its hash. The signed index names
+/// its SHA-256, so a file that does not match is refused. A mod with no details file (an older
+/// index) gets the texts the index itself carries.
+pub fn details(fetch: &dyn Fetch, cache: &Path, m: &IndexMod) -> Result<Details, ModError> {
+    let from_index = || Details {
+        id: m.id.clone(),
+        readme: m.readme.clone(),
+        versions: m
+            .versions
+            .iter()
+            .map(|v| VersionNotes { version: v.version.clone(), changelog: v.changelog.clone() })
+            .collect(),
+    };
+    let Some(file) = m.details.as_ref().filter(|_| !m.index_base.is_empty()) else { return Ok(from_index()) };
+    let bad = |what: String| ModError::new(ModErrorKind::UpstreamBad, what);
+    if file.asset.contains('/') || file.asset.contains("..") || file.sha256.len() != 64 {
+        return Err(bad(format!("{}: the details file's name is not valid.", m.id)));
+    }
+    let dir = cache.join("details");
+    let kept = dir.join(format!("{}.json", file.sha256));
+    let bytes = match std::fs::read(&kept) {
+        Ok(b) if crate::sha256_hex(&b) == file.sha256 => b,
+        _ => {
+            let b = fetch.get(&format!("{}{}", m.index_base, file.asset), false).map_err(|e| {
+                ModError::new(ModErrorKind::Transient, format!("{}'s details could not be fetched ({e}).", m.id))
+                    .with(ModAction::Retry)
+            })?;
+            if crate::sha256_hex(&b) != file.sha256 {
+                return Err(bad(format!("{}'s details do not match the signed mod list.", m.id)));
+            }
+            let _ = std::fs::create_dir_all(&dir).and_then(|()| std::fs::write(&kept, &b));
+            b
+        }
+    };
+    let d: Details =
+        serde_json::from_slice(&bytes).map_err(|e| bad(format!("{}'s details cannot be read ({e}).", m.id)))?;
+    if d.id != m.id {
+        return Err(bad(format!("{}'s details are for another mod.", m.id)));
+    }
+    Ok(d)
 }
 
 /// The installed mods whose version the index revoked: `(id, version)` of each installed one.
@@ -822,8 +1001,66 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn the_community_list_is_optional() {
+        let cache = tempfile::tempdir().unwrap();
+        let net = Net::serving(FIXTURE.as_bytes(), FIXTURE_SIG);
+        let mut src = sources(&net, cache.path(), BEFORE_EXPIRY);
+        src.urls.push("https://example.test/community.json".into());
+        let view = fetch(&src).unwrap();
+        assert!(!view.offline && view.errors.is_empty(), "{:?}", view.errors);
+        assert!(view.index.mods.iter().all(|m| m.index_base == "https://example.test/"));
+        // Only the community list: not enough.
+        let (offline, empty) = (Net::default(), tempfile::tempdir().unwrap());
+        let mut src = sources(&offline, empty.path(), BEFORE_EXPIRY);
+        src.urls = vec!["https://example.test/community.json".into()];
+        assert!(fetch(&src).is_err());
+    }
+
+    #[test]
+    fn trust_fields_read_and_older_indexes_have_none() {
+        let m: IndexMod = serde_json::from_str(
+            r#"{"id":"a","author":"X","trust":"unchecked","owner":{"login":"Some-One","id":5},
+                "held":{"version":"1.1.0","reasons":["mentions cmd.exe"]},
+                "details":{"asset":"details-a.json","sha256":"00"},
+                "versions":[{"version":"1.0.0","scan":{"labels":["Network"],"new":["Network"]},"built":"ci"}]}"#,
+        )
+        .unwrap();
+        assert!(!m.checked());
+        assert_eq!(m.trust_key(), "some-one");
+        assert_eq!(m.held.as_ref().unwrap().version, "1.1.0");
+        assert_eq!(m.versions[0].scan.as_ref().unwrap().labels, ["Network"]);
+        assert_eq!(m.versions[0].built.as_deref(), Some("ci"));
+        let old: IndexMod = serde_json::from_str(r#"{"id":"a","author":"X"}"#).unwrap();
+        assert_eq!((old.trust.as_str(), old.trust_key()), ("", "x".to_string()));
+        assert!(old.held.is_none() && old.details.is_none());
+    }
+
+    #[test]
+    fn details_are_checked_against_the_signed_hash() {
+        let cache = tempfile::tempdir().unwrap();
+        let body = br#"{"id":"a","readme":"Long text","versions":[{"version":"1.0.0","changelog":"Fixed"}]}"#;
+        let mut m: IndexMod = serde_json::from_str(r#"{"id":"a","readme":"short"}"#).unwrap();
+        // No details file: the index's own texts.
+        assert_eq!(details(&Net::default(), cache.path(), &m).unwrap().readme, "short");
+        m.index_base = "https://example.test/".into();
+        m.details = Some(DetailsFile { asset: "details-a.json".into(), sha256: crate::sha256_hex(body) });
+        let net = Net::default();
+        net.files.borrow_mut().insert("https://example.test/details-a.json".into(), body.to_vec());
+        let d = details(&net, cache.path(), &m).unwrap();
+        assert_eq!((d.readme.as_str(), d.versions[0].changelog.as_str()), ("Long text", "Fixed"));
+        // Kept: read again offline.
+        assert_eq!(details(&Net::default(), cache.path(), &m).unwrap().readme, "Long text");
+        // Changed on the server: refused.
+        let other = tempfile::tempdir().unwrap();
+        net.files
+            .borrow_mut()
+            .insert("https://example.test/details-a.json".into(), b"{\"id\":\"a\",\"readme\":\"evil\"}".to_vec());
+        assert_eq!(details(&net, other.path(), &m).unwrap_err().kind, ModErrorKind::UpstreamBad);
+    }
+
+    #[test]
     fn the_configured_list_replaces_the_default() {
-        assert_eq!(urls(&[]), vec![INDEXES[0].to_string()]);
+        assert_eq!(urls(&[]), vec![INDEXES[0].to_string(), COMMUNITY.to_string()]);
         assert_eq!(
             urls(&["http://insecure".into(), " https://mine/index.json ".into()]),
             vec!["https://mine/index.json"]

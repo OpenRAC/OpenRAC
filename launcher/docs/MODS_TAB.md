@@ -113,7 +113,9 @@ With six or more rows the toolbar shows:
 - a search,
 - kinds with counts: All, Gameplay, Graphics and sound, Tools (empty kinds
   are hidden),
-- the order: Load order or A to Z.
+- the order: Load order or A to Z,
+- Checked by OpenRAC only (`checkedOnly` in the settings), which hides Not
+  checked mods and carries to the hub's list.
 
 In load order with no search, drag a row by its grip (`lib/dragSort.ts`,
 mouse or finger), or use the menu's Move up, down, to the top or bottom (pad).
@@ -141,14 +143,37 @@ What they make shows up under Graphics and sound packs.
 The hub's Install button opens the launcher with an `openrac://` link. The
 install screen (`components/DeepLinkInstall.svelte`) shows what will install,
 what it needs, warnings, and then the progress. It reads the signed mod list
-(`core/src/index.rs`). The launcher reads that list only for a link, Share
-and the update check, never to show it.
+(`core/src/index.rs`). The launcher reads that list only for a link, Share,
+the update check and the labels, never to show it as a catalog.
+
+## Labels
+
+Each mod in the list carries how much OpenRAC checked it (`trust`):
+OpenRAC, Verified, Trusted author or Not checked (`TrustLabel.svelte`, words
+in `T.TRUST_LABEL` and `T.TRUST_HINT`). They show:
+
+- on My mods' rows, read once a session (`lib/modTrust.svelte.ts`);
+- on the install screen, with the author of each mod you picked;
+- in a mod page's folded Safety part: the label, Built by CI or by hand, what
+  the scan says it can reach, and Report this mod;
+- in "Before you install mods" (`ModsIntro.svelte`), once, the first time the
+  Mods tab opens. Its "Show only checked mods" turns the filter on.
+
+A Not checked mod that runs code installs only after "I trust <author>" is
+ticked, once per author (`trustedAuthors`; `index_apply` refuses it too). A
+mod whose newest version is held for review is not offered to new installs;
+one already installed stays. New Not checked mods come from `community.json`,
+read beside `index.json`; a failed fetch of it is not an error. Long texts
+(readme, changelogs) may come from `details-<id>.json`, checked against the
+SHA-256 the signed list gives it.
 
 ## Updates
 
 - Small updates install by themselves: at start, every 6 hours and before
   Play, never while the game runs (`lib/modAutoUpdate.svelte.ts`).
-- Big ones, and native mods with new hooks, wait for a click in Mod updates.
+- Big ones, native mods with new hooks, and native mods that can reach more
+  than before (the scan's labels, "New: Network") wait for a click in Mod
+  updates.
 - Held-back ones say why ("Held back: A needs B 1.2.0"). A version that
   needs a newer mod interface, or hook points this launcher's port does not
   have, waits for a newer launcher.

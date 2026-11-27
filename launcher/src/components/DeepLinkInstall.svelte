@@ -17,16 +17,20 @@
     modErrorText,
     nativeWarning,
     neededBy,
+    NOT_CHECKED,
+    notCheckedText,
     noteText,
     offeredBy,
     replaceWith,
     STEP_LABEL,
+    trustAuthor,
     updateFrom,
     whyText,
   } from "$lib/modsText";
   import { modal } from "$lib/portal";
 
   import Icon from "./Icon.svelte";
+  import TrustLabel from "./TrustLabel.svelte";
 
   const shown = $derived(changeSet.link !== null && !!app.config?.setupComplete);
   const plan = $derived(changeSet.plan);
@@ -35,12 +39,47 @@
   const picked = $derived(all.filter((m) => wantedIds.has(m.id)));
   const packs = $derived(plan ? plan.packs.filter((m) => wantedIds.has(m.id)) : []);
   const also = $derived(plan ? plan.install.filter((m) => !wantedIds.has(m.id)) : []);
+  // Not checked mods that run code, by an author the player has not said they trust: asked once
+  // per author (core/src/resolver.rs needs_trust; index_apply refuses them too).
+  const untrusted = $derived(
+    plan
+      ? plan.install.filter(
+          (m) =>
+            m.kind === "native" &&
+            m.trust === "unchecked" &&
+            !(app.config?.trustedAuthors ?? []).includes(m.trustKey),
+        )
+      : [],
+  );
+  const untrustedAuthors = $derived([...new Set(untrusted.map((m) => m.author || m.trustKey))]);
+  const untrustedReach = $derived([...new Set(untrusted.flatMap((m) => m.reach))]);
+  let trustTicked = $state(false);
   const natives = $derived(
-    plan ? plan.install.filter((m) => m.kind === "native").map((m) => m.name) : [],
+    plan
+      ? plan.install.filter((m) => m.kind === "native" && !untrusted.includes(m)).map((m) => m.name)
+      : [],
   );
   const canInstall = $derived(
-    !!plan && !plan.blocked && (plan.install.length > 0 || plan.alreadyOk.some((m) => m.enable)),
+    !!plan &&
+      !plan.blocked &&
+      (plan.install.length > 0 || plan.alreadyOk.some((m) => m.enable)) &&
+      (untrusted.length === 0 || trustTicked),
   );
+
+  /** Installs, after keeping the authors the player said they trust. */
+  async function install() {
+    if (untrusted.length > 0 && trustTicked && app.config) {
+      const keys = untrusted.map((m) => m.trustKey);
+
+      await saveConfig({
+        ...app.config,
+        trustedAuthors: [...new Set([...app.config.trustedAuthors, ...keys])],
+      });
+    }
+
+    trustTicked = false;
+    await apply();
+  }
   const failedName = $derived.by(() => {
     const id = changeSet.result?.failed?.modId;
 
@@ -123,7 +162,10 @@
             <ul class="mods">
               {#each picked as m (m.id)}
                 <li>
-                  <span>{line(m)}</span>
+                  <span class="name"
+                    >{line(m)}{#if m.author}<span class="dim by">{T.by} {m.author}</span
+                      >{/if}<TrustLabel trust={m.trust} /></span
+                  >
                   {#if changeSet.phase !== "ready" && changeSet.progress[m.id]}
                     {@const s = STEP_LABEL[changeSet.progress[m.id] ?? "waiting"]}
                     <span class={`pill ${s.tone}`}>{s.text}</span>
@@ -142,7 +184,7 @@
               <ul class="mods small">
                 {#each also as m (m.id)}
                   <li>
-                    <span>{line(m)}</span>
+                    <span class="name">{line(m)}<TrustLabel trust={m.trust} /></span>
                     {#if changeSet.phase !== "ready" && changeSet.progress[m.id]}
                       {@const s = STEP_LABEL[changeSet.progress[m.id] ?? "waiting"]}
                       <span class={`pill ${s.tone}`}>{s.text}</span>
@@ -181,6 +223,24 @@
               {/if}
             {/each}
 
+            {#if untrusted.length > 0}
+              <div class="risk" role="group" aria-labelledby="not-checked-title">
+                <h4 id="not-checked-title">{NOT_CHECKED.title}</h4>
+                <p>
+                  {notCheckedText(untrusted.map((m) => m.name))}
+                  {untrustedReach.length > 0 ? NOT_CHECKED.reachLead : NOT_CHECKED.noReach}
+                </p>
+                {#if untrustedReach.length > 0}
+                  <div class="chips">
+                    {#each untrustedReach as r (r)}<span>{r}</span>{/each}
+                  </div>
+                {/if}
+                <label class="trust-me">
+                  <input type="checkbox" bind:checked={trustTicked} />
+                  <span>{trustAuthor(untrustedAuthors)}</span>
+                </label>
+              </div>
+            {/if}
             {#if natives.length > 0}
               <p class="warn">
                 <Icon name="warn" size={16} /><span>{nativeWarning(natives)}</span>
@@ -252,7 +312,7 @@
             <button
               class="primary"
               disabled={!canInstall || changeSet.phase !== "ready"}
-              onclick={() => void apply()}
+              onclick={() => void install()}
             >
               {#if changeSet.phase === "applying"}<span class="spinner"
                 ></span>{T.working}{:else}{installCount(plan?.install.length ?? 0)}{/if}
@@ -384,6 +444,66 @@
 
   .mods.small li {
     font-size: 0.8125rem;
+  }
+
+  .mods .name {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .risk {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--err) 10%, transparent);
+    color: var(--text);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
+
+  .risk h4 {
+    margin: 0;
+    color: var(--err);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .risk p {
+    margin: 0;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .chips span {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: var(--radius-xs);
+    background: var(--ink-deep);
+    font-size: 0.75rem;
+  }
+
+  .trust-me {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    cursor: pointer;
+  }
+
+  .trust-me input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--amber);
   }
 
   .offer {

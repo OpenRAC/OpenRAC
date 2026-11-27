@@ -4,4 +4,4 @@ import type { Want } from "./Want";
 /**
  * Why no version of a mod can be installed.
  */
-export type Why = { "kind": "notForGame", game: string, } | { "kind": "notForDisc", disc: string, } | { "kind": "notForPlatform", platform: string, } | { "kind": "needsNewerApi", api: string, } | { "kind": "needsHooks", hooks: Array<string>, } | { "kind": "clash", wants: Array<Want>, } | { "kind": "cycle", ids: Array<string>, } | { "kind": "revoked", reason: string, } | { "kind": "onlyPrerelease" };
+export type Why = { "kind": "notForGame", game: string, } | { "kind": "notForDisc", disc: string, } | { "kind": "notForPlatform", platform: string, } | { "kind": "needsNewerApi", api: string, } | { "kind": "needsHooks", hooks: Array<string>, } | { "kind": "clash", wants: Array<Want>, } | { "kind": "cycle", ids: Array<string>, } | { "kind": "revoked", reason: string, } | { "kind": "onlyPrerelease" } | { "kind": "held", version: string, };

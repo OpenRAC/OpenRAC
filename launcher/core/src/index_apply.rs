@@ -419,7 +419,7 @@ mod tests {
             impact: vec![],
             hooks: vec![],
             enable: false,
-            settings: Default::default(),
+            ..Default::default()
         }
     }
 
@@ -455,7 +455,7 @@ mod tests {
             impact: vec![],
             hooks: vec![],
             enable: false,
-            settings: Default::default(),
+            ..Default::default()
         };
         assert_eq!(source_url(&m), "https://github.com/o/r/releases/tag/x-v1.0.0");
         m.kind = "data".into();

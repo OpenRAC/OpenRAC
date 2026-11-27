@@ -47,6 +47,7 @@ fn export_all(cfg: &Config) {
         discs::FoundDisc,
         enhanced::EnhancedView,
         index::IndexView,
+        index::Details,
         index::RevokedOff,
         index_apply::ApplyProgress,
         index_apply::ApplyResult,

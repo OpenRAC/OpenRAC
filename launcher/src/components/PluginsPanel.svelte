@@ -38,6 +38,7 @@
   import { arrange, groupOf, matches, steps } from "$lib/modsList";
   import * as T from "$lib/modsText";
   import { forget, modsView, movable, report, searching, shows } from "$lib/modsView.svelte";
+  import { hiddenByCheck, loadTrust, modTrust, trustOf } from "$lib/modTrust.svelte";
   import { checkDue, markChecked, modUpdates } from "$lib/modUpdates.svelte";
   import { holdSlide } from "$lib/motion";
   import { hidePaths } from "$lib/paths";
@@ -51,6 +52,7 @@
   import ModSetShare from "./ModSetShare.svelte";
   import ModTool from "./ModTool.svelte";
   import Reason from "./Reason.svelte";
+  import TrustLabel from "./TrustLabel.svelte";
 
   let {
     version: v,
@@ -250,6 +252,8 @@
 
   async function load() {
     const key = keptKey();
+
+    void loadTrust();
 
     try {
       mods = await api.pluginsList(v.game, v.name);
@@ -530,9 +534,10 @@
 
   /** The gameplay mods and the tools, each as shown: searched, in load order or by name. */
   const words = (m: PluginView) => [m.name, m.description, m.author, m.id];
+  const checkedOnly = $derived(app.config?.checkedOnly ?? false);
   const gameplay = $derived(
     arrange(
-      mods.filter((m) => groupOf(m.kind) === "gameplay"),
+      mods.filter((m) => groupOf(m.kind) === "gameplay" && !hiddenByCheck(m.id, checkedOnly)),
       modsView.query,
       modsView.sort,
       words,
@@ -830,7 +835,11 @@
                     }}
                   >
                     <span class="words">
-                      <span class="name">{mod.name}</span>
+                      <span class="name"
+                        >{mod.name}{#if modTrust.byId[mod.id]}<TrustLabel
+                            trust={trustOf(mod.id)}
+                          />{/if}</span
+                      >
                       {#if mod.description}<span class="desc">{mod.description}</span>{/if}
                     </span>
                     <span class={`badge ${badge.tone}`} title={hidePaths(badge.hint).text}
@@ -1103,6 +1112,10 @@
   }
 
   .name {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
     font-size: 0.9375rem;
     font-weight: 600;
   }

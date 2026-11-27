@@ -2566,6 +2566,7 @@ fn hold_text(hold: Option<&openrac_launcher_core::mod_updates::Hold>) -> String 
         }
         Some(Hold::NeedsLauncher { api }) => format!("needs a launcher with mod API {api}"),
         Some(Hold::NeedsLauncherHooks { hooks }) => format!("needs a launcher with hooks {}", hooks.join(", ")),
+        Some(Hold::NewReach { new, .. }) => format!("can now reach: {}", new.join(", ")),
         Some(Hold::Blocked { detail }) => detail.clone(),
     }
 }
@@ -2649,6 +2650,26 @@ async fn index_fetch(
         m.readme.truncate(cut);
     }
     Ok(view)
+}
+
+/// A mod's long texts (readme, changelogs) from its details file, checked against the signed index.
+#[tauri::command]
+async fn index_details(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<index::Details, ModError> {
+    let index = index_now(&app, &state, false).await?;
+    let m = index
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| ModError::new(ModErrorKind::UserFixable, format!("{id} is not in the mod list.")))?;
+    let cache = state
+        .config_file
+        .as_deref()
+        .and_then(Path::parent)
+        .map(|dir| dir.join(index::CACHE_DIR))
+        .ok_or_else(|| hub_error("no config folder for the mod list's copy"))?;
+    let handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || index::details(hub_fetch(&handle).as_ref(), &cache, &m))
+        .await
+        .map_err(hub_error)?
 }
 
 /// Pre-release mods: the player's setting, else on for a dev build (or a local `tauri dev` run).
@@ -2736,9 +2757,17 @@ async fn index_apply(
     let index = current_index(&state)?;
     let prerelease = allow_prerelease(&app, &state);
     let dir = plugins_dir(&state, &game).map_err(hub_error)?;
+    let trusted = state.config.lock().unwrap().trusted_authors.clone();
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let plan = plan_for(&index, &dir, &game, &version, &wanted, &turn_off, prerelease);
+        // A Not checked mod that runs code goes in only once the player said they trust its author.
+        if let Some(m) = resolver::needs_trust(&plan, &trusted).first() {
+            return Err(ModError::new(
+                ModErrorKind::UserFixable,
+                format!("{} is not checked by OpenRAC: say you trust {} first.", m.name, m.author),
+            ));
+        }
         let data_home = openrac_launcher_core::saves::data_home();
         let options = index_apply::Options {
             serial: serial.as_deref(),
@@ -3328,6 +3357,7 @@ pub fn run() {
             index_fetch,
             index_resolve,
             index_apply,
+            index_details,
             mods_updates,
             mods_auto_update,
             mods_last_update,

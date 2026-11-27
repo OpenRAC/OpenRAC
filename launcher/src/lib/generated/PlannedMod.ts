@@ -24,7 +24,23 @@ asset: IndexAsset | null, impact: Array<string>, hooks: Array<string>,
 /**
  * Installed but off: turned on.
  */
-enable: boolean, 
+enable: boolean, author: string, 
+/**
+ * The index's label: "openrac", "verified", "trusted", "unchecked", or "" (an older index).
+ */
+trust: "openrac" | "verified" | "trusted" | "unchecked" | "", 
+/**
+ * Who the player trusts by installing it when it is Not checked (IndexMod::trust_key).
+ */
+trustKey: string, 
+/**
+ * What the scan found this version can reach.
+ */
+reach: Array<string>, 
+/**
+ * "ci", "hand", or "" when the index does not say.
+ */
+built: string, 
 /**
  * A pack's values for its mods' settings, by mod id, then by key (the index's `requires`).
  */

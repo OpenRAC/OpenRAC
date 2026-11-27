@@ -4,18 +4,23 @@
   // adds a link, a .zip or a folder in Add a mod below. A click or tap anywhere on it opens the hub;
   // a keyboard or a pad reaches the same through its button.
   import { api } from "$lib/api";
-  import { guardShown } from "$lib/app.svelte";
+  import { app, guardShown } from "$lib/app.svelte";
   import { GET_MODS as T } from "$lib/modsText";
 
   import Icon from "./Icon.svelte";
+  import ModsIntro from "./ModsIntro.svelte";
 
-  const openHub = () => void guardShown(api.openUrl(T.hubUrl));
+  // "Checked by OpenRAC only" carries to the hub's list.
+  const openHub = () =>
+    void guardShown(api.openUrl(app.config?.checkedOnly ? `${T.hubUrl}?checked=1` : T.hubUrl));
 
   /** A click on the banner, not on one of its buttons (they do their own). */
   function onBanner(e: MouseEvent) {
     if (!(e.target instanceof Element && e.target.closest("button"))) openHub();
   }
 </script>
+
+<ModsIntro />
 
 <!-- The banner's click repeats its button's, which keyboards and pads use. -->
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->

@@ -134,6 +134,13 @@ pub struct Config {
     /// Removing a mod removes the dependencies the launcher installed for it that nothing else
     /// needs (default true); the player's own are asked about.
     pub cleanup_unused_deps: bool,
+    /// Authors of Not checked mods the player said they trust (lower-case GitHub logins): asked
+    /// once per author when such a mod runs code (index.rs `IndexMod::trust_key`).
+    pub trusted_authors: Vec<String>,
+    /// The Mods tab's "Before you install mods" window was read.
+    pub mods_intro_seen: bool,
+    /// Show only mods OpenRAC checked (OpenRAC, Verified, Trusted author).
+    pub checked_only: bool,
 }
 
 impl Default for Config {
@@ -176,6 +183,9 @@ impl Default for Config {
             pending_deep_link: None,
             auto_update_mods: true,
             cleanup_unused_deps: true,
+            trusted_authors: Vec::new(),
+            mods_intro_seen: false,
+            checked_only: false,
         }
     }
 }

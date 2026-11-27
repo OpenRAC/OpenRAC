@@ -50,6 +50,7 @@ import type { GameView } from "./generated/GameView";
 import type { Hold } from "./generated/Hold";
 import type { ImportedSaves } from "./generated/ImportedSaves";
 import type { ImportedTexturePack } from "./generated/ImportedTexturePack";
+import type { IndexDetails } from "./generated/IndexDetails";
 import type { IndexImage } from "./generated/IndexImage";
 import type { IndexMod } from "./generated/IndexMod";
 import type { IndexVersion } from "./generated/IndexVersion";
@@ -280,6 +281,7 @@ export type {
   ApplyProgress,
   ApplyResult,
   DeepLinkInstall,
+  IndexDetails,
   IndexImage,
   IndexMod,
   IndexVersion,
@@ -718,6 +720,8 @@ export const api = {
   /** Every mod index, checked (or its cached copy); with a game, its revoked mods are turned off. */
   indexFetch: (game: string | null = null, version: string | null = null) =>
     call<IndexView>("index_fetch", { game, version }),
+  /** A mod's readme and changelogs, from its details file (checked against the signed index). */
+  indexDetails: (id: string) => call<IndexDetails>("index_details", { id }),
   /** The change set for `wanted` on that disc, with `turnOff` counted as off. */
   indexResolve: (game: string, version: string, wanted: WantedMod[], turnOff: string[] = []) =>
     call<InstallPlan>("index_resolve", { game, version, wanted, turnOff }),

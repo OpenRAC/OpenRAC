@@ -2,6 +2,7 @@
 import type { IndexAsset } from "./IndexAsset";
 import type { IndexConflict } from "./IndexConflict";
 import type { IndexRequire } from "./IndexRequire";
+import type { IndexScan } from "./IndexScan";
 
 export type IndexVersion = { version: string, 
 /**
@@ -11,4 +12,12 @@ api: string | null, games: { [key in string]: Array<string> }, requires: Array<I
 /**
  * The release's git tag ("" for packs); for a script mod with no archive, the commit.
  */
-tag: string, released: string, prerelease: boolean, changelog: string, size: number, files: Array<string>, platforms: { [key in string]: IndexAsset }, };
+tag: string, released: string, prerelease: boolean, changelog: string, size: number, files: Array<string>, platforms: { [key in string]: IndexAsset }, 
+/**
+ * What the scan of a native version's files found it can reach (none: not scanned).
+ */
+scan?: IndexScan, 
+/**
+ * The newest native version only: "ci" when the mod's own CI built it from its tag, else "hand".
+ */
+built?: string, };

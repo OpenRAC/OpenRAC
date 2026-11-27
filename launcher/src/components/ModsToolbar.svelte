@@ -7,7 +7,7 @@
   // here, once, as the lists hide.
   import { app, saveConfig } from "$lib/app.svelte";
   import { type ModFilter, TOOLBAR_FROM } from "$lib/modsList";
-  import { VIEW, WITH_MODS } from "$lib/modsText";
+  import { CHECKED_ONLY, VIEW, WITH_MODS } from "$lib/modsText";
   import { modsView, searching, total, totalFound, totalOn } from "$lib/modsView.svelte";
 
   import Icon from "./Icon.svelte";
@@ -20,14 +20,19 @@
   ];
   /** The kinds the player has: one with none is left out (All always shows). */
   const shown = $derived(FILTERS.filter((f) => f.id === "all" || total(f.id) > 0));
+  const checkedOnly = $derived(app.config?.checkedOnly ?? false);
   /** Shown from that many rows, and while it hides any: removing mods during a search never
    *  leaves rows hidden with no way to show them. */
   const visible = $derived(
     total() >= TOOLBAR_FROM ||
       searching() ||
       modsView.filter !== "all" ||
-      modsView.sort !== "order",
+      modsView.sort !== "order" ||
+      checkedOnly,
   );
+  async function setCheckedOnly(on: boolean) {
+    if (app.config) await saveConfig({ ...app.config, checkedOnly: on });
+  }
   /** The Mods switch under Play is off (the default): Play starts the game without these. */
   const purist = $derived(!(app.config?.playWithMods ?? false));
 
@@ -90,6 +95,13 @@
         >
       {/each}
     </div>
+    <label class="checked">
+      <input
+        type="checkbox"
+        checked={checkedOnly}
+        onchange={(e) => void setCheckedOnly(e.currentTarget.checked)}
+      />{CHECKED_ONLY}
+    </label>
   </div>
   {#if searching() && totalFound() === 0}<p class="none" role="status">
       {VIEW.none(modsView.query.trim())}
@@ -115,6 +127,21 @@
   .notice > :global(svg) {
     flex: none;
     color: var(--amber);
+  }
+
+  .checked {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8125rem;
+    color: var(--body);
+    cursor: pointer;
+  }
+
+  .checked input {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--amber);
   }
 
   .none {
