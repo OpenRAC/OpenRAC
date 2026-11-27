@@ -884,6 +884,9 @@
       "func_L39_004CBE78": "int (int)",
       "func_L39_004F14C0": "int (int, int)",
       "func_L01_004369B8": "int (int, int, int, int)",
+      "func_L01_003D5658": "int (int, int, int, int)",
+      "func_L01_003D6F90": "int (int, int, int)",
+      "func_L01_004730C8": "float (int, int, int, int, float)",
       "func_L01_003F8448": "int (int, int, int, int, int)",
       "func_L01_0041E1B0": "void (int, int, int, int, int, int, unsigned int)",
       "func_L01_004752B8": "int (int)",
@@ -924,11 +927,6 @@
     "stack_arguments": true,
     "result_flow": true,
     "signature_allow": {
-      "func_L01_0047C838": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers; some copies' callees read more): variant_callees",
-      "func_L01_0047C858": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers; the catalogue now files the copies right, and some copies' callees read more): variant_callees",
-      "func_L01_0049EB78": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers; the catalogue now files the copies right, and some copies' callees read more): variant_callees",
-      "func_L03_00502C58": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers; the catalogue now files the copies right, and some copies' callees read more): variant_callees",
-      "func_L04_0051FB50": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers; the catalogue now files the copies right, and some copies' callees read more): variant_callees",
       "func_L01_0049AE90": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
       "func_001369D0": "a hidden entry inside a function on both discs, with no inventory row (no NTSC-U name): its translation from 0x001369D0 is the tail of the function around it and never sets $f0, while the multiplayer menu's callers (func_L39_0066C540, func_L39_0066C910) read the float the PAL C declares (f32 func_001369D0(f32)); the entry's real code is to be found",
       "func_L01_0048CB78": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
@@ -937,7 +935,8 @@
       "func_L01_00498098": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
       "func_L01_004991C8": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
       "func_L01_0049A2D0": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_004BD480": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees"
+      "func_L01_004BD480": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+      "func_L20_00400958": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers): its tail call func_L03_00502C58 (void (float, float, int)) gets $f12 and $f13 as func_L20_00400958's caller left them; rac3-decomp's C for its PAL twin func_L20_00402D48 takes one pointer"
     }
   },
   "result_allow": "checks/result_allow.tsv",
