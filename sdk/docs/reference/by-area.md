@@ -282,8 +282,8 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `sound_play` | 1.12 | stable | yes | yes | yes |
 | `sound_set` | 1.12 | stable | yes | yes | yes |
 | `sound_stop` | 1.12 | stable | yes | yes | yes |
-| `hero_sound_play` | 1.12 | stable | yes | part | part |
-| `hero_sound_stop` | 1.12 | stable | yes | no | no |
+| `hero_sound_play` | 1.12 | stable | yes | yes | part |
+| `hero_sound_stop` | 1.12 | stable | yes | yes | no |
 | `music_volume` | 1.35 | experimental | yes | part | part |
 | `moby_sound_play` | 1.35 | experimental | yes | part | part |
 | `moby_sound_stop` | 1.35 | experimental | yes | no | no |
