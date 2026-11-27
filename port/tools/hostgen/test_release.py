@@ -327,6 +327,11 @@ class Carried(unittest.TestCase):
         self.assertNotIn("func_00132028", text)
         self.assertNotIn("func_001326D8", text)
 
+    def test_ps2_float_names_are_spelled_as_hostgen_matches_them(self):
+        self.assertEqual(release_carry.ps2_float_name("game_FUN_002A0F68"), "func_002A0F68")
+        self.assertEqual(release_carry.ps2_float_name("FUN_002A0F68"), "func_002A0F68")
+        self.assertEqual(release_carry.ps2_float_name("func_00283798"), "func_00283798")
+
     def test_the_hook_run(self):
         table = release.Release({"names": {"func_0026F720": "func_0026F588", "func_0026F728": "func_0026F590"}})
 
@@ -367,6 +372,13 @@ class Committed(unittest.TestCase):
                 self.assertEqual(missing, [], "addresses the shared C uses and the table lacks")
                 missing = sorted(k for k in wanted_k if f"#define RAC2_K_{k} " not in header)
                 self.assertEqual(missing, [], "constants the shared C uses and the table lacks")
+
+    def test_ps2_float_lists_name_functions_hostgen_can_match(self):
+        for game in ("rac2-pal", "rac2-ntsc2"):
+            cfg = json.loads((REPO / "port/game" / game / "hostgen.json").read_text())
+            with self.subTest(game=game):
+                bad = [n for n in cfg.get("ps2_float", []) if release_carry.ps2_float_name(n) != n]
+                self.assertEqual(bad, [])
 
     def test_rac1_release_hand_c_uses_its_own_data(self):
         # A release's own hand C names its data by the release's addresses. PAL v1's packet builder
