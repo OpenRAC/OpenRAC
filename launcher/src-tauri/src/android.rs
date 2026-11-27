@@ -216,6 +216,55 @@ pub async fn pick_zip<R: Runtime>(app: AppHandle<R>) -> Result<Option<PathBuf>, 
     }
 }
 
+/// A PCSX2 memory card file picked with the system's picker (Saves, Import): copied into the app's
+/// cache (`card-imports/`), where the import reads it as from any path. Android hands over one file,
+/// so a folder card cannot be picked here. The copy's path, or None when the player cancelled.
+#[tauri::command]
+pub async fn pick_memory_card<R: Runtime>(app: AppHandle<R>) -> Result<Option<PathBuf>, String> {
+    #[cfg(target_os = "android")]
+    {
+        #[derive(Deserialize)]
+        struct Picked {
+            fd: Option<i32>,
+            name: Option<String>,
+            size: Option<i64>,
+        }
+        // The largest card PCSX2 makes is 64 MB: a larger file is not a card.
+        const MOST: u64 = 64 << 20;
+        let picked: Picked = kotlin(&app, "pickDisc", ()).await?;
+        let (Some(fd), Some(name)) = (picked.fd, picked.name) else { return Ok(None) };
+        // The descriptor Kotlin detached is this process's to close: File owns it from here.
+        let file = unsafe { <std::fs::File as std::os::fd::FromRawFd>::from_raw_fd(fd) };
+        let total = picked.size.unwrap_or(-1).max(0) as u64;
+        if total > MOST {
+            return Err(format!("{name} is not a PS2 memory card: it is larger than 64 MB"));
+        }
+        let base = name.rsplit(['/', '\\']).next().unwrap_or("").trim();
+        let base = if base.is_empty() || base == "." || base == ".." { "card.ps2" } else { base };
+        let dir = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("card-imports");
+        let dest = dir.join(base);
+        let copied = dest.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            // The import reads the card at once, so the last pick's copy is no longer needed.
+            match std::fs::remove_dir_all(&dir) {
+                Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.to_string()),
+                _ => {}
+            }
+            std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+            copy_disc(file, total, &copied, |_| {}).map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| format!("cannot copy the chosen file into the app's storage: {e}"))?;
+        Ok(Some(dest))
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = app;
+        Err(ANDROID_ONLY.into())
+    }
+}
+
 /// A small file the player picks (a mod page's preset): its bytes, None when they backed out.
 /// Refused past `most` bytes, before more than that is read; an empty file is refused too.
 #[cfg_attr(not(target_os = "android"), allow(dead_code))]

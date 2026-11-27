@@ -933,9 +933,11 @@ export async function pickFile(title: string): Promise<string | null> {
 }
 
 /** A picker for a PCSX2 memory card: a card file (.ps2), or a folder card's _pcsx2_superblock,
- *  opening in `dir`; null when cancelled (or in the browser preview). */
+ *  opening in `dir`; null when cancelled (in the browser preview, a made-up one). On Android the
+ *  system's picker hands over one file, copied into the app's cache first (pick_memory_card). */
 export async function pickMemoryCard(title: string, dir: string | null): Promise<string | null> {
-  if (!inTauri) return null;
+  if (!inTauri) return "/home/you/.config/PCSX2/memcards/Mcd001.ps2";
+  if (onAndroid) return call<string | null>("pick_memory_card");
   const picked = await open({
     directory: false,
     multiple: false,

@@ -196,6 +196,20 @@ class FilesProvider : DocumentsProvider() {
   override fun isChildDocument(parentId: String, documentId: String): Boolean =
     parentId == ROOT || documentId.startsWith("$parentId/")
 
+  /** The folders from the root (or `parentId`) down to a document. The Files app asks for it to
+   *  open at a folder inside (an "Open folder" button); without it, it opens at its own start. */
+  override fun findDocumentPath(parentId: String?, childId: String): DocumentsContract.Path {
+    val ids = mutableListOf(ROOT)
+    if (childId != ROOT) {
+      file(childId) // a document that is not there is refused here
+      val parts = childId.split('/')
+      for (i in parts.indices) ids += parts.subList(0, i + 1).joinToString("/")
+    }
+    val from = parentId?.let(ids::indexOf) ?: 0
+    if (from < 0) throw FileNotFoundException("$childId is not inside $parentId")
+    return DocumentsContract.Path(if (parentId == null) ROOT else null, ids.drop(from))
+  }
+
   /** The place a document is in: null for the root itself. */
   private fun place(documentId: String): Place? {
     if (documentId == ROOT) return null

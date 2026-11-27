@@ -3,17 +3,8 @@
 // desktop; on Android they sit beside the disc on the Games tab (DiscShelf.svelte) instead.
 import type { MenuItem } from "$components/Menu.svelte";
 
-import { api, ask, type GameView, onAndroid, pickMemoryCard, type VersionView } from "./api";
-import {
-  app,
-  gameWindow,
-  guard,
-  openVersion,
-  run,
-  saveConfig,
-  toast,
-  uninstallGame,
-} from "./app.svelte";
+import { api, ask, type GameView, onAndroid, type VersionView } from "./api";
+import { app, gameWindow, guard, openVersion, run, saveConfig, uninstallGame } from "./app.svelte";
 import { isBuilt, type PlayerState, rebuild, rebuildSteps } from "./player.svelte";
 
 /** Asked of the game's page as it opens: unfold Help with its logs (the menu's way from Games). */
@@ -26,31 +17,6 @@ async function removeSetUp(v: VersionView) {
   );
 
   if (sure) await uninstallGame(v.game);
-}
-
-/** The game's saves from a PCSX2 memory card onto OpenRAC's card, after a backup of it. */
-async function importPcsx2(serial: string) {
-  const dir = await api.pcsx2MemcardsDir().catch(() => null);
-  const source = await pickMemoryCard("Choose a PCSX2 memory card", dir);
-
-  if (!source) return;
-  const yes = await ask(
-    "Copy this game's saves from the PCSX2 memory card? The saves on OpenRAC's card are backed up first, then replaced.",
-    "Import saves",
-  );
-
-  if (!yes) return;
-
-  try {
-    const done = await api.importPcsx2Saves(serial, source);
-
-    app.savesChanged++; // the saves list reads the card again
-    const kept = done.backup ? " The saves that were there are in Backups." : "";
-
-    toast(`Imported the saves from PCSX2.${kept}`, "info");
-  } catch (e) {
-    toast(`Import failed: ${String(e)}`, "error");
-  }
 }
 
 /** The game's "..." menu. `showLogs` unfolds its logs; left out, the game's page opens on them. */
@@ -93,19 +59,9 @@ export function gameMenu(
   }
 
   if (setUp) items.push({ label: "Logs and crash reports", icon: "book", run: showLogs });
+
   // Android: the game's files are in the Files app (Settings, Your files), and the activity log
   // is the rail's running job.
-  // Not on Android: its file picker hands over no path to read the card from.
-  const serial = v.serial;
-
-  if (setUp && serial && !onAndroid) {
-    items.push({
-      label: "Import saves from PCSX2",
-      icon: "save",
-      run: () => void importPcsx2(serial),
-    });
-  }
-
   if (!onAndroid) {
     items.push({
       label: "Open the game's folder",
