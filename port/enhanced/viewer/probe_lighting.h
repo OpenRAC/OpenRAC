@@ -171,6 +171,7 @@ private:
     int m_depth_mode = 0;  // Legacy moments, decoded ASTC, native ASTC, or packed RG8 scalars.
     unsigned m_atlas_tiles_x = kMinimumAtlasTilesX;  // Runtime width in probe tiles.
     lighting::ProbeGrid m_grid;
+    int m_early_ambient_probe = 0;  // Representative base probe index plus one, or zero.
     lighting::Float3 m_sunlight_scale{1, 1, 1};
     // Loaded only after scene and bake settings verification; cleared on release.
     std::optional<lighting::Float3> m_sunlight_direction;

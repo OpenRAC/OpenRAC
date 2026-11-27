@@ -228,11 +228,6 @@ void EarlyLighting::bind(
     bind_cloud_noise(shader, input.cloud_shadows.effective_strength() > 0.f);
     const bool active = matches(input, state);
     glUniform1i(shader.uniform("early_lighting_enabled"), active ? 1 : 0);
-    // Below effects detail High, early-lit leaves reuse their front shadow on the back.
-    glUniform1i(
-        shader.uniform("foliage_back_shadow"),
-        renderer::render_opt::effects_detail() == renderer::render_opt::EffectsDetail::High ? 1 : 0
-    );
     if (!active) {
         return;
     }

@@ -380,6 +380,21 @@ bool ProbeLighting::upload_regions(
             throw std::runtime_error("probe texture upload failed");
         }
         m_grid = volume.grid;
+        // Use a valid probe near the middle of the baked grid to seed missing cache cells.
+        const auto middle = volume.probes.begin() + volume.probes.size() / 2;
+        const auto valid = [](const Probe& probe) {
+            return probe.valid;
+        };
+        auto ambient = std::find_if(middle, volume.probes.end(), valid);
+        if (ambient == volume.probes.end()) {
+            ambient = std::find_if(volume.probes.begin(), middle, valid);
+            if (ambient == middle) {
+                ambient = volume.probes.end();
+            }
+        }
+        if (ambient != volume.probes.end()) {
+            m_early_ambient_probe = static_cast<int>(ambient - volume.probes.begin()) + 1;
+        }
         m_sparse_capacity = volume.atlas_capacity();
         log::info(
             "probe textures: {} irradiance, {} depth, RGBA16F metadata; {}x{}, {} "
@@ -1011,6 +1026,9 @@ void ProbeLighting::bind(
     glUniform1i(shader.uniform("probe_depth_mode"), std::max(0, m_depth_mode - 1));
     glUniform1i(shader.uniform("probe_spread"), kProbeUnits[3]);
     glUniform1i(shader.uniform("probe_depth_ranges"), kProbeUnits[4]);
+    glUniform1i(
+        shader.uniform("early_ambient_probe"), active() && receiver ? m_early_ambient_probe : 0
+    );
     if (!active() || !receiver) {
         return;
     }
@@ -1246,6 +1264,7 @@ void ProbeLighting::release() {
         glDeleteTextures(static_cast<GLsizei>(m_textures.size()), m_textures.data());
     }
     m_textures = {};
+    m_early_ambient_probe = 0;
     m_depth_mode = 0;
     m_sparse_capacity = 0;
     m_atlas_tiles_x = kMinimumAtlasTilesX;

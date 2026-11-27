@@ -448,7 +448,7 @@ float thin_glass_coverage();
 uniform int gameplay_rim_enabled;
 vec3 gameplay_rim(vec3 indirect, vec3 normal_view, vec3 toward_camera);
 bool early_surface(
-    vec3 eye_position, vec3 normal_view, out vec4 result, out bool covered,
+    vec3 eye_position, vec3 normal_view, out vec4 result,
     out float hero_visibility, out float cloudy_sun
 );
 #endif
@@ -618,22 +618,11 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     bool cached_surface = false;
     float cloudy_sun = 1.0;
 #ifdef OPENRAC_EARLY_LIGHTING
-    bool cached_coverage;
     vec4 cached_lighting;
     float hero_visibility;
     cached_surface = early_surface(
-        eye_position, mat3(view) * n, cached_lighting, cached_coverage, hero_visibility, cloudy_sun
+        eye_position, mat3(view) * n, cached_lighting, hero_visibility, cloudy_sun
     );
-#ifdef OPENRAC_HERO_FUR
-    // Coat slices lie above the body prepass and require lighting at their displaced position.
-    if (hero_fur_shell_enabled != 0 && hero_fur_shell > 0.) {
-        cached_surface = false;
-    }
-#endif
-    if (!cached_surface) {
-        cached_lighting.a = sun_shadow_visibility(v_world_position, n, n);
-        hero_visibility = hero_shadow_visibility(v_world_position, n);
-    }
     if (!hero_shadow_applies(n)) {
         hero_visibility = 1.0;
     }
@@ -644,11 +633,13 @@ vec3 probe_surface(vec4 texel, vec3 original) {
 #endif
 #ifdef OPENRAC_CLOUD_SHADOWS
     if (cloud_shadow_shape.w > 0.0 && effect_pass == 0) {
-        if (!cached_surface) {
-            cloud_sun_attenuation = cloud_shadow_visibility(v_world_position, sun_visibility);
-        } else if (sun_visibility > 1.0 / 255.0) {
+#ifdef OPENRAC_EARLY_LIGHTING
+        if (sun_visibility > 1.0 / 255.0) {
             cloud_sun_attenuation = clamp(cloudy_sun / sun_visibility, 0.0, 1.0);
         }
+#else
+        cloud_sun_attenuation = cloud_shadow_visibility(v_world_position, sun_visibility);
+#endif
     }
 #endif
     // Either projection casts a normal shadow in sunlight, including beyond cascade coverage.
@@ -687,17 +678,13 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     vec3 indirect = vec3(0.);
     bool covered = false;
     if (!original_lighting) {
-        // Match the prepass receiver normal when the early lighting cache cannot be used.
 #ifdef OPENRAC_EARLY_LIGHTING
-        if (cached_surface) {
-            indirect = cached_lighting.rgb;
-            covered = cached_coverage;
-        } else
+        indirect = cached_lighting.rgb;
+        covered = cached_surface;
+#else
+        vec3 bias = probe_surface_bias(n, toward_camera);
+        covered = sample_probe_irradiance(v_world_position, n, bias, indirect);
 #endif
-        {
-            vec3 bias = probe_surface_bias(n, toward_camera);
-            covered = sample_probe_irradiance(v_world_position, n, bias, indirect);
-        }
     }
     // The indirect debug view shows black without coverage. Direct lighting needs no GI.
     if (!covered && probe_mode == 2) {
@@ -899,11 +886,9 @@ void main() {
                 vec3 geometric = cross(dFdx(eye_position), dFdy(eye_position));
                 vec3 normal_view = orient_shading_normal(mat3(view) * v_normal, geometric, -eye_position);
                 vec4 cached;
-                bool covered;
                 float hero_visibility;
                 float cloudy_sun;
-                if (early_surface(eye_position, normal_view, cached, covered, hero_visibility, cloudy_sun)
-                    && covered) {
+                if (early_surface(eye_position, normal_view, cached, hero_visibility, cloudy_sun)) {
                     vec3 rim = gameplay_rim(cached.rgb * probe_gi_multiplier, normal_view, -eye_position);
                     rgb = probe_display(probe_linear(rgb) + rim);
                 }
