@@ -229,6 +229,31 @@ void test_a_choice_steps_around() {
     );
 }
 
+// The binding sets a choice's value (held to its choices) and a keyed text's words.
+void test_the_binding_sets_values_and_texts() {
+    RecordingSkin skin;
+    Model model;
+    ScreenSpec spec;
+    spec.id = "player";
+    Item status;
+    status.kind = ItemKind::TEXT;
+    status.key = "status";
+    status.label = "-";
+    Item choice;
+    choice.kind = ItemKind::CHOICE;
+    choice.key = "team";
+    choice.choices = {"1", "2", "3"};
+    spec.items = {status, choice};
+    ScreenView view(spec, Rect{0.0f, 0.0f, 400.0f, 100.0f}, Mode::MODAL);
+    CHECK(view.set_value("team", 2) && view.value(1) == 2);
+    CHECK(view.set_value("team", 9) && view.value(1) == 2);
+    CHECK(!view.set_value("skin", 1));
+    CHECK(view.handle(Event::RIGHT, model, skin).value == 0);
+    CHECK(view.set_text("status", "READY 3/9") && !view.set_text("team", "x"));
+    view.draw(skin, model);
+    CHECK(!skin.texts.empty() && skin.texts[0] == "READY 3/9");
+}
+
 // Drawing a long list shows its page, the cursor's bar, the page count and the marks below.
 void test_drawing_a_long_list() {
     RecordingSkin skin;
@@ -356,6 +381,7 @@ int main() {
     test_a_disabled_row_refuses_cross();
     test_an_overlay_passes_unused_events_on();
     test_a_choice_steps_around();
+    test_the_binding_sets_values_and_texts();
     test_drawing_a_long_list();
     test_long_cells_are_cut_to_their_column();
     test_a_notice_wraps_and_goes_back();

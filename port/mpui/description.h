@@ -60,7 +60,8 @@ struct Item {
     ItemKind kind = ItemKind::TEXT;    // What it is.
     std::string label;                 // Its text, or the choice's name.
     Action action;                     // Button: its action; Table: what Cross on a row does.
-    std::string key;                   // Choice: the option it sets; Table: the model table.
+    std::string key;                   // Choice: the option it sets; Table: the model table;
+                                       // Text: optional, the binding's name for it.
     std::vector<std::string> choices;  // Choice: the values, in order.
     int value = 0;                     // Choice: the value shown first.
 };

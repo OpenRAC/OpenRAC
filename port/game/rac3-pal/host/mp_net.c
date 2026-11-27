@@ -66,6 +66,7 @@ typedef int net_socket;
 
 #include "mp/game_protos.h"
 #include "mp_protocol.h"
+#include "mp_room.h"
 #include "mp_wide.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
@@ -2728,6 +2729,7 @@ static void on_info(reader* r) {
         room_add(id, name);
     }
     memset(dme.reported, 0, sizeof dme.reported);
+    rac3_room_members_changed();
     fprintf(
         stderr,
         "[info] rac3: online: in party %s (%d members, host %d)\n",
@@ -2788,6 +2790,7 @@ static void on_party(reader* r) {
             const int32_t id = rd_i32(r);
             rd_text(r, name, sizeof name);
             room_add(id, name);
+            rac3_room_members_changed();
             fprintf(stderr, "[info] rac3: online: %s joined the party\n", name);
             obj_send_all_to(id);
             dme_conn_refresh();
@@ -2800,6 +2803,7 @@ static void on_party(reader* r) {
             if (m != NULL) {
                 *m = room.m[--room.count];
             }
+            rac3_room_members_changed();
             dme_report_members();
             break;
         }
@@ -2813,6 +2817,7 @@ static void on_party(reader* r) {
             break;
         case PARTY_HOST_CHANGED:
             room.host = rd_i32(r);
+            rac3_room_members_changed();
             dme_conn_refresh();
             if (dme.joined) {
                 const member* h = room_member(room.host);
@@ -2830,6 +2835,7 @@ static void on_party(reader* r) {
                     m->index = slot;
                 }
             }
+            rac3_room_members_changed();
             dme_conn_refresh();
             dme_report_members();
             break;
@@ -3009,6 +3015,10 @@ static void on_frame(int id, reader* r) {
             const int kind = rd_u8(r);
             if (kind == RELAY_OBJECT || kind == RELAY_OBJECT_RELEASE || kind == RELAY_OBJECT_WIDE) {
                 obj_receive(kind, from, r);
+                break;
+            }
+            if (kind == RELAY_ROOM_STATE || kind == RELAY_ROOM_REQUEST) {
+                rac3_room_receive(kind, from, r->p, (int)r->n);
                 break;
             }
             if (kind == RELAY_MATCH_END_WIDE) {
@@ -3664,48 +3674,67 @@ static int dme_send_one(int dest, int cls, int id, int len, int data) {
     return dme_relay(dest, buf, len + 2);
 }
 
-/* READY (Circle) of a player whose slot is past the game's eight: the staging screen's own widgets
- * stop at eight rows, so such a player has no row for the cursor and the game never sends the slot
- * update. The port sends it, as the game does (L39_006D4ED8): channel 17, state 6 (ready) or 0, the
- * slot's team, skin, name and clan. Returns 1 when the press was this console's to take. */
-int rac3_mp_net_toggle_ready(void) {
-    const gaddr gs = GREF(gaddr, RAC3_MADDR(0x00241640u));
-    const int me = room_index_of(srv.session);
-    const member* host = room_member(room.host);
-    /* OPENRAC_RAC3_PORT_READY=1 takes every slot's READY this way: a client too slow to draw runs
-     * several game ticks in the window frame of one press, and the game's own READY (which reads
-     * the pressed button each tick) sends ready, then unready, again and again. */
-    const int all = openrac_env_string("OPENRAC_RAC3_PORT_READY") != NULL;
-    if (gs == 0 || me < 0 || host == NULL || rac3_mp_wide_slots() <= 8) {
+/* ---- The room's view of the party (host/mp_room.c) ---- */
+
+int32_t rac3_mp_net_session(void) {
+    return srv.fd != NET_INVALID ? srv.session : 0;
+}
+
+int32_t rac3_mp_net_host(void) {
+    return room.in ? room.host : 0;
+}
+
+/* A member's DME client index (its stable slot), -1 when it is not in the party. */
+int rac3_mp_net_client_of(int32_t session) {
+    return room.in ? room_index_of(session) : -1;
+}
+
+/* The party's `n`-th member: its session, client index and name; 0 past the last. */
+int rac3_mp_net_member(int n, int32_t* session, int* client, char* name, int size) {
+    if (!room.in || n < 0 || n >= room.count) {
         return 0;
     }
-    for (int slot = all ? 0 : 8; slot < rac3_mp_wide_slots(); slot++) {
-        const gaddr client = rac3_mp_wide_settings(0x0E0u, slot);
-        if (client == 0 || GREF(int16_t, client) != me) {
-            continue;
-        }
-        const gaddr state = rac3_mp_wide_settings(0x0F0u, slot);
-        const int next = GREF(int16_t, state) >= 6 ? 0 : 6;
-        fprintf(stderr, "[info] rac3: online: READY of slot %d: state %d\n", slot, next);
-        if (room.host == srv.session) {
-            GREF(int16_t, state) =
-                (int16_t)next; /* the host's own slot: published with the object */
-            return 1;
-        }
-        static gaddr buf;
-        if (buf == 0) {
-            buf = openrac_guest_static(0x40);
-        }
-        memset(G(buf), 0, 0x40);
-        GREF(uint8_t, buf + 4) = (uint8_t)GREF(int16_t, rac3_mp_wide_settings(0x0D0u, slot));
-        GREF(uint8_t, buf + 5) = (uint8_t)GREF(int16_t, rac3_mp_wide_settings(0x0C0u, slot));
-        GREF(uint8_t, buf + 6) = (uint8_t)next;
-        memcpy(G(buf + 7), G(rac3_mp_wide_settings(0x000u, slot)), 16);
-        memcpy(G(buf + 0x17), G(rac3_mp_wide_settings(0x080u, slot)), 4);
-        dme_send_one(room_index_of(room.host), 2, CHANNEL_SLOT_UPDATE, 0x20, (int)buf);
-        return 1;
+    *session = room.m[n].id;
+    *client = room.m[n].index;
+    snprintf(name, (size_t)size, "%s", room.m[n].name);
+    return 1;
+}
+
+/* A room message of `kind` (RELAY_ROOM_*) to one session, or to every other member (0). */
+void rac3_mp_net_room_send(int32_t target, int kind, const uint8_t* bytes, int length) {
+    if (srv.fd == NET_INVALID || !room.in || length < 0 || !srv_room((size_t)length + 16)) {
+        return;
     }
-    return 0;
+    srv_begin(PACKET_RELAY, -1);
+    srv_i32(target);
+    srv_u8(kind);
+    srv_bytes(bytes, (size_t)length);
+    srv_end();
+}
+
+/* The game's slot update (channel 17) to the host, as L39_006D4ED8 builds it: the sender's local
+ * slot, team, skin, state, name and clan; for the states the room does not hold (a leave). */
+void rac3_mp_net_slot_update(int local, int team, int skin, int state, gaddr name, gaddr clan) {
+    static gaddr buf;
+    const member* host = room_member(room.host);
+    if (host == NULL) {
+        return;
+    }
+    if (buf == 0) {
+        buf = openrac_guest_static(0x40);
+    }
+    memset(G(buf), 0, 0x40);
+    GREF(int32_t, buf) = local;
+    GREF(uint8_t, buf + 4) = (uint8_t)team;
+    GREF(uint8_t, buf + 5) = (uint8_t)skin;
+    GREF(uint8_t, buf + 6) = (uint8_t)state;
+    if (name != 0) {
+        memcpy(G(buf + 7), G(name), 15);
+    }
+    if (clan != 0) {
+        memcpy(G(buf + 0x17), G(clan), 4);
+    }
+    dme_send_one(host->index, 2, CHANNEL_SLOT_UPDATE, 0x20, (int)buf);
 }
 
 int mp_func_0014AAB0(int conn, int a, int b) {
@@ -3803,6 +3832,10 @@ int mp_func_0014B118(void) {
     }
     net_pump();
     dme_deliver();
+    /* The room's writes into the settings go out with this update's changes. */
+    if (dme.joined) {
+        rac3_room_frame();
+    }
     obj_send_changes();
     return 0;
 }
