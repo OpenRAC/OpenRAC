@@ -65,6 +65,13 @@ the C, which rac1/pal's matching rules forbid; such a result is a hint to rewrit
 The projects are found the usual way (`games.source_checkout`): `$OPENRAC_SOURCE_<GAME>_<VERSION>`,
 else the version's submodule under `games/`. Set the variable only for a checkout kept elsewhere.
 
+`--max-candidates N` limits a run's candidates, **including the base compiled by the upstream
+constructor**. A bounded run needs `-j1`, so extra workers cannot multiply the allowance. A profile
+can set a default `max_candidates` and a hard `candidate_ceiling`; an override above that ceiling
+is rejected before preparing the backend. Existing profiles remain unbounded unless they opt in.
+`result.json` reports `candidates_including_base`; a cached score can avoid recompiling a generated
+candidate. `--keep-work`, or a profile's `keep_work`, retains compiler scratch evidence.
+
 ### Per game
 
 | Profile | Checkout | Compiles with | Checker (EXACT) | Runs on |
@@ -75,12 +82,49 @@ else the version's submodule under `games/`. Set the variable only for a checkou
 | `rac3/us` | rac3-decomp | the same with `--version us`, scored against the NTSC-U twin (`config/us/map.tsv`) | `MATCH` | natively |
 | `rac4/ntsc` | rac4-decomp | `tools/cc.sh` on a copy of the file with the candidate in place (its `/* cflags: */` comment, through `tools/layout.py`) | `tools/check_func.py --version us` (`MATCH`) | natively: a `wine` shim runs wibo; needs `asm/us/` (`tools/asm_programs.py --version us main ...`) |
 | `rac4/pal` | rac4-decomp | the same | `check_func.py --version pal`, by US name mapped through `config/pal/map.tsv` | natively |
+| `rac5/ntsc` | rac5-sm-decomp | its public `tools/rac5_permuter_backend.py`, canonical per-source flags and pinned tools | all recorded SNR2 placements, module hashes and named imports | Linux or WSL, with a native Linux scratch directory |
 
 A profile is data (`profile.py` lists the keys): globs for the C and the assembly, the host
 preprocessor for base.c, the compile steps and the checker as argument lists with placeholders,
 the checker's EXACT as a regex, and what a machine needs (environment defaults, shims, a container
 to start). A new game version is a new JSON file, verified the same way: `base` on a matched
 function must print `base score 0` and `EXACT`.
+
+### Size Matters level C
+
+Use a RAC5 checkout containing `tools/rac5_permuter_backend.py`; an older pinned submodule may
+predate this hook. Set `OPENRAC_SOURCE_RAC5_NTSC` to that checkout and `RAC5_BACKEND` to the script.
+Its runtime settings are documented in RAC5's `docs/contributing/permuter.md`, with the private
+configuration based on `config/permuter-runtime.example.json`. No runtime configuration or game
+data belongs in OpenRAC. Follow [RAC5's contribution rules](https://github.com/OpenRAC/rac5-sm-decomp/blob/master/CONTRIBUTING.md).
+
+Also set `RAC5_MATCH_RUNTIME` to the private configuration, `RAC5_SOURCE_GLOB` to the precise source
+path/glob relative to RAC5, and `RAC5_RETAIL_DIR` to the private retail cache expressed relative to
+that checkout. Prepare only the function being worked on:
+
+```sh
+python3 "$RAC5_BACKEND" --repo "$OPENRAC_SOURCE_RAC5_NTSC" --runtime "$RAC5_MATCH_RUNTIME" \
+  prepare --function FUNCTION --source-key /path/to/source.c
+python3 tools/permuter base rac5/ntsc FUNCTION --no-asm-passes
+python3 tools/permuter run rac5/ntsc FUNCTION -j1 --max-candidates 3 --seconds 60 \
+  --no-asm-passes --out /path/to/private/result
+```
+
+This profile has a hard ceiling of three candidates, base included, and retains work files by
+default. It never rewrites the RAC5 source tree. Only the upstream `perm_reverse_cond` AST pass
+is enabled initially; the other randomizer weights are zero. The profile sets `asm_passes=false`,
+so it cannot enable the optional empty-asm passes even if the checkout has that patch. The command
+also spells out `--no-asm-passes`.
+
+The scope is level C supported by the parser and measured tool route: not C++, the boot or a
+whole-game qualification. Transforms still need semantic, ABI and boundary review, particularly
+for FPU/NaN conditions, aliases and side effects. A placement check or a `matched` status does not
+promote C or replace RAC5's full-program gates. A zero score with a wrong zero-valued SNR2 import
+is rejected by the backend. Nonzero scores from different diff algorithms need not agree.
+
+Its cached checker may rerun preprocessing and the source policy to detect changed headers or
+macros. That validation does not run CC1, the assembler or linker again and does not create a new
+source candidate; the candidate ceiling still includes each constructor/source variation.
 
 ## Accepting a result
 
@@ -125,7 +169,8 @@ on box1's 32 threads, 9 of `-j6` on box2's 64, paused when a build needs the mac
 ## Not covered yet
 
 - rac3's levels (`level_NN` targets) and `@ee29` ranges; rac2 files built with the SDK compiler or
-  `-Wa,` options; rac1's NTSC-U tree and rac5. Each needs its profile (or a key in it) and a check.
+  `-Wa,` options; rac1's NTSC-U tree; rac5's boot and C++ sources. Each needs its profile (or a key
+  in it) and a check.
 - rac3-decomp's exhaustive fence search (`tools/fence_search.py`) and localdecomp's Permuter panel
   stay in rac3-decomp; the engine keeps the panel's state format (`Job.snapshot`).
 - On Windows the engine needs a profile without shell steps or shims; none is written yet.

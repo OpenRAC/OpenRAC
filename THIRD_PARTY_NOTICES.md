@@ -67,6 +67,10 @@ MIT license; they are rac3-decomp's `tools/decomp-permuter-asm-passes.patch` and
 `tools/permuter/score.py` are adapted from rac3-decomp's `tools/permuter_engine.py` and
 `tools/permuter_scorer.py` (GPL-3.0, like `games/rac3/decomp`).
 
+The `rac5/ntsc` profile calls the external [rac5-sm-decomp](https://github.com/OpenRAC/rac5-sm-decomp)
+backend (`tools/rac5_permuter_backend.py`, GPL-3.0) for its measured compiler route and placement
+checks. That backend and the proprietary build tools are not copied into OpenRAC.
+
 ## ReRAC
 
 [ReRAC](https://github.com/re-rac/rerac), a native PC port of the US build,

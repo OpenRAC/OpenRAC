@@ -30,6 +30,11 @@ A profile is data. Its keys:
               in the checkout, "from": column, "to": column, "where": {column: value}}, or {"sub": [regex,
               replacement]} for a rule on the name itself
   notes       free text: what the profile stands on, for the README
+  max_candidates  total generated candidates including the constructor's base (0: unlimited);
+              a finite total currently requires one worker
+  keep_work   retain compiler scratch evidence (default false)
+  candidate_ceiling  maximum permitted override of max_candidates (0: no ceiling)
+  asm_passes  whether this profile permits the optional empty-asm passes (default true)
 
 Placeholders in commands: {func}, {snippet} (the candidate as the checker takes it: the draft's
 declarations, then the function), {decls}, {out}, {tmp} (a directory of the worker's own),
@@ -76,6 +81,10 @@ class Profile:
     prelude: str = ""
     rename: dict | None = None
     notes: str = ""
+    max_candidates: int = 0
+    keep_work: bool = False
+    candidate_ceiling: int = 0
+    asm_passes: bool = True
     root: Path | None = None
 
     @property
