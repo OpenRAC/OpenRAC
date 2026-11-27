@@ -259,6 +259,16 @@ levels 1–36 and 39–53 all build byte for byte.
 
 Closed as already in develop: #931 (through #932, #934 and #943), #952 (through #963), #959 (through #967).
 
+### 2.9 Merged on 2026-11-27
+
+| PR | What it does | What to look for |
+|---|---|---|
+| #982 | rac3 rooms past 8 players, up to 24: the map's start barrier, per-frame loops and results for every slot | A 24-player room plays a match to the scoreboard |
+| #988 | A native rac3 room owns the online lobby for up to 24 players: membership from the Server's party packets, the host's room state (names, clans, teams, skins, READY) sent to every client, START only when every joiner is ready, smaller-team placement in team modes, results captured for the scoreboard; staging rows, status line and scoreboard drawn by the native UI | Rooms of 2, 9, 16 and 24 played a 5-minute Siege match on map 40 to Game Over with no crash; kills and deaths on the scoreboard (the mode columns are blank, section 4) |
+| (pin) | rac3-decomp moved to the end of the 2026-11-26/27 matching run (2.6) | Nothing visible |
+
+rac3-decomp's matching run (2026-11-26/27): Opus agents, largest functions first, landed in batches of 10–15 on master; then one full build (frontbin, boot_elf, i5bootn and all 49 levels byte for byte), the NTSC-U carry and the reports. PAL is at **16,305 of 16,590 functions** (98.28%), 93.46% of the code; NTSC-U at **15,707 of 16,582** (81.52% of the code); every PAL and NTSC-U program builds byte for byte and CI is green (rac3-decomp 5c6b7700). Ten functions that passed their per-function check but broke the full build were put back to `INCLUDE_ASM` with their C kept in `nonmatching/` and the reason in its README row: func_L01_00454728, func_L01_00455550, func_L01_002F78B0, func_L01_004AB048, func_L39_00548648 and func_L39_0058ACE0 (these two need split_places rows for levels 40–52), func_L39_005001E8, func_L39_004BA208, func_L39_004D7770 and boot_elf func_00125BE8. Codegen-only constructs (`do { } while (0)`, comma conditions, one-pass loops, small inline predicates) and reads of locals retail leaves unset are accepted only where rac2's matched C does the same, cited in a comment.
+
 ## 3. What to test
 
 Before you start: **open the launcher and press "Get the levels ready"** for each game. Levels
@@ -302,7 +312,7 @@ Report bugs with the launcher's crash file or a screenshot.
 
 | Area | What is unfinished | Where to start |
 |---|---|---|
-| rac3 rooms past 8 | A 16-player room reaches staging with every name (#967). Since the static sweep (note section 8): port-side START (Start button, Up from the first row), scroll bar and joined/MAX, 125 more wide.json sites (reservation walk, own-slot searches, name/clan formatting). Open: a 9-player match crashes at the map's first ticks in `func_L40_0053D0A0` (also on the pre-branch build; note section 8), so no match past 8 has reached the scoreboard; the "stale rows" were seen in the game's own 8-row list (8-player rooms too), not in the native one |
+| rac3 rooms past 8 | Done to 24 players (#982, #988): rooms of 2, 9, 16 and 24 play to Game Over. Open: the scoreboard's mode columns (NODES, BASE DMG in Siege) are blank; a host leaving still ends the room (the game's staging leaves on a host change); more effect, moby and draw limits for dense rooms, as was done for NG++ | [rac3-mp-wide-rooms.md](handoff/notes/rac3-mp-wide-rooms.md) section 9 |
 | rac3 Solana lap | Confirmed in rendered runs (2026-11-26): the first flight plays scenes 1, 0, 3 and then the approach (4); scene 3 is the Solana galaxy fly-in, second to last as in retail footage. The order is not random in practice: the game's generator (`func_0013D3E0`) starts at seed 1 and draws the same number of values before the pick whatever the time spent on the menus (six delays tried), so it is the same every time | `OPENRAC_RAC3_HERO` (`scene` lines) |
 | rac3 blank weapon slot | Blank first-weapon slot after loading a save; one report, not reproduced in 15 runs (two saves, quick-select at four moments after control: the ring and the HUD slot show their icons every time) | [rac3-port-NO-EMULATION-STATUS.md](handoff/notes/rac3-port-NO-EMULATION-STATUS.md) |
 | #790 effects | The Veldin dropship's thruster haze is seen in a rendered run (17 round patches a frame, soft blue smear behind the thrusters). The Nitro Launcher's blast (item 119) draws a white burst and a dark blue ring on the ground; whether that ring is the refraction, drawn with the frame copy, is not settled: no strip or quad samples an off-screen target in the blast (OPENRAC_HAZE_LOG logs nothing), so it goes by the material mesh path | PR description, audit P4b/P5/P6 |
@@ -311,7 +321,7 @@ Report bugs with the launcher's crash file or a screenshot.
 | Misfiled multiplayer rows | Five `func_L39_*` rows for maps 40–53 (func_L01_00436070, 00443948, 004AA948, 004AAD58, 004D2470) pair through `level_copies`, not names; harmless now that every level builds | [rac3-port-NO-EMULATION-STATUS.md](handoff/notes/rac3-port-NO-EMULATION-STATUS.md) |
 | NTSC-U-only twins | `func_L01_0037DC70` and `func_L39_004B5BE8` exist only in NTSC-U | rac3-decomp notes |
 | Hub | Server not deployed: the launcher defaults to `hub.openrac.dev:7177` and nothing runs there; set `REGION` and `SERVER_NAME`, tag a Server release | Server `docs/README.md` |
-| Decomp matching | rac3-decomp: 470 PAL and about 1,000 NTSC-U functions are still unmatched, mostly large; the translated code behind them is unproven and the likeliest source of odd behaviour | rac3-decomp README and CONTRIBUTING |
+| Decomp matching | rac3-decomp: 285 PAL functions are still unmatched (about 480 KB, mostly large: func_L39_006BE7E0 10 KB, func_L01_00386B38 6 KB, func_L01_0034ACD8 5.7 KB, func_L01_00320088 5.5 KB, func_L09_003C92E0 5.1 KB, func_L01_003E01B8 5 KB) plus the NTSC-U-only ones; the translated code behind them is unproven and the likeliest source of odd behaviour. Each near miss has a draft with what still differs in its header (`nonmatching/`). Waiting on a ruling: func_L39_005A4290 matches only with an empty debug check (rac2 has a printf there); func_L39_005DC648 matches at level 39 and needs a catalogue split for 40–53; func_L23_003099D0 needs a two-destination VU0 helper. The rac3 build compiles every file on each run (no object reuse), so a one-function fix costs a full level rebuild | rac3-decomp README, CONTRIBUTING, `nonmatching/README.md` |
 
 Other open PRs (not part of this wrap-up): #912, #918, #907, #901, #865, #655, #639, #867 (drafts
 and feature work from other contributors); check `gh pr list --state open` for anything newer.
