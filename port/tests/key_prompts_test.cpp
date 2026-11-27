@@ -437,6 +437,11 @@ void sharp_pictures() {
     }
     CHECK(white > 200);
     CHECK(between > 0);
+    // The page as the game made it (a texture pack finds its font by it), with both keys' cells.
+    std::vector<std::uint8_t> unpainted;
+    std::vector<sharp::Found> keys;
+    CHECK(sharp::unpainted(256, 128, painted.data(), unpainted, keys));
+    CHECK(unpainted == game && keys.size() == 2);
     // A texel of a cell not as painted (another mod's, a game reload): not ours.
     std::vector<std::uint8_t> other = painted;
     other[(100 * 256 + 10) * 4] ^= 1;

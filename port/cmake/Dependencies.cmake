@@ -136,9 +136,13 @@ FetchContent_MakeAvailable(openrac_xxhash)
 # nanosvg (zlib): the on-screen pad's icons are SVG (game/common/touch/icons/, and a mod's own),
 # drawn into a texture when the pad first shows (renderer/ui/touch_icons.cpp). A commit is pinned
 # (2026-07-10); it has no releases. Its implementation is compiled in openrac_nanosvg, below.
+# Patched so a group's opacity multiplies its children's own (a layer at 20% in Inkscape makes all
+# of it 20%, also objects that say opacity:1).
 FetchContent_Declare(nanosvg
   GIT_REPOSITORY https://github.com/memononen/nanosvg.git
   GIT_TAG 239e102ec2c691f2902e20ace2ed36ee4a35cfe6
+  PATCH_COMMAND "${CMAKE_COMMAND}" -DSOURCE_DIR=<SOURCE_DIR>
+    -P "${CMAKE_CURRENT_LIST_DIR}/PatchNanosvg.cmake"
   SOURCE_SUBDIR openrac-download-only
 )
 FetchContent_MakeAvailable(nanosvg)

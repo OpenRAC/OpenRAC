@@ -150,6 +150,9 @@ std::unordered_map<std::uint64_t, std::vector<fs::path>> pictures_under(const fs
 }
 
 std::atomic<BlockFormat> g_block_format{BlockFormat::None};
+// Whether the pack's pictures are shown (set_shown()), and one more each change.
+std::atomic<bool> g_shown{true};
+std::atomic<std::uint64_t> g_shown_version{0};
 
 // Whether the picture kept for `hash` is the one to use now; the lock is held. A KTX2 is kept in
 // the block format the GPU had when it was read, and the game learns that format only once its
@@ -641,6 +644,9 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
     if (!s.dump.empty() && s.io.save != nullptr && origin.dump) {
         dump(s, hash, image, origin);
     }
+    if (!g_shown.load()) {
+        return false;
+    }
     // An animation comes before a still picture of the same hash.
     if (const auto animated = s.animated.find(hash); animated != s.animated.end()) {
         // One that cannot be used falls back to the still picture, if there is one.
@@ -1025,6 +1031,20 @@ void drop_level_pictures() {
 
 void set_block_format(BlockFormat format) {
     g_block_format.store(format);
+}
+
+void set_shown(bool shown) {
+    if (g_shown.exchange(shown) != shown) {
+        g_shown_version.fetch_add(1);
+    }
+}
+
+bool shown() {
+    return g_shown.load();
+}
+
+std::uint64_t shown_version() {
+    return g_shown_version.load();
 }
 
 bool dumping() {

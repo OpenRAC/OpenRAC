@@ -162,6 +162,15 @@ void check_svg() {
     CHECK(image && image->width == 40 && image->height == 20);
     CHECK(image && near(at(*image, 5, 10), {255, 0, 0, 255}, 0) && at(*image, 30, 10)[3] == 0);
 
+    // A group's opacity multiplies its children's own, as Inkscape's layers do.
+    const auto faded = pack_pictures::rasterize_svg(
+        R"(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><g style="opacity:0.2"><rect style="opacity:1" width="10" height="10" fill="#ff0000"/></g></svg>)",
+        8,
+        8,
+        why
+    );
+    CHECK(faded && near(at(*faded, 4, 4), {255, 0, 0, 51}, 2));
+
     // Not an SVG, no size, nothing drawn, too large: nothing.
     CHECK(!pack_pictures::rasterize_svg("not an svg", 8, 8, why));
     CHECK(!pack_pictures::rasterize_svg(
