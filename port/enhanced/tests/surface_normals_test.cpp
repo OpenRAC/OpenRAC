@@ -220,8 +220,13 @@ void check_normal_variant(NormalCase& fixture, float sign) {
         renderer.render(input, {frame.id(), 64, 64});
         const auto reference = frame.read_rgba(), normals = capture->normals,
                    depth = capture->depths;
-        CHECK(!normals.empty());
-        CHECK(samples != 1 || !depth.empty());
+        if (mode == 2) {
+            // Indirect diagnostics sample probes directly to show gaps the early-lighting cache fills.
+            CHECK(normals.empty() && depth.empty());
+        } else {
+            CHECK(!normals.empty());
+            CHECK(samples != 1 || !depth.empty());
+        }
         renderer::render_opt::set(renderer::render_opt::Opt::PrepassRigid, true);
         renderer.render(input, {frame.id(), 64, 64});
         CHECK(frame.read_rgba() == reference);
