@@ -265,6 +265,22 @@ if(OPENRAC_VULKAN AND NOT TARGET openrac_vulkan)
   # The first three are only downloaded (SOURCE_SUBDIR names no directory): their headers and
   # volk's one source are compiled below.
   FetchContent_MakeAvailable(vulkan_headers volk vma)
+  # Revisions from glslang's known_good.json; the optimizer preserves its SPIR-V dialect.
+  FetchContent_Declare(spirv_headers
+    GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers.git
+    GIT_TAG 1a22b167081842915a1c78a0b5b5a353a23284aa
+    SOURCE_SUBDIR openrac-download-only)
+  FetchContent_Declare(spirv_tools
+    GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools.git
+    GIT_TAG 2ec8457ab33d539b6f1fecc998360c0b8b05ed4f
+    ${openrac_sdl_options})
+  FetchContent_MakeAvailable(spirv_headers)
+  set(SPIRV-Headers_SOURCE_DIR "${spirv_headers_SOURCE_DIR}")
+  set(SPIRV_SKIP_TESTS ON CACHE BOOL "" FORCE)
+  set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "" FORCE)
+  set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE BOOL "" FORCE)
+  set(SPIRV_WERROR OFF CACHE BOOL "" FORCE)
+  # Optimization runs explicitly with performance passes after GLSL translation.
   set(ENABLE_OPT OFF CACHE BOOL "" FORCE)
   set(ENABLE_HLSL OFF CACHE BOOL "" FORCE)
   set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "" FORCE)
@@ -275,6 +291,7 @@ if(OPENRAC_VULKAN AND NOT TARGET openrac_vulkan)
   set(BUILD_EXTERNAL OFF CACHE BOOL "" FORCE)
   set(openrac_shared_libs ${BUILD_SHARED_LIBS})
   set(BUILD_SHARED_LIBS OFF)
+  FetchContent_MakeAvailable(spirv_tools)
   FetchContent_MakeAvailable(glslang)
   set(BUILD_SHARED_LIBS ${openrac_shared_libs})
 

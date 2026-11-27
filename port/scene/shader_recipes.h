@@ -13,14 +13,15 @@
 namespace openrac::scene {
 // Owns the scene/provider assemblies used by every corresponding program slot.
 struct SceneShaderInputs {
-    std::string vertex;          // Mesh positions and surface interfaces.
-    std::string fragment;        // Mesh colour with the chosen lighting provider.
-    std::string early_fragment;  // Optional cached early-lighting colour path.
-    std::string depth_vertex;    // Matching deformation for the depth prepass.
-    bool lighting = false;       // Probe lighting declarations are available.
-    bool early = false;          // Early-lighting source and outputs are available.
-    bool enhanced = false;       // Matching surface-normal output is required.
-    bool materials = false;      // Native batch material paths are supported.
+    std::string vertex;             // Mesh positions and surface interfaces.
+    std::string fragment;           // Mesh colour with the chosen lighting provider.
+    std::string early_fragment;     // Optional cached early-lighting colour path.
+    std::string depth_vertex;       // Matching deformation for the depth prepass.
+    bool lighting = false;          // Probe lighting declarations are available.
+    bool early = false;             // Early-lighting source and outputs are available.
+    bool enhanced = false;          // Matching surface-normal output is required.
+    bool materials = false;         // Native batch material paths are supported.
+    bool bake_probe_modes = false;  // Vulkan enhanced scene colour programs.
 };
 
 namespace shader_recipe_detail {
@@ -43,12 +44,39 @@ bool base_recipes(
         std::string coverage(fragment), coverage_solid(solid);
         coverage.insert(coverage.find('\n') + 1, "#define OPENRAC_PROBE_COVERAGE 1\n");
         coverage_solid.insert(coverage_solid.find('\n') + 1, "#define OPENRAC_PROBE_COVERAGE 1\n");
+        std::string coverage_vertex(mesh_vertex);
+        if (input.bake_probe_modes) {
+            coverage_vertex =
+                renderer::shader_constants(std::move(coverage_vertex), {{"probe_mode", 4}});
+            coverage = renderer::shader_constants(std::move(coverage), {{"probe_mode", 4}});
+            coverage_solid =
+                renderer::shader_constants(std::move(coverage_solid), {{"probe_mode", 4}});
+
+            const auto fallback_vertex =
+                renderer::shader_constants(mesh_vertex, {{"probe_mode", 0}});
+            if (!emit(
+                    23,
+                    "mesh (probe fallback)",
+                    fallback_vertex,
+                    renderer::shader_constants(fragment, {{"probe_mode", 0}}),
+                    error
+                )
+                || !emit(
+                    24,
+                    "mesh (solid) (probe fallback)",
+                    fallback_vertex,
+                    renderer::shader_constants(solid, {{"probe_mode", 0}}),
+                    error
+                )) {
+                return false;
+            }
+        }
         std::string fast(fragment);
         fast.insert(fast.find('\n') + 1, "#define OPENRAC_PROBE_FAST 1\n");
 
         if (!emit(3, "mesh (cheaper probe light)", mesh_vertex, fast, error)
-            || !emit(4, "mesh (probe coverage)", mesh_vertex, coverage, error)
-            || !emit(5, "mesh (solid, probe coverage)", mesh_vertex, coverage_solid, error)) {
+            || !emit(4, "mesh (probe coverage)", coverage_vertex, coverage, error)
+            || !emit(5, "mesh (solid, probe coverage)", coverage_vertex, coverage_solid, error)) {
             return false;
         }
     }

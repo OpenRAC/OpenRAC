@@ -83,25 +83,15 @@ vec3 foliage_response(FoliageSurfaceData surface, vec3 light) {
     return surface.diffuse_energy * (diffuse + transmitted) + specular * surface.reflection_gain;
 }
 
-#ifdef OPENRAC_EARLY_LIGHTING
-// openrac_mode: foliage_back_shadow
-uniform int foliage_back_shadow;  // Effects detail High: the back's own shadow lookup.
-#endif
-
 // Backlit thin sheets need a light-facing shadow bias; external occluders still block their light.
 float foliage_sun_visibility(vec3 position, vec3 normal, vec3 light, float front_visibility) {
 #ifdef OPENRAC_CLOUD_SHADOWS
     front_visibility *= cloud_sun_attenuation;
 #endif
-#ifdef OPENRAC_PROBE_FAST
-    // Cheaper blended draws keep the front visibility for the back too (Enhanced, lossy).
+#if defined(OPENRAC_PROBE_FAST) || defined(OPENRAC_EARLY_LIGHTING)
+    // Cached and cheaper blended draws reuse the front visibility for the back.
     return front_visibility;
 #else
-#ifdef OPENRAC_EARLY_LIGHTING
-    // Below effects detail High, early-lit leaves keep the front visibility for the back too
-    // (lossy): a second cascade and hero shadow lookup holds registers for every world pixel.
-    if (foliage_back_shadow == 0) return front_visibility;
-#endif
     if (dot(normal, light) >= 0.) return front_visibility;
     vec3 facing = -normal;
     float visibility = min(sun_shadow_visibility(position, facing, facing), hero_shadow_visibility(position, facing));

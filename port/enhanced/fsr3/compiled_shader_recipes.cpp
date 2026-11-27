@@ -90,7 +90,7 @@ void sdk_recipes(ShaderRecipes& recipes) {
     for (unsigned pass = 0; pass < kPassSources.size(); ++pass) {
         const auto name = std::string("ffx_fsr3upscaler_") + kPassSources[pass] + "_pass.glsl";
 
-        for (unsigned permutation = 0; permutation <= kShaderSwitches; ++permutation) {
+        for (unsigned permutation : kSupportedPermutations) {
             recipes.native(
                 name + " / " + std::to_string(permutation),
                 sources.at(name),

@@ -22,6 +22,7 @@
 #include "renderer/gl/framebuffer.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/shader.h"
+#include "renderer/gl/shader_precision.h"
 #include "renderer/settings/render_opt.h"
 #include "renderer_gl_context.h"
 #include "renderer_shaders.h"
@@ -29,6 +30,7 @@
 #ifdef OPENRAC_VULKAN
 #include "enhanced_viewer_shaders.h"
 #include "renderer/vulkan/passes/native_compute.h"
+#include "renderer/vulkan/pipelines/shader_backend.h"
 #include "renderer/vulkan/pipelines/shader_compiler.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
@@ -298,8 +300,20 @@ sample_result[0]=vec4(light,valid?confidence:0.);})";
     std::string probe_error, prepared_source(probe_fixture);
     prepared_source
         .insert(prepared_source.find('\n') + 1, "#define OPENRAC_PROBE_RECEIVER_SETUP 1\n");
-    CHECK(openrac::vkgl::compile_program("", "", original_probe, probe_error, probe_fixture));
-    CHECK(openrac::vkgl::compile_program("", "", prepared_probe, probe_error, prepared_source));
+    CHECK(
+        openrac::vkgl::compiler_detail::compile_compute_for_analysis(
+            openrac::renderer::shader_precision_source(probe_fixture, false),
+            original_probe.compute,
+            probe_error
+        )
+    );
+    CHECK(
+        openrac::vkgl::compiler_detail::compile_compute_for_analysis(
+            openrac::renderer::shader_precision_source(prepared_source, false),
+            prepared_probe.compute,
+            probe_error
+        )
+    );
     const auto original_calls = calls(original_probe.compute),
                prepared_calls = calls(prepared_probe.compute);
     std::printf(

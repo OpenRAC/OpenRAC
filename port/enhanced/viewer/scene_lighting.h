@@ -119,6 +119,11 @@ public:
     std::string early_fragment(std::string source) const override;
 
     bool coverage_view() const override { return m_probes.mode == 4; }
+
+    int probe_mode_for_layer(scene::Layer layer, bool all_static_receivers) const override {
+        return m_probes.mode_for_layer(layer, all_static_receivers);
+    }
+
     // Resolves the primary sunlight override for direct lighting and shadows.
     renderer::Vec3 sunlight_direction(renderer::Vec3 authored) const override;
 

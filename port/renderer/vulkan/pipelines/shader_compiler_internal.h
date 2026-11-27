@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Shared glslang initialisation and validation flags for GL translation and native compute shaders.
+// Shared glslang initialization and optimized SPIR-V generation for graphics and compute shaders.
 #pragma once
+
+#include <cstdint>
+#include <string>
+#include <vector>
 
 #include <glslang/Public/ShaderLang.h>
 
@@ -21,5 +25,15 @@ void reflect_program(glslang::TProgram& program, CompiledProgram& out, EShLangua
 
 // Initialises glslang once across both compiler entry points and calling threads.
 void initialise();
+
+// Emits optimized, validated SPIR-V while preserving bindings and specialization constants.
+[[nodiscard]] bool compile_spirv(
+    const glslang::TIntermediate& intermediate, std::vector<std::uint32_t>& code, std::string& log
+);
+
+// Retains frontend instructions for structural analysis before optimization changes call placement.
+[[nodiscard]] bool compile_spirv_for_analysis(
+    const glslang::TIntermediate& intermediate, std::vector<std::uint32_t>& code, std::string& log
+);
 
 }  // namespace openrac::vkgl::compiler_detail
