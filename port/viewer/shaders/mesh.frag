@@ -448,7 +448,7 @@ float thin_glass_coverage();
 uniform int gameplay_rim_enabled;
 vec3 gameplay_rim(vec3 indirect, vec3 normal_view, vec3 toward_camera);
 bool early_surface(
-    vec3 eye_position, vec3 normal_view, out vec4 result, out bool covered,
+    vec3 eye_position, vec3 normal_view, out vec4 result,
     out float hero_visibility, out float cloudy_sun
 );
 #endif
@@ -618,22 +618,11 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     bool cached_surface = false;
     float cloudy_sun = 1.0;
 #ifdef OPENRAC_EARLY_LIGHTING
-    bool cached_coverage;
     vec4 cached_lighting;
     float hero_visibility;
     cached_surface = early_surface(
-        eye_position, mat3(view) * n, cached_lighting, cached_coverage, hero_visibility, cloudy_sun
+        eye_position, mat3(view) * n, cached_lighting, hero_visibility, cloudy_sun
     );
-#ifdef OPENRAC_HERO_FUR
-    // Coat slices lie above the body prepass and require lighting at their displaced position.
-    if (hero_fur_shell_enabled != 0 && hero_fur_shell > 0.) {
-        cached_surface = false;
-    }
-#endif
-    if (!cached_surface) {
-        cached_lighting.a = sun_shadow_visibility(v_world_position, n, n);
-        hero_visibility = hero_shadow_visibility(v_world_position, n);
-    }
     if (!hero_shadow_applies(n)) {
         hero_visibility = 1.0;
     }
@@ -644,11 +633,13 @@ vec3 probe_surface(vec4 texel, vec3 original) {
 #endif
 #ifdef OPENRAC_CLOUD_SHADOWS
     if (cloud_shadow_shape.w > 0.0 && effect_pass == 0) {
-        if (!cached_surface) {
-            cloud_sun_attenuation = cloud_shadow_visibility(v_world_position, sun_visibility);
-        } else if (sun_visibility > 1.0 / 255.0) {
+#ifdef OPENRAC_EARLY_LIGHTING
+        if (sun_visibility > 1.0 / 255.0) {
             cloud_sun_attenuation = clamp(cloudy_sun / sun_visibility, 0.0, 1.0);
         }
+#else
+        cloud_sun_attenuation = cloud_shadow_visibility(v_world_position, sun_visibility);
+#endif
     }
 #endif
     // Either projection casts a normal shadow in sunlight, including beyond cascade coverage.
@@ -678,136 +669,135 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     // component while shadowing the remaining diffuse, without adding it twice.
     vec3 fallback_diffuse = max(probe_linear(original) - emitted, vec3(0.0))
         * fur_grain * probe_fallback_diffuse_shadow(visibility) * hero_cue;
-    vec3 metal_ambient = probe_linear(clamp(v_probe_ambient, 0., 1.));
     vec3 toward_camera = transpose(mat3(view)) * (-eye_position);
     vec3 receiver_normal = dot(geometric, geometric) > 0. ? normalize(geometric) : n;
     if (dot(receiver_normal, toward_camera) < 0.) receiver_normal = -receiver_normal;
     vec4 selector = probe_receiver == 1 ? vec4(0.) : v_probe_selector;
-    if (probe_mode == 0) {
-        if (metal_pass != 0) {
-            return probe_display(standard_surface(
-                fallback_diffuse, albedo, metal_ambient * 3.14159265359,
-                surface_n, toward_camera, selector, visibility, receiver_normal) + emitted);
-        }
-        vec3 fallback = wet_coat(fallback_diffuse, surface_n, toward_camera, visibility)
-            + fur_direct + emitted;
-#ifdef OPENRAC_FOLIAGE
-        if (foliage) {
-            vec4 foliage_selector = probe_receiver == 2 ? v_probe_selector : vec4(0.);
-            vec3 direct = foliage_surface(v_world_position, n, toward_camera,
-                albedo, vec3(0.), foliage_selector, visibility, leaf, v_uv);
-            return probe_display(foliage_debug != 0 ? direct : max(fallback, direct + emitted));
-        }
-#endif
-#ifdef OPENRAC_HERO_FUR
-        if (v_hero_fur != 0 && hero_fur_lighting_enabled != 0) {
-            fallback += fur_environment_lighting(fur_surface, v_world_position, vec3(0.), albedo);
-        }
-#endif
-        return probe_display(fallback);
-    }
-    vec3 indirect;
-    // Use the same smooth receiver normal as the depth/normal prepass and early lighting.
-    vec3 surface_bias = probe_surface_bias(n, toward_camera);
-    bool covered;
+
+    bool original_lighting = probe_mode == 0;
+    vec3 indirect = vec3(0.);
+    bool covered = false;
+    if (!original_lighting) {
 #ifdef OPENRAC_EARLY_LIGHTING
-    if (cached_surface) {
         indirect = cached_lighting.rgb;
-        covered = cached_coverage;
-    } else
+        covered = cached_surface;
+#else
+        vec3 bias = probe_surface_bias(n, toward_camera);
+        covered = sample_probe_irradiance(v_world_position, n, bias, indirect);
 #endif
-    {
-        covered = sample_probe_irradiance(v_world_position, n, surface_bias, indirect);
     }
-    // Diagnostic views must not silently substitute original lighting:
-    // indirect is black without coverage, while direct is independent of GI.
+    // The indirect debug view shows black without coverage. Direct lighting needs no GI.
     if (!covered && probe_mode == 2) {
-        return vec3(0.0);
+        return vec3(0.);
     }
-    if (!covered && probe_mode != 3) {
-        // Direct lights and reflection captures have their own coverage. Only the broad
-        // irradiance-based reflection fallback is unavailable here.
-        vec3 surface = standard_surface(fallback_diffuse, albedo, vec3(0.), surface_n, toward_camera,
-                                        selector, visibility, receiver_normal);
-        vec3 fallback = wet_coat(surface, surface_n, toward_camera, visibility) + fur_direct + emitted;
-#ifdef OPENRAC_HERO_FUR
-        // A local capture can illuminate the fur even where diffuse probe coverage is absent.
-        if (v_hero_fur != 0 && hero_fur_lighting_enabled != 0) {
-            fallback += fur_environment_lighting(fur_surface, v_world_position, vec3(0.), albedo);
+    bool fallback = !covered && probe_mode != 3;
+    bool original_metal = original_lighting && metal_pass != 0;
+    vec3 diffuse = fallback_diffuse;
+    vec3 rim = vec3(0.);
+    vec3 open_indirect;
+    if (!fallback) {
+        // Artistic GI exposure; keep the bake and direct-light energy unchanged.
+        indirect *= probe_gi_multiplier;
+        if (probe_retail_anchor != 0 && probe_receiver == 2 && probe_mode == 1) {
+            indirect = retail_ambient_floor(indirect, v_probe_ambient);
+        }
+        // Before occlusion: anchored terrain compares with the same point unshadowed and unoccluded.
+        open_indirect = indirect;
+        // Only opaque diffuse GI receives AO. Blended/effect surfaces do not have
+        // a matching prepass depth; direct light, emission and metal stay intact.
+#ifndef OPENRAC_EARLY_LIGHTING
+        if (gtao_enabled != 0 && translucent_pass == 0 && effect_pass == 0) {
+            ivec2 pixel = clamp(ivec2(gl_FragCoord.xy), ivec2(0), textureSize(gtao_visibility, 0) - 1);
+            indirect *= texelFetch(gtao_visibility, pixel, 0).r;
         }
 #endif
-        return probe_display(fallback);
     }
-    // Artistic GI exposure; keep the bake and direct-light energy unchanged.
-    indirect *= probe_gi_multiplier;
-    if (probe_retail_anchor != 0 && probe_receiver == 2 && probe_mode == 1) {
-        indirect = retail_ambient_floor(indirect, v_probe_ambient);
-    }
-    // Before occlusion: anchored terrain compares with the same point unshadowed and unoccluded.
-    vec3 open_indirect = indirect;
-    // Only opaque diffuse GI receives AO. Blended/effect surfaces do not have
-    // a matching prepass depth; direct light, emission and metal stay intact.
-#ifndef OPENRAC_EARLY_LIGHTING
-    if (gtao_enabled != 0 && translucent_pass == 0 && effect_pass == 0) {
-        ivec2 pixel = clamp(ivec2(gl_FragCoord.xy), ivec2(0), textureSize(gtao_visibility, 0) - 1);
-        indirect *= texelFetch(gtao_visibility, pixel, 0).r;
-    }
-#endif
 #ifdef OPENRAC_FOLIAGE
-    if (foliage) {
-        vec3 colour = foliage_surface(v_world_position, n, toward_camera, albedo, indirect,
-            selector, visibility, leaf, v_uv);
-        return probe_display(probe_mode == 1 && foliage_debug == 0
-                                 ? apply_probe_look(colour, emitted) : colour);
+    // Probe-lit and original-lit leaves use the same shading with different GI and light sets.
+    bool shade_foliage = foliage && (!fallback || (original_lighting && !original_metal));
+    vec3 foliage_colour;
+    if (shade_foliage) {
+        vec4 foliage_selector = fallback && probe_receiver != 2 ? vec4(0.) : selector;
+        foliage_colour = foliage_surface(v_world_position, n, toward_camera,
+            albedo, fallback ? vec3(0.) : indirect, foliage_selector, visibility, leaf, v_uv);
+        if (!fallback) {
+            return probe_display(probe_mode == 1 && foliage_debug == 0
+                                     ? apply_probe_look(foliage_colour, emitted) : foliage_colour);
+        }
     }
 #endif
-    // Fine fur changes material response; shadow tests, probe lookup bias and cached GI keep smooth normals.
-    vec3 directional, local, cloud_loss;
-    probe_direct_parts(v_world_position, surface_n, selector, directional, local, cloud_loss);
-    vec3 direct = probe_shadowed_directional(directional, cloud_loss, visibility, 0.1) + local;
-    vec3 illumination = probe_mode == 2
-                            ? indirect / 3.14159265359
-                            : (probe_mode == 3 ? direct : direct + indirect / 3.14159265359);
-    // Anchored terrain: its vertex colours already hold the original lighting, sunlight included, so
-    // it takes the enhanced lighting as a ratio to the same point in unshadowed sunlight. Sunlit
-    // ground keeps its original brightness instead of taking the sun twice; shade, GI and occlusion
-    // darken or tint it from there. The original lighting has no cast shadows, so cast shade keeps
-    // about a third of the sun (0.1 + 0.9 x 0.28) instead of a tenth: the shapes stay, the level's
-    // brightness stays near the original's.
-    if (probe_retail_anchor != 0 && probe_receiver == 1 && probe_terrain_albedo > 0.0
-        && probe_mode == 1) {
-        // The same lights at two visibilities, from the one loop above.
-        vec3 open = directional + local + open_indirect / 3.14159265359;
-        vec3 shaded = probe_shadowed_directional(
-            directional, cloud_loss, visibility, mix(0.1, 1.0, 0.28)
-        ) + local + indirect / 3.14159265359;
-        illumination = (shaded + 0.02) / (open + 0.02);
-    }
-    if (probe_mode != 2) {
-        illumination *= hero_cue;
-    }
-    albedo *= fur_grain;
-    vec3 fur_indirect = vec3(0.);
-#ifdef OPENRAC_HERO_FUR
-    if (v_hero_fur != 0 && hero_fur_lighting_enabled != 0 && (probe_mode == 1 || probe_mode == 2)) {
-        fur_indirect = fur_environment_lighting(fur_surface, v_world_position, indirect, albedo);
-    }
-#endif
-    vec3 rim = vec3(0.0);
+    if (!fallback) {
+        // Fine fur changes material response; shadow tests, probe lookup bias and cached GI keep smooth normals.
+        vec3 directional, local, cloud_loss;
+        probe_direct_parts(v_world_position, surface_n, selector, directional, local, cloud_loss);
+        vec3 direct = probe_shadowed_directional(directional, cloud_loss, visibility, 0.1) + local;
+        vec3 illumination = probe_mode == 2
+                                ? indirect / 3.14159265359
+                                : (probe_mode == 3 ? direct : direct + indirect / 3.14159265359);
+        // Anchored terrain: its vertex colours already hold the original lighting, sunlight included, so
+        // it takes the enhanced lighting as a ratio to the same point in unshadowed sunlight. Sunlit
+        // ground keeps its original brightness instead of taking the sun twice; shade, GI and occlusion
+        // darken or tint it from there. The original lighting has no cast shadows, so cast shade keeps
+        // about a third of the sun (0.1 + 0.9 x 0.28) instead of a tenth: the shapes stay, the level's
+        // brightness stays near the original's.
+        if (probe_retail_anchor != 0 && probe_receiver == 1 && probe_terrain_albedo > 0.0
+            && probe_mode == 1) {
+            // The same lights at two visibilities, from the one loop above.
+            vec3 open = directional + local + open_indirect / 3.14159265359;
+            vec3 shaded = probe_shadowed_directional(
+                directional, cloud_loss, visibility, mix(0.1, 1.0, 0.28)
+            ) + local + indirect / 3.14159265359;
+            illumination = (shaded + 0.02) / (open + 0.02);
+        }
+        if (probe_mode != 2) {
+            illumination *= hero_cue;
+        }
+        albedo *= fur_grain;
 #ifdef OPENRAC_EARLY_LIGHTING
-    // Essential opaque world objects pick up their surroundings at grazing angles.
-    // Diagnostic views, UI, effects and receivers without early-lit GI keep their existing result.
-    if (gameplay_rim_enabled != 0 && probe_receiver == 2 && probe_mode == 1 && cached_surface
-        && covered && translucent_pass == 0 && effect_pass == 0) {
-        rim = gameplay_rim(indirect, eye_normal, -eye_position);
+        // Essential opaque world objects pick up their surroundings at grazing angles.
+        // Diagnostic views, UI, effects and receivers without early-lit GI keep their existing result.
+        if (gameplay_rim_enabled != 0 && probe_receiver == 2 && probe_mode == 1 && cached_surface
+            && covered && translucent_pass == 0 && effect_pass == 0) {
+            rim = gameplay_rim(indirect, eye_normal, -eye_position);
+        }
+#endif
+        diffuse = albedo * illumination * material_diffuse_scale;
+    }
+
+    vec3 surface = diffuse;
+    if (!original_lighting || original_metal) {
+        // A coverage miss can still use direct lights and local reflections.
+        vec3 irradiance = fallback
+            ? (original_metal ? probe_linear(clamp(v_probe_ambient, 0., 1.)) * 3.14159265359
+                              : vec3(0.))
+            : indirect;
+        surface = standard_surface(diffuse, albedo, irradiance, surface_n, toward_camera,
+                                   selector, visibility, receiver_normal);
+    }
+    if (original_metal) {
+        return probe_display(surface + emitted);
+    }
+
+    vec3 lit = wet_coat(fallback ? surface : surface + rim, surface_n, toward_camera, visibility)
+        + fur_direct;
+    if (fallback) {
+        // Emission contributes directly when we are displaying the fallback lighting.
+        lit += emitted;
+#ifdef OPENRAC_FOLIAGE
+        if (shade_foliage) {
+            return probe_display(foliage_debug != 0 ? foliage_colour : max(lit, foliage_colour + emitted));
+        }
+#endif
+    }
+#ifdef OPENRAC_HERO_FUR
+    // A local reflection capture can still light fur where diffuse probe coverage is absent.
+    if (v_hero_fur != 0 && hero_fur_lighting_enabled != 0
+        && (fallback || probe_mode == 1 || probe_mode == 2)) {
+        lit += fur_environment_lighting(
+            fur_surface, v_world_position, fallback ? vec3(0.) : indirect, albedo);
     }
 #endif
-    vec3 diffuse = albedo * illumination * material_diffuse_scale;
-    vec3 surface = standard_surface(diffuse, albedo, indirect, surface_n, toward_camera, selector, visibility, receiver_normal);
-    // Emission is independent of GI exposure, AO and shadow visibility.
-    vec3 lit = wet_coat(surface + rim, surface_n, toward_camera, visibility)
-        + fur_direct + fur_indirect;
-    return probe_display(probe_mode == 1 ? apply_probe_look(lit, emitted) : lit);
+    return probe_display(!fallback && probe_mode == 1 ? apply_probe_look(lit, emitted) : lit);
 }
 
 #else
@@ -847,123 +837,121 @@ void main() {
 #endif
 #ifndef OPENRAC_SOLID
 #ifdef OPENRAC_ENHANCED_RENDERING
-    if (object_thin_glass == 1 && metal_pass == 0) {
-        out_colour = thin_glass_surface();
-        out_colour.a *= thin_glass_coverage();
-        return;
+    // Both passes sample the same glass surface. Only the metal overlay goes through fog.
+    vec4 glass = vec4(0.);
+    if (object_thin_glass == 1) {
+        glass = thin_glass_surface();
+        glass.a *= thin_glass_coverage();
+        if (metal_pass == 0) {
+            out_colour = glass;
+            return;
+        }
     }
 #endif
+    vec4 texel;
+    vec3 rgb;
+    float alpha;
+    bool shade_surface = true;
 #ifndef OPENRAC_COLOUR_SPECIALISED
+    bool additive_effect = false;
+#ifdef OPENRAC_ENHANCED_RENDERING
+    bool premultiply_glass = false;
+#endif
     if (metal_pass != 0) {
-        vec4 m;
-        vec3 mrgb;
+        shade_surface = false;
 #ifdef OPENRAC_ENHANCED_RENDERING
         if (object_thin_glass == 2) discard;
         if (object_thin_glass == 1) {
-            m = thin_glass_surface();
-            mrgb = m.rgb;
-            m.a *= thin_glass_coverage();
+            texel = vec4(0.);
+            rgb = glass.rgb;
+            alpha = glass.a;
+            premultiply_glass = true;
         } else
 #endif
         {
-            vec4 metal = sample_upscaled_texture_colours(v_uv);
-            m = vec4(vec3(mp_vec3(metal.rgb) * mp_vec3(v_colour.rgb)), metal.a * v_colour.a);
-            mrgb = min(m.rgb, vec3(1.0));
-#if defined(OPENRAC_ENHANCED_RENDERING) && !defined(OPENRAC_COLOUR_SPECIALISED)
-            bool standard_metal = probe_receiver == 2 && v_probe_selector.w < 1.5
+            texel = sample_upscaled_texture_colours(v_uv);
+            rgb = min(vec3(mp_vec3(texel.rgb) * mp_vec3(v_colour.rgb)), vec3(1.0));
+            alpha = texel.a * v_colour.a;
+#ifdef OPENRAC_ENHANCED_RENDERING
+            shade_surface = probe_receiver == 2 && v_probe_selector.w < 1.5
                 && object_reflection_enabled != 0
                 && (probe_mode == 1 || (probe_mode == 0 && object_reflection_enabled == 2));
-            if (standard_metal) {
-                mrgb = probe_surface(metal, mrgb);
-            }
 #endif
 #ifdef OPENRAC_EARLY_LIGHTING
             // Chrome blends over the diffuse pass: give both layers the edge reflection so the
             // overlay's opacity cannot erase it. Use cached GI without another probe lookup.
-            if (!standard_metal && gameplay_rim_enabled != 0 && probe_receiver == 2 && probe_mode == 1
+            if (!shade_surface && gameplay_rim_enabled != 0 && probe_receiver == 2 && probe_mode == 1
                 && v_probe_selector.w < 1.5) {
                 vec3 eye_position = (view * vec4(v_world_position, 1.0)).xyz;
                 vec3 geometric = cross(dFdx(eye_position), dFdy(eye_position));
                 vec3 normal_view = orient_shading_normal(mat3(view) * v_normal, geometric, -eye_position);
                 vec4 cached;
-                bool covered;
                 float hero_visibility;
                 float cloudy_sun;
-                if (early_surface(eye_position, normal_view, cached, covered, hero_visibility, cloudy_sun)
-                    && covered) {
+                if (early_surface(eye_position, normal_view, cached, hero_visibility, cloudy_sun)) {
                     vec3 rim = gameplay_rim(cached.rgb * probe_gi_multiplier, normal_view, -eye_position);
-                    mrgb = probe_display(probe_linear(mrgb) + rim);
+                    rgb = probe_display(probe_linear(rgb) + rim);
                 }
             }
 #endif
         }
-#ifdef OPENRAC_ATMOSPHERE
-        if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
-            mrgb = atmosphere_apply(mrgb, v_world_position, true);
-        } else
+    } else
 #endif
-        if (fog_colour.w > 0.5) {
-            mrgb = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(mrgb), mp_float(v_fog)));
-        }
-        out_colour = vec4(mrgb, clamp(m.a, 0.0, 1.0));
-#ifdef OPENRAC_ENHANCED_RENDERING
-        if (object_thin_glass == 1) out_colour.rgb *= out_colour.a;
-#endif
-        return;
-    }
-#endif
-    if (effect_pass == 0 && v_glow != glow_pass) {
-        discard;
-    }
-    vec4 texel = mod_texel(sample_upscaled_texture_colours(v_uv));
-    // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
-    vec4 c = mod_colour(texel * v_colour * material_colour);
-#ifndef OPENRAC_COLOUR_SPECIALISED
-    if (opacity_split != 0 && (c.a >= 1.0) != (opacity_split > 0)) {
-        discard;
-    }
-    if (effect_pass != 0) {
-        // An added moby skips the first half (it writes no depth), so the second draws all of it.
-        if (glow_split != 0 && effect_additive == 0
-            && (c.a >= effect_reference) != (glow_split == 1)) {
+    {
+        if (effect_pass == 0 && v_glow != glow_pass) {
             discard;
         }
-        vec3 e = min(c.rgb, vec3(1.0));
-        e = mod_shine(probe_surface(texel, e));
-    #ifdef OPENRAC_ATMOSPHERE
-        if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
-            e = atmosphere_apply(e, v_world_position, true);
+        texel = mod_texel(sample_upscaled_texture_colours(v_uv));
+        // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
+        vec4 c = mod_colour(texel * v_colour * material_colour);
+#ifndef OPENRAC_COLOUR_SPECIALISED
+        if (opacity_split != 0 && (c.a >= 1.0) != (opacity_split > 0)) {
+            discard;
+        }
+        if (effect_pass != 0) {
+            // An added moby skips the first half (it writes no depth), so the second draws all of it.
+            if (glow_split != 0 && effect_additive == 0
+                && (c.a >= effect_reference) != (glow_split == 1)) {
+                discard;
+            }
+            rgb = min(c.rgb, vec3(1.0));
+            alpha = c.a;
+            additive_effect = effect_additive != 0;
         } else
 #endif
-        if (fog_colour.w > 0.5) {
-            e = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(e), mp_float(v_fog)));
-        }
-        if (effect_additive != 0) {
-            out_colour = vec4(min(e * clamp(c.a, 0.0, 255.0 / 128.0), vec3(1.0)), 0.0);
-            return;
-        }
-        out_colour = vec4(e, clamp(c.a, 0.0, 1.0));
-        return;
-    }
-    // The glow pass blends every texel at its alpha (the Gadgetron hologram's lettering is mostly
-    // part-transparent texels); only the solid pass leaves a cutout's part-transparent texels out.
-    if (glow_pass != 0 && glow_split != 0 && (c.a >= kWorldAlphaReference) != (glow_split == 1)) {
-        discard;
-    }
+        {
+#ifndef OPENRAC_COLOUR_SPECIALISED
+            // Glow blends every texel at its alpha; the solid pass omits part-transparent texels.
+            if (glow_pass != 0 && glow_split != 0 && (c.a >= kWorldAlphaReference) != (glow_split == 1)) {
+                discard;
+            }
 #endif
-    if (cutout != 0 && translucent_pass == 0 && glow_pass == 0 && c.a < 0.99) {
-        discard;
+            if (cutout != 0 && translucent_pass == 0 && glow_pass == 0 && c.a < 0.99) {
+                discard;
+            }
+            if (translucent_pass != 0 && (cutout == 0 || c.a >= 0.99 || c.a < 0.02)) {
+                discard;
+            }
+            float light = 1.0;
+            if (lighting != 0 && v_lit == 0) {
+                // Double-sided: a face lit from behind is lit too.
+                light = float(mp_float(0.55) + mp_float(0.45) * abs(dot(mp_vec3(normalize(v_normal)), mp_vec3(kSun))));
+            }
+            rgb = min(c.rgb * light, vec3(1.0));
+            alpha = v_glow != 0 || translucent_pass != 0 ? c.a : 1.0;
+        }
     }
-    if (translucent_pass != 0 && (cutout == 0 || c.a >= 0.99 || c.a < 0.02)) {
-        discard;
+
+    // Rejoin after preparing the pass-specific inputs so the inliner only expands lighting once.
+    if (shade_surface) {
+        rgb = probe_surface(texel, rgb);
     }
-    float light = 1.0;
-    if (lighting != 0 && v_lit == 0) {
-        // Double-sided: a face lit from behind is lit too.
-        light = float(mp_float(0.55) + mp_float(0.45) * abs(dot(mp_vec3(normalize(v_normal)), mp_vec3(kSun))));
+#ifndef OPENRAC_COLOUR_SPECIALISED
+    if (metal_pass == 0)
+#endif
+    {
+        rgb = mod_shine(rgb);
     }
-    vec3 rgb = min(c.rgb * light, vec3(1.0));
-    rgb = mod_shine(probe_surface(texel, rgb));
     // The GS's fog, after the texture: RGB only.
 #ifdef OPENRAC_ATMOSPHERE
     if (atmosphere_enabled != 0 && v_probe_selector.w < 1.5) {
@@ -973,6 +961,17 @@ void main() {
     if (fog_colour.w > 0.5) {
         rgb = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(rgb), mp_float(v_fog)));
     }
-    out_colour = vec4(rgb, v_glow != 0 || translucent_pass != 0 ? clamp(c.a, 0.0, 1.0) : 1.0);
+#ifndef OPENRAC_COLOUR_SPECIALISED
+    if (additive_effect) {
+        out_colour = vec4(min(rgb * clamp(alpha, 0.0, 255.0 / 128.0), vec3(1.0)), 0.0);
+        return;
+    }
+#ifdef OPENRAC_ENHANCED_RENDERING
+    if (premultiply_glass) {
+        rgb *= clamp(alpha, 0.0, 1.0);
+    }
+#endif
+#endif
+    out_colour = vec4(rgb, clamp(alpha, 0.0, 1.0));
 #endif
 }

@@ -28,7 +28,7 @@ list(APPEND shader_inputs "${PROJECT_SOURCE_DIR}/cmake/Dependencies.cmake")
 if(TARGET openrac_fsr3_shaders)
   list(APPEND shader_inputs "${CMAKE_CURRENT_BINARY_DIR}/generated/fsr3/fsr3_sources.h")
 endif()
-set(version "OpenRAC shader package 1\n")
+set(version "OpenRAC shader package 2\n")
 if(OPENRAC_ENHANCED_RENDERING)
   string(APPEND version "enhanced=1\n")
 else()
@@ -68,6 +68,7 @@ openrac_warnings(openrac_shader_data)
 set(backend_version "SPIR-V reflection format 3\n")
 foreach(input IN ITEMS renderer/vulkan/pipelines/shader_backend.cpp
     renderer/vulkan/pipelines/shader_reflection.cpp
+    renderer/vulkan/pipelines/shader_optimization.cpp
     renderer/vulkan/pipelines/native_shader_backend.cpp
     renderer/vulkan/pipelines/shader_compiler_internal.h
     renderer/vulkan/pipelines/shader_specialization.h
@@ -87,10 +88,11 @@ file(CONFIGURE OUTPUT "${generated}/shader_backend_version.h" CONTENT
 
 add_library(openrac_shader_backend STATIC
   renderer/vulkan/pipelines/shader_backend.cpp
+  renderer/vulkan/pipelines/shader_optimization.cpp
   renderer/vulkan/pipelines/shader_reflection.cpp
   renderer/vulkan/pipelines/native_shader_backend.cpp)
 target_include_directories(openrac_shader_backend PUBLIC . PRIVATE "${generated}")
-target_link_libraries(openrac_shader_backend PRIVATE openrac_glslang)
+target_link_libraries(openrac_shader_backend PRIVATE openrac_glslang SPIRV-Tools-opt)
 openrac_warnings(openrac_shader_backend)
 
 add_library(openrac_shader_recipes STATIC
@@ -209,6 +211,7 @@ if(OPENRAC_SHADER_PACKAGE AND OPENRAC_SHARED_SHADER_PACKAGE AND NOT OPENRAC_IOS)
   set_target_properties(openrac_shader_package PROPERTIES OUTPUT_NAME openrac-shaders)
   if(WIN32)
     target_compile_definitions(openrac_shader_package PRIVATE "OPENRAC_SHADER_PACKAGE_API=__declspec(dllexport)")
+    openrac_windows_version_info(openrac_shader_package "OpenRAC Vulkan shaders")
   else()
     target_compile_definitions(openrac_shader_package PRIVATE
       "OPENRAC_SHADER_PACKAGE_API=__attribute__((visibility(\"default\")))")
@@ -240,6 +243,9 @@ if(OPENRAC_SHADER_PACKAGE)
     set_property(TEST fsr3_shaders APPEND PROPERTY ENVIRONMENT "OPENRAC_SHADER_PACKAGE_STRICT=1")
   endif()
   add_test(NAME shader_package_vulkan_fp32 COMMAND shader_package_vulkan_test)
+  add_test(NAME shader_package_vulkan_compatibility COMMAND shader_package_vulkan_test)
+  set_tests_properties(shader_package_vulkan_compatibility PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=0;OPENRAC_VULKAN_PIPELINE_CACHE=0;OPENRAC_SHADER_PACKAGE_STRICT=1")
   set_tests_properties(shader_package_vulkan_fp32 PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1;OPENRAC_VULKAN_PIPELINE_CACHE=0;OPENRAC_SHADER_PACKAGE_STRICT=1;OPENRAC_GPU_MATERIALS_OFF=1;OPENRAC_RENDER_OPT_OFF=shader-float16,vk-draw-uniform")
   set_tests_properties(shader_package_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT

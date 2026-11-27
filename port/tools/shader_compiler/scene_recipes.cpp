@@ -29,6 +29,7 @@ scene::SceneShaderInputs mesh_inputs(
     input.lighting = lighting;
     input.early = enhanced && lighting;
     input.enhanced = enhanced;
+    input.bake_probe_modes = enhanced && lighting;
     // Include batch shaders even when the player's device uses individual materials.
     input.materials = true;
 
@@ -160,8 +161,11 @@ void scene_shader_recipes(ShaderRecipes& recipes, bool enhanced) {
             options.enhanced = enhanced;
             options.water_local = water_local;
             mesh_recipes(recipes, mesh_inputs(options, lighting));
-            shadow_recipes(recipes, options, lighting);
-            rigid_recipes(recipes);
+            // Runtime creates modern shadows and rigid prepasses only with enhanced rendering.
+            if (enhanced) {
+                shadow_recipes(recipes, options, lighting);
+                rigid_recipes(recipes);
+            }
         }
     }
 }

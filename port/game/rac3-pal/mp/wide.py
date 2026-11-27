@@ -24,7 +24,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 HOST_C = HERE.parent / "host" / "mp_wide.c"
-KINDS = {"ea": 2, "value": 3, "arg": 3, "bound": 1, "span": 1}
+KINDS = {"ea": 2, "value": 3, "arg": 3, "bound": 1, "span": 1, "rowoff": 3, "scratch": 2}
 
 
 def problems() -> list[str]:
@@ -44,7 +44,7 @@ def problems() -> list[str]:
                 words = what.split()
                 if not words or words[0] not in KINDS or len(words) != KINDS[words[0]]:
                     out.append(f"{program} {address}: {what!r} is no site")
-                elif len(words) > 1 and words[1] not in names:
+                elif len(words) > 1 and words[0] not in ("rowoff", "scratch") and words[1] not in names:
                     out.append(f"{program} {address}: no table {words[1]}")
     return out
 

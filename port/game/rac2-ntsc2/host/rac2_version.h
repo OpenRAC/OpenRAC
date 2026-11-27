@@ -33,6 +33,7 @@
 #define RAC2_ADDR_0x00152C26u 0x00152C26u /* versionmap: between */
 #define RAC2_ADDR_0x00152C64u 0x00152C64u /* versionmap: between */
 #define RAC2_ADDR_0x00152C68u 0x00152C68u /* versionmap: between */
+#define RAC2_ADDR_0x00188660u 0x00188660u /* the release's build */
 #define RAC2_ADDR_0x0019B278u 0x0019B278u /* versionmap: exact */
 #define RAC2_ADDR_0x0019B4A8u 0x0019B4A8u /* versionmap: exact */
 #define RAC2_ADDR_0x001A72DCu 0x001A72DCu /* versionmap: exact */

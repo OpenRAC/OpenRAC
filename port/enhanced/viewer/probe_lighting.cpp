@@ -380,6 +380,21 @@ bool ProbeLighting::upload_regions(
             throw std::runtime_error("probe texture upload failed");
         }
         m_grid = volume.grid;
+        // Use a valid probe near the middle of the baked grid to seed missing cache cells.
+        const auto middle = volume.probes.begin() + volume.probes.size() / 2;
+        const auto valid = [](const Probe& probe) {
+            return probe.valid;
+        };
+        auto ambient = std::find_if(middle, volume.probes.end(), valid);
+        if (ambient == volume.probes.end()) {
+            ambient = std::find_if(volume.probes.begin(), middle, valid);
+            if (ambient == middle) {
+                ambient = volume.probes.end();
+            }
+        }
+        if (ambient != volume.probes.end()) {
+            m_early_ambient_probe = static_cast<int>(ambient - volume.probes.begin()) + 1;
+        }
         m_sparse_capacity = volume.atlas_capacity();
         log::info(
             "probe textures: {} irradiance, {} depth, RGBA16F metadata; {}x{}, {} "
@@ -937,6 +952,18 @@ void ProbeLighting::finish_load(ProbeBakeRead read) {
     );
 }
 
+int ProbeLighting::receiver_for_layer(scene::Layer layer, bool all_static_receivers) const {
+    const bool static_receiver =
+        layer == scene::Layer::Terrain
+        || ((mode == 2 || all_static_receivers)
+            && (layer == scene::Layer::Ties || layer == scene::Layer::Shrubs));
+    return static_receiver ? 1 : (layer == scene::Layer::Mobys ? 2 : 0);
+}
+
+int ProbeLighting::mode_for_layer(scene::Layer layer, bool all_static_receivers) const {
+    return active() && receiver_for_layer(layer, all_static_receivers) ? mode : 0;
+}
+
 void ProbeLighting::bind(
     const renderer::Shader& shader,
     scene::Layer layer,
@@ -949,13 +976,9 @@ void ProbeLighting::bind(
     }
     m_selection.bind(shader, camera, depth_matched);
     m_environment.bind(shader, active(), camera);
-    const bool static_receiver =
-        layer == scene::Layer::Terrain
-        || ((mode == 2 || all_static_receivers)
-            && (layer == scene::Layer::Ties || layer == scene::Layer::Shrubs));
-    const int receiver = static_receiver ? 1 : (layer == scene::Layer::Mobys ? 2 : 0);
+    const int receiver = receiver_for_layer(layer, all_static_receivers);
     glUniform1i(shader.uniform("probe_receiver"), receiver);
-    glUniform1i(shader.uniform("probe_mode"), active() && receiver ? mode : 0);
+    glUniform1i(shader.uniform("probe_mode"), mode_for_layer(layer, all_static_receivers));
     const int look_count =
         active() && receiver && mode == 1 ? static_cast<int>(m_look_uniforms.size() / 8) : 0;
     glUniform1i(shader.uniform("probe_look_count"), look_count);
@@ -1003,6 +1026,9 @@ void ProbeLighting::bind(
     glUniform1i(shader.uniform("probe_depth_mode"), std::max(0, m_depth_mode - 1));
     glUniform1i(shader.uniform("probe_spread"), kProbeUnits[3]);
     glUniform1i(shader.uniform("probe_depth_ranges"), kProbeUnits[4]);
+    glUniform1i(
+        shader.uniform("early_ambient_probe"), active() && receiver ? m_early_ambient_probe : 0
+    );
     if (!active() || !receiver) {
         return;
     }
@@ -1238,6 +1264,7 @@ void ProbeLighting::release() {
         glDeleteTextures(static_cast<GLsizei>(m_textures.size()), m_textures.data());
     }
     m_textures = {};
+    m_early_ambient_probe = 0;
     m_depth_mode = 0;
     m_sparse_capacity = 0;
     m_atlas_tiles_x = kMinimumAtlasTilesX;

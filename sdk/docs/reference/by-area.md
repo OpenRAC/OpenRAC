@@ -32,6 +32,9 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `game_data_dir` | 1.33 | experimental | yes | yes | yes |
 | `pack_folder` | 1.35 | experimental | yes | yes | yes |
 | `game_language` | 1.35 | experimental | yes | yes | yes |
+| `on_mods_loaded` | 1.42 | experimental | yes | yes | yes |
+| `service_provide` | 1.42 | experimental | yes | yes | yes |
+| `service_find` | 1.42 | experimental | yes | yes | yes |
 
 ## settings
 
@@ -78,6 +81,8 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `on_overlay` | 1.14 | stable | yes | yes | yes |
 | `play_live_picture` | 1.14 | stable | yes | no | no |
 | `on_overlay_phases` | 1.31 | stable | yes | yes | yes |
+| `overlay_image_create` | 1.41 | experimental | yes | yes | yes |
+| `overlay_image_destroy` | 1.41 | experimental | yes | yes | yes |
 
 ## menus
 
@@ -277,8 +282,8 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `sound_play` | 1.12 | stable | yes | yes | yes |
 | `sound_set` | 1.12 | stable | yes | yes | yes |
 | `sound_stop` | 1.12 | stable | yes | yes | yes |
-| `hero_sound_play` | 1.12 | stable | yes | part | part |
-| `hero_sound_stop` | 1.12 | stable | yes | no | no |
+| `hero_sound_play` | 1.12 | stable | yes | yes | part |
+| `hero_sound_stop` | 1.12 | stable | yes | yes | no |
 | `music_volume` | 1.35 | experimental | yes | part | part |
 | `moby_sound_play` | 1.35 | experimental | yes | part | part |
 | `moby_sound_stop` | 1.35 | experimental | yes | no | no |

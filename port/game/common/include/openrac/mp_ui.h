@@ -131,12 +131,21 @@ void openrac_mp_ui_set_modal_area(openrac_mp_ui* ui, float x, float y, float w, 
 void openrac_mp_ui_notice(openrac_mp_ui* ui, const char* text);
 /* 1 while a modal screen is up: it takes every event, and the game sees none. */
 int openrac_mp_ui_modal(openrac_mp_ui* ui);
+/* Opens the description's screen `id` modally, as an `open:` action does, for a binding's own
+ * dialog. Returns 1, or 0 when the description has no such screen. */
+int openrac_mp_ui_open_modal(openrac_mp_ui* ui, const char* id);
+/* Sets what the choice item `key` shows, and the text of the text item `key`, on the open screen
+ * and the modal one: a binding's values (a player's team, a countdown). */
+void openrac_mp_ui_set_value(openrac_mp_ui* ui, const char* key, int value);
+void openrac_mp_ui_set_text(openrac_mp_ui* ui, const char* key, const char* text);
 
 /* Fills table `name`: begin, then per row a row and its cells, then end, which replaces the rows. */
 void openrac_mp_ui_table_begin(openrac_mp_ui* ui, const char* name);
 void openrac_mp_ui_table_row(openrac_mp_ui* ui, uint32_t key, int enabled);
 void openrac_mp_ui_table_cell(openrac_mp_ui* ui, const char* field, const char* text);
 void openrac_mp_ui_table_end(openrac_mp_ui* ui);
+/* Between begin and end: the most rows the table can hold (a room's player limit), shown as joined/MAX. */
+void openrac_mp_ui_table_capacity(openrac_mp_ui* ui, int capacity);
 
 /* Hands the screen open one OPENRAC_MP_UI_* event, the modal one first; `out` says what it did
  * (consumed 0 when no screen is open). Back on a modal screen closes it and an `open:` action opens

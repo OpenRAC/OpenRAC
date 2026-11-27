@@ -29,6 +29,7 @@ struct openrac_mp_ui {
     openrac::mpui::Rect modal_area;                  // Where modal screens are drawn.
     std::string table;                               // The table being filled.
     std::vector<openrac::mpui::Row> rows;            // Its rows so far.
+    std::size_t capacity = 0;                        // Its capacity, 0 when unknown.
     std::string target;                              // The last outcome's target, kept for C.
 };
 
@@ -178,6 +179,7 @@ extern "C" void openrac_mp_ui_table_begin(openrac_mp_ui* ui, const char* name) {
     call("mp_ui", [&] {
         ui->table = name;
         ui->rows.clear();
+        ui->capacity = 0;
     });
 }
 
@@ -195,7 +197,15 @@ extern "C" void openrac_mp_ui_table_cell(openrac_mp_ui* ui, const char* field, c
 }
 
 extern "C" void openrac_mp_ui_table_end(openrac_mp_ui* ui) {
-    call("mp_ui", [&] { ui->model.table(ui->table).set_rows(std::move(ui->rows)); });
+    call("mp_ui", [&] {
+        mpui::Table& table = ui->model.table(ui->table);
+        table.set_rows(std::move(ui->rows));
+        table.set_capacity(ui->capacity);
+    });
+}
+
+extern "C" void openrac_mp_ui_table_capacity(openrac_mp_ui* ui, int capacity) {
+    call("mp_ui", [&] { ui->capacity = capacity > 0 ? static_cast<std::size_t>(capacity) : 0; });
 }
 
 extern "C" void openrac_mp_ui_event(
@@ -253,6 +263,40 @@ extern "C" void openrac_mp_ui_notice(openrac_mp_ui* ui, const char* text) {
 
 extern "C" int openrac_mp_ui_modal(openrac_mp_ui* ui) {
     return ui->modal ? 1 : 0;
+}
+
+extern "C" int openrac_mp_ui_open_modal(openrac_mp_ui* ui, const char* id) {
+    return call("mp_ui", 0, [&] {
+        // A screen the description leaves out opens nothing.
+        if (ui->description.screen(id) == nullptr) {
+            return 0;
+        }
+
+        open_modal(*ui, id);
+        return 1;
+    });
+}
+
+extern "C" void openrac_mp_ui_set_value(openrac_mp_ui* ui, const char* key, int value) {
+    call("mp_ui", [&] {
+        // Both screens may carry it.
+        for (std::optional<mpui::ScreenView>* view : {&ui->view, &ui->modal}) {
+            if (*view) {
+                (*view)->set_value(key, value);
+            }
+        }
+    });
+}
+
+extern "C" void openrac_mp_ui_set_text(openrac_mp_ui* ui, const char* key, const char* text) {
+    call("mp_ui", [&] {
+        // Both screens may carry it.
+        for (std::optional<mpui::ScreenView>* view : {&ui->view, &ui->modal}) {
+            if (*view) {
+                (*view)->set_text(key, text);
+            }
+        }
+    });
 }
 
 extern "C" void openrac_mp_ui_set_active(openrac_mp_ui* ui, int active) {

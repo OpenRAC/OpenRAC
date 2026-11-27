@@ -187,4 +187,52 @@ bool picture(int width, int height, const std::uint8_t* rgba, Picture& out) {
     return true;
 }
 
+bool unpainted(
+    int width,
+    int height,
+    const std::uint8_t* rgba,
+    std::vector<std::uint8_t>& game,
+    std::vector<Found>& cells
+) {
+    std::vector<std::shared_ptr<const std::vector<Page>>> owned;
+    {
+        const std::lock_guard guard(g_lock);
+        owned.reserve(g_owners.size());
+        for (const Owned& o : g_owners) {
+            owned.push_back(o.pages);
+        }
+    }
+    cells.clear();
+    for (const auto& pages : owned) {
+        for (const Page& page : *pages) {
+            const bool known = std::all_of(page.cells.begin(), page.cells.end(), [](const Cell& c) {
+                return c.game.size() == static_cast<std::size_t>(c.w * c.h * 4);
+            });
+            if (!known || !matches(page, width, height, rgba)) {
+                continue;
+            }
+            if (cells.empty()) {
+                game.assign(
+                    rgba,
+                    rgba + static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4
+                );
+            }
+            for (const Cell& c : page.cells) {
+                for (int y = 0; y < c.h; ++y) {
+                    std::copy_n(
+                        c.game.data() + static_cast<std::size_t>(y * c.w) * 4,
+                        static_cast<std::size_t>(c.w) * 4,
+                        game.data()
+                            + (static_cast<std::size_t>(c.y + y) * static_cast<std::size_t>(width)
+                               + static_cast<std::size_t>(c.x))
+                                  * 4
+                    );
+                }
+                cells.push_back({c.x, c.y, c.w, c.h, std::clamp(page.scale, 1, 16), c.sharp});
+            }
+        }
+    }
+    return !cells.empty();
+}
+
 }  // namespace openrac::renderer::sharp_cells

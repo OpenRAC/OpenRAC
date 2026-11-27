@@ -29,8 +29,9 @@ using namespace openrac::gl;
 using namespace render_detail;
 
 bool LevelScene::needs_early_lighting(const renderer::FrameInput& input) const {
+    // The indirect and coverage views inspect actual probes, including gaps filled by the cache.
     return probe_data_available() && m_early_capable && m_lighting->early_supported()
-           && m_lighting->mode() != 4
+           && m_lighting->mode() != 2 && m_lighting->mode() != 4
            && (m_lighting->active() || (m_sun_enabled && input.sun_pixel_shadow)
                || (m_hero_enabled && input.hero_pixel_shadow));
 }

@@ -1161,6 +1161,10 @@
   },
   "mp_addresses": {
     "about": "NTSC-U's address of a multiplayer executable global the host C writes as RAC3_MADDR(address) that rac3_mp_pairs.py does not pair: PAL's address, NTSC-U's, why.",
+    "0x001A58D0": {
+      "is": "0x001A5A50",
+      "why": "the first of the profile's three sensitivity tables (mp_wide.c rac3_mp_wide_rowoff): the multiplayer executable's data there is 0x180 on, as its other globals around it (0x001A3800, 0x001A5CD0 are 0x180 on)"
+    },
     "0x00241458": {
       "is": "0x002415D8",
       "why": "the two font headers: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U adds 0x15D8 to 0x00240000)"

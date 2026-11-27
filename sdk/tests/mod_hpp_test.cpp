@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <cstring>
 #include <map>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -1210,6 +1211,97 @@ int fake_menu_option_set(openrac_mod*, const char* option, int state) {
                : OPENRAC_HOOK_UNKNOWN;
 }
 
+// What the fake host's 1.41 picture calls were asked: "create <w>x<h> <flags>", "destroy <id>"; it
+// refuses a side of 0 and any id but 7.
+std::string g_picture;
+
+int fake_overlay_image_create(openrac_mod*, const openrac_overlay_image* image) {
+    g_picture = "create " + std::to_string(image->width) + "x" + std::to_string(image->height) + " "
+                + std::to_string(image->flags);
+    return image->width > 0 && image->height > 0 && image->size == sizeof(openrac_overlay_image)
+               ? 7
+               : OPENRAC_HOOK_UNKNOWN;
+}
+
+int fake_overlay_image_destroy(openrac_mod*, int image) {
+    g_picture = "destroy " + std::to_string(image);
+    return image == 7 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+// What the fake overlay's 1.41 image and image_quad drew: "image <id> <x> <w> <angle> <rgba>",
+// "quad <id> <x3> <v3>".
+std::string g_drawn;
+
+void fake_overlay_image(
+    void*, int image, float x, float, float w, float, float angle, std::uint32_t rgba
+) {
+    g_drawn = "image " + std::to_string(image) + " " + std::to_string(static_cast<int>(x)) + " "
+              + std::to_string(static_cast<int>(w)) + " "
+              + std::to_string(static_cast<int>(angle * 100.0f)) + " " + std::to_string(rgba);
+}
+
+void fake_overlay_image_quad(
+    void*, int image, const float xy[8], const float uv[8], std::uint32_t
+) {
+    g_drawn = "quad " + std::to_string(image) + " " + std::to_string(static_cast<int>(xy[6])) + " "
+              + std::to_string(static_cast<int>(uv[7]));
+}
+
+// The fake host's 1.42 services: one table offered, found by name and version (its provider
+// "rumble"), and the callback it was given for once the mods have loaded.
+struct FakeService {
+    std::string name;
+    std::uint32_t version = 0;
+    const void* table = nullptr;
+    std::uint32_t size = 0;
+};
+
+FakeService g_service;
+openrac_frame_fn g_mods_loaded_fn = nullptr;
+void* g_mods_loaded_user = nullptr;
+
+int fake_on_mods_loaded(openrac_mod*, openrac_frame_fn fn, void* user) {
+    if (fn == nullptr) {
+        return OPENRAC_E_TOO_LATE;
+    }
+
+    g_mods_loaded_fn = fn;
+    g_mods_loaded_user = user;
+    return OPENRAC_OK;
+}
+
+int fake_service_provide(
+    openrac_mod*, const char* name, std::uint32_t version, const void* table, std::uint32_t size
+) {
+    if (version == 0 || table == nullptr) {
+        return OPENRAC_E_UNKNOWN;
+    }
+
+    if (!g_service.name.empty()) {
+        return OPENRAC_E_TAKEN;
+    }
+
+    g_service = {name, version, table, size};
+    return OPENRAC_OK;
+}
+
+int fake_service_find(openrac_mod*, const char* name, std::uint32_t min_version, openrac_service* out) {
+    if (out == nullptr || out->size < sizeof *out || g_service.name != name) {
+        return OPENRAC_E_UNKNOWN;
+    }
+
+    out->version = g_service.version;
+    out->provider = "rumble";
+
+    if (g_service.version < min_version) {
+        return OPENRAC_E_SIGNATURE;
+    }
+
+    out->table = g_service.table;
+    out->table_size = g_service.size;
+    return OPENRAC_OK;
+}
+
 // What the fake host's 1.33 call was asked for. It knows one installed game's folder, refuses one the
 // manifest does not declare, and has none for any other.
 std::string g_game_asked;
@@ -2161,6 +2253,10 @@ int main() {
         CHECK(mod.has_party_rules());
         const std::vector<openrac::ModEntry> mods = mod.mods();
         CHECK(mods.size() == 1 && mods[0].id == "difficulty" && mods[0].version == "1.2.3");
+        // A mod looked for by its id (the layer's find and loaded).
+        const std::optional<openrac::ModEntry> difficulty = mod.find("difficulty");
+        CHECK(difficulty && difficulty->version == "1.2.3" && difficulty->index == 0);
+        CHECK(mod.loaded("difficulty") && !mod.loaded("rumble") && !mod.find("difficult"));
         const std::vector<openrac::ModSetting> settings = mod.mod_settings(0);
         CHECK(settings.size() == 1 && settings[0].key == "seed" && settings[0].is_default);
         CHECK(settings[0].party == OPENRAC_PARTY_SETTING_HOST);
@@ -2178,6 +2274,7 @@ int main() {
         mod.party_replay(false);
         api.api_minor = 11;
         CHECK(!mod.has_party_rules() && mod.mods().empty() && !mod.party_rules_publish({1}, ""));
+        CHECK(!mod.loaded("difficulty") && !mod.find("difficulty"));
         api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     {
@@ -2701,6 +2798,52 @@ int main() {
         CHECK(mod.has_sharp_cells());
     }
 
+    // Interface 1.41: pictures of the mod's for its overlay, handed to the port with the struct's
+    // size, and refused where the port lacks the calls (an older minor, or a table before them).
+    {
+        api.overlay_image_create = fake_overlay_image_create;
+        api.overlay_image_destroy = fake_overlay_image_destroy;
+        CHECK(mod.has_overlay_images());
+        const std::uint8_t rgba[16] = {};
+        CHECK(mod.overlay_image_create(2, 2, rgba) == 7 && g_picture == "create 2x2 1");
+        CHECK(mod.overlay_image_create(2, 2, rgba, false) == 7 && g_picture == "create 2x2 0");
+        // The port's refusal is the wrapper's 0, never a negative id.
+        CHECK(mod.overlay_image_create(0, 2, rgba) == 0);
+        CHECK(mod.overlay_image_destroy(7) && g_picture == "destroy 7");
+        CHECK(!mod.overlay_image_destroy(8));
+        g_picture.clear();
+        api.api_minor = 40;
+        CHECK(!mod.has_overlay_images() && mod.overlay_image_create(2, 2, rgba) == 0
+              && !mod.overlay_image_destroy(7) && g_picture.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, overlay_image_destroy));
+        CHECK(!mod.has_overlay_images() && mod.overlay_image_create(2, 2, rgba) == 0
+              && g_picture.empty());
+        api.size = sizeof api;
+        CHECK(mod.has_overlay_images());
+
+        // The overlay's own members: drawn when the port's struct has them, else the top layer.
+        openrac_overlay overlay{};
+        overlay.size = sizeof overlay;
+        overlay.image = fake_overlay_image;
+        overlay.image_quad = fake_overlay_image_quad;
+        overlay.layer = OPENRAC_OVERLAY_LAYER_UNDER_HUD;
+        CHECK(openrac::overlay_has_images(&overlay));
+        CHECK(openrac::overlay_layer(&overlay) == OPENRAC_OVERLAY_LAYER_UNDER_HUD);
+        CHECK(openrac::overlay_image(&overlay, 7, 256, 224, 100, 50, 1.5f)
+              && g_drawn == "image 7 256 100 150 4294967295");
+        const float xy[8] = {0, 0, 1, 0, 0, 1, 33, 1};
+        const float uv[8] = {0, 0, 1, 0, 0, 1, 1, 1};
+        CHECK(openrac::overlay_image_quad(&overlay, 7, xy, uv) && g_drawn == "quad 7 33 1");
+        g_drawn.clear();
+        overlay.size = static_cast<std::uint32_t>(offsetof(openrac_overlay, image));
+        CHECK(!openrac::overlay_has_images(&overlay)
+              && !openrac::overlay_image(&overlay, 7, 0, 0, 1, 1)
+              && !openrac::overlay_image_quad(&overlay, 7, xy, uv) && g_drawn.empty());
+        CHECK(openrac::overlay_layer(&overlay) == OPENRAC_OVERLAY_LAYER_TOP);
+        CHECK(!openrac::overlay_has_images(nullptr));
+    }
+
     // Interface 1.37: the pads' motors, handed to the port as they are, and refused where the port
     // lacks the call (an older minor, or a table that stops before it).
     {
@@ -2730,6 +2873,61 @@ int main() {
         api.size = static_cast<std::uint32_t>(offsetof(openrac_api, menu_option_set));
         CHECK(!mod.menu_option_set("vsync", OPENRAC_MENU_OPTION_ON) && g_menu_option.empty());
         api.size = sizeof api;
+    }
+
+    // Interface 1.42: a service offered and found through the layer (a table as a rumble mod might
+    // offer: a hold per caller), the call once the mods have loaded, and a port without them.
+    {
+        struct Effects {
+            std::uint32_t size;
+            int (*hold)(openrac_mod* caller, int port, int small_motor, int large_motor);
+        };
+
+        static const Effects effects = {
+            sizeof(Effects), +[](openrac_mod*, int port, int, int large_motor) {
+                return port + large_motor;
+            }
+        };
+        api.on_mods_loaded = fake_on_mods_loaded;
+        api.service_provide = fake_service_provide;
+        api.service_find = fake_service_find;
+        CHECK(mod.has_services());
+        CHECK(mod.provide("rumble/effects", 1, effects));
+        CHECK(g_service.size == sizeof(Effects));
+        // The port's refusal (offered already, version 0) is the wrapper's false.
+        CHECK(!mod.provide("rumble/effects", 2, effects) && !mod.provide("rumble/other", 0, effects));
+        int called = 0;
+        mod.on_mods_loaded([&called] { ++called; });
+        CHECK(g_mods_loaded_fn != nullptr);
+        g_mods_loaded_fn(g_mods_loaded_user);
+        CHECK(called == 1);
+        std::uint32_t version = 0;
+        const Effects* found = mod.service<Effects>("rumble/effects", 1, &version);
+        CHECK(found == &effects && version == 1 && found->hold(nullptr, 1, 0, 200) == 201);
+        CHECK(mod.service<Effects>("rumble/effects", 2, &version) == nullptr && version == 1);
+        CHECK(mod.service<Effects>("rumble/other", 1, &version) == nullptr && version == 0);
+        CHECK(mod.service<Effects>("rumble/effects") == &effects);
+        // A port of 1.41, or a table that stops before the calls: nothing offered or found, and
+        // on_mods_loaded throws.
+        for (int older = 0; older < 2; ++older) {
+            if (older == 0) {
+                api.api_minor = 41;
+            } else {
+                api.size = static_cast<std::uint32_t>(offsetof(openrac_api, service_find));
+            }
+            CHECK(!mod.has_services() && !mod.provide("rumble/more", 1, effects));
+            CHECK(mod.service<Effects>("rumble/effects") == nullptr);
+            bool threw = false;
+            try {
+                mod.on_mods_loaded([] {});
+            } catch (const openrac::Error&) {
+                threw = true;
+            }
+            CHECK(threw);
+            api.api_minor = OPENRAC_MOD_API_MINOR;
+            api.size = sizeof api;
+        }
+        CHECK(g_service.name == "rumble/effects");
     }
 
     // Interface 1.33: the game's camera shake, handed to the port as it is and refused where the

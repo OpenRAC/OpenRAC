@@ -1088,6 +1088,24 @@ class Translator:
         site = self._wide_site(ins.addr, "value")
         if site is not None:
             return lines + self._wide_map(site)
+        site = self._wide_site(ins.addr, "scratch")
+        if site is not None and self.wide.get("scratch"):
+            # a byte array indexed by slot on the stack (eight entries): a slot of 8 or more goes to
+            # a scratch of the port's, not over the frame's neighbours.
+            return (
+                [f"{{ const openrac_u32 slot_ = (openrac_u32)r{site['register']};"]
+                + lines
+                + [f"r{ins.rd} = {S32(f'(openrac_u32){self.wide['scratch']}((openrac_u32)r{ins.rd}, slot_)')}; }}"]
+            )
+        site = self._wide_site(ins.addr, "rowoff")
+        if site is not None and self.wide.get("rowoff"):
+            # an address's offset formed from a slot * 4 and a row * 32 (a [row][slot] table of the
+            # game's): a slot past 8 goes to the port's table, as an offset from the table's first.
+            return (
+                [f"{{ const openrac_u32 slot4_ = (openrac_u32)r{site['slot']}, row32_ = (openrac_u32)r{site['row']};"]
+                + lines
+                + [f"r{ins.rd} = {S32(f'(openrac_u32){self.wide['rowoff']}(slot4_, row32_)')}; }}"]
+            )
         return lines
 
     def _wide_map(self, site: dict) -> list[str]:
@@ -2331,6 +2349,10 @@ class Translator:
         decl.append(f"    OPENRAC_ASM_FRAME({frame});")
         if self.wide and re.search(r"\b" + re.escape(self.wide["address"]) + r"\(", text):
             decl.append(f"    extern openrac_u32 {self.wide['address']}(openrac_u32, int);")
+        if self.wide and self.wide.get("scratch") and re.search(r"\b" + re.escape(self.wide["scratch"]) + r"\(", text):
+            decl.append(f"    extern openrac_u32 {self.wide['scratch']}(openrac_u32, openrac_u32);")
+        if self.wide and self.wide.get("rowoff") and re.search(r"\b" + re.escape(self.wide["rowoff"]) + r"\(", text):
+            decl.append(f"    extern openrac_u32 {self.wide['rowoff']}(openrac_u32, openrac_u32);")
         if self.wide and re.search(r"\b" + re.escape(self.wide["bound"]) + r"\(", text):
             decl.append(f"    extern int {self.wide['bound']}(int);")
         if self.wide and re.search(r"\b" + re.escape(self.wide["span"]) + r"\(", text):
@@ -2530,7 +2552,7 @@ def parse_wide(table: dict | None) -> dict | None:
     """asm.wide's table (Translator.wide), as hostgen's load_config read it from its file:
     {"address": fn, "bound": fn, "tables": [names], "sites": {program: {address: what}}}, where a
     program is "core" (the executable) or a level's number and what is "ea TABLE", "value TABLE
-    rN", "arg TABLE rN", "bound" or "span" (several at one instruction joined by "; "). The table's
+    rN", "arg TABLE rN", "rowoff rSLOT rROW", "scratch rSLOT", "bound" or "span" (several at one instruction joined by "; "). The table's
     id is its place in "tables"."""
     if not table:
         return None
@@ -2546,11 +2568,16 @@ def parse_wide(table: dict | None) -> dict | None:
                     site["table"] = ids[words[1]]
                 if site["kind"] in ("value", "arg"):
                     site["register"] = int(words[2].lstrip("r"))
+                elif site["kind"] == "scratch":
+                    site["register"] = int(words[1].lstrip("r"))
+                elif site["kind"] == "rowoff":
+                    site["slot"] = int(words[1].lstrip("r"))
+                    site["row"] = int(words[2].lstrip("r"))
                 elif site["kind"] not in ("ea", "bound", "span"):
                     raise ValueError(f"asm.wide: {program} {address}: {what!r} is no site")
                 sites.setdefault((home, int(address, 16)), []).append(site)
     return {"address": table["address"], "bound": table["bound"], "span": table.get("span", ""),
-            "sites": sites}
+            "rowoff": table.get("rowoff", ""), "scratch": table.get("scratch", ""), "sites": sites}
 
 
 def asm_config(cfg: dict) -> dict | None:

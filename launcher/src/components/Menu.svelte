@@ -22,12 +22,15 @@
     label = "More actions",
     text,
     icon,
+    compact = false,
   }: {
     items: MenuItem[];
     label?: string;
     /** A button with words (and an icon) in place of the three dots: Import, say. */
     text?: string;
     icon?: IconName;
+    /** The words button as tall as the small buttons beside it (the Saves panel's), not the dots. */
+    compact?: boolean;
   } = $props();
 
   let open = $state(false);
@@ -134,6 +137,7 @@
   {#if text}
     <button
       class="small words"
+      class:compact
       bind:this={trigger}
       aria-haspopup="menu"
       aria-expanded={open}
@@ -195,6 +199,10 @@
   .words {
     height: 44px;
     line-height: 1;
+  }
+
+  .words.compact {
+    height: auto;
   }
 
   .list {

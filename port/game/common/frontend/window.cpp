@@ -21,6 +21,7 @@
 #include "frontend.h"
 #include "game/common/frontend/state.h"
 #include "renderer/gl/gl.h"
+#include "renderer/textures/texture_pack.h"
 #include "settings.h"
 
 namespace openrac::frontend {
@@ -193,8 +194,9 @@ std::string hdr_status() {
 }
 
 // The window's own keys: F11 and Alt+Return change between fullscreen and the window, F9 and F10
-// turn the port's volume down and up a tenth, F2 shows or hides the frame counter,
-// and F4 toggles enhanced graphics; none of them while a mod greys its option out (option_off).
+// turn the port's volume down and up a tenth, F2 shows or hides the frame counter, Ctrl+F2 hides
+// or shows the texture pack's pictures (to compare them with the game's), and F4 toggles enhanced
+// graphics; none of them while a mod greys its option out (option_off).
 // True when the event was one of them.
 bool window_key(const SDL_Event& event) {
     window_event(event);
@@ -202,6 +204,22 @@ bool window_key(const SDL_Event& event) {
         return false;
     }
     using debug_overlay::option_off;
+    if (event.key.key == SDLK_F2 && (event.key.mod & SDL_KMOD_CTRL) != 0) {
+        namespace pack = renderer::texture_pack;
+        if (!pack::has_pictures()) {
+            debug_overlay::notify({.id = "texture_pack", .title = "No texture pack is in use"});
+            return true;
+        }
+        pack::set_shown(!pack::shown());
+        debug_overlay::notify({
+            .id = "texture_pack",
+            .title = pack::shown() ? "Texture pack shown" : "Texture pack hidden",
+            .text = "World textures change at the next level.",
+            .keys = {"Ctrl+F2"},
+            .seconds = 3.0,
+        });
+        return true;
+    }
     if (event.key.key == SDLK_F2) {  // the frame counter, as the Video options' row
         if (option_off(menu::Id::FrameCounter)) {
             return true;
