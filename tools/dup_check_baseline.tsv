@@ -31,6 +31,8 @@ port/assets/geometry/tfrag_lighting.cpp	port/assets/geometry/tie_lighting.cpp	56
 port/assets/world/collision.cpp	port/assets/world/collision.cpp	a43b4ea3a226ea0122f35106
 port/assets/world/collision.cpp	port/assets/world/collision.cpp	c4de909d02ae2736282d2b0a
 port/assets/world/collision_query.cpp	port/assets/world/collision_query.cpp	93625384f1cf227ffe3a1da7
+port/assets/world/gameplay.cpp	port/game/common/keyboard_mouse/controls.hpp	6e5801d4bb92088894dfd805	two lists alike by accident: the actions' names, a gameplay file's sections
+port/assets/world/gameplay.cpp	port/game/common/keyboard_mouse/controls.hpp	90abef0976a46b069d550e8f	two lists alike by accident: the actions' names, a gameplay file's sections
 port/assets/world/gameplay.cpp	port/game/common/menu_catalog.cpp	17b64b2f937248398aa5ff65
 port/assets/world/gameplay.cpp	port/game/common/menu_catalog.cpp	6e5801d4bb92088894dfd805
 port/audio/spu.cpp	port/game/rac1/gameplay_lighting.h	66646bacc234bf6d7b8231ee
@@ -144,6 +146,8 @@ port/game/common/debug/material_presets.h	port/game/common/debug/material_preset
 port/game/common/debug/menu_controls.cpp	port/game/common/debug/menu_controls.cpp	071c9720505f9534927137c6
 port/game/common/debug/menu_controls.cpp	port/game/common/debug/menu_controls.cpp	435071c7048383f7ffe14d58
 port/game/common/debug/menu_controls.cpp	port/game/common/debug/menu_keyboard_mouse.cpp	26008fbe260b00e3d13d3fd0
+port/game/common/debug/menu_controls.cpp	port/game/common/keyboard_mouse/controls.hpp	b4dc89e9cf156d0badec80a6	two tables alike by accident: the keys' presets and the page's defaults, the debug menu's rows
+port/game/common/debug/menu_controls.cpp	port/game/common/keyboard_mouse/controls.hpp	b6a62204deb30457c7616a50	two tables alike by accident: the keys' presets and the page's defaults, the debug menu's rows
 port/game/common/debug/menu_controls.cpp	port/renderer/ui/canvas.cpp	071c9720505f9534927137c6
 port/game/common/debug/menu_controls.cpp	port/renderer/ui/canvas.cpp	435071c7048383f7ffe14d58
 port/game/common/debug/menu_controls.cpp	port/renderer/ui/canvas.cpp	ad371574e01525adbb3e7aab
@@ -213,6 +217,13 @@ port/game/common/include/openrac/game_host.h	sdk/include/openrac/openrac_mod.h	3
 port/game/common/key_labels.h	port/game/common/key_labels.h	5f5ca29efbae200e44011d77
 port/game/common/key_labels.h	port/game/rac3-pal/host/mp_net.c	d1eed3805711a282e4d6e094
 port/game/common/key_labels.h	port/game/rac3-pal/host/mp_net.c	e71fbeffdc7be7cd810789c9
+port/game/common/keyboard_mouse/controls.hpp	port/game/common/keyboard_mouse/controls.hpp	8e8c32ea00e923f2ae4001c1	two tables of setting values: the keys' presets and the page's defaults
+port/game/common/keyboard_mouse/controls.hpp	port/game/common/menu_catalog.cpp	6e5801d4bb92088894dfd805	two lists alike by accident: the actions' names, the menu's catalogue
+port/game/common/keyboard_mouse/controls.hpp	port/game/common/menu_catalog.cpp	90abef0976a46b069d550e8f	two lists alike by accident: the actions' names, the menu's catalogue
+port/game/common/keyboard_mouse/controls.hpp	port/renderer/ui/canvas.cpp	b4dc89e9cf156d0badec80a6	two tables alike by accident: the keys' presets and the page's defaults, a font's glyphs
+port/game/common/keyboard_mouse/controls.hpp	port/renderer/ui/canvas.cpp	b6a62204deb30457c7616a50	two tables alike by accident: the keys' presets and the page's defaults, a font's glyphs
+port/game/common/keyboard_mouse/controls.hpp	port/renderer/ui/fps_counter.cpp	b4dc89e9cf156d0badec80a6	two tables alike by accident: the keys' presets and the page's defaults, a font's glyphs
+port/game/common/keyboard_mouse/controls.hpp	port/renderer/ui/fps_counter.cpp	b6a62204deb30457c7616a50	two tables alike by accident: the keys' presets and the page's defaults, a font's glyphs
 port/game/common/keyboard_mouse/core.hpp	port/media/vlc.cpp	46ce714e2ffe334ce9b25fce
 port/game/common/keyboard_mouse/core.hpp	port/media/vlc.cpp	65b0e5b42d55ad3074af123d
 port/game/common/keyboard_mouse/core.hpp	sdk/include/openrac/keys.h	46ce714e2ffe334ce9b25fce
