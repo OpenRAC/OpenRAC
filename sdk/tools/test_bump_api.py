@@ -370,6 +370,22 @@ class OpenMinorTest(Repo):
         self.git("tag", "sdk-v1.3.4")
         self.assertNotEqual(self.run_tool("--release-version")[0], 0)
 
+    def test_old_local_tags_are_refused_when_offline(self) -> None:
+        # The canonical repository cannot be reached and this clone's tags stop at 1.1.0 while the
+        # tree is at 1.3: the tool refuses to renumber anything from them.
+        self.git("tag", "-d", "sdk-v1.3.0")
+        self.git("tag", "sdk-v1.1.0")
+        env = {"OPENRAC_SDK_OFFLINE": "0", "OPENRAC_SDK_REPO": str(self.root / "nowhere")}
+        with unittest.mock.patch.dict(os.environ, env), \
+                unittest.mock.patch.object(bump_api, "_remote", {}), \
+                unittest.mock.patch.object(bump_api, "_fell_back", False):
+            code, _, err = self.run_tool("--check")
+            self.assertNotEqual(code, 0)
+            self.assertIn("the local tags end at sdk-v1.1.0, older than this tree", err)
+            self.assertEqual(err.count("cannot list the tags"), 1)  # asked once
+            self.assertNotEqual(self.run_tool()[0], 0)
+            self.assertIn("API_MINOR 3", self.text(bump_api.HEADER))  # nothing written
+
     def test_the_header_disagrees(self) -> None:
         self.put(bump_api.HEADER, self.text(bump_api.HEADER).replace("API_MINOR 3", "API_MINOR 2"))
         self.assertEqual(bump_api.problems(self.root, 3), [f"{bump_api.HEADER} says 1.2, the interface is 1.3"])

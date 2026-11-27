@@ -100,6 +100,7 @@ jobs:
                      && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/launcher-v')))
                     || (github.event_name == 'workflow_dispatch' && inputs.release)) }}
         run: |
+          stable=""
           if [[ "$GITHUB_REF" == refs/tags/sdk-v* ]]; then
             version="${GITHUB_REF_NAME#sdk-v}"
             release=true
@@ -118,7 +119,11 @@ jobs:
           if [ "$release" = true ]; then
             echo "::notice::This run publishes the SDK $version (sdk-v$version)."
           elif [ "$PUBLISH" = true ]; then
-            echo "::notice::The SDK did not change since its last release: nothing to publish."
+            if [ -n "$stable" ]; then
+              echo "::notice::The mod interface did not grow since the last stable SDK: nothing to publish."
+            else
+              echo "::notice::The SDK did not change since its last release: nothing to publish."
+            fi
           fi
       - name: Make the archive
         env:

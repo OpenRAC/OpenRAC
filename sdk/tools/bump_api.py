@@ -169,17 +169,30 @@ def repo_url() -> str:
     return os.environ.get("OPENRAC_SDK_REPO", REPO)
 
 
+# The canonical repository's tags by pattern, None once it could not be reached (asked once a run).
+_remote: dict[tuple[str, str], list[str] | None] = {}
+# Whether the tags came from the local clone because the canonical repository could not be reached.
+_fell_back = False
+
+
 def remote_tags(root: Path, pattern: str) -> list[str] | None:
     """The tags of the canonical repository, or None when it cannot be reached."""
+    global _fell_back
     if os.environ.get("OPENRAC_SDK_OFFLINE") == "1":
         return None
-    done = git(root, "ls-remote", "--tags", "--refs", repo_url(), pattern, check=False)
-    if done.returncode != 0:
-        if strict():
-            raise SystemExit(f"cannot list the tags of {repo_url()}: {done.stderr.strip()}")
-        print(f"warning: cannot list the tags of {repo_url()}; using the local tags", file=sys.stderr)
-        return None
-    return [line.split("\trefs/tags/", 1)[1] for line in done.stdout.splitlines() if "\trefs/tags/" in line]
+    key = (repo_url(), pattern)
+    if key not in _remote:
+        done = git(root, "ls-remote", "--tags", "--refs", repo_url(), pattern, check=False)
+        if done.returncode != 0:
+            if strict():
+                raise SystemExit(f"cannot list the tags of {repo_url()}: {done.stderr.strip()}")
+            print(f"warning: cannot list the tags of {repo_url()}; using the local tags", file=sys.stderr)
+            _fell_back = True
+            _remote[key] = None
+        else:
+            _remote[key] = [line.split("\trefs/tags/", 1)[1] for line in done.stdout.splitlines()
+                            if "\trefs/tags/" in line]
+    return _remote[key]
 
 
 def all_tags(root: Path, pattern: str) -> list[str]:
@@ -239,6 +252,11 @@ def last_release(root: Path, major: int, stable: bool = True) -> Release | None:
     tags = [t for t in releases(root, major) if t[0][2] == 0 or not stable]
     if not tags:
         return None
+    if _fell_back and stable and tags[-1][0][1] + 1 < header_api(root)[1]:
+        # The tree is past the open minor of the last release here: this clone's tags are old.
+        raise SystemExit(f"the local tags end at {tags[-1][1]}, older than this tree (interface "
+                         f"{major}.{header_api(root)[1]}): fetch them (git fetch --tags {repo_url()}) or "
+                         "get online")
     return Release(tags[-1][1], tags[-1][0], fetch_tag(root, tags[-1][1]))
 
 
