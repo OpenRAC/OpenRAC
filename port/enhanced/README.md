@@ -124,8 +124,9 @@ unless explicitly reviewed.
 Thin-sheet diffuse transmission shares energy with surface diffuse reflection. The original
 paint supplies transmitted hue; Beer-Lambert absorption uses an authored optical thickness.
 Rough GGX supplies dielectric highlights (F0 0.04, 25% wax coverage to preserve painted colour). Directional and Forward+ point/spot lights
-use the existing light bank. Backlit leaves use light-facing primary-shadow bias while keeping
-external blockers. Local lights retain their existing unshadowed policy. Alpha, depth, mesh
+use the existing light bank. Early-lit and fast blended leaves reuse front-side shadow visibility
+on both sides. The full per-fragment path uses light-facing shadow bias on backlit leaves and
+keeps external blockers. Local lights retain their existing unshadowed policy. Alpha, depth, mesh
 positions and the original texture are unchanged. No extra render target or texture is added;
 four bounded controls occupy two packed words in the GPU material record. The 144-byte record
 also carries shared optical controls so changes in finish do not split compatible draw batches.
@@ -147,6 +148,8 @@ surface shading, not a screen-space blur or a change to baked transport. Run the
 The shared prepass writes smooth view-space normals for early GI and GTAO. Depth supplies
 positions/horizons, never reconstructed normals. Colour passes read cached GI/shadows and use
 smooth normals for direct light, with consistent skinning, scaling and camera-facing orientation.
+Early lighting blends the same four cache cells for indirect light and shadow visibility.
+The indirect-only debug view samples probes per fragment so gaps in coverage appear black.
 Invalid normals use a neutral fallback. Raster derivatives only orient normals to visible
 triangles; grazing-angle constraints prevent flips beneath surfaces and GTAO self-occlusion.
 No extra normal texture is needed.
@@ -159,8 +162,8 @@ are unchanged.
 ## Gameplay rim lighting
 
 Gameplay rim lighting uses cached GI colour and smooth normals, fading toward front-facing
-surfaces within a brightness cap. It needs valid probe coverage, adds no samples/targets, and
-leaves emission, diagnostics, UI and blended effects unchanged. Ratchet, attachments, pickups,
+surfaces within a brightness cap. It uses the cache's ambient estimate where local probe coverage
+is missing and requires no extra probe samples or render targets. Ratchet, attachments, pickups,
 crates, enemies, NPCs and tool targets use the class list in `port/game/rac1/gameplay_lighting.h`;
 Going Commando's identified ones (Ratchet, the vendor, crates, the ammo pickup) are its profile's
 (`port/game/rac2/profile.cpp`).

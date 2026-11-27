@@ -37,7 +37,7 @@ void main() {
     float x = gl_FragCoord.x;
     float distance = 8.0;
     // Parallel surfaces separated by a thin wall, a large step, and a
-    // one-pixel foreground strip. These must never share their lighting.
+    // one-pixel foreground strip. Covered pixels should favour their own surface.
     if (fixture == 1 && x < 18.0) {
         distance = 7.95;
     }
@@ -108,11 +108,11 @@ void main() {
     vec3 normal_view = empty_guides != 0 ? vec3(0, 0, 1) : smooth_normal_at(pixel, -eye);
     vec3 world = inverse_view * (eye - view[3].xyz), normal = inverse_view * normal_view;
     vec4 light = vec4(0);
-    bool covered = false;
     float hero_visibility = 1.0;
     float cloudy_sun = 1.0;
     bool hit = use_cache != 0
-        && early_surface(eye, normal_view, light, covered, hero_visibility, cloudy_sun);
+        && early_surface(eye, normal_view, light, hero_visibility, cloudy_sun);
+    bool covered = hit;
     if (show_hits != 0) {
         colour = vec4(hit ? 1 : 0, covered ? 1 : 0, 0, 1);
         return;
@@ -366,8 +366,15 @@ void check() {
                 CHECK(draw(true, false) == actual);
 
                 unsigned differences = 0;
-                for (std::size_t i = 0; i < actual.size(); ++i) {
-                    if (std::abs(int(actual[i]) - int(reference[i])) > (i % 4 == 3 ? 1 : 6)) {
+                for (std::size_t i = 0; fixture != 4 && i < actual.size(); ++i) {
+                    const auto x = i / 4 % width;
+                    const bool uncovered = (fixture == 2 && x < 18) || (fixture == 3 && x == 18);
+                    if (uncovered && i % 4 != 3) {
+                        // A correct cache deliberately supplies ambient where full probe sampling
+                        // returns no irradiance. Keep the shadow comparison below.
+                        CHECK(reference[i] == 0 && actual[i] > 0);
+                    } else if (std::abs(int(actual[i]) - int(reference[i]))
+                               > (i % 4 == 3 ? 1 : 6)) {
                         if (differences < 4) {
                             std::fprintf(
                                 stderr,
@@ -545,17 +552,20 @@ void check() {
                     CHECK(accepted > unsigned(width * height) * 8 / 10);
                 }
                 if (fixture == 4) {
-                    CHECK(accepted == 0);
-                    if (!shadows) {
-                        input.cloud_shadows.enabled = true;
-                        input.cloud_shadows.minimum = input.cloud_shadows.maximum = .5f;
-                        early.prepare_cloud_noise(input);
-                        const auto fallback = draw(true, false);
-                        CHECK(std::abs(float(fallback[3]) - 255.f * .55f) <= 1);
-                        CHECK(std::abs(float(fallback[0]) - 255.f * (.1f + .9f * .55f)) <= 1);
-                        CHECK(fallback == draw(false, false));
-                        input.cloud_shadows.enabled = false;
+                    // Even a fully empty 2x2 blends ambient and unoccluded shadows from the cache.
+                    CHECK(accepted == unsigned(width * height));
+                    input.cloud_shadows.enabled = true;
+                    input.cloud_shadows.minimum = input.cloud_shadows.maximum = .5f;
+                    render_cache();
+                    const auto seeded = draw(true, false);
+                    const auto hero = draw(true, false, 0, true);
+                    for (std::size_t i = 0; i < seeded.size(); i += 4) {
+                        CHECK(seeded[i] > 0 && seeded[i + 1] > 0 && seeded[i + 2] > 0);
+                        CHECK(seeded[i + 3] == 255);
+                        CHECK(hero[i] == 255);
                     }
+                    input.cloud_shadows.enabled = false;
+                    render_cache();
                 }
                 hits = draw(true, true, 1);
                 for (std::size_t i = 0; i < hits.size(); i += 4) {

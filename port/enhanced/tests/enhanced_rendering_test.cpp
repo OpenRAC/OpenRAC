@@ -288,6 +288,11 @@ int main(int argc, char** argv) {
         scene.set_probe_view(1);
         frame.sun_pixel_shadow = true;
         frame.hero_pixel_shadow = true;
+        CHECK(scene.needs_early_lighting(frame));
+        scene.set_probe_view(2);
+        CHECK(!scene.needs_early_lighting(frame));  // The indirect view must expose coverage gaps.
+        scene.set_probe_view(1);
+        CHECK(scene.needs_early_lighting(frame));
         stats::set_enabled(stats::Client::Dump, true);
         stats::begin_frame(stats::FrameKind::Tick, 0);
         // Each frame below is drawn more than once and its draws compared: no cascade is kept.
