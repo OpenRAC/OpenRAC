@@ -56,6 +56,7 @@ enum {
     kTex1 = 0x14,
     kAlpha = 0x42,
     kTest = 0x47,
+    kZbuf = 0x4E,
 };
 
 enum {
@@ -76,6 +77,7 @@ static struct {
     uint32_t known; /* kKnown*: the registers set since the last append it did not see */
     int fog_known;  /* the view's fog was put into VU1 memory since then */
     uint64_t tex0, tex1, clamp, alpha, test;
+    int z_masked; /* ZBUF_1's ZMSK as the callback last set it; the world's ZBUF writes Z */
     uint32_t pixels, clut; /* tex0's effect texture, 0 when it has none */
     float fog[4];
     uint32_t fog_colour;
@@ -133,6 +135,9 @@ void func_002FC560(unsigned int reg, unsigned long long value) {
         case kTest:
             s.test = value;
             s.known |= kKnownTest;
+            break;
+        case kZbuf:
+            s.z_masked = ((value >> 32) & 1u) != 0;
             break;
         default:
             break;
@@ -206,11 +211,10 @@ static int blend_terms(uint64_t v, openrac_material* m) {
 }
 
 /* The strip's material from the known registers: 1 when they all have a native form. The depth is
- * written where the alpha test keeps some pixels (a surface drawn where its texture is), or by a
- * liquid's blend (ALPHA 0x64 with a FIX above 0x60), and not by a test that fails every pixel but
- * keeps the colour (a layer over the picture): what the window's chain reading decided for these
- * strips (renderer/effects/effects.cpp before_mobys_writes_z). ZBUF_1 is the draw
- * environment's, which the callbacks do not set. */
+ * written as the GS writes it: unless ZBUF_1 masks it, and not by a test that fails every pixel but
+ * keeps the colour (a layer over the picture). The world's ZBUF_1 writes Z; a callback that masks
+ * it sets it again before it draws (Oozla's sea grid, ALPHA 0x48, writes Z so mobys under the
+ * water stay hidden). */
 static int material_of_state(openrac_material* m) {
     memset(m, 0, sizeof *m);
     if (!blend_terms(s.alpha, m)) {
@@ -246,9 +250,7 @@ static int material_of_state(openrac_material* m) {
     const int fails_keep_colour =
         m->alpha_fail == OPENRAC_MATERIAL_FAIL_COLOUR || m->alpha_fail == OPENRAC_MATERIAL_FAIL_RGB;
     const int writes_z = !(ate && never && fails_keep_colour);
-    const int liquid = (s.alpha & 0xFF) == 0x64 && ((s.alpha >> 32) & 0xFF) > 0x60;
-    const int keeps_some = ate && !never && m->alpha_test != OPENRAC_MATERIAL_TEST_ALWAYS;
-    if (writes_z && (liquid || keeps_some)) {
+    if (writes_z && !s.z_masked) {
         m->flags |= OPENRAC_MATERIAL_DEPTH_WRITE;
     }
     return 1;
