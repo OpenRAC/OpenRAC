@@ -74,7 +74,8 @@ is rejected before preparing the backend. Existing profiles remain unbounded unl
 `completed_candidates_including_base` separately; an interrupted compiler attempt still consumes
 the allowance. A cached score can avoid recompiling a generated candidate. `--keep-work`, or a
 profile's `keep_work`, retains compiler scratch evidence. A base that is already exact ends the
-run without requesting a random seed or another candidate.
+run without requesting a random seed or another candidate. Its C is still exported
+as the winning result, so the queue can save it without generating a variant.
 
 The time limit and a manual stop also interrupt retries inside the upstream randomizer. If a
 worker does not finish during the short grace period, the engine stops that worker and its own

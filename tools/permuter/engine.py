@@ -281,7 +281,10 @@ def _worker(cfg: dict, wid: int, outq, stop, seed: int) -> None:
                         score_threshold=None, debug_mode=False, speed=100)
         if p.base_score >= Scorer.PENALTY_INF:
             raise RuntimeError("the base does not compile:\n" + cand.last_error)
-        outq.put(("base", wid, p.base_score, p.base_source if wid == 0 else None))
+        # Any worker may finish first. An exact constructor must carry its C
+        # so the queue can export the winner without asking for a permutation.
+        outq.put(("base", wid, p.base_score,
+                  p.base_source if wid == 0 or p.base_score == 0 else None))
         # Stop before even asking for a seed: the constructor already compiled
         # the base, and an applicable randomizer need not exist for that source.
         if p.base_score == 0 or cfg.get("max_candidates") == 1:
@@ -473,8 +476,12 @@ class Job:
                         st["timeline"].append([st["elapsed"], value])
                         self._event("base", score=value)
                         if value == 0:
-                            st["status"] = "matched"
-                            self._stop.set()
+                            if src:
+                                self._found(wid, value, src, None)
+                            else:
+                                st["status"] = "error"
+                                st["message"] = "exact base has no source to export"
+                                self._stop.set()
                     if st["status"] == "starting":
                         st["status"] = "running"
                 elif kind == "tick":

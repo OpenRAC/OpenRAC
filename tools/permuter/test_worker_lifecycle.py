@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import unittest
 from unittest import mock
 
-from permuter import engine
+from permuter import engine, runner
 
 
 def unresponsive_worker(cfg, wid, outq, stop, seed):
@@ -28,6 +28,25 @@ def unresponsive_worker(cfg, wid, outq, stop, seed):
 
 
 class ConstructorStopTests(unittest.TestCase):
+    def test_exact_constructor_is_exported_as_a_queue_win(self):
+        cfg = {'profile': 'synthetic', 'func': 'f', 'flags': '', 'weights': {}}
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            job = engine.Job(cfg, folder / 'result', jobs=1)
+            job.out_dir.mkdir()
+            messages = iter([('base_start', 0),
+                             ('base', 0, 0, 'int f(void) { return 7; }'),
+                             ('done', 0)])
+            job._q = SimpleNamespace(get=lambda timeout: next(messages))
+            job._collect()
+            path = job.out_dir / 'result.json'
+            result = __import__('json').loads(path.read_text())
+            self.assertEqual(result['iterations'], 0)
+            self.assertEqual(result['candidates_including_base'], 1)
+            self.assertEqual(result['completed_candidates_including_base'], 1)
+            self.assertEqual(runner.record(folder, cfg, path, 1), 'WIN')
+            self.assertIn('return 7;', (folder / 'wins/synthetic/f.c').read_text())
+
     def test_invalid_limits_are_rejected_before_workers_exist(self):
         for seconds in (-1, float('nan'), float('inf')):
             with self.subTest(seconds=seconds), self.assertRaises(ValueError):
@@ -49,8 +68,8 @@ class ConstructorStopTests(unittest.TestCase):
             self.assertEqual(result['status'], 'error')
 
     def test_exact_or_constructor_only_does_not_request_a_seed(self):
-        for value, maximum in ((0, 3), (5, 1)):
-            with self.subTest(value=value), tempfile.TemporaryDirectory() as directory:
+        for value, maximum, wid in ((0, 3, 0), (5, 1, 0), (0, 3, 1)):
+            with self.subTest(value=value, worker=wid), tempfile.TemporaryDirectory() as directory:
                 compiled, messages = [], []
 
                 class Compiler:
@@ -85,10 +104,12 @@ class ConstructorStopTests(unittest.TestCase):
                 with mock.patch.object(engine.upstream, 'load', return_value=modules), \
                         mock.patch.object(engine.upstream, 'cache_dir', return_value=Path(directory)), \
                         mock.patch.object(engine, 'Candidate', Compiler):
-                    engine._worker(cfg, 0, SimpleNamespace(put=messages.append),
+                    engine._worker(cfg, wid, SimpleNamespace(put=messages.append),
                                    SimpleNamespace(is_set=lambda: False), 1)
                 self.assertEqual(compiled, ['base'])
-                self.assertEqual(messages[-1], ('done', 0))
+                self.assertEqual(messages[-1], ('done', wid))
+                if value == 0:
+                    self.assertTrue(next(m[3] for m in messages if m[0] == 'base'))
                 self.assertFalse(any(m[0] == 'fatal' for m in messages), messages)
                 self.assertIs(Randomizer.randomize, original)
 
