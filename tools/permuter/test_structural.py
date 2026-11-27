@@ -123,6 +123,15 @@ class StructuralTest(StructuralHelpers, unittest.TestCase):
         offered[0].apply()
         self.assertEqual(self.render(outer), before)
 
+    def test_reverse_ternary_does_not_move_inline_tag_definitions(self):
+        for source in (
+            'enum { K=2 }; int target(int n) { return n ? sizeof(enum { K=7 }) : K; }',
+            'struct S { int a; }; int target(int n) { '
+            'return n ? sizeof(struct S { long long a; }) : sizeof(struct S); }',
+        ):
+            with self.subTest(source=source):
+                self.assert_no_plan(source, 'reverse_cond')
+
     def test_a_condition_only_region_cannot_swap_whole_arms(self):
         ast = self.parse("int target(int n) { if (n) return 1; else return 2; }")
         branch = self.function(ast).body.block_items[0]
@@ -306,6 +315,17 @@ class CompiledStructuralTest(StructuralHelpers, unittest.TestCase):
                  'printf("%d:%d:%d\\n",r,calls,arms);} return 0; }'
         self.assert_rewrites_preserve(source, "reverse_cond", driver,
                                       "11:1:3\n22:1:7\n22:1:7\n22:1:7\n")
+
+    def test_reverse_ternary_scope_rejection_has_an_executable_counterexample(self):
+        before = 'enum { K=2 }; int target(int n) { return n ? sizeof(enum { K=7 }) : K; }'
+        unsafe = 'enum { K=2 }; int target(int n) { return !n ? K : sizeof(enum { K=7 }); }'
+        self.assert_no_plan(before, 'reverse_cond')
+        driver = 'int main(void){printf("%d\\n",target(0));return 0;}'
+        for optimization in ('-O0', '-O2'):
+            original = self.run_c(before, driver, optimization)
+            changed = self.run_c(unsafe, driver, optimization)
+            self.assertEqual(original, '7\n')
+            self.assertEqual(changed, '2\n')
 
     def test_reorder_fixed_objects_preserves_assignments_and_pointer_reads(self):
         source = "int values[1]; int target(int n) { int a; int *p; int b; " \

@@ -117,7 +117,10 @@ def plans(ast, fn_name: str, ca, enabled, region=None) -> list[Plan]:
 
         def visit_TernaryOp(self, node):
             if ('reverse_cond' in enabled and inside(node) and node.cond is not None
-                    and node.iftrue is not None and node.iffalse is not None):
+                    and node.iftrue is not None and node.iffalse is not None
+                    # An enum/tag introduced in an operand can bind a name in
+                    # the following operand. Swapping them can change binding.
+                    and not defines_tag(node.iftrue) and not defines_tag(node.iffalse)):
                 def reverse(node=node):
                     node.cond = (node.cond.expr if isinstance(node.cond, ca.UnaryOp)
                                  and node.cond.op == '!' else ca.UnaryOp('!', node.cond))
