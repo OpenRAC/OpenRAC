@@ -658,7 +658,10 @@
             {:else if rebuilt !== null && !playable}
               <p class="save">Not playable yet · <b>{pct(rebuilt)}</b> of its code rebuilt</p>
             {:else}
-              <p class={`save ${next.tone}`}>{next.status}</p>
+              <!-- Not a class from the tone: "info" would match the .info box above. -->
+              <p class="save" class:ok={next.tone === "ok"} class:warn={next.tone === "warn"}>
+                {next.status}
+              </p>
             {/if}
             {#if crashed}<p class="note err">It crashed last time: a report is on its page.</p>{/if}
             {#if warning}<p class="note warn" title={warning}>Early and unstable</p>{/if}

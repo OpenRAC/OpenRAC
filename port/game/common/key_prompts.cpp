@@ -717,10 +717,14 @@ bool paint(const Fonts& f, const Labels& labels) {
                 static_cast<int>(u), static_cast<int>(kRow), kCellW, kCellH, {}, {}
             };
             cell.rgb.reserve(static_cast<std::size_t>(kCellW * kCellH * 3));
+            cell.game.reserve(static_cast<std::size_t>(kCellW * kCellH * 4));
             for (int y = 0; y < kCellH; ++y) {
                 std::uint8_t* row = rows[static_cast<std::size_t>(i)].data()
                                     + static_cast<std::size_t>(y) * kFontWidth + u;
                 for (int x = 0; x < kCellW; ++x) {
+                    // The game's own texel, as the GS shows it (a pack's font is found by these).
+                    const std::uint8_t* own = f.palette + csm1(row[x]) * 4u;
+                    cell.game.insert(cell.game.end(), own, own + 4);
                     const std::uint8_t v =
                         p[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)];
                     row[x] =

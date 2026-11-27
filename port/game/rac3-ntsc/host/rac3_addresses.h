@@ -236,6 +236,8 @@
 #define RAC3_MADDR_0x001A3800u 0x001A3980u
 /* not paired (rac3_mp_pairs.py) */
 #define RAC3_MADDR_0x001A58B4u 0u
+/* release.json: the first of the profile's three sensitivity tables (mp_wide.c rac3_mp_wide_rowoff): the multiplayer executable's data there is 0x180 on, as its other globals around it (0x001A3800, 0x001A5CD0 are 0x180 on) */
+#define RAC3_MADDR_0x001A58D0u 0x001A5A50u
 /* the same instruction of the same code: func 0x001966E8 (NTSC-U 0x001967D8) +0x4, 2 of 2 places agree */
 #define RAC3_MADDR_0x001A5CD0u 0x001A5E50u
 /* not paired (rac3_mp_pairs.py) */

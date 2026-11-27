@@ -233,3 +233,6 @@ menu_option_set	menus	1.37	experimental
 on_play_query	hooks	1.40	experimental
 overlay_image_create	graphics	1.41	experimental
 overlay_image_destroy	graphics	1.41	experimental
+on_mods_loaded	core	1.42	experimental
+service_provide	core	1.42	experimental
+service_find	core	1.42	experimental

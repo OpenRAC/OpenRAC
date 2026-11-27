@@ -773,12 +773,23 @@ static void looks(void) {
 static void posts_hits(void) {
     level();
     const float at[3] = {1.0f, 2.0f, 3.0f};
-    const float velocity[3] = {0};
+    const float velocity[3] = {0.0f, 4.0f, 0.0f};
     rac2_post_hit(moby(ENEMY_SLOT), moby(GUN_SLOT), 0x830000u, 7.5f, at, velocity);
     CHECK(hit_victim == moby(ENEMY_SLOT) && hit_request != 0);
-    CHECK(getf(hit_request + 4u) == 2.0f && GREF(gaddr, hit_request + 0x10u) == moby(GUN_SLOT));
+    /* +0 is a unit direction: the hit's motion. */
+    CHECK(getf(hit_request) == 0.0f && getf(hit_request + 4u) == 1.0f);
+    CHECK(GREF(gaddr, hit_request + 0x10u) == moby(GUN_SLOT));
     CHECK(GREF(uint32_t, hit_request + 0x14u) == 0x830000u && getf(hit_request + 0x1Cu) == 7.5f);
     CHECK(GREF(int32_t, hit_request + 0x20u) == 1);
+    /* With no motion, the direction runs from the hit to the victim. */
+    const float still[3] = {0};
+    const float from[3] = {
+        getf(moby(ENEMY_SLOT) + MOBY_POS) - 3.0f,
+        getf(moby(ENEMY_SLOT) + MOBY_POS + 4u),
+        getf(moby(ENEMY_SLOT) + MOBY_POS + 8u),
+    };
+    rac2_post_hit(moby(ENEMY_SLOT), moby(GUN_SLOT), 0x830000u, 7.5f, from, still);
+    CHECK(getf(hit_request) == 1.0f && getf(hit_request + 4u) == 0.0f);
     CHECK(rac2_weapon_record(27) == WEAPON_TABLE + GREF(uint8_t, ITEM_RECORDS + 27u) * 0xE0u);
     CHECK(rac2_weapon_record(64) == 0);
 }

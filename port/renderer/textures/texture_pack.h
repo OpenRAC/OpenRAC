@@ -197,6 +197,13 @@ bool replace(Rgba8Image& image, const Origin& origin = {}, Replacement* found = 
 // Whether textures are being dumped (a dump folder was configured).
 bool dumping();
 
+// Shows or hides the pack's pictures (a key compares the pack with the game): while hidden,
+// replace() finds none and dumping goes on. shown_version() is one more each change, so the
+// texture pool converts its textures again. Any thread.
+void set_shown(bool shown);
+bool shown();
+std::uint64_t shown_version();
+
 // Writes the frames of a texture the game cycles in dump_folder({.cycle = first hash}): each as
 // <hash>.png, the name a pack uses, and order.txt listing one cycle in the order the game shows it
 // (a frame shown twice in it is listed twice). `images` matches `order`; a null one is listed but

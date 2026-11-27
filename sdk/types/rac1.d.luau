@@ -1644,6 +1644,8 @@ declare openrac: {
     set_motors: (port: number, small_motor: boolean, large_motor: number) -> boolean,
     -- interface 1.37: an option of the port's menu greyed out or made usable, by its name (menu-options.md)
     menu_option_set: (option: string, state: "on" | "off" | "default") -> boolean,
+    -- interface 1.42: the version of another mod when it is loaded, else nil
+    mod_loaded: (id: string) -> string?,
     -- experimental: a moby's pvars by name, from the behaviour catalogue
     pvars: (moby: number) -> { [string]: number }?,
 }

@@ -483,6 +483,25 @@ void material_path(
     renderer.render(input, {frame.id(), 32, 32});
     auto after = frame.read_rgba();
 
+    if (layer == scene::Layer::Terrain && !textured_emission) {
+        scene.set_probe_view(0);
+        renderer.render(input, {frame.id(), 32, 32});
+        const auto fallback = frame.read_rgba();
+
+        scene.set_probe_view(4);
+        renderer.render(input, {frame.id(), 32, 32});
+        const auto coverage = frame.read_rgba();
+        CHECK(coverage[at] < 8 && coverage[at + 1] > 64);
+        CHECK(coverage != fallback);
+
+        scene.set_probe_lighting(false, 1.2f);
+        renderer.render(input, {frame.id(), 32, 32});
+        CHECK(frame.read_rgba() == fallback);
+
+        scene.set_probe_view(1);
+        scene.set_probe_lighting(true, 1.2f);
+    }
+
     if (authored_tint) {
         CHECK(std::abs(int(after[at]) - 64) <= 1 && std::abs(int(after[at + 1]) - 128) <= 1);
         CHECK(after[at + 2] == 0);

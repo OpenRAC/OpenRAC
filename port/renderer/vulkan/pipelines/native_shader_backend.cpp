@@ -12,7 +12,6 @@
 #include "renderer/vulkan/pipelines/shader_compiler_internal.h"
 #include "renderer/vulkan/pipelines/spirv_precision.h"
 
-#include <SPIRV/GlslangToSpv.h>
 #include <glslang/Include/Types.h>
 #include <glslang/Public/ResourceLimits.h>
 #include <glslang/Public/ShaderLang.h>
@@ -159,12 +158,7 @@ bool compiler_detail::compile_native_fresh(
 
     out = {};
     reflect_native_compute(program, out);
-    glslang::SpvOptions options;
-    options.generateDebugInfo = false;
-    options.disableOptimizer = true;
-    spv::SpvBuildLogger logger;
-    glslang::GlslangToSpv(*program.getIntermediate(EShLangCompute), out.code, &logger, &options);
-    return !out.code.empty();
+    return compile_spirv(*program.getIntermediate(EShLangCompute), out.code, error);
 }
 
 }  // namespace openrac::vkgl

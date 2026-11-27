@@ -645,6 +645,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | Variable | Value | What it does | Read in |
 | --- | --- | --- | --- |
 | `OPENRAC_CLANG` | path to a `clang` binary | The Clang that hostgen uses to read the decompilation's C. Without it, hostgen takes the first of `clang`, `clang-18`, `clang-17`, `clang-19`, `clang-20` on `PATH`. | `port/tools/hostgen/clangast.py` |
+| `OPENRAC_PRIORITY` | `normal` | The build (`tools/build_port.py`), the level export (`extractor/extract.py port`, the launcher's Get the levels ready) and the lighting bake keep the priority they were started with, instead of going below normal with every program they start. Below normal leaves the desktop usable, but on a CPU with performance and efficiency cores Windows can keep such work on the efficiency cores even with nothing else running. Any other value, or none, lowers it. With `OPENRAC_BUILD_JOBS=all` or `OPENRAC_EXTRACT_JOBS=all` no thread is kept back either. | `tools/openrac_common/background.py` |
 
 ### Vulkan uniform and descriptor submission
 

@@ -457,6 +457,17 @@ def expand_cast_macros(text: str) -> str:
     return "\n".join(lines)
 
 
+def expand_file_cast_macros(own: str, text: str) -> str:
+    """OWN (C hostgen puts at the end of a file) with the file's cast macros written out, as
+    expand_cast_macros does for the file's own C: the macros sit in the file, not in OWN, so
+    prepare(OWN) alone would keep them and Clang's JSON would leave their records out."""
+    defines = [line for line in _join_cast_macros(text.split("\n"))
+               if (m := _DEFINE.match(line)) and not line.endswith("\\") and _CAST_RECORD.search(m.group(3))]
+    if not any(re.search(r"\b" + _DEFINE.match(d).group(1) + r"\b", own) for d in defines):
+        return own
+    return expand_cast_macros("\n".join(defines) + "\n" + own).split("\n", len(defines))[-1]
+
+
 # A 128-bit integer written as a type name: "int __attribute__((mode(TI)))" before a "*" or a ")";
 # the mode sets the width whatever integer type it is written on ("unsigned long long", "long"...).
 _WIDE_CAST = re.compile(r"\b(?:(unsigned|signed)\s+)?(?:long\s+long|long|int|short|char)(?:\s+int)?"
@@ -843,15 +854,15 @@ def use_overrides(text: str, overrides: dict[str, str], used: set[str]) -> str:
         # A file that names the function after its definition (a draw callback it registers) needs a
         # declaration there: the override's prototype (its signature may differ from the matched C's:
         # a result the matching C declares void), on the line the matched definition started.
-        own = overrides[name]
+        own = expand_file_cast_macros(overrides[name], text)
         keep = ""
         if _named_in(text[span[1]:], name):
             mine = _definition(prepare(own), name)
             keep = _prototype(prepare(own)[mine[0]:mine[1]], name) if mine else _prototype(text[span[0]:span[1]], name)
         text = text[:span[0]] + keep + "\n" * text.count("\n", span[0], span[1]) + text[span[1]:]
         used.add(name)
-        if id(own) not in added:   # one file of C for several functions goes in once
-            added.add(id(own))
+        if id(overrides[name]) not in added:   # one file of C for several functions goes in once
+            added.add(id(overrides[name]))
             others = set(_DEFINED.findall(text)) - set(names)
             tail.append(f"\n/* hostgen: {name} from the port's own C, not the matched C (overrides) */\n"
                         f"{own_declarations(without_definitions(prepare(own), others), f'_ho{len(added)}')}")
