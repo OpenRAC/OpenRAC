@@ -128,6 +128,33 @@ int ScreenView::value(std::size_t item) const {
     return item < m_values.size() ? m_values[item] : 0;
 }
 
+bool ScreenView::set_value(std::string_view key, int value) {
+    // The choice of that key; a value past its choices is held to them.
+    for (std::size_t n = 0; n < m_spec.items.size(); ++n) {
+        const Item& item = m_spec.items[n];
+
+        if (item.kind == ItemKind::CHOICE && item.key == key) {
+            const int last = static_cast<int>(item.choices.size()) - 1;
+            m_values[n] = value < 0 ? 0 : (value > last ? last : value);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool ScreenView::set_text(std::string_view key, std::string_view text) {
+    // The text of that key.
+    for (Item& item : m_spec.items) {
+        if (item.kind == ItemKind::TEXT && item.key == key) {
+            item.label = text;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 const Table* ScreenView::rows_of(std::size_t item, const Model& model) const {
     // Only a table item reads rows.
     if (item >= m_spec.items.size() || m_spec.items[item].kind != ItemKind::TABLE) {

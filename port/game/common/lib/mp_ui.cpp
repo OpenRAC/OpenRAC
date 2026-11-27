@@ -265,6 +265,40 @@ extern "C" int openrac_mp_ui_modal(openrac_mp_ui* ui) {
     return ui->modal ? 1 : 0;
 }
 
+extern "C" int openrac_mp_ui_open_modal(openrac_mp_ui* ui, const char* id) {
+    return call("mp_ui", 0, [&] {
+        // A screen the description leaves out opens nothing.
+        if (ui->description.screen(id) == nullptr) {
+            return 0;
+        }
+
+        open_modal(*ui, id);
+        return 1;
+    });
+}
+
+extern "C" void openrac_mp_ui_set_value(openrac_mp_ui* ui, const char* key, int value) {
+    call("mp_ui", [&] {
+        // Both screens may carry it.
+        for (std::optional<mpui::ScreenView>* view : {&ui->view, &ui->modal}) {
+            if (*view) {
+                (*view)->set_value(key, value);
+            }
+        }
+    });
+}
+
+extern "C" void openrac_mp_ui_set_text(openrac_mp_ui* ui, const char* key, const char* text) {
+    call("mp_ui", [&] {
+        // Both screens may carry it.
+        for (std::optional<mpui::ScreenView>* view : {&ui->view, &ui->modal}) {
+            if (*view) {
+                (*view)->set_text(key, text);
+            }
+        }
+    });
+}
+
 extern "C" void openrac_mp_ui_set_active(openrac_mp_ui* ui, int active) {
     // Only an open screen has a cursor to show or hide.
     if (ui->view) {

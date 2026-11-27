@@ -33,7 +33,7 @@
 #include <string.h>
 
 #include "mp/game_protos.h"
-#include "mp_wide.h"
+#include "mp_room.h"
 #include "openrac/frame.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
@@ -85,21 +85,9 @@
 #define SCREEN_STAGING 0x21
 #define SCREEN_RESULTS 0x12
 
-/* The end-of-match results the map leaves for level 39's results screen (0x82C bytes in the core,
- * the same address in every program; filled by the map's end routine, L39_00670D90's copy): per
- * slot a name (32 bytes), a team (s32), kills and deaths (s16 pairs) and suicides (s16); the score
- * the screen shows is kills less suicides. Its eight rows are widgets 0x1A + 5r to 0x1E + 5r, their
- * team colour bars 0xD + r (L39_006A83B8). rac3_mp_pairs.py pairs only the executable's code, so
- * NTSC-U's address comes from level 39's instructions, as the words above. */
-#ifdef RAC3_PAL
-#define RESULTS 0x001FD7E8u
-#else
-#define RESULTS 0x001FD968u /* formed by the same instructions of level 39 (measured: 58 sites) */
-#endif
-#define RESULTS_NAME_BYTES 32u
-#define RESULTS_TEAMS 0x120u
-#define RESULTS_KILLS 0x140u
-#define RESULTS_SUICIDES 0x1B8u
+/* The results screen's widgets: its eight rows are widgets 0x1A + 5r to 0x1E + 5r, their team
+ * colour bars 0xD + r (L39_006A83B8); the rows come from the room (mp_room.c), which keeps the
+ * results block the map leaves. */
 #define RESULTS_FIRST_WIDGET 0x0D
 #define RESULTS_HEADERS 0x15
 #define RESULTS_COLUMNS 5
@@ -127,17 +115,9 @@
 #define RECORD_PLAYERS 0x20u
 #define RECORD_MAX_PLAYERS 0x24u
 
-/* tNW_GameSettings' slots: names (16 bytes), clan tags (8), skins, teams, client ids (-1 empty) and
- * states (6 ready) as 16-bit words. The staging room's row widgets: name 0xF + n, the other cells
- * of row n up to the ready tick 0x57 + n, eight rows. */
+/* The game's eight staging rows: name widget 0xF + n, the other cells of row n up to the ready
+ * tick 0x57 + n; the rows themselves are the room's (mp_room.c). */
 #define GS_SLOTS 8
-#define GS_NAMES 0x000u
-#define GS_CLANS 0x080u
-#define GS_SKINS 0x0C0u
-#define GS_TEAMS 0x0D0u
-#define GS_CLIENTS 0x0E0u
-#define GS_STATES 0x0F0u
-#define GS_READY 6
 #define STAGING_NAME_WIDGET 0x0F
 #define STAGING_START_WIDGET 4 /* the host's START, the last widget above the rows */
 #define STAGING_LAST_WIDGET (0x57 + GS_SLOTS - 1)
@@ -207,7 +187,6 @@ enum {
 #define MOCK_KEY 1000u
 
 void rac3_mp_net_ui_action(const char* key, int value); /* mp_net.c: a server action */
-int rac3_mp_net_toggle_ready(void);                     /* mp_net.c: READY of a slot past eight */
 
 /* ---- State (the game's thread only) ---- */
 
@@ -224,11 +203,12 @@ static int g_text_pass;      /* 1 in the pass after the elements: text only, els
 static int g_modal_layer;    /* 1 while the modal layer draws */
 
 /* The vanilla description: the game's own lists, a column of names, as many rows as the game's
- * list widget shows. Its staging room and scoreboard are bound only in a room of more than eight
- * players (g_vanilla), where the game's eight rows cannot show everyone: the players with their
- * team, skin and ready tick (and the room's count against its limit), the scores with a scroll
- * bar past a page. A server's description, or OPENRAC_RAC3_MP_UI, replaces all of it. */
-static const char VANILLA_DESCRIPTION[] =
+ * list widget shows; in a room, the staging room's players with their team, skin and ready tick
+ * (and the room's count against its limit, and a status line: READY n/m, the START countdown), the
+ * scores with a scroll bar past a page, and the player's own dialog (team, skin, READY) that Cross
+ * on the player's row opens. Its skin names are the game's own texts, so it is built when the lobby
+ * is up (build_vanilla). A server's description, or OPENRAC_RAC3_MP_UI, replaces all of it. */
+static const char VANILLA_HEAD[] =
     "{\"schema\": 1, \"name\": \"Up Your Arsenal\", \"screens\": ["
     "{\"id\": \"game_list\", \"columns\": [{\"field\": \"name\", \"width\": 100}],"
     " \"items\": [{\"kind\": \"table\", \"key\": \"games\", \"action\": \"game:join\"}]},"
@@ -236,11 +216,57 @@ static const char VANILLA_DESCRIPTION[] =
     " {\"field\": \"skill\", \"width\": 12}, {\"field\": \"voice\", \"width\": 11},"
     " {\"field\": \"team\", \"width\": 17}, {\"field\": \"skin\", \"width\": 24},"
     " {\"field\": \"ready\", \"width\": 8}],"
-    " \"items\": [{\"kind\": \"table\", \"key\": \"players\", \"action\": \"game:select\"}]},"
+    " \"items\": [{\"kind\": \"table\", \"key\": \"players\", \"action\": \"game:select\"},"
+    " {\"kind\": \"text\", \"key\": \"status\", \"label\": \" \"}]},"
     "{\"id\": \"scoreboard\", \"columns\": [{\"field\": \"name\", \"width\": 40},"
-    " {\"field\": \"score\", \"width\": 15}, {\"field\": \"kills\", \"width\": 15},"
-    " {\"field\": \"deaths\", \"width\": 15}, {\"field\": \"team\", \"width\": 15}],"
-    " \"items\": [{\"kind\": \"table\", \"key\": \"scores\"}]}]}";
+    " {\"field\": \"kills\", \"width\": 15}, {\"field\": \"deaths\", \"width\": 15}],"
+    " \"items\": [{\"kind\": \"table\", \"key\": \"scores\"}]},"
+    "{\"id\": \"player\", \"title\": \"PLAYER\", \"items\": ["
+    "{\"kind\": \"choice\", \"key\": \"team\", \"label\": \"TEAM\", \"action\": \"game:team\","
+    " \"choices\": [\"1\", \"2\", \"3\", \"4\", \"5\", \"6\", \"7\", \"8\"]},"
+    "{\"kind\": \"choice\", \"key\": \"skin\", \"label\": \"SKIN\", \"action\": \"game:skin\","
+    " \"choices\": [";
+static const char VANILLA_TAIL[] =
+    "]},"
+    "{\"kind\": \"button\", \"label\": \"READY\", \"action\": \"game:ready\"},"
+    "{\"kind\": \"button\", \"label\": \"BACK\", \"action\": \"back\"}]}]}";
+#define SKIN_CHOICES 16 /* the schema's most choices */
+#define VANILLA_BYTES 4096
+
+/* A skin's name, the game's own text, or NULL past the last. */
+static const char* skin_name(int skin) {
+    const gaddr text =
+        (gaddr)mp_func_L39_0059A970(GREF(int32_t, SKIN_TEXT_IDS + 4u * (gaddr)(skin & 0xFF)));
+    return text != 0 && GREF(uint8_t, text) != 0 ? (const char*)G(text) : NULL;
+}
+
+/* The vanilla description with the game's skin names (at most SKIN_CHOICES, JSON-escaped, cut to
+ * the schema's label length). Returns its length. */
+static size_t build_vanilla(char* out, size_t size) {
+    size_t n = (size_t)snprintf(out, size, "%s", VANILLA_HEAD);
+    int count = 0;
+    for (int skin = 0; skin < SKIN_CHOICES && n + 64 < size; skin++) {
+        const char* name = skin_name(skin);
+        if (name == NULL) {
+            break;
+        }
+        out[n++] = count++ > 0 ? ',' : ' ';
+        out[n++] = '"';
+        for (int k = 0; name[k] != 0 && k < 24; k++) {
+            const char c = name[k];
+            if (c == '"' || c == '\\') {
+                out[n++] = '\\';
+            }
+            out[n++] = (unsigned char)c < 0x20 ? ' ' : c;
+        }
+        out[n++] = '"';
+    }
+    if (count == 0) {
+        n += (size_t)snprintf(out + n, size - n, "\"1\"");
+    }
+    n += (size_t)snprintf(out + n, size - n, "%s", VANILLA_TAIL);
+    return n < size ? n : size - 1;
+}
 
 /* ---- The skin: the game's font, bar and sounds ---- */
 
@@ -434,8 +460,9 @@ static int make_ui(void) {
     }
     /* The vanilla description is the one in force until a server's arrives. */
     if (g_ui != NULL && !g_described) {
-        g_described =
-            openrac_mp_ui_describe(g_ui, VANILLA_DESCRIPTION, sizeof VANILLA_DESCRIPTION - 1);
+        static char vanilla[VANILLA_BYTES];
+        const size_t length = build_vanilla(vanilla, sizeof vanilla);
+        g_described = openrac_mp_ui_describe(g_ui, vanilla, length);
         openrac_mp_ui_set_modal_area(g_ui, MODAL_X, MODAL_Y, MODAL_W, MODAL_H);
         describe_from_file();
     }
@@ -539,75 +566,38 @@ static void add_mock_players(void) {
     }
 }
 
-/* The room's most players (rac3_mp_wide_slots is the count in this room; slots 8 and up are the
- * port's companions of the game's tables, mp_wide.c). */
-#define ROOM_MAX 24
-
-/* Slot `slot`'s entry of the results block's array at `offset`, and of the settings object's array
- * at `offset` of the object `gs`: the game's own for the first eight, the port's after. */
-static gaddr result_at(uint32_t offset, uint32_t stride, int slot) {
-    return slot < GS_SLOTS ? RESULTS + offset + stride * (gaddr)slot
-                           : rac3_mp_wide_results(offset, slot);
+/* The "scores" table: the match's results as the room kept them (rac3_room_capture_results), a row
+ * a player, best first by the score the game shows (kills less suicides), then fewer deaths, as
+ * the game ranks its rows (seen in game code: L39_006A6FC8). */
+static int beats(const rac3_room_result* a, const rac3_room_result* b) {
+    return a->score > b->score || (a->score == b->score && a->deaths < b->deaths);
 }
 
-static gaddr settings_at(gaddr gs, uint32_t offset, uint32_t stride, int slot) {
-    return slot < GS_SLOTS ? gs + offset + stride * (gaddr)slot
-                           : rac3_mp_wide_settings(offset, slot);
-}
-
-/* Whether slot `a` ranks above slot `b` on the results: a higher score, or the same with fewer
- * deaths, as the game ranks its rows (seen in game code: L39_006A6FC8). */
-static int beats(int a, int b, const int score[ROOM_MAX]) {
-    const int16_t deaths_a = GREF(int16_t, result_at(RESULTS_KILLS, 4u, a) + 2u);
-    const int16_t deaths_b = GREF(int16_t, result_at(RESULTS_KILLS, 4u, b) + 2u);
-    return score[a] > score[b] || (score[a] == score[b] && deaths_a < deaths_b);
-}
-
-/* The "scores" table: the match's results, a row a slot with a name, keyed by slot, best first by
- * the score the game shows (kills less suicides), then fewer deaths. */
 static void fill_scores(void) {
-    int order[ROOM_MAX];
-    int score[ROOM_MAX];
-    int count = 0;
-    const int slots = rac3_mp_wide_slots();
-    /* The slots with a player, and each one's score. */
-    for (int slot = 0; slot < slots; slot++) {
-        const gaddr kills = result_at(RESULTS_KILLS, 4u, slot);
-        /* A slot whose name is empty had no player. */
-        if (GREF(uint8_t, result_at(0, RESULTS_NAME_BYTES, slot)) == 0) {
-            continue;
-        }
-        score[slot] = GREF(int16_t, kills) - GREF(int16_t, result_at(RESULTS_SUICIDES, 2u, slot));
-        order[count++] = slot;
-    }
-    /* Best first: a stable insertion sort, eight rows at most. */
-    for (int n = 1; n < count; n++) {
-        const int slot = order[n];
+    int order[RAC3_ROOM_MAX];
+    rac3_room_capture_results();
+    const int count = rac3_room_result_count();
+    /* Best first: a stable insertion sort. */
+    for (int n = 0; n < count; n++) {
         int k = n;
         /* Moves past every row this one beats. */
-        while (k > 0 && beats(slot, order[k - 1], score)) {
+        while (k > 0 && beats(rac3_room_result_at(n), rac3_room_result_at(order[k - 1]))) {
             order[k] = order[k - 1];
             k--;
         }
-        order[k] = slot;
+        order[k] = n;
     }
     openrac_mp_ui_table_begin(g_ui, "scores");
     /* One row a player, in that order. */
     for (int n = 0; n < count; n++) {
-        const int slot = order[n];
-        const gaddr kills = result_at(RESULTS_KILLS, 4u, slot);
-        char name[RESULTS_NAME_BYTES + 1];
+        const rac3_room_result* r = rac3_room_result_at(order[n]);
         char number[4][12];
-        memcpy(name, G(result_at(0, RESULTS_NAME_BYTES, slot)), RESULTS_NAME_BYTES);
-        name[RESULTS_NAME_BYTES] = 0;
-        snprintf(number[0], sizeof number[0], "%d", score[slot]);
-        snprintf(number[1], sizeof number[1], "%d", GREF(int16_t, kills));
-        snprintf(number[2], sizeof number[2], "%d", GREF(int16_t, kills + 2u));
-        snprintf(
-            number[3], sizeof number[3], "%d", GREF(int32_t, result_at(RESULTS_TEAMS, 4u, slot)) + 1
-        );
-        openrac_mp_ui_table_row(g_ui, (uint32_t)slot, 1);
-        openrac_mp_ui_table_cell(g_ui, "name", name);
+        snprintf(number[0], sizeof number[0], "%d", r->score);
+        snprintf(number[1], sizeof number[1], "%d", r->kills);
+        snprintf(number[2], sizeof number[2], "%d", r->deaths);
+        snprintf(number[3], sizeof number[3], "%d", r->team + 1);
+        openrac_mp_ui_table_row(g_ui, (uint32_t)order[n], 1);
+        openrac_mp_ui_table_cell(g_ui, "name", r->name);
         openrac_mp_ui_table_cell(g_ui, "score", number[0]);
         openrac_mp_ui_table_cell(g_ui, "kills", number[1]);
         openrac_mp_ui_table_cell(g_ui, "deaths", number[2]);
@@ -617,44 +607,54 @@ static void fill_scores(void) {
     openrac_mp_ui_table_end(g_ui);
 }
 
-/* The "players" table: tNW_GameSettings' filled slots, in slot order (the staging room compacts its
- * rows the same way, L39_006C20B0), keyed by client id. */
+/* The "players" table: the room's players in slot order (the staging room compacts its rows the
+ * same way, L39_006C20B0), keyed by DME client. */
 static void fill_players(void) {
-    const gaddr gs = GREF(gaddr, GAME_SETTINGS);
     openrac_mp_ui_table_begin(g_ui, "players");
     /* The room's player limit, so the list shows joined/MAX. */
-    openrac_mp_ui_table_capacity(g_ui, rac3_mp_wide_slots());
-    /* The slots in order; an empty one has client id -1. */
-    for (int slot = 0; gs != 0 && slot < rac3_mp_wide_slots(); slot++) {
-        const int16_t client = GREF(int16_t, settings_at(gs, GS_CLIENTS, 2u, slot));
-        /* An empty slot has no row. */
-        if (client < 0) {
+    openrac_mp_ui_table_capacity(g_ui, rac3_room_width());
+    /* The slots in order; an empty one has no row. */
+    for (int slot = 0; slot < rac3_room_width(); slot++) {
+        const int client = rac3_room_slot_client(slot);
+        const rac3_room_player* p = rac3_room_player_of(client);
+        if (client < 0 || p == NULL) {
             continue;
         }
-        char name[17];
-        char clan[9];
-        char team[8];
-        memcpy(name, G(settings_at(gs, GS_NAMES, 16u, slot)), 16);
-        memcpy(clan, G(settings_at(gs, GS_CLANS, 8u, slot)), 8);
-        name[16] = 0, clan[8] = 0;
-        snprintf(team, sizeof team, "%d", GREF(int16_t, settings_at(gs, GS_TEAMS, 2u, slot)) + 1);
-        const int16_t skin_number = GREF(int16_t, settings_at(gs, GS_SKINS, 2u, slot));
-        const gaddr skin_text = (gaddr)mp_func_L39_0059A970(
-            GREF(int32_t, SKIN_TEXT_IDS + 4u * (gaddr)(skin_number & 0xFF))
-        );
+        char team[8] = "";
+        if (rac3_room_team_play()) {
+            snprintf(team, sizeof team, "%d", p->team + 1);
+        }
+        const char* skin = skin_name(p->skin);
         openrac_mp_ui_table_row(g_ui, (uint32_t)client, 1);
-        openrac_mp_ui_table_cell(g_ui, "name", name);
-        openrac_mp_ui_table_cell(g_ui, "clan", clan);
+        openrac_mp_ui_table_cell(g_ui, "name", p->name);
+        openrac_mp_ui_table_cell(g_ui, "clan", p->clan);
         openrac_mp_ui_table_cell(g_ui, "team", team);
-        openrac_mp_ui_table_cell(g_ui, "skin", skin_text != 0 ? (const char*)G(skin_text) : "");
-        openrac_mp_ui_table_cell(
-            g_ui,
-            "ready",
-            GREF(int16_t, settings_at(gs, GS_STATES, 2u, slot)) >= GS_READY ? "\x11" : ""
-        );
+        openrac_mp_ui_table_cell(g_ui, "skin", skin != NULL ? skin : "");
+        openrac_mp_ui_table_cell(g_ui, "ready", p->ready ? "\x11" : "");
     }
     add_mock_players();
     openrac_mp_ui_table_end(g_ui);
+}
+
+/* The staging room's status line: the joiners ready against the players, START's state for the
+ * host, the countdown once START is pressed. */
+static void fill_status(void) {
+    char text[48];
+    const int countdown = rac3_room_countdown();
+    if (countdown >= 0) {
+        snprintf(text, sizeof text, "STARTING IN %d", countdown);
+    } else {
+        const int ready = rac3_room_ready_count(), count = rac3_room_count();
+        snprintf(
+            text,
+            sizeof text,
+            "READY %d/%d%s",
+            ready,
+            count,
+            rac3_room_is_host() && ready == count ? "  PRESS START" : ""
+        );
+    }
+    openrac_mp_ui_set_text(g_ui, "status", text);
 }
 
 /* ---- Binding ---- */
@@ -695,9 +695,9 @@ static void open_for(int id, gaddr screen) {
     if (name == NULL) {
         return;
     }
-    /* The vanilla description's staging room and scoreboard are for the wide rooms alone. */
-    if (g_vanilla && (id == SCREEN_STAGING || id == SCREEN_RESULTS)
-        && rac3_mp_wide_slots() <= GS_SLOTS) {
+    /* The staging room and the scoreboard are the port's room's (mp_room.c): without one (offline,
+     * a disc whose tables stay 8) the vanilla description keeps the game's. */
+    if (g_vanilla && (id == SCREEN_STAGING || id == SCREEN_RESULTS) && !rac3_room_active()) {
         return;
     }
     float area[4];
@@ -711,14 +711,14 @@ static void open_for(int id, gaddr screen) {
         /* The eight name rows of the staging room, 0.648 + (n - 3) * 0.412 / 9 of the picture's
          * height, from the left of the names to the ready ticks (L39_006C1730). */
         const float game_line = 0.412f / 9.0f * PICTURE_H;
-        /* A room of more than eight shows up to twelve rows and a line for its count, in the
+        /* The room shows up to twelve rows, a line for its count and the status line, in the
          * height of the game's eight; a longer list scrolls. */
-        const int wide = rac3_mp_wide_slots() > GS_SLOTS;
-        const int rows = rac3_mp_wide_slots() > 12 ? 12 : rac3_mp_wide_slots();
-        g_line = wide ? game_line * (float)GS_SLOTS / (float)(rows + 1) : game_line;
+        const int width = rac3_room_width();
+        const int rows = width > 12 ? 12 : (width < 2 ? 2 : width);
+        g_line = game_line * (float)GS_SLOTS / (float)(rows + 2);
         area[0] = 50.0f, area[2] = 412.0f;
         area[1] = (0.648f - 3.0f * 0.412f / 9.0f) * PICTURE_H - game_line * 0.5f;
-        area[3] = wide ? g_line * ((float)rows + 1.5f) : g_line * (float)GS_SLOTS;
+        area[3] = g_line * ((float)rows + 2.5f);
     } else {
         const gaddr list = widget(screen, LIST_WIDGET);
         int32_t shown = GREF(int32_t, list + LIST_ROWS_SHOWN);
@@ -821,9 +821,10 @@ static int native_event(int game) {
 }
 
 /* A game action chosen on row `row`: the game's own cursor goes there and the game gets Cross,
- * so its own code joins or opens the player's options. Returns the event the game sees. */
+ * so its own code joins. Returns the event the game sees. */
 static int game_action(const openrac_mp_ui_outcome* out) {
-    /* Staging: the player's row; the lists: the game's row. */
+    /* Staging: a row's own action is the room's (room_action); a server's description that names
+     * another game action on it leaves it to the game for its first eight rows. */
     if (g_bound == SCREEN_STAGING) {
         /* Rows past the game's eight have no game widget to choose. */
         if (out->row >= GS_SLOTS) {
@@ -836,10 +837,49 @@ static int game_action(const openrac_mp_ui_outcome* out) {
     return GAME_CROSS;
 }
 
-/* READY by the port (rac3_mp_net_toggle_ready): a Circle press on the staging screen that it takes
- * (every slot with OPENRAC_RAC3_PORT_READY, else slots past the game's eight) is left out of the pad
- * word until the button is released, so the game's own READY, which reads the pad's pressed bits
- * each game tick, never sees it. (libpad's word is active low; Circle is bit 0x2000.) */
+/* The player's own dialog (the description's "player" screen): its team and skin as the room has
+ * them. Returns 0 when the description has none. */
+static int open_player_dialog(void) {
+    const rac3_room_player* p = rac3_room_player_of(rac3_room_my_client());
+    if (p == NULL || !openrac_mp_ui_open_modal(g_ui, "player")) {
+        return 0;
+    }
+    openrac_mp_ui_set_value(g_ui, "team", p->team);
+    openrac_mp_ui_set_value(g_ui, "skin", p->skin);
+    return 1;
+}
+
+/* The room's actions of the native screens (game:select on a staging row, game:team, game:skin,
+ * game:ready). Returns 1 when `out` was one of them. */
+static int room_action(const openrac_mp_ui_outcome* out) {
+    if (!rac3_room_active() || out->action != OPENRAC_MP_UI_ACTION_GAME) {
+        return 0;
+    }
+    if (strcmp(out->target, "team") == 0) {
+        rac3_room_set_team(out->value);
+    } else if (strcmp(out->target, "skin") == 0) {
+        rac3_room_set_skin(out->value);
+    } else if (strcmp(out->target, "ready") == 0) {
+        rac3_room_toggle_ready();
+    } else if (strcmp(out->target, "select") == 0 && g_bound == SCREEN_STAGING) {
+        /* The player's own row opens its dialog; another's does nothing. */
+        const int own = out->row_key == (uint32_t)rac3_room_my_client();
+        if (!own || !open_player_dialog()) {
+            mp_func_L39_00688340(own ? SOUND_SELECT : SOUND_DENIED, 0, 0);
+            return own ? 0 : 1;
+        }
+        mp_func_L39_00688340(SOUND_SELECT, 0, 0);
+    } else {
+        return 0;
+    }
+    return 1;
+}
+
+/* READY by the room (rac3_room_toggle_ready): a Circle press on the staging screen is the room's on
+ * every console and is left out of the pad word until the button is released, so the game's own
+ * READY, which reads the pad's pressed bits each game tick, never sees it (a console too slow to
+ * draw would run several ticks in the window frame of one press, and toggle each time). (libpad's
+ * word is active low; Circle is bit 0x2000.) */
 uint16_t rac3_mp_ui_pad_filter(uint16_t word) {
     static int down, taken;
     const int circle = (word & 0x2000u) == 0;
@@ -847,44 +887,23 @@ uint16_t rac3_mp_ui_pad_filter(uint16_t word) {
         down = taken = 0;
     } else if (!down) {
         down = 1;
-        taken = g_on_staging && rac3_mp_net_toggle_ready();
-        fprintf(
-            stderr, "[info] rac3: pad: Circle pressed (staging %d, taken %d)\n", g_on_staging, taken
-        );
+        taken = g_on_staging && (g_ui == NULL || !openrac_mp_ui_modal(g_ui))
+                && rac3_room_toggle_ready();
     }
     return taken ? (uint16_t)(word | 0x2000u) : word;
 }
 
-/* Whether every player of the room is ready, the host counted: the ready joiners over every slot
- * (GameSettings +0x178 is the players' count), as the host's START needs. */
-static int wide_all_ready(gaddr gs, int* ready_out) {
-    int ready = 1;
-    for (int slot = 1; slot < rac3_mp_wide_slots(); slot++) {
-        if (GREF(int16_t, settings_at(gs, GS_CLIENTS, 2u, slot)) != -1
-            && GREF(int16_t, settings_at(gs, GS_STATES, 2u, slot)) == GS_READY) {
-            ready++;
-        }
-    }
-    *ready_out = ready;
-    return ready == GREF(int32_t, gs + 0x178u);
-}
-
-/* Whether this console is the host of a room of more than eight players, on the staging screen
- * with the room's flag the game's own START check reads (L39_006C30A0, mp_func_L39_006C30A0). */
-static int wide_host(void) {
-    return rac3_mp_wide_slots() > GS_SLOTS && GREF(gaddr, GAME_SETTINGS) != 0
-           && GREF(uint8_t, RAC3_MADDR(0x001A5CD0u) + 0x168u) != 0;
-}
-
-/* START in a room past eight rows: the game's list widget stops at eight rows, so its cursor
- * (wrapping from the first row to the eighth) never reaches the host's START widget. The pad's
- * Start button, and Up from the first row of the native list, go to START instead: the game's
- * cursor moves to the widget and Cross is the event it sees, which the game answers as it does
- * for START (a greyed START refuses with the denied sound). Returns 1 when the event was taken;
- * `event` is then replaced by the one the game gets. */
-static int wide_start(int mgr, int* event) {
+/* START, the host's: the pad's Start button, and Cross on the game's START widget, ask the room
+ * (rac3_room_start: every joiner ready; the settings are written for the match). When it agrees
+ * the game's cursor goes to its START widget and Cross is the event it sees, so the game's own
+ * START runs (its countdown, the map); else START refuses with the denied sound. Up from the first
+ * row of the native list only moves the game's cursor to START (the game's list widget stops at
+ * eight rows, and its cursor would wrap to the eighth). Returns 1 when the event was taken; `event`
+ * is then replaced by the one the game gets. */
+static int room_start(int mgr, int* event) {
     const int32_t current = GREF(int32_t, (gaddr)mgr + MGR_CURRENT);
-    if (!g_on_staging || current < 0 || !wide_host()) {
+    if (!g_on_staging || current < 0 || !rac3_room_is_host() || g_hidden
+        || (g_ui != NULL && openrac_mp_ui_modal(g_ui))) {
         return 0;
     }
     const gaddr screen = GREF(gaddr, (gaddr)mgr + MGR_SCREENS + 4u * (gaddr)current);
@@ -893,20 +912,20 @@ static int wide_start(int mgr, int* event) {
     }
     const int32_t focus = GREF(int32_t, screen + SCREEN_FOCUS);
     const int up_from_top = *event == GAME_UP && g_ui != NULL && g_bound == SCREEN_STAGING
-                            && !openrac_mp_ui_modal(g_ui) && focus == STAGING_NAME_WIDGET
-                            && openrac_mp_ui_cursor(g_ui) == 0;
-    if (*event != GAME_START && !up_from_top) {
+                            && focus == STAGING_NAME_WIDGET && openrac_mp_ui_cursor(g_ui) == 0;
+    const int press =
+        *event == GAME_START || (*event == GAME_CROSS && focus == STAGING_START_WIDGET);
+    if (!press && !up_from_top) {
         return 0;
     }
-    /* The game's START byte is not read here (the staging update sets it after this event has been
-     * read): the room's readiness is counted again. */
-    int ready;
-    const int enabled = wide_all_ready(GREF(gaddr, GAME_SETTINGS), &ready);
-    fprintf(stderr, "[info] rac3: online: START (port path): %s\n", enabled ? "enabled" : "greyed");
     mp_func_L39_0068B2F8((int)screen, STAGING_START_WIDGET, 0);
-    if (up_from_top || !enabled) {
-        /* Only the cursor goes there (or START refuses); Cross is pressed on a Start button alone. */
-        mp_func_L39_00688340(enabled || up_from_top ? SOUND_MOVE : SOUND_DENIED, 0, 0);
+    if (up_from_top) {
+        mp_func_L39_00688340(SOUND_MOVE, 0, 0);
+        *event = 0;
+        return 1;
+    }
+    if (!rac3_room_start()) {
+        mp_func_L39_00688340(SOUND_DENIED, 0, 0);
         *event = 0;
         return 1;
     }
@@ -917,19 +936,17 @@ static int wide_start(int mgr, int* event) {
 /* The menu event read (L39_00686138): the native screen's, while it has the cursor. */
 int mp_func_L39_00686138(int mgr, int pad) {
     int event = mp_func_L39_00686138__game(mgr, pad);
-    if ((gaddr)pad == GREF(gaddr, ACTIVE_PAD) && wide_start(mgr, &event)) {
+    if ((gaddr)pad == GREF(gaddr, ACTIVE_PAD) && room_start(mgr, &event)) {
         return event;
     }
-    /* A player in a slot past the game's eight rows has no row to READY on: Circle on the staging
-     * screen readies it (whether or not the server's native screens are up). The game's own READY
-     * reads the pad's pressed bits (pad +0x1C4, 0x20 Circle) in its staging update: the port takes
-     * the press out of them when it handles it. */
-    if ((gaddr)pad == GREF(gaddr, ACTIVE_PAD)) {
+    /* Circle on the staging screen is the room's READY (the pad filter takes it first; a press it
+     * did not see, the game's own READY would read from the pad's pressed bits, pad +0x1C4). */
+    if ((gaddr)pad == GREF(gaddr, ACTIVE_PAD) && (g_ui == NULL || !openrac_mp_ui_modal(g_ui))) {
         const int32_t current = GREF(int32_t, (gaddr)mgr + MGR_CURRENT);
         const gaddr pressed = (gaddr)pad + PAD_PRESSED;
         if ((event == GAME_CIRCLE || (GREF(uint32_t, pressed) & PAD_CIRCLE) != 0) && current >= 0
             && GREF(int32_t, (gaddr)mgr + MGR_IDS + 4u * (gaddr)current) == SCREEN_STAGING
-            && rac3_mp_net_toggle_ready()) {
+            && rac3_room_toggle_ready()) {
             GREF(uint32_t, pressed) &= ~(uint32_t)PAD_CIRCLE;
             return 0;
         }
@@ -964,7 +981,10 @@ int mp_func_L39_00686138(int mgr, int pad) {
     if (!out.consumed && !modal) {
         return event;
     }
-    /* The game's own action: its cursor moved, then Cross for the game. */
+    /* The room's own actions, then the game's: its cursor moved, then Cross for the game. */
+    if (room_action(&out)) {
+        return 0;
+    }
     if (out.action == OPENRAC_MP_UI_ACTION_GAME) {
         return game_action(&out);
     }
@@ -976,29 +996,25 @@ int mp_func_L39_00686138(int mgr, int pad) {
 }
 
 /* The staging room's per-frame check (L39_006C30A0, which its event handler runs before it reads the
- * START byte): the host's START is enabled when the ready players it counts, slots 1 to 7 and itself,
- * are all the players (GameSettings +0x178). In a room of more than 8 the game's byte (screen +0x2A8)
- * is set again from the count over every slot, right after the game set it from the first eight. */
+ * START byte): the game enables the host's START when the ready players it counts, slots 1 to 7 and
+ * itself, are all the players (GameSettings +0x178). In the room the byte (screen +0x2A8) is the
+ * room's: every joiner of every slot ready. */
 int mp_func_L39_006C30A0(int screen_object) {
     const int result = mp_func_L39_006C30A0__game(screen_object);
-    const gaddr gs = GREF(gaddr, GAME_SETTINGS);
-    const gaddr screen = (gaddr)screen_object;
-    if (gs == 0 || rac3_mp_wide_slots() <= GS_SLOTS
-        || GREF(uint8_t, RAC3_MADDR(0x001A5CD0u) + 0x168u) == 0) {
+    if (GREF(gaddr, GAME_SETTINGS) == 0 || !rac3_room_is_host()) {
         return result;
     }
-    int ready;
-    wide_all_ready(gs, &ready);
-    GREF(uint8_t, screen + 0x2A8u) = ready == GREF(int32_t, gs + 0x178u);
+    const int ready = rac3_room_ready_count(), count = rac3_room_count();
+    GREF(uint8_t, (gaddr)screen_object + 0x2A8u) = ready == count;
     static int last = -1;
     if (ready != last) {
         last = ready;
         fprintf(
             stderr,
-            "[info] rac3: online: %d ready of %d players: START %s\n",
+            "[info] rac3: room: %d ready of %d players: START %s\n",
             ready,
-            GREF(int32_t, gs + 0x178u),
-            ready == GREF(int32_t, gs + 0x178u) ? "enabled" : "greyed"
+            count,
+            ready == count ? "enabled" : "greyed"
         );
     }
     return result;
@@ -1035,6 +1051,7 @@ int mp_func_L39_006862D0(int mgr) {
         fill_scores();
     } else if (g_bound == SCREEN_STAGING) {
         fill_players();
+        fill_status();
     } else {
         fill_games(g_screen);
     }
