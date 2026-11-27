@@ -38,6 +38,7 @@ inside rac1-decomp's container, from rac1-decomp's root, where neither OpenRAC n
 | `files` | `link_or_copy(source, dest, keep_metadata=True)`, `copy_tree(source, dest, keep)`, `rename(source, dest)`, `replace(source, dest)` |
 | `proc` | `run(cmd, cwd, env, echo, check, capture)`, `git(repo, *args, check, binary)`: no shell, ever |
 | `iso9660` | `boot_serial(image)`, `parse_boot2(text)`, `files(image)`, `read(image, path)`, `find(f, path)`, `walk`, `records`, `root_directory`, `IsoError` |
+| `background` | `lower_priority()`: this process and what it starts below normal, unless `OPENRAC_PRIORITY=normal`; `cpu_budget(cpus=None)`: the threads long work should use, all but an eighth (at least two kept free) |
 
 `repo_root` accepts two kinds of top directory, and both are meant: a checkout, marked by
 `CONTRIBUTING.md`, and the copy of the tools the launcher carries for players
