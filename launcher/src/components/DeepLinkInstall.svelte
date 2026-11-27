@@ -500,9 +500,12 @@
     cursor: pointer;
   }
 
+  /* No browser margin: the box lines up with the text above it. */
   .trust-me input {
+    flex: none;
     width: 16px;
     height: 16px;
+    margin: 0;
     accent-color: var(--amber);
   }
 
@@ -512,6 +515,13 @@
     align-items: flex-start;
     font-size: 0.8125rem;
     color: var(--body);
+  }
+
+  /* The box starts at the text's left edge, not the browser's 4 px in. */
+  .offer input {
+    flex: none;
+    margin-left: 0;
+    accent-color: var(--amber);
   }
 
   .offer strong {

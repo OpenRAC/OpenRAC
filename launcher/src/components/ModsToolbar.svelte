@@ -138,9 +138,11 @@
     cursor: pointer;
   }
 
+  /* No browser margin: the box lines up with the search field's left edge. */
   .checked input {
     width: 14px;
     height: 14px;
+    margin: 0;
     accent-color: var(--amber);
   }
 

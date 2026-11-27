@@ -408,8 +408,8 @@
                   : T.SAFETY.reachNone}
               </dd>
             {/if}
-            <dt>{T.SAFETY.problem}</dt>
-            <dd>
+            <dt class="mid">{T.SAFETY.problem}</dt>
+            <dd class="mid">
               <button
                 class="small"
                 onclick={() => void guardShown(api.openUrl(T.reportUrl(mod.id)))}
@@ -881,9 +881,11 @@
     color: var(--body);
   }
 
+  /* One label width for every list, so About and Safety line up under each other. */
   dl {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-columns: minmax(6.5em, max-content) minmax(0, 1fr);
+    align-items: baseline;
     gap: 8px 18px;
     margin: 0;
     font-size: 0.8125rem;
@@ -891,6 +893,11 @@
 
   dt {
     color: var(--dim);
+  }
+
+  /* A row whose value is a button: the label sits on the button's middle, not its icon. */
+  .mid {
+    align-self: center;
   }
 
   dd {

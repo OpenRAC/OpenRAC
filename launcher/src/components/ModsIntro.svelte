@@ -166,8 +166,10 @@
     background: var(--card-hi);
   }
 
+  /* A quiet link-like button: its text lines up with the body's left edge, not its padding. */
   .grow {
     margin-right: auto;
+    margin-left: -16px;
   }
 
   @media (max-width: 520px) {
