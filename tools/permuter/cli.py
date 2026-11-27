@@ -14,6 +14,7 @@ Results go to OUT (default build/permuter/<profile>/<func>/ in OpenRAC); see eng
 from __future__ import annotations
 
 import argparse
+import contextlib
 import multiprocessing as mp
 import os
 import sys
@@ -32,10 +33,19 @@ def default_out(prof: profiles.Profile, func: str) -> Path:
 
 def _prepare(args) -> tuple[profiles.Profile, dict]:
     prof = profiles.load(args.profile)
+    requested = getattr(args, "max_candidates", None)
+    if prof.candidate_ceiling and requested is not None and requested > prof.candidate_ceiling:
+        raise ValueError(f"max-candidates {requested} exceeds profile ceiling {prof.candidate_ceiling}")
     draft = Path(args.c).read_text(errors="replace") if args.c else None
     checkout = upstream.checkout()
     engine.run_start(prof)
     cfg = engine.prepare(prof, args.func, draft, checkout, asm_passes=not getattr(args, "no_asm_passes", False))
+    cfg["max_candidates"] = getattr(args, "max_candidates", None) or prof.max_candidates
+    if cfg["max_candidates"] < 0:
+        raise ValueError("max-candidates must be positive")
+    cfg["keep_work"] = getattr(args, "keep_work", False) or prof.keep_work
+    if cfg["max_candidates"] and getattr(args, "j", 1) != 1:
+        raise ValueError("a total candidate cap requires -j1 (base included)")
     return prof, cfg
 
 
@@ -44,7 +54,9 @@ def cmd_base(args) -> int:
     prof, cfg = _prepare(args)
     work = upstream.cache_dir() / "work"
     work.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="base-", dir=work) as tmp:
+    context = (contextlib.nullcontext(tempfile.mkdtemp(prefix="base-", dir=work))
+               if cfg["keep_work"] else tempfile.TemporaryDirectory(prefix="base-", dir=work))
+    with context as tmp:
         cand = engine.Candidate(cfg, Path(tmp))
         obj = cand.compile(cfg["base"])
         if obj is None:
@@ -80,8 +92,9 @@ def cmd_run(args) -> int:
         job.stop()
         job.thread.join(15)
     s = job.snapshot()
+    candidates = s["iterations"] + s["base_candidates"]
     print(f"{args.func}: {s['status']}, base {s['base_score']}, best {s['best_score']}, "
-          f"{s['iterations']} candidates in {s['elapsed']}s; {out / 'result.json'}")
+          f"total candidates including bases: {candidates}; {s['elapsed']}s; {out / 'result.json'}")
     return 0 if s["status"] != "error" else 1
 
 
@@ -106,7 +119,9 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--c", help="a draft: the declarations it needs, then the function (default: the C "
                                    "the project has for it)")
         p.add_argument("--no-asm-passes", action="store_true", help="leave out the fence and barrier passes")
+        p.add_argument("--keep-work", action="store_true", help="retain compiler scratch evidence")
         if name == "run":
+            p.add_argument("--max-candidates", type=int, help="total candidates including the base; requires -j1")
             p.add_argument("-j", type=int, default=max(1, (os.cpu_count() or 2) - 1))
             p.add_argument("--seconds", type=float, default=0, help="time limit (default none)")
             p.add_argument("--out")

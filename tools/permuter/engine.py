@@ -53,10 +53,15 @@ def prepare(prof: profiles.Profile, func: str, draft: str | None, permuter: Path
             raise RuntimeError(f"the flags command failed:\n{done.stderr[-2000:]}")
         flags = done.stdout.strip()
     weights = dict(prof.weights)
-    if asm_passes and upstream.has_asm_passes(modules):
+    if asm_passes and prof.asm_passes and upstream.has_asm_passes(modules):
         weights.update(upstream.ASM_PASSES)
+    else:
+        for name in upstream.ASM_PASSES:
+            weights.pop(name, None)
     return dict(profile=prof.name, func=func, base=base, decls=decls, retail=[retail.words, retail.masks, retail.calls],
-                source=str(source), flags=flags, permuter=str(permuter), weights=weights, asm=str(asm))
+                source=str(source), flags=flags, permuter=str(permuter), weights=weights, asm=str(asm),
+                max_candidates=prof.max_candidates, candidate_ceiling=prof.candidate_ceiling,
+                keep_work=prof.keep_work)
 
 
 def run_start(prof: profiles.Profile) -> None:
@@ -226,7 +231,9 @@ def _worker(cfg: dict, wid: int, outq, stop, seed: int) -> None:
             raise RuntimeError("the base does not compile:\n" + cand.last_error)
         outq.put(("base", wid, p.base_score, p.base_source if wid == 0 else None))
         batch, flushed = [], time.time()
-        for s in p.seed_iterator():
+        for candidate_no, s in enumerate(p.seed_iterator(), start=2):
+            if cfg.get("max_candidates", 0) and candidate_no > cfg["max_candidates"]:
+                break
             if stop.is_set():
                 break
             last_pass[0] = None
@@ -244,7 +251,8 @@ def _worker(cfg: dict, wid: int, outq, stop, seed: int) -> None:
                 outq.put(("tick", wid, batch))
                 batch, flushed = [], time.time()
         outq.put(("tick", wid, batch))
-        shutil.rmtree(tmp, ignore_errors=True)
+        if not cfg.get("keep_work", False):
+            shutil.rmtree(tmp, ignore_errors=True)
         outq.put(("done", wid))
     except Exception:
         tb = traceback.format_exc()
@@ -260,10 +268,15 @@ class Job:
     def __init__(self, cfg: dict, out_dir: Path, jobs: int = 2, seconds: float = 0):
         self.cfg, self.out_dir = cfg, Path(out_dir)
         self.jobs, self.seconds = max(1, int(jobs)), float(seconds or 0)
+        maximum, ceiling = cfg.get("max_candidates", 0), cfg.get("candidate_ceiling", 0)
+        if ceiling and (not maximum or maximum > ceiling):
+            raise ValueError(f"candidate limit exceeds profile ceiling {ceiling}")
+        if cfg.get("max_candidates", 0) and self.jobs != 1:
+            raise ValueError("a total candidate cap requires one worker")
         self.lock = threading.Lock()
         self.state = dict(profile=cfg["profile"], func=cfg["func"], flags=cfg["flags"], jobs=self.jobs,
                           seconds=self.seconds, status="starting", message="", started=time.time(),
-                          elapsed=0.0, iterations=0, errors=0, compile_errors=0, base_score=None,
+                          elapsed=0.0, iterations=0, base_candidates=0, errors=0, compile_errors=0, base_score=None,
                           best_score=None, rate=0.0, timeline=[], events=[], event_seq=0, passes={},
                           outputs=[], asm_passes=any(k in cfg["weights"] for k in upstream.ASM_PASSES),
                           out_dir=str(self.out_dir), worker_errors=[])
@@ -352,6 +365,7 @@ class Job:
                 kind = msg[0] if msg else None
                 if kind == "base":
                     _, wid, value, src = msg
+                    st["base_candidates"] += 1
                     if src:
                         self.base_source = src
                     if st["base_score"] is None:
@@ -411,6 +425,9 @@ class Job:
         result = {k: st[k] for k in ("profile", "func", "status", "message", "base_score", "best_score",
                                      "iterations", "elapsed", "flags", "jobs")}
         result["best"] = best
+        result["max_candidates"] = self.cfg.get("max_candidates", 0)
+        result["candidates_including_base"] = st["iterations"] + st["base_candidates"]
+        result["keep_work"] = self.cfg.get("keep_work", False)
         result["outputs"] = [{k: o[k] for k in ("n", "score", "path", "artefacts")} for o in st["outputs"]]
         (self.out_dir / "result.json").write_text(json.dumps(result, indent=1) + "\n")
 
