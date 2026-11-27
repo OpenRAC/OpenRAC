@@ -111,6 +111,16 @@ class ReleaseNames(unittest.TestCase):
                                       {"mine"})
         self.assertEqual(got, {"PH_G1": "func_002836E0"})
 
+    def test_the_releases_own_datum_without_a_row(self):
+        # PAL's own D_PAL_L00_001B0800 is at that address in PAL's level 0: with no row it loses
+        # its tag. Another tag, or a function, stays as it is.
+        r = release.Release({"names": {"D_PAL_001AE200": "D_001AE200"}})
+        r.own_tag = "PAL"
+        self.assertEqual(r.name("D_PAL_L00_001B0800"), "D_L00_001B0800")
+        self.assertEqual(r.name("D_PAL_001AE200"), "D_001AE200")
+        self.assertEqual(r.name("D_US2_L00_001B0800"), "D_US2_L00_001B0800")
+        self.assertEqual(r.name("func_PAL_L00_00391958"), "func_PAL_L00_00391958")
+
     def test_a_level_files_names_of_its_level(self):
         # In an Oozla file func_00312B68 is level 1's copy of func_002A9640 (the primary's level
         # catalogue), not the executable's address it states: it is that function in the release.
