@@ -787,7 +787,14 @@ void EffectRenderer::render_depth(const FrameInput& input, RenderState& state) {
         if (clamp) {
             glEnable(GL_DEPTH_CLAMP);
         }
+        const bool near_plane = gl::clip_distance_available();
+        if (near_plane) {
+            glEnable(GL_CLIP_DISTANCE0);  // the near plane (effect.vert)
+        }
         draw(quad_start, static_cast<GLsizei>(m_vertices.size()) - quad_start);
+        if (near_plane) {
+            glDisable(GL_CLIP_DISTANCE0);
+        }
         if (clamp) {
             glDisable(GL_DEPTH_CLAMP);
         }

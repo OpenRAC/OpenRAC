@@ -39,6 +39,9 @@ void main() {
     // a strip the game lays on a surface it drew before, a few millimetres apart (Kalebo III's dome
     // glass over its fading panes), passes there as on the GS instead of tearing in and out of it.
     gl_Position.z += 6.0e-7 * gl_Position.w;
+    // The near plane (z = w here), kept when depth clamp is on for the quads' far side: without it
+    // a quad passing the camera stretches over the screen. The game's own quad clipper cuts there.
+    gl_ClipDistance[0] = gl_Position.w - gl_Position.z;
 #ifdef OPENRAC_OCEAN_SPECTRUM
     // The ocean extends beyond the world camera's far plane at clear depth.
     if (water_mesh != 0 && gl_Position.w > 0.)

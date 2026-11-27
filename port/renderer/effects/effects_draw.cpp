@@ -530,6 +530,12 @@ void EffectRenderer::draw_prepared(
     if (clamp_quads) {
         glEnable(GL_DEPTH_CLAMP);
     }
+    // Depth clamp also drops the near plane: effect.vert's clip distance puts it back.
+    const bool near_plane =
+        quads && gl::depth_clamp_available() && gl::clip_distance_available();
+    if (near_plane) {
+        glEnable(GL_CLIP_DISTANCE0);
+    }
 
     set.reset();
     quad_indices = quads && m_quad_indices != 0;
@@ -702,6 +708,9 @@ void EffectRenderer::draw_prepared(
     }
     if (clamp_quads) {
         glDisable(GL_DEPTH_CLAMP);
+    }
+    if (near_plane) {
+        glDisable(GL_CLIP_DISTANCE0);
     }
     if (pair_bound) {
         unbind_pair();
