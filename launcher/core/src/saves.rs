@@ -441,6 +441,17 @@ fn is_rac2(serial: &str) -> bool {
     serial.contains("972.68") || serial.contains("516.07")
 }
 
+/// How many save slots the game on `serial` has: Going Commando and Up Your Arsenal have four
+/// (`save0.bin` to `save3.bin`), Ratchet & Clank five. Other games: five, until their saves are
+/// known.
+pub fn slot_count(serial: &str) -> usize {
+    if is_rac2(serial) || is_rac3(serial) {
+        4
+    } else {
+        5
+    }
+}
+
 pub fn get_planet_name(serial: &str, planet_id: u32) -> Option<String> {
     if serial.contains("509.16") || serial.contains("971.99") || serial.contains("150.37") {
         if let Some(&name) = RAC1_PLANETS.get(planet_id as usize) {
@@ -586,8 +597,8 @@ fn inspect_card(card_dir: &Path, serial: &str) -> GameSaveStatus {
                 }
             }
 
-            // Inspect slots save0.bin through save4.bin
-            for i in 0..5 {
+            // The game's slots: save0.bin onwards.
+            for i in 0..slot_count(serial) {
                 let fname = format!("save{i}.bin");
                 let save_path = target_dir.join(&fname);
                 let (exists, size, mtime, is_empty, timestamp, bolts, planet_id, planet_name) = if save_path.is_file() {
@@ -691,7 +702,7 @@ fn coop_saves(card_dir: &Path, serial: &str) -> Vec<CoopSaveInfo> {
     if !folder.is_dir() {
         return Vec::new();
     }
-    (0..5)
+    (0..slot_count(serial))
         .filter_map(|i| {
             let path = folder.join(format!("save{i}.bin"));
             let read = if path.is_file() { path.clone() } else { folder.join(format!("save{i}.bin.bak")) };
@@ -1292,6 +1303,22 @@ mod tests {
             find_game_folder(card.path()).and_then(|p| p.file_name().map(|n| n.to_string_lossy().to_string()))
         );
         assert_eq!(status.slots[0].path, card.path().join(&folder).join("save0.bin").to_string_lossy());
+    }
+
+    #[test]
+    fn each_game_shows_its_own_number_of_slots() {
+        // Going Commando and Up Your Arsenal have four slots, Ratchet & Clank five.
+        for (serial, folder, slots) in [
+            ("SCES_509.16", "BESCES-50916RATCHET", 5),
+            ("SCUS_972.68", "BASCUS-97268RATCHET", 4),
+            ("SCES_516.07", "BESCES-51607RATCHET", 4),
+            ("SCES_524.56", "BESCES-52456RATCHET", 4),
+            ("SCUS_973.53", "BASCUS-97353RATCHET", 4),
+        ] {
+            let card = tempfile::tempdir().unwrap();
+            fs::create_dir_all(card.path().join(folder)).unwrap();
+            assert_eq!(inspect_card(card.path(), serial).slots.len(), slots, "{serial}");
+        }
     }
 
     #[test]
