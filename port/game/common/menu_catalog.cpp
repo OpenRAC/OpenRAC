@@ -245,6 +245,8 @@ constexpr Entry kEntries[] = {
     {Id::TexturePack, Tab::Developer, "Tools", kSwitch, A, "Texture pack",
      "Shows or hides the texture pack's pictures, to compare them with the game's. Menus and the "
      "font change at once; world textures change at the next level."},
+    {Id::TexturePackKey, Tab::Developer, "Tools", kPanel, D, "Texture pack key",
+     "The key that shows and hides the texture pack. Ctrl can be part of it."},
     {Id::LevelSelect, Tab::Developer, "Tools", kAction, A, "Level select",
      "Goes to another level. F1 opens it too."},
     {Id::KeepPaused, Tab::Developer, "Time", kSwitch, A, "Keep paused",
@@ -405,6 +407,7 @@ constexpr std::array<const char*, kIds> kOptionNames = {
     "object_viewer",
     "meat_proxy_review",
     "texture_pack",
+    "texture_pack_key",
     "level_select",
     "keep_paused",
     "step_tick",

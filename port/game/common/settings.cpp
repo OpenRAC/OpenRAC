@@ -556,6 +556,11 @@ void load(const std::filesystem::path& file) {
             if (known) {
                 s.menu_bar_key = value;
             }
+        } else if (key == "texture_pack_key") {
+            known = !value.empty();
+            if (known) {
+                s.texture_pack_key = value;
+            }
         } else if (key == "menu_button") {
             // Any button name SDL knows, or "none"; the overlay uses the default for another.
             known = !value.empty();
@@ -794,6 +799,7 @@ void save() {
         << "show_fps = " << static_cast<int>(s.show_fps) << "\n"
         << "gpu_breadcrumbs = " << (s.gpu_breadcrumbs ? 1 : 0) << "\n"
         << "menu_bar_key = " << s.menu_bar_key << "\n"
+        << "texture_pack_key = " << s.texture_pack_key << "\n"
         << "menu_button = " << s.menu_bar_button << "\n"
         << "mute_unfocused = " << (s.mute_unfocused ? 1 : 0) << "\n"
         << "draw_distance = " << s.draw_distance << "\n"

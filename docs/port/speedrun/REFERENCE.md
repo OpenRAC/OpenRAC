@@ -190,6 +190,7 @@ A file with `frame_rate` but no `vsync` gets `vsync = on` when
 |---|---|
 | **F1** | Level select (developer mode only) |
 | **F2** | The frame-rate counter |
+| **Ctrl+F2** | Hide or show the texture pack (`texture_pack_key`) |
 | **F3** | The debug overlay |
 | **F5** | Pause / resume |
 | **F6** | One tick forward |

@@ -535,6 +535,12 @@ void test_menu_bar_key(const std::filesystem::path& file) {
     std::ofstream(file) << "menu_bar_key = \n";
     settings::load(file);
     CHECK(settings::get().menu_bar_key == "`");
+    // The texture pack's key: Ctrl+F2 unless the file names another, which a save keeps.
+    CHECK(settings::get().texture_pack_key == "Ctrl+F2");
+    settings::get().texture_pack_key = "F7";
+    settings::save();
+    settings::load(file);
+    CHECK(settings::get().texture_pack_key == "F7");
     // The controller button: Start+Select by default, any name kept, "none" too.
     CHECK(settings::get().menu_bar_button == "start+back");
     settings::get().menu_bar_button = "none";

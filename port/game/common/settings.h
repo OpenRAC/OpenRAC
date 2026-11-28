@@ -261,6 +261,9 @@ struct Settings {
     // The key that opens and closes the menu, by its place on the keyboard: an SDL scancode name
     // ("`", the key under Escape; "F4", "M"), or "Alt" (either Alt pressed and let go by itself).
     std::string menu_bar_key = "`";
+    // The key that shows and hides the texture pack: an SDL scancode name, with "Ctrl+" before it
+    // when Ctrl is held ("Ctrl+F2").
+    std::string texture_pack_key = "Ctrl+F2";
     // The controller button that does the same (settings.ini's menu_button): "start+back", Start and
     // Select pressed together, which the game never sees (platform/menu_chord.h); an SDL gamepad
     // button name ("paddle1", the Steam Controller's R4; "misc1"); or "none".
