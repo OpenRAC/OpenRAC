@@ -440,6 +440,16 @@ typedef void (*openrac_rac2_FollowCamera_ReadStick)(uint32_t camera, uint32_t tu
 #define OPENRAC_RAC2_SIG_Moby_BoldanClock_Update "void(u32)"
 typedef void (*openrac_rac2_Moby_BoldanClock_Update)(uint32_t moby);
 
+/* Moby_ItemRewardTrigger_Update: Updates a reward trigger (item_reward_trigger_update): the
+ * scene of a story or reward spot on any level. It waits for the hero in its region, plays its
+ * scenes, then puts its planet on the ship's map (Planet_Unlock) and marks its moby group done.
+ * At its first update it deletes itself, unplayed, when its planet is on the map already (the
+ * byte at 0x1A7BC8 + planet, NTSC-U v1.01) or its group is done, so a replacement can show it
+ * another state of the map around the original. */
+#define OPENRAC_RAC2_HOOK_Moby_ItemRewardTrigger_Update "Moby_ItemRewardTrigger_Update"
+#define OPENRAC_RAC2_SIG_Moby_ItemRewardTrigger_Update "void(u32)"
+typedef void (*openrac_rac2_Moby_ItemRewardTrigger_Update)(uint32_t moby);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus
