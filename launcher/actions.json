@@ -695,6 +695,12 @@
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
         "program": "{python}",
         "args": [
           "extractor/overrides.py",
@@ -1420,6 +1426,12 @@
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
         "program": "{python}",
         "args": [
           "extractor/overrides.py",
@@ -1669,6 +1681,12 @@
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
         "program": "{python}",
         "args": [
           "extractor/overrides.py",
@@ -2070,6 +2088,12 @@
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
         "program": "{python}",
         "args": [
           "extractor/overrides.py",

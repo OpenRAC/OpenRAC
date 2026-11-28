@@ -149,6 +149,9 @@ endif()
 openrac_warnings(openrac_common)
 
 openrac_add_test(mod_play_queries INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/../sdk/include")
+# The built-in editor runtime's sums (game/rac1/editor_runtime): cutscene timeline and behaviour presets.
+openrac_add_test(editor_runtime_timeline INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/game/rac1/editor_runtime")
+openrac_add_test(editor_runtime_presets INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/game/rac1/editor_runtime")
 openrac_add_test(log LIBS openrac_common)
 if(WIN32 AND CMAKE_BUILD_TYPE MATCHES "^(Debug|RelWithDebInfo)$")
   openrac_add_test(crash_symbols LIBS openrac_common)

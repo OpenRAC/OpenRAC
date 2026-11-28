@@ -46,6 +46,7 @@ in [port/](../../port/README.md).
 | [MODS.md](MODS.md) | Native and script mods, their manifest, hook points, purist mode, the [SDK](../../sdk/README.md) |
 | [MOD_API.md](MOD_API.md) | Adding a call to the mods' interface: where each part goes, naming, tests, the version |
 | [TEXTURE_PACKS.md](TEXTURE_PACKS.md) | Replacing the game's textures with your own pictures |
+| [SHARED_MAPS.md](SHARED_MAPS.md) | Maps made in OpenRAC Editor: adding one in the launcher, the file, the built-in player of their cutscenes ([CUTSCENE_FORMAT.md](CUTSCENE_FORMAT.md)) and moving objects ([BEHAVIOUR_FORMAT.md](BEHAVIOUR_FORMAT.md)) |
 | [HDR.md](HDR.md) | HDR output |
 | [SPEEDRUN.md](SPEEDRUN.md) | Timing, LiveSplit, practice tools, save states, the game's speedrun meta |
 | [ANDROID.md](ANDROID.md) | The port and the launcher on Android; building and device tests in [port/android](../../port/android/README.md) |

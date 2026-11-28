@@ -1,9 +1,8 @@
 // Adding what the player chose or dropped on the Mods tab: a texture pack's .zip goes into the
 // player's own texture pack (core/src/texture_packs.rs, added to it), a native mod to the game's mods
 // (src-tauri/src/lib.rs, plugins_install), a data pack to its overrides packs (extractor/overrides.py,
-// the version's overrides-add action), a shared map (.openrac-map) to OpenRAC Editor's import, which
-// makes its project from the player's own disc (the editor's editor-import-map action). The player
-// never has to know which is which.
+// the version's overrides-add action), a shared map (.openrac-map) to the packs as a new planet, made
+// from the player's own disc (core/src/maps.rs). The player never has to know which is which.
 import { api, type VersionView } from "./api";
 import { jobs, runChain } from "./app.svelte";
 import { added, TEXTURES, withName } from "./modsText";
@@ -32,28 +31,26 @@ function whyStopped(): string {
 
 const nameOf = (path: string) => path.split(/[\\/]/).at(-1) ?? path;
 
-/** A shared map made in OpenRAC Editor (its tools/shared_map.py), also when a download saved it
+/** A shared map made in OpenRAC Editor (docs/port/SHARED_MAPS.md), also when a download saved it
  *  with ".zip" after its name (Android's downloads do: the file is a zip). */
 export const isMap = (path: string) => /\.openrac-map(\.zip)?$/i.test(path);
 
-/** A shared map imported by OpenRAC Editor's tools, or why it cannot be. */
+/** A shared map added to the packs as a new planet (core/src/maps.rs), or why it cannot be. */
 async function addMap(v: VersionView, path: string): Promise<Added> {
-  const result: Added = { text: "", failed: true, plugin: false, pack: false };
-  const importer = v.actions.find((a) => a.id === "editor-import-map" && a.thisPlatform) ?? null;
+  try {
+    const done = await api.mapAdd(v.key, path);
 
-  if (!importer?.runnable) return { ...result, text: added.mapNeedsEditor(nameOf(path)) };
-  const ok = await runChain({ kind: "version", key: v.key }, [importer], { path });
+    return {
+      text: added.map(done.name || nameOf(path), done.author),
+      failed: false,
+      plugin: false,
+      pack: true,
+    };
+  } catch (e) {
+    const why = typeof e === "string" ? e : e instanceof Error ? e.message : String(e);
 
-  if (!ok) {
-    const job = jobs.list
-      .filter((j) => j.scope.kind === "version" && j.actionId === "editor-import-map")
-      .at(-1);
-    const failure = toolFailure(job?.lines ?? []);
-
-    return { ...result, text: added.packFailed(nameOf(path), failure.line) };
+    return { text: withName(nameOf(path), why), failed: true, plugin: false, pack: false };
   }
-
-  return { ...result, text: added.map(nameOf(path)), failed: false, pack: true };
 }
 
 /** A texture pack's .zip added to the player's own pack, or why it is refused; null when the file

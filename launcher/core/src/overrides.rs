@@ -101,6 +101,57 @@ fn valid_id(id: &str) -> bool {
     !id.is_empty() && id.len() <= 64 && id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
+/// Whether `id` can name a pack's folder (a shared map's id, [`crate::maps`]).
+pub fn valid_pack_id(id: &str) -> bool {
+    valid_id(id)
+}
+
+/// A pack's manifest "export" (a ship destination's "destination:<id>"), when it has one.
+fn export_of(folder: &Path) -> Option<String> {
+    let text = std::fs::read_to_string(folder.join(MANIFEST)).ok()?;
+    let manifest: Value = serde_json::from_str(&text).ok()?;
+    manifest.get("export").and_then(Value::as_str).map(str::to_string)
+}
+
+/// Puts the pack made in `staged` (a folder beside the packs) in as pack `id`, on and last; a pack
+/// already there with that id, or with the same export (the same planet added by
+/// `extractor/overrides.py`), is replaced in its place. Whether one was replaced.
+pub fn install(dir: &Path, id: &str, staged: &Path) -> Result<bool, String> {
+    if !valid_id(id) {
+        return Err(format!("{id} cannot name a pack"));
+    }
+    let mut state = read_state(dir)?;
+    let export = export_of(staged);
+    let earlier = state.packs.iter().position(|p| p.id == id).or_else(|| {
+        export.as_ref().and_then(|x| {
+            state.packs.iter().position(|p| export_of(&dir.join("packs").join(&p.id)).as_ref() == Some(x))
+        })
+    });
+    let packs = dir.join("packs");
+    let target = packs.join(id);
+    let old = packs.join(format!(".{id}.old"));
+    let _ = std::fs::remove_dir_all(&old);
+    if let Some(at) = earlier {
+        let was = packs.join(&state.packs[at].id);
+        if was.exists() {
+            std::fs::rename(&was, &old).map_err(|e| format!("{}: {e}", was.display()))?;
+        }
+        state.packs[at].id = id.to_string();
+    } else {
+        if target.exists() {
+            std::fs::rename(&target, &old).map_err(|e| format!("{}: {e}", target.display()))?;
+        }
+        state.packs.push(Entry { id: id.to_string(), enabled: true });
+    }
+    if let Err(e) = std::fs::rename(staged, &target) {
+        let _ = std::fs::rename(&old, &target);
+        return Err(format!("{}: {e}", target.display()));
+    }
+    write_state(dir, &state)?;
+    let _ = std::fs::remove_dir_all(&old);
+    Ok(earlier.is_some())
+}
+
 fn view(dir: &Path, entry: &Entry) -> PackView {
     let manifest: Value = std::fs::read_to_string(dir.join("packs").join(&entry.id).join(MANIFEST))
         .ok()

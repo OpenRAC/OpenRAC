@@ -134,7 +134,7 @@ class Server:
              "between calls: it runs only the ticks game_step and game_wait ask for (60 a second).", {
                 "level": prop("integer", "The level (Veldin 1 ... Drek's fleet 18)."),
                 "mods": prop("string", "The packed levels folder (OpenRAC Editor's project_info folders.packed)."),
-                "plugins": prop("string", "A plugins.json with the mods to run (editor-runtime for cutscenes and behaviours)."),
+                "plugins": prop("string", "A plugins.json with the mods to run."),
                 "game": prop("string", "The port's program (default: the server's --game)."),
                 "data": prop("string", "The game data folder (default: --data)."),
                 "levels": prop("string", "The extracted levels folder (default: --levels)."),

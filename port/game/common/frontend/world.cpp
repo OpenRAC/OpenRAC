@@ -531,26 +531,6 @@ void use_level(int number) {
             }
         }
     }
-    // What the editor packs for its mod beside the placements (cutscenes, behaviours) plays only
-    // with that mod on: said in the picture, or the level looks broken.
-    if (!sources.edited.empty() && !mods::loaded("editor-runtime")) {
-        const std::filesystem::path dir = sources.edited.parent_path();
-        std::error_code missing;
-        if (std::filesystem::is_directory(dir / "cutscenes", missing)
-            || std::filesystem::is_regular_file(dir / "behaviours.json", missing)) {
-            log::warn(
-                "level {}: made in OpenRAC Editor, and the editor-runtime mod is off", wanted
-            );
-            debug_overlay::notify({
-                .id = "editor-runtime",
-                .title = "This level needs the editor-runtime mod",
-                .text =
-                    "Turn it on in Mods: without it, its cutscenes and moving objects do not play.",
-                .tone = debug_overlay::Tone::Warning,
-                .seconds = 10.0,
-            });
-        }
-    }
     // Portable Infobot presentations use a render-only skeleton, never a local scene's actors.
     if (g->render.level.game == "rac1" && openrac_game_play_host
         && openrac_game_play_host->infobot_presentation) {

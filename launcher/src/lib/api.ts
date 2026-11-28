@@ -60,6 +60,7 @@ import type { InterfaceRunsView } from "./generated/InterfaceRunsView";
 import type { JobEvent } from "./generated/JobEvent";
 import type { LastUpdate } from "./generated/LastUpdate";
 import type { Library } from "./generated/Library";
+import type { MapAdded } from "./generated/MapAdded";
 import type { ModAction } from "./generated/ModAction";
 import type { ModError } from "./generated/ModError";
 import type { ModIndex } from "./generated/ModIndex";
@@ -217,7 +218,7 @@ export type { ModUpdate };
 
 export type { Nanotech };
 
-export type { PackView };
+export type { MapAdded, PackView };
 
 export type { ResetDone, ResetKind, ResetPart, ResetPartView, ResetPreview };
 
@@ -553,6 +554,8 @@ export const api = {
   overridesMove: (game: string, id: string, up: boolean) =>
     call<PackView[]>("overrides_move", { game, id, up }),
   overridesRemove: (game: string, id: string) => call<PackView[]>("overrides_remove", { game, id }),
+  /** A shared map added as a new planet (core/src/maps.rs); `version` is "rac1/pal" and so on. */
+  mapAdd: (version: string, path: string) => call<MapAdded>("map_add", { version, path }),
   /** What starting the level editor over would delete for `version` ("rac1/pal"), with sizes (core reset.rs). */
   resetPreview: (version: string, reset: ResetKind) =>
     call<ResetPreview>("reset_preview", { version, reset }),

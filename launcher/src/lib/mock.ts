@@ -3577,6 +3577,29 @@ export async function mockCall(
 
       return delay<PackView[]>([...mockPacks]);
     }
+    case "map_add": {
+      const path = String(args.path);
+      const id = (path.split(/[\\/]/).at(-1) ?? "map")
+        .replace(/\.openrac-map(\.zip)?$/i, "")
+        .toLowerCase();
+
+      mockPacks.push({
+        id,
+        name: "OpenRAC Museum",
+        author: "OpenRAC",
+        description: "A new planet in the ship's menu.",
+        enabled: true,
+        levels: 1,
+        textures: 0,
+        models: 0,
+        levelFiles: 4,
+        sounds: 0,
+        isMap: false,
+        isDestination: true,
+      });
+
+      return delay({ id, name: "OpenRAC Museum", author: "OpenRAC", credits: [], replaced: false });
+    }
     case "interface_runs_view": {
       // The preview: no run until "Make a run" ran (the player makes their own).
       const id = `${String(args.game)}-${String(args.version)}`;

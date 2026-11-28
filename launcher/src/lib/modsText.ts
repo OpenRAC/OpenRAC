@@ -497,9 +497,8 @@ export const added = {
   on: (name: string) => `Added ${name}. It is on from the game's next start.`,
   off: (name: string) => `Added ${name}. It is off: its row says why.`,
   pack: (name: string) => `Added ${name}.`,
-  map: (name: string) => `Added the map ${name} as a new planet: board the ship and pick it.`,
-  mapNeedsEditor: (name: string) =>
-    `${name} is a map: download OpenRAC Editor (Mods, Level editor) to add it.`,
+  map: (name: string, by: string) =>
+    `Added the map ${name}${by ? ` by ${by}` : ""} as a new planet: board the ship and pick it.`,
   several: (count: number) => `Added or updated ${count} mods; their settings are kept.`,
   packHereNot: (name: string) =>
     `${name} is a texture and model pack, which cannot be added here yet.`,

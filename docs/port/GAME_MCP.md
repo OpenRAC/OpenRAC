@@ -16,8 +16,8 @@ claude mcp add openrac-game -- python3 tools/game_mcp.py \
 ```
 
 `--game`, `--data` and `--levels` (or `OPENRAC_GAME`, `OPENRAC_DATA`, `OPENRAC_LEVELS`) are the
-defaults `game_start` uses; `--plugins` names a `plugins.json` with the mods to run (OpenRAC
-Editor's `editor-runtime` plays its cutscenes and behaviours). On Linux without a display the game
+defaults `game_start` uses; `--plugins` names a `plugins.json` with the mods to run (a map's cutscenes and behaviours
+play without one: the game has their player built in). On Linux without a display the game
 draws off screen (`SDL_VIDEODRIVER=offscreen`).
 
 ## Tools
