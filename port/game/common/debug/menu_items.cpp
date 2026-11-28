@@ -531,6 +531,8 @@ Item own_item(Id id, std::uint8_t where) {
             it.shown = renderer::texture_pack::has_pictures();
             it.on = renderer::texture_pack::shown();
             return it;
+        case Id::TexturePackKey:
+            return it;  // its panel (debug/menu_controls.cpp)
         case Id::TexturePackBackground:
             it.shown = renderer::pcsx2_pack::enabled();
             it.on = set.pcsx2_pack_background;
@@ -936,6 +938,8 @@ bool act(Id id, int by) {
         case Id::TexturePack:
             renderer::texture_pack::set_shown(!renderer::texture_pack::shown());
             return false;
+        case Id::TexturePackKey:
+            return false;  // its panel (debug/menu_controls.cpp)
         case Id::TexturePackBackground:
             set.pcsx2_pack_background = !set.pcsx2_pack_background;
             settings::save();
