@@ -23,12 +23,14 @@
 #include "controls_store.h"
 #include "debug/menu_ui.h"
 #include "frontend.h"
+#include "frontend/shortcuts.h"
 #include "game/common/profile.h"
 #include "mods.h"
 #include "openrac/game_host.h"
 #include "platform/bindings.h"
 #include "platform/input.h"
 #include "platform/players.h"
+#include "platform/shortcut_keys.h"
 #include "settings.h"
 
 namespace openrac::frontend::debug_overlay {
@@ -686,26 +688,52 @@ void menu_open_panel() {
     }
 }
 
-// The key that shows and hides the texture pack (settings.ini's texture_pack_key).
-void texture_pack_key_panel() {
-    const Id id = Id::TexturePackKey;
-    if (value_row(
-            "Key",
-            s.texture_key_capture
-                ? std::format("press a key (Esc keeps {})", texture_pack_key_label())
-                : texture_pack_key_label(),
-            s.texture_key_capture ? ui().amber : 0
-        )) {
-        s.texture_key_capture = true;
+// Whether a key of `id` is another shortcut's too.
+bool shortcut_clash(shortcuts::Id id) {
+    const std::vector<platform::ShortcutKey> mine = shortcuts::keys(id);
+    for (const shortcuts::Shortcut& other : shortcuts::all()) {
+        if (other.id == id) {
+            continue;
+        }
+        for (const platform::ShortcutKey& k : shortcuts::keys(other.id)) {
+            if (std::find(mine.begin(), mine.end(), k) != mine.end()) {
+                return true;
+            }
+        }
     }
-    note_hover(static_cast<int>(id));
-    if (settings::get().texture_pack_key != settings::Settings{}.texture_pack_key) {
-        if (sub_row("Key back to the default", ui().soft)) {
-            settings::get().texture_pack_key = settings::Settings{}.texture_pack_key;
-            settings::save();
+    return false;
+}
+
+// The port's shortcuts (frontend/shortcuts.h), by section: a row each, pressed to take the next
+// key pressed (debug_overlay.cpp's event, shortcut_capture).
+void shortcuts_panel() {
+    const Id id = Id::Shortcuts;
+    std::string_view section;
+    bool changed = false;
+    for (const shortcuts::Shortcut& sc : shortcuts::all()) {
+        if (section != sc.section) {
+            section = sc.section;
+            line(std::string(section), ui().dim);
+        }
+        const int index = static_cast<int>(sc.id);
+        const bool waiting = s.shortcut_capture == index;
+        const std::string label = shortcuts::label(sc.id);
+        const std::string value =
+            waiting ? std::format("press a key (Esc keeps {}, Delete: none)", label) : label;
+        if (value_row(sc.name, value, waiting || shortcut_clash(sc.id) ? ui().amber : 0)) {
+            s.shortcut_capture = waiting ? -1 : index;
         }
         note_hover(static_cast<int>(id));
+        changed = changed
+                  || platform::shortcut_text(shortcuts::keys(sc.id))
+                         != platform::shortcut_text(platform::parse_shortcut(sc.defaults));
     }
+    if (changed && sub_row("Shortcuts back to the defaults", ui().soft)) {
+        for (const shortcuts::Shortcut& sc : shortcuts::all()) {
+            shortcuts::reset(sc.id);
+        }
+    }
+    note_hover(static_cast<int>(id));
 }
 
 // Whether the controller vibrates in this game at all: the game drives its motors (its profile's
@@ -883,6 +911,10 @@ void controls_act(Id id, int by) {
 }
 
 void draw_controls_panel(Id id) {
+    if (id == Id::FilePlaces) {
+        file_places_panel();
+        return;
+    }
     controls::Store* store = controls_store();
     platform::Input* input = frontend::input();
     if (store == nullptr || input == nullptr) {
@@ -913,8 +945,8 @@ void draw_controls_panel(Id id) {
         case Id::MenuOpen:
             menu_open_panel();
             break;
-        case Id::TexturePackKey:
-            texture_pack_key_panel();
+        case Id::Shortcuts:
+            shortcuts_panel();
             break;
         case Id::KeyboardMouse:
             keyboard_mouse_panel();
@@ -939,7 +971,7 @@ void controls_frame() {
         }
         w.confirm_reset = false;
         s.menu_key_capture = false;
-        s.texture_key_capture = false;
+        s.shortcut_capture = -1;
         s.menu_button_capture = false;
         return;
     }

@@ -285,7 +285,8 @@ void pad_hints(const ImGuiViewport* viewport, const SDL_Rect& safe, float ease) 
     }
 }
 
-float s_jump_marks[4] = {};
+constexpr int kJumpCount = 5;  // Graphics, Enhanced, Game, Controls, Files
+float s_jump_marks[kJumpCount] = {};
 float s_jump_to = -1.0f;
 // The section a jump goes to, and how long after it lands the view stays on its heading: the
 // rows above can still change height then (a fold opening, rows laid out for the first time), and
@@ -454,10 +455,11 @@ void drawer(const Shown& shown) {
             }
             // The sections, as a segmented control: the one in view in the accent; a tap scrolls
             // to its heading. Where each starts is from the last frame's layout (marks).
-            static constexpr const char* kJumps[] = {"Graphics", "Enhanced", "Game", "Controls"};
+            static constexpr const char* kJumps[kJumpCount] =
+                {"Graphics", "Enhanced", "Game", "Controls", "Files"};
             const float scroll = ImGui::GetScrollY();
             int in_view = 0;
-            for (int i = 0; i < 4; ++i) {
+            for (int i = 0; i < kJumpCount; ++i) {
                 if (s_jump_marks[i] > 0.0f && scroll >= s_jump_marks[i] - header - dp(8.0f)) {
                     in_view = i;
                 }
@@ -467,13 +469,16 @@ void drawer(const Shown& shown) {
                 in_view = s_jump_section;
             }
             const float left = top.x + inset + dp(14.0f);
-            const float span = (right - left) / 4.0f;
+            const float span = (right - left) / static_cast<float>(kJumpCount);
             const float y0 = top.y + head + dp(2.0f);
             const float y1 = y0 + dp(30.0f);
             front->AddRectFilled(
-                ImVec2(left, y0), ImVec2(left + span * 4.0f, y1), ui().control_card, dp(6.0f)
+                ImVec2(left, y0),
+                ImVec2(left + span * static_cast<float>(kJumpCount), y1),
+                ui().control_card,
+                dp(6.0f)
             );
-            for (int i = 0; i < 4; ++i) {
+            for (int i = 0; i < kJumpCount; ++i) {
                 const ImVec2 ca(left + span * i, y0);
                 const ImVec2 cb(left + span * (i + 1), y1);
                 const float on = tween(ImGui::GetID(kJumps[i]), i == in_view ? 1.0f : 0.0f, kFast);
@@ -505,7 +510,7 @@ void drawer(const Shown& shown) {
                              : ImGui::IsKeyPressed(ImGuiKey_GamepadL1, false) ? -1
                                                                               : 0;
             if (s.menu_open && !s.drawer_controller && step != 0) {
-                const int to = std::clamp(in_view + step, 0, 3);
+                const int to = std::clamp(in_view + step, 0, kJumpCount - 1);
                 if (to != in_view && s_jump_marks[to] > 0.0f) {
                     menu_sound(MenuSound::Page);
                     s_jump_section = to;
@@ -582,6 +587,9 @@ void drawer(const Shown& shown) {
             draw_mod_menu(i);
             ImGui::PopID();
         }
+        // The player's files, each folder opened in the Files app.
+        mark(4);
+        draw_tab(Tab::Files, menu::kTouch);
 
         // The developer's tools, folded away under one row.
         ImGui::Dummy(ImVec2(0.0f, dp(16.0f)));

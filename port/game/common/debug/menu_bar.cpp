@@ -13,6 +13,7 @@
 #include "debug/menu_ui.h"
 #include "debug_overlay.h"
 #include "frontend.h"
+#include "frontend/shortcuts.h"
 #include "platform/input.h"
 #include "renderer/textures/texture_pack.h"
 #include "settings.h"
@@ -25,12 +26,13 @@ bool menu_window_possible() {
     return !drawer_possible();
 }
 
-// A menu item presses the key the port already answers, as the macOS menus do.
-void press(SDL_Keycode key) {
+// A menu item presses the shortcut the port already answers, as the macOS menus do, whatever
+// key the player gave it (none too).
+void press(shortcuts::Id id) {
     SDL_Event event;
     SDL_zero(event);
+    shortcuts::as_press(id, event.key);
     event.type = SDL_EVENT_KEY_DOWN;
-    event.key.key = key;
     event.key.down = true;
     SDL_PushEvent(&event);
     event.type = SDL_EVENT_KEY_UP;
@@ -99,37 +101,6 @@ std::string menu_bar_button_label() {
     }
 }
 
-namespace {
-
-constexpr std::string_view kCtrl = "Ctrl+";
-
-}  // namespace
-
-std::string texture_pack_key_label() {
-    std::string_view name = settings::get().texture_pack_key;
-    const bool ctrl = name.starts_with(kCtrl);
-    if (ctrl) {
-        name.remove_prefix(kCtrl.size());
-    }
-    const SDL_Scancode key = SDL_GetScancodeFromName(std::string(name).c_str());
-    const char* shown = key == SDL_SCANCODE_UNKNOWN
-                            ? nullptr
-                            : SDL_GetKeyName(SDL_GetKeyFromScancode(key, SDL_KMOD_NONE, false));
-    const std::string text = shown != nullptr && *shown != '\0' ? shown : std::string(name);
-    return ctrl ? std::string(kCtrl) + text : text;
-}
-
-bool texture_pack_key_hit(const SDL_KeyboardEvent& key) {
-    std::string_view name = settings::get().texture_pack_key;
-    const bool ctrl = name.starts_with(kCtrl);
-    if (ctrl) {
-        name.remove_prefix(kCtrl.size());
-    }
-    const SDL_Scancode want = SDL_GetScancodeFromName(std::string(name).c_str());
-    return want != SDL_SCANCODE_UNKNOWN && key.scancode == want
-           && ((key.mod & SDL_KMOD_CTRL) != 0) == ctrl;
-}
-
 void toggle_texture_pack() {
     namespace pack = renderer::texture_pack;
     if (!pack::has_pictures()) {
@@ -141,7 +112,7 @@ void toggle_texture_pack() {
         .id = "texture_pack",
         .title = pack::shown() ? "Texture pack shown" : "Texture pack hidden",
         .text = "World textures change at the next level.",
-        .keys = {texture_pack_key_label()},
+        .keys = {shortcuts::label(shortcuts::Id::TexturePack)},
         .seconds = 3.0,
     });
 }

@@ -38,6 +38,7 @@
 
 #include "debug/object_viewer.h"
 #include "debug_overlay.h"
+#include "frontend/shortcuts.h"
 #include "openrac/guest.h"
 #include "platform/bindings.h"
 
@@ -110,13 +111,14 @@ enum class ScriptedAction {
     KeyDown,
     KeyUp
 };
+
 struct ScriptedInput {
     std::uint64_t frame = 0;  // the window frame it happens at
     int held = 0;             // and that many held pictures later, while paused there
     ScriptedAction action = ScriptedAction::Stroke;
     std::uint8_t button = SDL_BUTTON_LEFT;
-    SDL_Keycode key = 0;      // 0: a pointer or wheel action
-    float x = 0.0f;           // a click's place in the window, in ImGui's coordinates
+    SDL_Keycode key = 0;  // 0: a pointer or wheel action
+    float x = 0.0f;       // a click's place in the window, in ImGui's coordinates
     float y = 0.0f;
     bool done = false;  // put in the event queue already
 };
@@ -195,13 +197,13 @@ struct State {
     SDL_Keymod script_modifiers = SDL_KMOD_NONE;
     std::filesystem::path script_file;
     std::filesystem::file_time_type script_file_time{};
-    std::uint64_t script_poll_at = 0;   // OPENRAC_KEYS, in order
-    SDL_Window* window = nullptr;       // as last drawn into
-    int held_pictures = 0;              // pictures of the tick held now
-    bool wanted = false;                // shown from the start
-    bool configured = false;            // the environment was read
-    bool visible = false;               // the panel is shown (F3)
-    bool initialised = false;           // the ImGui context exists
+    std::uint64_t script_poll_at = 0;  // OPENRAC_KEYS, in order
+    SDL_Window* window = nullptr;      // as last drawn into
+    int held_pictures = 0;             // pictures of the tick held now
+    bool wanted = false;               // shown from the start
+    bool configured = false;           // the environment was read
+    bool visible = false;              // the panel is shown (F3)
+    bool initialised = false;          // the ImGui context exists
     std::array<bool, kSectionCount> open_at_start = {true, false, false, false, false, false};
 
     // The last tick, as the window gave it.
@@ -230,23 +232,23 @@ struct State {
     bool wireframe_set = false;    // GL's polygon mode is lines now, to be put back after the frame
 
     // Mobys.
-    std::uint32_t selected = 0;  // address; 0 none
-    bool follow_hero = false;    // "inspect": the hero is selected, whichever moby he is now
+    std::uint32_t selected = 0;      // address; 0 none
+    bool follow_hero = false;        // "inspect": the hero is selected, whichever moby he is now
     bool material_settings = false;  // Unified authoring window, independent of Enhanced Settings.
-    std::string material_preset;         // Stable preset id, revalidated after level changes.
+    std::string material_preset;     // Stable preset id, revalidated after level changes.
     int material_library_preset = -1;
     std::optional<std::size_t> material_selection;  // Active slot for the preview.
     std::vector<std::size_t> material_extra_slots;
     std::weak_ptr<const scene::MaterialAssets> material_selection_assets;
     bool material_pick_pending = false;  // Resolve the latest picker result in the editor.
     std::string material_error;          // Persistent edit/save diagnostics.
-    bool enhanced_settings = false;  // Independent Enhanced Settings window.
+    bool enhanced_settings = false;      // Independent Enhanced Settings window.
     bool meat_proxy_review = false;
-    ControlsMenu controls;           // the menu's Controls tab
-    bool inspector = false;      // the moby inspector window is open
-    bool labels = false;         // the mobys' classes written in the picture
-    bool near_hero = true;       // the list holds only the mobys within `radius` of the hero
-    float radius = 30.0f;        // in the game's units
+    ControlsMenu controls;   // the menu's Controls tab
+    bool inspector = false;  // the moby inspector window is open
+    bool labels = false;     // the mobys' classes written in the picture
+    bool near_hero = true;   // the list holds only the mobys within `radius` of the hero
+    float radius = 30.0f;    // in the game's units
     scene::PickResult picker_result;
     double picker_export_at = -1;
     std::string picker_error;
@@ -261,17 +263,17 @@ struct State {
 
     // Screenshots of the window, with the overlay.
     std::optional<std::uint64_t> shot_tick;  // write the next frame under this tick's name
-    std::uint64_t shot_every = 0;  // OPENRAC_OVERLAY_SHOT=N:PREFIX
-    std::string shot_prefix;       // the start of their file names
-    std::uint64_t shot_from = 0;   // OPENRAC_SHOT_FROM: the first tick written
-    int shots = 0;                 // written so far (at most 10,000)
+    std::uint64_t shot_every = 0;            // OPENRAC_OVERLAY_SHOT=N:PREFIX
+    std::string shot_prefix;                 // the start of their file names
+    std::uint64_t shot_from = 0;             // OPENRAC_SHOT_FROM: the first tick written
+    int shots = 0;                           // written so far (at most 10,000)
 
-    std::string message;       // what the last action said (a reload, a file written)
-    bool alt_alone = false;    // Alt went down and no other key since: its release toggles the menu
-    bool texture_key_capture = false;  // the next key pressed becomes the texture pack's
+    std::string message;     // what the last action said (a reload, a file written)
+    bool alt_alone = false;  // Alt went down and no other key since: its release toggles the menu
+    int shortcut_capture = -1;  // the shortcut (shortcuts::Id) the next key pressed becomes, or -1
     bool menu_key_capture = false;     // the next key pressed becomes the menu's (Controls tab)
     bool menu_button_capture = false;  // the next pad button becomes the menu's
-    std::uint64_t focus_ns = 0;  // when the window last gained or lost the focus (SDL's clock)
+    std::uint64_t focus_ns = 0;       // when the window last gained or lost the focus (SDL's clock)
     ObjectViewerState object_viewer;  // Session-only developer object studio.
     bool developer = false;  // the launcher's developer tools (OPENRAC_DEVELOPER): the level select
     std::string dump_path = "openrac_frames.jsonl";  // where the frames' measurements are written
@@ -301,10 +303,10 @@ struct State {
     // A row of an entry's panel with help of its own (a mod setting): its heading, name and line,
     // shown in place of the entry's. Empty: the entry's.
     std::string menu_hover_section, menu_hover_title, menu_hover_help;
-    float menu_row_height = 48.0f;    // a row's height in dp: a thumb's on a touch screen
-    bool drawer_developer = false;    // the drawer's developer tools unfolded
-    bool drawer_fixes = false;        // the drawer's game fixes unfolded
-    bool drawer_controller = false;   // the controller's settings out beside the drawer
+    float menu_row_height = 48.0f;         // a row's height in dp: a thumb's on a touch screen
+    bool drawer_developer = false;         // the drawer's developer tools unfolded
+    bool drawer_fixes = false;             // the drawer's game fixes unfolded
+    bool drawer_controller = false;        // the controller's settings out beside the drawer
     float drawer_controller_at = 0.0f;     // how far out they are: 0 in, 1 out
     bool drawer_controller_focus = false;  // the gamepad's focus goes to them, or back, next frame
     Scroll drawer_controller_scroll;       // the finger's drag over their rows
@@ -325,7 +327,7 @@ struct State {
     Scroll panel_scroll;            // the panel's drag_scroll
     // What eases from one state to the next (tween()), by ImGui's id.
     std::unordered_map<ImGuiID, float> tweens;
-    float ui_scale = 1.0f;          // the screen's density, for rows a thumb can press
+    float ui_scale = 1.0f;  // the screen's density, for rows a thumb can press
     // The drawer's logo in ImGui's font atlas (initialise()): its custom rectangle, -1 before it is
     // made, and where its name starts, in pixels from its left.
     int logo_rect = -1;
@@ -497,9 +499,9 @@ void touch_edit_bar();
 // Defined in debug/menu_bar.cpp.
 bool menu_window_possible();
 
-// Presses and releases `key` through SDL's queue, as the macOS menus do: a menu item does what the
-// port's key for it does. Defined in debug/menu_bar.cpp.
-void press(SDL_Keycode key);
+// Presses and releases shortcut `id` through SDL's queue, as the macOS menus do: a menu item does what
+// the port's key for it does. Defined in debug/menu_bar.cpp.
+void press(shortcuts::Id id);
 
 // The key that opens and closes the menu, as the player reads it ("`", "Alt", "F4"), and its
 // place on the keyboard (SDL_SCANCODE_UNKNOWN for Alt, which counts only pressed by itself).
@@ -552,10 +554,6 @@ void step_capture_length(int by);
 // on by `by` (common/slow_cpu.h; only where slow_cpu::available()).
 std::string slow_cpu_name();
 void step_slow_cpu(int by);
-
-// Opens the folder the recordings are saved in (capture.cpp's capture_dir) in the system's file
-// manager.
-void open_capture_folder();
 
 // Says whether a capture runs or is about to start (or one is due by script), so that the
 // overlay is drawn for its badge; and whether one is counting down to its start.

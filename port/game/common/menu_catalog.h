@@ -48,6 +48,7 @@ enum class Tab : std::uint8_t {
     Game,
     Controls,
     Developer,
+    Files,
     Program,
     Count
 };
@@ -131,6 +132,8 @@ enum class Id : std::uint8_t {
     PlayerTwo,
     MenuOpen,
     KeyboardMouse,
+    Shortcuts,
+    FreecamHelp,
     TouchActionButtons,
     TouchButtonSize,
     TouchCameraSpeed,
@@ -142,7 +145,6 @@ enum class Id : std::uint8_t {
     ObjectViewer,
     MeatProxyReview,
     TexturePack,
-    TexturePackKey,
     TexturePackBackground,
     TexturePackPrecache,
     LevelSelect,
@@ -153,7 +155,6 @@ enum class Id : std::uint8_t {
     RecordGameplay,
     RecordLength,
     RecordSweep,
-    RecordFolder,
     SlowCpu,
     Freecam,
     FreecamMode,
@@ -161,7 +162,8 @@ enum class Id : std::uint8_t {
     FreecamSpeed,
     FreecamReset,
     FreecamExit,
-    FreecamHelp,
+    // Files
+    FilePlaces,
     // Program
     Quit,
     Count

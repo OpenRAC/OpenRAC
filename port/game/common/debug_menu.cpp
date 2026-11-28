@@ -11,6 +11,7 @@
 #include "common/env.h"
 #include "common/log.h"
 #include "frontend.h"
+#include "frontend/shortcuts.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "options_menu.h"
@@ -241,7 +242,12 @@ renderer::ui::Canvas make_picture(const openrac_front_end& fe) {
 #if defined(__ANDROID__)
     p.draw_text(10, p.height() - 12, "X START   TRIANGLE CLOSE", kHint);  // no keyboard to name
 #else
-    p.draw_text(10, p.height() - 12, "X/RETURN START   TRIANGLE/F1 CLOSE", kHint);
+    p.draw_text(
+        10,
+        p.height() - 12,
+        "X/RETURN START   TRIANGLE/" + shortcuts::label(shortcuts::Id::LevelSelect) + " CLOSE",
+        kHint
+    );
 #endif
     return p;
 }
@@ -260,7 +266,8 @@ bool event(const SDL_Event& e, int loaded_overlay) {
     const SDL_Keycode key = e.key.key;
 
     if (!s.open) {
-        if (key == SDLK_F1 && available(loaded_overlay) && !s.launched) {
+        if (shortcuts::hit(shortcuts::Id::LevelSelect, e.key) && available(loaded_overlay)
+            && !s.launched) {
             s.open = true;
             return true;
         }
@@ -268,8 +275,11 @@ bool event(const SDL_Event& e, int loaded_overlay) {
         return false;
     }
 
+    if (shortcuts::hit(shortcuts::Id::LevelSelect, e.key)) {
+        s.open = false;
+        return true;
+    }
     switch (key) {
-        case SDLK_F1:
         case SDLK_BACKSPACE:
             s.open = false;
             return true;
