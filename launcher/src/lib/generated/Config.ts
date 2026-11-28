@@ -186,4 +186,17 @@ autoUpdateMods: boolean,
  * Removing a mod removes the dependencies the launcher installed for it that nothing else
  * needs (default true); the player's own are asked about.
  */
-cleanupUnusedDeps: boolean, };
+cleanupUnusedDeps: boolean, 
+/**
+ * Authors of Not checked mods the player said they trust (lower-case GitHub logins): asked
+ * once per author when such a mod runs code (index.rs `IndexMod::trust_key`).
+ */
+trustedAuthors: Array<string>, 
+/**
+ * The Mods tab's "Before you install mods" window was read.
+ */
+modsIntroSeen: boolean, 
+/**
+ * Show only mods OpenRAC checked (OpenRAC, Verified, Trusted author).
+ */
+checkedOnly: boolean, };

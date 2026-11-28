@@ -81,6 +81,7 @@ import { mockEnhanced } from "./mockEnhanced";
 import {
   mockApply,
   mockAutoUpdate,
+  mockIndex,
   mockIndexView,
   mockLastUpdate,
   mockParse,
@@ -402,6 +403,9 @@ let config: Config = {
   pendingDeepLink: null,
   autoUpdateMods: true,
   cleanupUnusedDeps: true,
+  trustedAuthors: [],
+  modsIntroSeen: typeof location === "undefined" || !location.search.includes("modsintro"),
+  checkedOnly: false,
 };
 
 /** A used slot as an exported file names it (Export and Import saves). */
@@ -3939,6 +3943,15 @@ export async function mockCall(
       );
 
       return delay<PluginView[]>(structuredClone(mockPlugins));
+    case "index_details": {
+      const m = mockIndex().mods.find((x) => x.id === args.id);
+
+      return delay({
+        id: String(args.id),
+        readme: m?.readme ?? "",
+        versions: (m?.versions ?? []).map((v) => ({ version: v.version, changelog: v.changelog })),
+      });
+    }
     case "index_apply":
       return mockApply(args.wanted as WantedMod[], (args.turnOff as string[] | undefined) ?? []);
     case "plugins_sources":

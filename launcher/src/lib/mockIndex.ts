@@ -6,6 +6,7 @@
 //
 // ?offline: the list is from the cache, 3 hours old. ?stale: past its expiry. ?conflict: Classic
 // controls is on. ?applyfail: the second mod of a change set fails its hash. ?indexfail: no list.
+// ?unchecked: Lock-strafe is a Not checked mod by new-modder that can reach the network.
 import fixture from "../../core/tests/fixtures/index.json";
 import type { ApplyProgress } from "./generated/ApplyProgress";
 import type { ApplyResult } from "./generated/ApplyResult";
@@ -29,7 +30,22 @@ const query = new URLSearchParams(typeof location === "undefined" ? "" : locatio
 export function mockIndex(): ModIndex {
   const index = structuredClone(fixture) as unknown as ModIndex;
 
-  for (const m of index.mods) m.mediaBase = index.media;
+  for (const m of index.mods) {
+    m.mediaBase = index.media;
+    // The fixture predates the labels: its mods are OpenRAC's own.
+    m.trust = "openrac";
+  }
+
+  if (query.has("unchecked")) {
+    const lock = index.mods.find((m) => m.id === "lock-strafe");
+
+    if (lock) {
+      lock.trust = "unchecked";
+      lock.owner = { login: "new-modder", id: 4242 };
+      lock.author = "new-modder";
+      for (const v of lock.versions) v.scan = { labels: ["Network", "Starts programs"], new: [] };
+    }
+  }
 
   return index;
 }
@@ -99,6 +115,11 @@ function planned(
     impact: m.impact,
     hooks: v.hooks,
     enable: false,
+    author: m.author,
+    trust: m.trust,
+    trustKey: (m.owner?.login ?? m.author).toLowerCase(),
+    reach: v.scan?.labels ?? [],
+    built: v.built ?? "",
   };
 }
 
@@ -391,10 +412,14 @@ export function mockUpdates(): UpdatePlan {
     turnedOff,
     silent: [updateItem("camera-base", "1.1.0", "1.2.0", null)],
     waiting: [
-      updateItem("lock-strafe", "1.1.0", "1.2.0", {
-        kind: "newHooks",
-        hooks: ["rac1.player.turn_to_heading"],
-      }),
+      updateItem(
+        "lock-strafe",
+        "1.1.0",
+        "1.2.0",
+        query.has("unchecked")
+          ? { kind: "newReach", new: ["Network"], had: ["Starts programs"] }
+          : { kind: "newHooks", hooks: ["rac1.player.turn_to_heading"] },
+      ),
     ],
     held: [updateItem("item-randomizer", "1.3.0", "1.4.0", { kind: "needsLauncher", api: "1.11" })],
   };

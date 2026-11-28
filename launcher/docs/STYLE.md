@@ -117,7 +117,9 @@ follows the same rules.
 
 The site has no status colours; the launcher adds `--ok` (`#8fd694`), `--warn`
 (amber) and `--err` (`#ff8a7a`), used only in pills and messages. The theme is
-dark only, as the site is.
+dark only, as the site is. A mod's check label (`TrustLabel.svelte`) is an amber
+icon and plain text; only "Not checked" is in `--err`, on a faint `--err`
+fill, so it stands out in a list (the site does the same).
 
 These are the "OpenRAC" theme. The other themes (Settings → General: OLED
 black, Nord, Catppuccin Mocha) live in `src/lib/palettes.json`, read by

@@ -44,6 +44,84 @@ export const KIND_HINT = {
   alwaysOn: "Part of the game and always on: it is used the moment you play with it.",
 } as const satisfies Record<KindKey, string>;
 
+/** How much OpenRAC checked a mod (the index's `trust`), with its icon. */
+export const TRUST_LABEL = {
+  openrac: { icon: "◆", text: "OpenRAC" },
+  verified: { icon: "✔", text: "Verified" },
+  trusted: { icon: "★", text: "Trusted author" },
+  unchecked: { icon: "!", text: "Not checked" },
+} as const;
+
+export type TrustKey = keyof typeof TRUST_LABEL;
+
+/** What each label means: the first-visit window and the labels' tooltips. */
+export const TRUST_HINT: Record<TrustKey, string> = {
+  openrac: "Made in OpenRAC's own repository. Its code is reviewed.",
+  verified: "We looked at this mod when it was added. Updates are checked by a machine only.",
+  trusted: "From someone on our trusted list. Not checked by a person.",
+  unchecked: "Anyone can add one. Nobody from OpenRAC looked at it.",
+};
+
+/** The index's `trust` as a label key; none for an older index or a mod not in it. */
+export const trustKey = (trust: string | null | undefined): TrustKey | null =>
+  trust && trust in TRUST_LABEL ? (trust as TrustKey) : null;
+
+/** The Mods tab's "Before you install mods" window (ModsIntro.svelte). */
+export const MODS_INTRO = {
+  title: "Before you install mods",
+  lead: "Mods are made by people in the community, not by OpenRAC. Each one shows how much we checked it.",
+  riskLead: "The risk:",
+  risk: "a mod marked Runs code is a program. A bad one could harm your computer, your files or your accounts. Sandboxed scripts can only change the game.",
+  noResponsibility: "OpenRAC takes no responsibility",
+  responsibility: "for what any mod does, checked or not. You install mods at your own risk.",
+  readMore: "Read more",
+  checkedOnly: "Show only checked mods",
+  understand: "I understand",
+} as const;
+
+export const READ_MORE_URL = "https://github.com/OpenRAC/openrac-mods#labels";
+
+/** The filter on the Mods tab's list. */
+export const CHECKED_ONLY = "Checked by OpenRAC only";
+
+/** The change set's box for a Not checked mod that runs code (DeepLinkInstall.svelte). */
+export const NOT_CHECKED = {
+  title: "! Not checked by OpenRAC",
+  reachLead: "The scan of its files says it can reach:",
+  noReach: "The scan of its files found nothing it reaches outside the game.",
+} as const;
+
+export function notCheckedText(names: string[]): string {
+  const verb = names.length === 1 ? "runs" : "run";
+
+  return `Nobody from OpenRAC looked at ${list(names)}. ${names.length === 1 ? "It" : "They"} ${verb} code on this computer, outside the game's sandbox.`;
+}
+
+export const trustAuthor = (authors: string[]) =>
+  `I trust ${list(authors)} (asked once for each author)`;
+
+/** The mod page's Safety part (ModPage.svelte). */
+export const SAFETY = {
+  title: "Safety",
+  label: "Label",
+  built: "Built",
+  builtCi: "Built by the mod's own CI from its tag",
+  builtHand: "Uploaded by its author (not built by CI)",
+  reach: "Can reach",
+  reachNone: "Nothing outside the game",
+  problem: "Problem?",
+  report: "Report this mod",
+} as const;
+
+/** The openrac-mods form for reporting a mod. */
+export const reportUrl = (id: string) =>
+  `https://github.com/OpenRAC/openrac-mods/issues/new?template=report-mod.yml&mod=${encodeURIComponent(id)}&title=${encodeURIComponent(`Report: ${id}`)}`;
+
+/** An update's reach: what it adds, and what the installed version could already do. */
+export const reachNew = (label: string) => `New: ${label}`;
+
+export const reachHad = (label: string) => `${label} (had it before)`;
+
 type KindKey = keyof typeof KIND_LABEL;
 
 /** Whether a mod from a link can be installed here, in its preview row. */
@@ -747,6 +825,7 @@ const list = (names: string[]) =>
 
 export const CHANGE_SET = {
   title: "Install mods",
+  by: "by",
   loading: "Reading the mod list…",
   picked: "You picked",
   alsoInstalls: "Also installs",
@@ -838,6 +917,8 @@ export function whyText(name: string, why: Why): string {
       return `${name} was withdrawn: ${why.reason}`;
     case "onlyPrerelease":
       return `${name} has only test versions. Turn on Pre-release mods in Settings to get it.`;
+    case "held":
+      return `${name} ${why.version} is waiting for OpenRAC to look at it, so it can't be installed now.`;
   }
 }
 
@@ -915,6 +996,8 @@ export function holdText(hold: Hold | null): string {
       return `Needs a newer launcher (mod API ${hold.api}). It updates once the launcher does.`;
     case "needsLauncherHooks":
       return `Needs a newer launcher (${missingHooks(hold.hooks)}). It updates once the launcher does.`;
+    case "newReach":
+      return `This version can do more than the one you have: ${list(hold.new)}.`;
     case "blocked":
       return "Held back: it doesn't fit with your other mods yet.";
   }

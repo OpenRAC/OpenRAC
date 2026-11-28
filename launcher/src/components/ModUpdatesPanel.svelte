@@ -7,7 +7,14 @@
 
   import { api, errorText, type UpdateItem, type VersionView } from "$lib/api";
   import { autoUpdates, gameRunning, updateVersion } from "$lib/modAutoUpdate.svelte";
-  import { holdText, revokedOffText, updateFrom, UPDATES as T } from "$lib/modsText";
+  import {
+    holdText,
+    reachHad,
+    reachNew,
+    revokedOffText,
+    updateFrom,
+    UPDATES as T,
+  } from "$lib/modsText";
 
   import Icon from "./Icon.svelte";
 
@@ -15,6 +22,20 @@
 
   let busy = $state<string | null>(null);
   let error = $state<string | null>(null);
+  /** Changelogs read from a mod's details file, when the index itself carries none. */
+  let notes = $state<Record<string, string>>({});
+
+  async function readNotes(item: UpdateItem) {
+    const key = `${item.id}@${item.to}`;
+
+    if (item.changelog || key in notes) return;
+    notes[key] = "";
+    const d = await api.indexDetails(item.id).catch(() => null);
+
+    notes[key] = d?.versions.find((v) => v.version === item.to)?.changelog ?? "";
+  }
+
+  const changelog = (item: UpdateItem) => (item.changelog || notes[`${item.id}@${item.to}`]) ?? "";
 
   const plan = $derived(autoUpdates.plans[version.game] ?? null);
   const recent = $derived(autoUpdates.recent[version.game] ?? []);
@@ -80,9 +101,15 @@
             <div class="grow">
               <strong>{item.name}</strong> <span class="dim">{updateFrom(item.from, item.to)}</span>
               <p class="why">{holdText(item.hold)}</p>
-              <details class="more">
+              {#if item.hold?.kind === "newReach"}
+                <div class="chips">
+                  {#each item.hold.new as r (r)}<span class="new">{reachNew(r)}</span>{/each}
+                  {#each item.hold.had as r (r)}<span>{reachHad(r)}</span>{/each}
+                </div>
+              {/if}
+              <details class="more" ontoggle={() => void readNotes(item)}>
                 <summary>{T.changelog}</summary>
-                <pre>{item.changelog || T.noChangelog}</pre>
+                <pre>{changelog(item) || T.noChangelog}</pre>
               </details>
             </div>
             <button class="small" disabled={busy !== null} onclick={() => void update(item)}>
@@ -115,9 +142,9 @@
           <li>
             <div class="grow">
               <strong>{item.name}</strong> <span class="dim">{updateFrom(item.from, item.to)}</span>
-              <details class="more">
+              <details class="more" ontoggle={() => void readNotes(item)}>
                 <summary>{T.changelog}</summary>
-                <pre>{item.changelog || T.noChangelog}</pre>
+                <pre>{changelog(item) || T.noChangelog}</pre>
               </details>
             </div>
           </li>
@@ -208,6 +235,30 @@
     font-size: 0.8125rem;
     color: var(--body);
     margin: 6px 0 0;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .chips span {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: var(--radius-xs);
+    background: var(--ink-deep);
+    color: var(--text);
+    font-size: 0.75rem;
+  }
+
+  .chips span.new {
+    background: color-mix(in srgb, var(--amber) 16%, transparent);
+    color: var(--amber);
+    font-weight: 600;
   }
 
   .err {

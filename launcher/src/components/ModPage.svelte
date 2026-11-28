@@ -12,6 +12,7 @@
   import { onDestroy, onMount, tick } from "svelte";
 
   import {
+    api,
     ask,
     type BakeStatus,
     type ModSources,
@@ -19,10 +20,12 @@
     type PluginPreset,
     type PluginView,
   } from "$lib/api";
+  import { guardShown } from "$lib/app.svelte";
   import { Saver, type SaveState } from "$lib/autosave";
   import { keybindConflicts, sharedBinds } from "$lib/keybinds";
   import { closeMod } from "$lib/modNav.svelte";
   import * as T from "$lib/modsText";
+  import { modTrust } from "$lib/modTrust.svelte";
   import { modHint, modKind, settingGroups, sharedWith } from "$lib/plugins";
   import { isPreset, presetChanges } from "$lib/presets";
   import { phaseLabel, readProgress } from "$lib/progress";
@@ -33,6 +36,7 @@
   import Menu, { type MenuItem } from "./Menu.svelte";
   import ModSetting from "./ModSetting.svelte";
   import Reason from "./Reason.svelte";
+  import TrustLabel from "./TrustLabel.svelte";
 
   let {
     mod,
@@ -153,6 +157,11 @@
   // ---- The page ----
 
   const kind = $derived(modKind(mod.kind));
+  /** What the mod list says about its checks: none for a mod not in it. */
+  const listed = $derived(modTrust.byId[mod.id] ?? null);
+  const listedVersion = $derived(listed?.versions.find((x) => x.version === mod.version) ?? null);
+  const built = $derived(listed?.versions[0]?.built ?? "");
+  const trustLabel = $derived(T.trustKey(listed?.trust));
   const shared = $derived(sharedWith(mod));
   const sourceLabel = (url: string) => url.replace(/^https?:\/\/(www\.)?github\.com\//, "");
   const cannotLoad = $derived(
@@ -377,6 +386,40 @@
         </dl>
       </div>
     </details>
+
+    {#if listed && !builtIn && !alwaysOn}
+      <details class="more about">
+        <summary>{T.SAFETY.title}</summary>
+        <div class="about-body">
+          <dl>
+            {#if trustLabel}
+              <dt>{T.SAFETY.label}</dt>
+              <dd class="label"><TrustLabel trust={trustLabel} /> {T.TRUST_HINT[trustLabel]}</dd>
+            {/if}
+            {#if built}
+              <dt>{T.SAFETY.built}</dt>
+              <dd>{built === "ci" ? T.SAFETY.builtCi : T.SAFETY.builtHand}</dd>
+            {/if}
+            {#if listedVersion?.scan}
+              <dt>{T.SAFETY.reach}</dt>
+              <dd>
+                {listedVersion.scan.labels.length > 0
+                  ? listedVersion.scan.labels.join(", ")
+                  : T.SAFETY.reachNone}
+              </dd>
+            {/if}
+            <dt class="mid">{T.SAFETY.problem}</dt>
+            <dd class="mid">
+              <button
+                class="small"
+                onclick={() => void guardShown(api.openUrl(T.reportUrl(mod.id)))}
+                ><Icon name="external" size={14} />{T.SAFETY.report}</button
+              >
+            </dd>
+          </dl>
+        </div>
+      </details>
+    {/if}
   </section>
 
   {#if builtIn}
@@ -838,9 +881,11 @@
     color: var(--body);
   }
 
+  /* One label width for every list, so About and Safety line up under each other. */
   dl {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-columns: minmax(6.5em, max-content) minmax(0, 1fr);
+    align-items: baseline;
     gap: 8px 18px;
     margin: 0;
     font-size: 0.8125rem;
@@ -850,10 +895,20 @@
     color: var(--dim);
   }
 
+  /* A row whose value is a button: the label sits on the button's middle, not its icon. */
+  .mid {
+    align-self: center;
+  }
+
   dd {
     margin: 0;
     color: var(--body);
     overflow-wrap: anywhere;
+  }
+
+  dd.label :global(.trust) {
+    margin-right: 6px;
+    vertical-align: 1px;
   }
 
   .folder {

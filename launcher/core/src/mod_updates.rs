@@ -44,6 +44,9 @@ pub enum Hold {
     /// The newest version names hook points this launcher's port does not have, so it needs a
     /// newer launcher. Not `NewHooks`, which asks the player about hooks the port has.
     NeedsLauncherHooks { hooks: Vec<String> },
+    /// A native mod's new version can reach more than the installed one (the scan's labels):
+    /// `new` is what it adds, `had` what the installed version could already reach.
+    NewReach { new: Vec<String>, had: Vec<String> },
     /// Something else stops it (a conflict, a missing mod).
     Blocked { detail: String },
 }
@@ -101,6 +104,16 @@ fn pinned(sources: &Sources, id: &str, newest: Option<&str>) -> bool {
     match (s.pin_reason.as_deref(), s.skip.as_deref(), newest) {
         (Some("rollback"), Some(bad), Some(n)) => !newer(n, bad),
         _ => true,
+    }
+}
+
+/// What `to` can reach that `from` (the installed version's entry) could not, and what both can.
+/// With no scan of the installed version, the index's own `new` (against the version before) counts.
+fn new_reach(from: Option<&crate::index::Version>, to: &crate::index::Version) -> (Vec<String>, Vec<String>) {
+    let Some(scan) = to.scan.as_ref() else { return (Vec::new(), Vec::new()) };
+    match from.and_then(|f| f.scan.as_ref()) {
+        Some(old) => scan.labels.iter().cloned().partition(|l| !old.labels.contains(l)),
+        None => scan.labels.iter().cloned().partition(|l| scan.new.contains(l)),
     }
 }
 
@@ -197,8 +210,11 @@ pub fn plan(index: &ModIndex, installed: &[InstalledMod], sources: &Sources, her
             |h: &str| !matches!(h.split_once('.'), Some((g, _)) if g != here.game && v.games.contains_key(g));
         let new_hooks: Vec<String> =
             v.hooks.iter().filter(|h| !old_hooks.contains(h) && for_here(h)).cloned().collect();
+        let (reach_new, reach_had) = new_reach(m.version(&have.version), v);
         if major(&v.version) != major(&have.version) {
             out.waiting.push(item(v, Some(Hold::Major)));
+        } else if m.kind == "native" && !reach_new.is_empty() {
+            out.waiting.push(item(v, Some(Hold::NewReach { new: reach_new, had: reach_had })));
         } else if m.kind == "native" && m.version(&have.version).is_some() && !new_hooks.is_empty() {
             out.waiting.push(item(v, Some(Hold::NewHooks { hooks: new_hooks })));
         } else {
@@ -599,6 +615,27 @@ mod tests {
         // The same hooks: in by itself.
         let lock = index.mods.iter_mut().find(|m| m.id == "lock-strafe").unwrap();
         lock.versions[1].hooks = lock.versions[0].hooks.clone();
+        assert_eq!(ids(&plan_of(&index, &[have("lock-strafe", "1.1.0")])), [("lock-strafe", "1.2.0")]);
+    }
+
+    #[test]
+    fn a_native_version_that_reaches_more_waits() {
+        use crate::index::Scan;
+        let mut index = fixture();
+        let lock = index.mods.iter_mut().find(|m| m.id == "lock-strafe").unwrap();
+        lock.versions[0].requires.clear();
+        lock.versions[1].hooks = lock.versions[0].hooks.clone();
+        lock.versions[1].scan = Some(Scan { labels: vec!["Starts programs".into()], new: vec![] });
+        lock.versions[0].scan =
+            Some(Scan { labels: vec!["Network".into(), "Starts programs".into()], new: vec!["Network".into()] });
+        let plan = super::plan(&index, &[have("lock-strafe", "1.1.0")], &Sources::default(), &HERE);
+        assert_eq!(
+            plan.waiting[0].hold,
+            Some(Hold::NewReach { new: vec!["Network".into()], had: vec!["Starts programs".into()] })
+        );
+        // Nothing new: in by itself.
+        let lock = index.mods.iter_mut().find(|m| m.id == "lock-strafe").unwrap();
+        lock.versions[0].scan = Some(Scan { labels: vec!["Starts programs".into()], new: vec![] });
         assert_eq!(ids(&plan_of(&index, &[have("lock-strafe", "1.1.0")])), [("lock-strafe", "1.2.0")]);
     }
 
