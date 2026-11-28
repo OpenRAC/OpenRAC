@@ -761,17 +761,67 @@ void GifInterpreter::hud_side(int side, bool stretch, int split) {
             e.first = std::min(e.first, triangles[i].left);
             e.second = std::max(e.second, triangles[i].right);
         }
+        // A small part is a glyph or an icon when it is low: the glyphs of one line of text (close
+        // together, on the same height) are one run, which goes out as a whole, so a line across
+        // the middle of a panel is never split into the pieces left, middle and right of it.
+        constexpr float kGlyphHeight = 32.0f / 208.0f;
+        constexpr float kRunGap = 12.0f / 256.0f;
+        std::vector<int> run(triangles.size());
+        std::vector<std::pair<float, float>> run_extent;
+        if (m_hud_stretch) {
+            for (std::size_t i = 0; i < run.size(); ++i) {
+                run[i] = static_cast<int>(i);
+            }
+            const auto run_root = [&](int n) {
+                while (run[static_cast<std::size_t>(n)] != n) {
+                    n = run[static_cast<std::size_t>(n)];
+                }
+                return n;
+            };
+            const auto glyph = [&](const Triangle& t) {
+                return t.right - t.left < kMiddle && t.bottom - t.top < kGlyphHeight;
+            };
+            for (std::size_t i = 0; i < triangles.size(); ++i) {
+                const Triangle& p = triangles[i];
+                if (!glyph(p)) {
+                    continue;
+                }
+                for (std::size_t k = i + 1; k < triangles.size(); ++k) {
+                    const Triangle& q = triangles[k];
+                    const float shared = std::min(p.bottom, q.bottom) - std::max(p.top, q.top);
+                    const float lower = std::min(p.bottom - p.top, q.bottom - q.top) / 2.0f;
+                    if (glyph(q) && shared > lower && p.left <= q.right + kRunGap
+                        && q.left <= p.right + kRunGap) {
+                        run[static_cast<std::size_t>(run_root(static_cast<int>(k)))] =
+                            run_root(static_cast<int>(i));
+                    }
+                }
+            }
+            run_extent.assign(
+                triangles.size(),
+                {std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()}
+            );
+            for (std::size_t i = 0; i < triangles.size(); ++i) {
+                auto& e = run_extent[static_cast<std::size_t>(run_root(static_cast<int>(i)))];
+                e.first = std::min(e.first, triangles[i].left);
+                e.second = std::max(e.second, triangles[i].right);
+                run[i] = run_root(static_cast<int>(i));
+            }
+        }
         for (std::size_t i = 0; i < triangles.size(); ++i) {
             const auto& e = extent[static_cast<std::size_t>(root(static_cast<int>(i)))];
             const float mid = (e.first + e.second) / 2.0f;
             if (m_hud_stretch && e.first < -kMiddle && e.second > kMiddle) {
                 // A frame round the screen. A small part (a glyph, a corner) goes out whole by
-                // where it is, so it keeps its shape; a long one (an edge, a bar's fill) by each
-                // corner, so it grows to the sides. The line is a little wider than the middle
-                // third: a bar ends at a box on the middle, and both its corners there stay.
+                // where it is, so it keeps its shape; a line of glyphs by where the line is; a
+                // long one (an edge, a bar's fill) by each corner, so it grows to the sides. The
+                // line is a little wider than the middle third: a bar ends at a box on the
+                // middle, and both its corners there stay.
                 constexpr float kStretchMiddle = 64.0f / 256.0f;
                 const Triangle& t = triangles[i];
-                const float centre = (t.left + t.right) / 2.0f;
+                const auto& r = run_extent[static_cast<std::size_t>(run[i])];
+                const float centre =
+                    r.first <= r.second ? (r.first + r.second) / 2.0f : (t.left + t.right) / 2.0f;
                 const bool whole = t.right - t.left < kMiddle;
                 for (std::uint32_t k = t.first; k < t.first + 3; ++k) {
                     const float x = whole ? centre : m_vertices[k].x;
