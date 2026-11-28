@@ -7,7 +7,7 @@ no bytes of the game: those come from the player's own disc and extracted levels
 `.openrac-map.zip`, as Android's downloads do, is a map too). The launcher makes the map's planet
 pack from the player's files (`launcher/core/src/maps.rs`) and adds it to the packs, on: a new
 planet the ship can fly to. It takes a few seconds and needs no editor and no Python. Adding the
-same map again replaces it in its place.
+same map again replaces it in its place; the same map for another disc is a pack of its own.
 
 **Cutscenes and moving objects.** The game has their player built in (Ratchet & Clank,
 `port/game/rac1/editor_runtime`; the editor's formats are in [CUTSCENE_FORMAT.md](https://github.com/OpenRAC/OpenRAC-Editor/blob/main/docs/CUTSCENE_FORMAT.md) and
