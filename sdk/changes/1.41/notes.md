@@ -1,0 +1,1 @@
+Pictures of a mod's own for its overlay, drawn turned, tinted and kept in shape, and a call of the overlay under the game's 2D (overlay_image_create, overlay_image_destroy, openrac_overlay.image, image_quad, layer, aspect, OPENRAC_OVERLAY_UNDER_HUD).

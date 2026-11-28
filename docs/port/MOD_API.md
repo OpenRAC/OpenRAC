@@ -54,19 +54,44 @@ python3 sdk/tools/new_api.py world moby_glow \
     --params "openrac_mod* mod, uint32_t moby, float strength" \
     --about "Makes a moby glow (0 to 1, 0 stops). Returns OPENRAC_OK, or OPENRAC_E_UNKNOWN if the moby is gone."
 # 2. By hand: the body of api_moby_glow, the game part, the C++ wrapper, a test.
-# 3. Update the version, the locks and the reference.
+# 3. Write the changelog note, then set the version, the locks and the reference.
 python3 sdk/tools/bump_api.py minor --note "a moby's glow (moby_glow)"
 ```
 
 `new_api.py` writes the member, its `members.tsv` row, the declaration, a stub
 and the `g_api` line. The stub returns `OPENRAC_E_UNKNOWN`, and `by-area.md`
 lists the call as working on no game until you remove the stub's TODO line.
-For several calls in one minor, run `new_api.py` once for each, then run
-`bump_api.py minor` once.
+For several calls, run `new_api.py` once for each, then `bump_api.py minor`
+once.
 
-`bump_api.py` updates the version in all six places and regenerates the locks
-and `sdk/docs/reference/`. For other changes that mods see, such as new hook
-points or a new C++ helper, use `bump_api.py patch`.
+## Versions
+
+You never pick a version. It lives only in `openrac_mod.h`
+(`OPENRAC_MOD_API_MAJOR`, `_MINOR`); CMake and the launcher read it there.
+
+- Dev release: each push to master publishes `sdk-v1.M.P`, the next patch of
+  the last stable minor `M`, if the SDK changed.
+- Stable release: a `launcher-v*` tag publishes `sdk-v1.(M+1).0` if the
+  interface grew.
+
+Anything new in the interface (a table member, or a type, field or macro in
+`openrac_mod.h` or `keys.h`) joins the open minor `1.M+1`. Every pull request
+until the next stable release shares it. Hook points, C++ helpers and docs
+are not a minor.
+
+Run `bump_api.py` (or `bump_api.py minor --note "..."` to add the note). It
+sets the minor, each new member's `since` and `Since 1.N.`, the `mod.hpp`
+checks, the locks and `sdk/docs/reference/`. Each change of the interface
+needs a note `sdk/changes/1.<minor>/<name>.md` that names the new members.
+
+If a stable release came out while your pull request was open,
+`bump_api.py --check` fails after you merge develop. Run `bump_api.py`: it
+moves your additions and note to the next minor and prints lines to check by
+hand. On a conflict at the end of the table, keep both (develop's first),
+take develop's `sdk/api/*.lock` and `sdk/docs/reference/`, and run
+`bump_api.py`. If `dev_release` stops at `bump_api.py --check`, run
+`bump_api.py` on develop in a small pull request. A failed release run: run
+the `sdk` workflow on master with "release".
 
 ## Naming
 
@@ -84,7 +109,7 @@ points or a new C++ helper, use `bump_api.py patch`.
 
 A new member starts as `experimental` (use `new_api.py --stable` if it copies
 an existing pattern). Its behaviour may still change in a minor, with a note
-in the header's history. Its signature may not change. After a release where
+in `sdk/changes/`. Its signature may not change. After a release where
 mods used it, it becomes `stable`. A replaced member keeps working, and its row
 says `deprecated:<new member>`.
 

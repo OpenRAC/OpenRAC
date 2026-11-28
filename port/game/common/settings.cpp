@@ -404,6 +404,10 @@ void load(const std::filesystem::path& file) {
             known = parse_bool(value, s.enhanced_shadows);
         } else if (key == "texture_pack") {
             known = parse_bool(value, s.texture_pack);
+        } else if (key == "pcsx2_pack_background") {
+            known = parse_bool(value, s.pcsx2_pack_background);
+        } else if (key == "pcsx2_pack_precache") {
+            known = parse_bool(value, s.pcsx2_pack_precache);
         } else if (key == "rim_light" || key == "rim_shadow_lift" || key == "rim_lift_exponent"
                    || key == "rim_lift_max_gain" || key == "rim_light_strength"
                    || key == "rim_light_falloff") {
@@ -555,6 +559,11 @@ void load(const std::filesystem::path& file) {
             known = !value.empty();
             if (known) {
                 s.menu_bar_key = value;
+            }
+        } else if (key == "texture_pack_key") {
+            known = !value.empty();
+            if (known) {
+                s.texture_pack_key = value;
             }
         } else if (key == "menu_button") {
             // Any button name SDL knows, or "none"; the overlay uses the default for another.
@@ -730,6 +739,8 @@ void save() {
         << "\n"
         << "enhanced_shadows = " << (s.enhanced_shadows ? 1 : 0) << "\n"
         << "texture_pack = " << (s.texture_pack ? 1 : 0) << "\n"
+        << "pcsx2_pack_background = " << (s.pcsx2_pack_background ? 1 : 0) << "\n"
+        << "pcsx2_pack_precache = " << (s.pcsx2_pack_precache ? 1 : 0) << "\n"
         << "probe_spheres = " << (s.probe_spheres ? 1 : 0) << "\n"
         << "medial_axis_debug = " << (s.medial_axis_debug ? 1 : 0) << "\n"
         << "ceiling_area_lights = " << (s.ceiling_area_lights ? 1 : 0) << "\n"
@@ -794,6 +805,7 @@ void save() {
         << "show_fps = " << static_cast<int>(s.show_fps) << "\n"
         << "gpu_breadcrumbs = " << (s.gpu_breadcrumbs ? 1 : 0) << "\n"
         << "menu_bar_key = " << s.menu_bar_key << "\n"
+        << "texture_pack_key = " << s.texture_pack_key << "\n"
         << "menu_button = " << s.menu_bar_button << "\n"
         << "mute_unfocused = " << (s.mute_unfocused ? 1 : 0) << "\n"
         << "draw_distance = " << s.draw_distance << "\n"

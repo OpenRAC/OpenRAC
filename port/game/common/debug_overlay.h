@@ -213,4 +213,13 @@ void game_page_step(menu::Id id, int by);
 // Whether a mod greyed out entry `id` (openrac_api.menu_option_set): its keys leave it alone too.
 bool option_off(menu::Id id);
 
+// The texture pack's key (settings.ini's texture_pack_key) as the player reads it ("Ctrl+F2"), and
+// whether a key press is it. Defined in debug/menu_bar.cpp.
+std::string texture_pack_key_label();
+bool texture_pack_key_hit(const SDL_KeyboardEvent& key);
+
+// Shows or hides the texture pack's pictures, with a note on screen. The Developer tab's switch
+// does the same without it. Defined in debug/menu_bar.cpp.
+void toggle_texture_pack();
+
 }  // namespace openrac::frontend::debug_overlay

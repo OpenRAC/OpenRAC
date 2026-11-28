@@ -439,6 +439,12 @@ inline bool depth_clamp_available() {
     return (!is_es() && !is_vulkan()) || has_extension("GL_EXT_depth_clamp");
 }
 
+// Whether glEnable(GL_CLIP_DISTANCEi) applies: desktop GL, or ES with EXT_clip_cull_distance
+// (Vulkan uses the distances a shader writes without it).
+inline bool clip_distance_available() {
+    return (!is_es() && !is_vulkan()) || has_extension("GL_EXT_clip_cull_distance");
+}
+
 // True when the context compiles shaders on threads of its own (KHR_ or ARB_parallel_shader_compile,
 // told by load() to use as many as it likes): a shader's compile then runs while the next one is
 // handed over, until its status is asked for.

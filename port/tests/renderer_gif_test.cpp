@@ -1300,6 +1300,52 @@ void recorded_native_hud_placement() {
 
 }  // namespace
 
+// The seven flat rectangles of a bevelled text frame (rac1's DrawUIFrame) are drawn as one
+// rectangle with round corners: a fan of triangles around the middle, none of them overlapping.
+// Seven rectangles in another shape stay as they are.
+void text_frame_corners_are_round() {
+    const auto strip = [](GifBuilder& b, double top, double bottom, double left, double right) {
+        const std::uint64_t kind = prim(gs::PrimKind::TriangleStrip, false, false, true);
+        b.ad(
+            {{gs::kPrim, kind},
+             {gs::kRgbaq, rgbaq(4, 4, 4, 0x60)},
+             {gs::kXyz2, xyz2(left, top, 0xFFFFF0)},
+             {gs::kXyz2, xyz2(right, top, 0xFFFFF0)},
+             {gs::kXyz2, xyz2(left, bottom, 0xFFFFF0)},
+             {gs::kXyz2, xyz2(right, bottom, 0xFFFFF0)}}
+        );
+    };
+    for (const bool frame : {true, false}) {
+        TexturePool textures;
+        GifInterpreter gif(textures);
+        GifBuilder b;
+        const double top = 100, bottom = 140, left = 100, right = 300;
+        strip(b, top, bottom, left, right);
+        strip(b, top + 1, bottom - 1, left - 2, left);
+        strip(b, top + 2, bottom - 2, left - 3, left - 2);
+        strip(b, top + 4, bottom - 4, left - 4, left - 3);
+        strip(b, top + 1, bottom - 1, right, right + 2);
+        strip(b, top + 2, bottom - 2, right + 2, right + 3);
+        strip(b, top + (frame ? 4 : 5), bottom - 4, right + 3, right + 4);
+        CHECK(gif.gif(b.bytes));
+        if (frame) {
+            // 4 corners of 8 steps and their closing step: 36 triangles around the middle.
+            CHECK(gif.vertices().size() == 36 * 3);
+            float least = 1.0f;
+            float most = -1.0f;
+            for (const DirectVertex& v : gif.vertices()) {
+                least = std::min(least, v.x);
+                most = std::max(most, v.x);
+            }
+            // From the bars' outer edges: 96 to 304 of 512 pixels.
+            CHECK(near(least, 96.0f / 256.0f - 1.0f));
+            CHECK(near(most, 304.0f / 256.0f - 1.0f));
+        } else {
+            CHECK(gif.vertices().size() == 7 * 6);
+        }
+    }
+}
+
 // A depth rectangle (openrac_frame_fill_depth, the letterbox bars) after a residual draw at the same
 // 24-bit depth takes that draw's depth exactly, tests greater-or-equal and writes it, as the bars'
 // packet did; one at the 2D frames' lower depth lies behind it. A plain fill still neither tests nor
@@ -1530,6 +1576,7 @@ int main() {
     recorded_panel_takes_the_streams();
     recorded_native_hud_placement();
     recorded_depth_fill_takes_the_residual_depth();
+    text_frame_corners_are_round();
     test_recorded_panel_scissor();
     test_recorded_screen_scissor();
     test_empty_recorded_scissors();

@@ -2,6 +2,9 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Tests of package_sdk.py: python3 -m unittest discover -s sdk/tools"""
 import hashlib
+import json
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -14,8 +17,50 @@ import package_sdk  # noqa: E402
 
 class PackageSdk(unittest.TestCase):
     def test_version_is_the_interfaces(self):
-        v = package_sdk.version()
-        self.assertRegex(v, r"^\d+\.\d+\.\d+$")
+        api = package_sdk.interface()
+        major, minor = (int(x) for x in api.split("."))
+        self.assertEqual(package_sdk.version(), "dev")
+        self.assertEqual(package_sdk.version(release=f"{api}.7"), f"{api}.7")
+        if minor > 0:  # a dev release: a patch of the last stable minor, with the open minor's headers
+            self.assertEqual(package_sdk.version(release=f"{major}.{minor - 1}.3"), f"{major}.{minor - 1}.3")
+        for bad in (f"{api}", f"{api}.x", f"{major + 1}.0.0", f"{major - 1}.0.0", f"{major}.{minor + 1}.0",
+                    f"{api}.1-dev"):
+            self.assertRaises(SystemExit, package_sdk.version, release=bad)
+
+    @unittest.skipUnless(shutil.which("cmake"), "no cmake")
+    def test_cmake_takes_the_headers_version(self):
+        # OpenRACModConfigVersion.cmake, as find_package(OpenRACMod <version>) runs it.
+        major, minor = (int(x) for x in package_sdk.interface().split("."))
+        cases = {"": True, f"{major}.0": True, f"{major}.{minor}": True, f"{major}.{minor + 1}": False,
+                 f"{major + 1}.0": False, f"{major - 1}.{minor}": False}
+        version_file = package_sdk.SDK / "cmake" / "OpenRACModConfigVersion.cmake"
+        for want, ok in cases.items():
+            with tempfile.TemporaryDirectory() as d:
+                script = Path(d) / "probe.cmake"
+                parts = want.split(".") if want else ["", ""]
+                script.write_text(
+                    f'set(PACKAGE_FIND_VERSION "{want}")\nset(PACKAGE_FIND_VERSION_MAJOR "{parts[0]}")\n'
+                    f'include("{version_file.as_posix()}")\n'
+                    'message("${PACKAGE_VERSION} ${PACKAGE_VERSION_COMPATIBLE}")\n')
+                out = subprocess.run(["cmake", "-P", str(script)], capture_output=True, text=True).stderr.split()
+                self.assertEqual(out[0], f"{major}.{minor}", want)
+                self.assertEqual(out[1] == "TRUE", ok, want)
+
+    def test_the_archive_says_its_version(self):
+        # VERSION and the templates' sdk.lock name the release the archive is, whatever the tree says.
+        v = package_sdk.interface() + ".7"
+        with tempfile.TemporaryDirectory() as a:
+            archive = package_sdk.write(Path(a), release=v)
+            self.assertEqual(archive.name, f"openrac-mod-sdk-{v}.zip")
+            z = zipfile.ZipFile(archive)
+            top = f"openrac-mod-sdk-{v}/"
+            self.assertEqual(z.read(top + "VERSION").decode(), v + "\n")
+            for template in package_sdk.TEMPLATES:
+                lock = json.loads(z.read(f"{top}{template}/sdk.lock"))
+                self.assertEqual(lock["version"], v)
+                self.assertEqual(lock["url"], package_sdk.URL.format(v=v))
+                self.assertEqual(lock["sha256"], "")
+                self.assertIn("about", lock)
 
     def test_archive_is_whole_and_the_same_bytes_each_time(self):
         with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:

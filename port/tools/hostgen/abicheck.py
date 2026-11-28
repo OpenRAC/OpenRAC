@@ -242,6 +242,18 @@ def passes_more(call_params: list[str], def_params: list[str]) -> bool:
     return any(cp.count(k) > dp.count(k) for k in ("i", "f", "d"))
 
 
+STACK_ARGS = 4  # asmc.py's: the doublewords at 0($sp) up a call through an address hands on
+
+
+def registers_form(params: list[str]) -> bool:
+    """Whether a call's parameters are the assembly's registers as they are: the eight integer
+    argument registers, the eight float ones when it passes them, then the doublewords the caller
+    keeps at 0($sp) up (asmc.py's call through an address). Position decides nothing there: the
+    host reaches the callee through its thunk (guest.h, OPENRAC_REGS_THUNKS)."""
+    ints, stack = ["openrac_u64"] * 8, ["openrac_u64"] * STACK_ARGS
+    return params in (ints + stack, ints + ["float"] * 8 + stack)
+
+
 def check(gen: Path, include_all: bool = False) -> tuple[list[str], dict]:
     protos = read_protos(gen / "game_protos.h")
     at, where = read_tables(gen / "functions.c")
@@ -284,7 +296,7 @@ def check(gen: Path, include_all: bool = False) -> tuple[list[str], dict]:
             if not ft:
                 continue
             params = split_params(ft.group("params"))
-            if params.count("openrac_u64") == 8:
+            if params.count("openrac_u64") == 8 or registers_form(params):
                 continue  # the assembly's registers as they are (thunked where position decides)
             stats["calls"] += 1
             caller = None

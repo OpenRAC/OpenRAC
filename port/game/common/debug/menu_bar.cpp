@@ -6,6 +6,7 @@
 // debug/drawer.cpp on a touch screen.
 
 #include <string>
+#include <string_view>
 
 #include <SDL3/SDL.h>
 
@@ -13,6 +14,7 @@
 #include "debug_overlay.h"
 #include "frontend.h"
 #include "platform/input.h"
+#include "renderer/textures/texture_pack.h"
 #include "settings.h"
 
 namespace openrac::frontend::debug_overlay {
@@ -95,6 +97,53 @@ std::string menu_bar_button_label() {
             return name != nullptr ? std::string(name) : std::string("?");
         }
     }
+}
+
+namespace {
+
+constexpr std::string_view kCtrl = "Ctrl+";
+
+}  // namespace
+
+std::string texture_pack_key_label() {
+    std::string_view name = settings::get().texture_pack_key;
+    const bool ctrl = name.starts_with(kCtrl);
+    if (ctrl) {
+        name.remove_prefix(kCtrl.size());
+    }
+    const SDL_Scancode key = SDL_GetScancodeFromName(std::string(name).c_str());
+    const char* shown = key == SDL_SCANCODE_UNKNOWN
+                            ? nullptr
+                            : SDL_GetKeyName(SDL_GetKeyFromScancode(key, SDL_KMOD_NONE, false));
+    const std::string text = shown != nullptr && *shown != '\0' ? shown : std::string(name);
+    return ctrl ? std::string(kCtrl) + text : text;
+}
+
+bool texture_pack_key_hit(const SDL_KeyboardEvent& key) {
+    std::string_view name = settings::get().texture_pack_key;
+    const bool ctrl = name.starts_with(kCtrl);
+    if (ctrl) {
+        name.remove_prefix(kCtrl.size());
+    }
+    const SDL_Scancode want = SDL_GetScancodeFromName(std::string(name).c_str());
+    return want != SDL_SCANCODE_UNKNOWN && key.scancode == want
+           && ((key.mod & SDL_KMOD_CTRL) != 0) == ctrl;
+}
+
+void toggle_texture_pack() {
+    namespace pack = renderer::texture_pack;
+    if (!pack::has_pictures()) {
+        notify({.id = "texture_pack", .title = "No texture pack is in use"});
+        return;
+    }
+    pack::set_shown(!pack::shown());
+    notify({
+        .id = "texture_pack",
+        .title = pack::shown() ? "Texture pack shown" : "Texture pack hidden",
+        .text = "World textures change at the next level.",
+        .keys = {texture_pack_key_label()},
+        .seconds = 3.0,
+    });
 }
 
 std::string menu_key_label() {

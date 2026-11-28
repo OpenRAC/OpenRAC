@@ -10,14 +10,16 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 import new_api
 
-HEADER = """#define OPENRAC_MOD_API_MINOR 4
+HEADER = """#define OPENRAC_MOD_API_MAJOR 2
+#define OPENRAC_MOD_API_MINOR 4
 typedef struct openrac_api {
     uint32_t size;
-    /* Old. Since 1.4. */
+    /* Old. Since 2.4. */
     int (*old)(openrac_mod* mod);
 } openrac_api;
 """
@@ -32,7 +34,7 @@ class NewApiTest(unittest.TestCase):
         self.root = Path(self.tmp.name)
         files = {
             new_api.HEADER: HEADER,
-            new_api.MEMBERS: "# member\tarea\tsince\tstatus\nold\tcore\t1.4\tstable\n",
+            new_api.MEMBERS: "# member\tarea\tsince\tstatus\nold\tcore\t2.4\tstable\n",
             new_api.INTERNAL: "namespace openrac::mods::detail {\nint api_old(openrac_mod* mod);\n\n" + NS,
             Path(new_api.AREA_FILE.format(area="world")): "namespace openrac::mods::detail {\n\n" + NS,
             new_api.MODS: "void fill() {\n    g_api.old = api_old;\n" + new_api.FILL_END + "\n}\n",
@@ -40,8 +42,16 @@ class NewApiTest(unittest.TestCase):
         for path, text in files.items():
             (self.root / path).parent.mkdir(parents=True, exist_ok=True)
             (self.root / path).write_text(text)
+        # The last release, sdk-v2.4.0, as a local tag: a new member joins 2.5.
+        self.env = unittest.mock.patch.dict(os.environ, {"OPENRAC_SDK_OFFLINE": "1"})
+        self.env.start()
+        git = ["git", "-C", str(self.root), "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false",
+               "-c", "tag.gpgsign=false", "-c", "core.hooksPath=/dev/null"]
+        for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "x"], ["tag", "sdk-v2.4.0"]):
+            subprocess.run(git + args, check=True, capture_output=True)
 
     def tearDown(self) -> None:
+        self.env.stop()
         self.tmp.cleanup()
 
     def add(self, *args: str) -> int:
@@ -55,9 +65,9 @@ class NewApiTest(unittest.TestCase):
         self.add("world", "moby_glow", "--params", "openrac_mod* mod, uint32_t moby", "--about", "Makes it glow.",
                  "--stable")
         header = self.text(new_api.HEADER)
-        self.assertIn("    /* Makes it glow. Since 1.5. */\n    int (*moby_glow)(openrac_mod* mod, uint32_t moby);\n"
+        self.assertIn("    /* Makes it glow. Since 2.5. */\n    int (*moby_glow)(openrac_mod* mod, uint32_t moby);\n"
                       "} openrac_api;", header)
-        self.assertTrue(self.text(new_api.MEMBERS).endswith("moby_glow\tworld\t1.5\tstable\n"))
+        self.assertTrue(self.text(new_api.MEMBERS).endswith("moby_glow\tworld\t2.5\tstable\n"))
         self.assertIn("int api_moby_glow(openrac_mod* mod, std::uint32_t moby);\n\n" + NS,
                       self.text(new_api.INTERNAL))
         area = self.text(new_api.AREA_FILE.format(area="world"))
@@ -69,7 +79,7 @@ class NewApiTest(unittest.TestCase):
         self.add("world", "b_call", "--returns", "const char*", "--params", "openrac_mod* mod", "--about", "B.")
         header = self.text(new_api.HEADER)
         self.assertLess(header.index("a_call"), header.index("b_call"))
-        self.assertTrue(self.text(new_api.MEMBERS).endswith("a_call\tworld\t1.5\tstable\nb_call\tworld\t1.5\texperimental\n"))
+        self.assertTrue(self.text(new_api.MEMBERS).endswith("a_call\tworld\t2.5\tstable\nb_call\tworld\t2.5\texperimental\n"))
         self.assertIn("return nullptr;", self.text(new_api.AREA_FILE.format(area="world")))
 
     def test_long_signature_on_lines_of_its_own(self) -> None:

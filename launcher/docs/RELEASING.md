@@ -78,6 +78,9 @@ git tag launcher-vX.Y.Z
 git push origin launcher-vX.Y.Z
 ```
 
+The tag also releases the stable mod SDK `sdk-v1.N.0` if the mod interface grew
+([MOD_API.md](../../docs/port/MOD_API.md#versions)).
+
 ### What GitHub Actions does automatically (`.github/workflows/launcher.yml`):
 
 1. **One `build` job per system** (a matrix row), each building the game and the copy of

@@ -686,6 +686,28 @@ void menu_open_panel() {
     }
 }
 
+// The key that shows and hides the texture pack (settings.ini's texture_pack_key).
+void texture_pack_key_panel() {
+    const Id id = Id::TexturePackKey;
+    if (value_row(
+            "Key",
+            s.texture_key_capture
+                ? std::format("press a key (Esc keeps {})", texture_pack_key_label())
+                : texture_pack_key_label(),
+            s.texture_key_capture ? ui().amber : 0
+        )) {
+        s.texture_key_capture = true;
+    }
+    note_hover(static_cast<int>(id));
+    if (settings::get().texture_pack_key != settings::Settings{}.texture_pack_key) {
+        if (sub_row("Key back to the default", ui().soft)) {
+            settings::get().texture_pack_key = settings::Settings{}.texture_pack_key;
+            settings::save();
+        }
+        note_hover(static_cast<int>(id));
+    }
+}
+
 // Whether the controller vibrates in this game at all: the game drives its motors (its profile's
 // has_rumble), or a loaded mod does (openrac_api.set_motors), and then the vibration settings
 // apply to the mod's rumble. A mod may also turn Vibration on itself (openrac_api.menu_option_set).
@@ -891,6 +913,9 @@ void draw_controls_panel(Id id) {
         case Id::MenuOpen:
             menu_open_panel();
             break;
+        case Id::TexturePackKey:
+            texture_pack_key_panel();
+            break;
         case Id::KeyboardMouse:
             keyboard_mouse_panel();
             break;
@@ -914,6 +939,7 @@ void controls_frame() {
         }
         w.confirm_reset = false;
         s.menu_key_capture = false;
+        s.texture_key_capture = false;
         s.menu_button_capture = false;
         return;
     }

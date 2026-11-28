@@ -3298,6 +3298,29 @@ class Places(unittest.TestCase):
             self.assertIn("a.c:3:", problems[0])
             self.assertIn("argument 3 is int for long long", problems[0])
 
+    def test_abicheck_leaves_the_registers_form_with_its_stack_doublewords(self):
+        # A call through an address passes the EE's registers as they are and, since #896, four
+        # doublewords from 0($sp): the callee's thunk takes them by kind, so position decides nothing.
+        with tempfile.TemporaryDirectory() as tmp:
+            gen = Path(tmp)
+            (gen / "game_protos.h").write_text("float func_004439C0(float a0, float a1);\n")
+            (gen / "functions.c").write_text(
+                "static const openrac_fn_entry k_exe[] = {\n"
+                "    {0x004439C0u, (openrac_host_fn)func_004439C0, \"func_004439C0\"},\n};\n")
+            regs = ", ".join(["openrac_u64"] * 8 + ["float"] * 8 + ["openrac_u64"] * 4)
+            args = ", ".join(["0"] * 8 + ["0.0f"] * 8 + ["0"] * 4)
+            ints = ", ".join(["openrac_u64"] * 12)
+            (gen / "a.c").write_text(
+                "void func_002729A0(gaddr a0)\n{\n"
+                f"    f0 = GFN(float (*)({regs}), OPENRAC_CODE(0x004439C0u))({args});\n"
+                f"    GFN(int (*)({ints}), OPENRAC_CODE(0x004439C0u))({', '.join(['0'] * 12)});\n"
+                "    GFN(float (*)(int, float), OPENRAC_CODE(0x004439C0u))(1, 2.0f);\n"
+                "}\n")
+            import abicheck
+            problems, _ = abicheck.check(gen)
+            self.assertEqual(len(problems), 1, problems)
+            self.assertIn("a.c:5:", problems[0])
+
     def test_without_the_disc_a_verified_signature_the_port_calls_is_declared(self):
         import asmc
         from program import Program

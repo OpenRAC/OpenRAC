@@ -57,6 +57,8 @@ constexpr Old kOld[] = {
     {kDesktop, "Debug overlay", Id::DebugOverlay},
     {kDesktop, "Moby picker", Id::MobyPicker},
     {kDesktop, "Object Viewer", Id::ObjectViewer},
+    {kDesktop, "Texture pack", Id::TexturePack},
+    {kDesktop, "Texture pack key", Id::TexturePackKey},
     // "Pause" (F5, which still works): the menu pauses the game; Keep paused keeps it so.
     {kDesktop, "Pause", Id::KeepPaused},
     {kDesktop, "Step one tick", Id::StepTick},

@@ -9,14 +9,16 @@
 
 It writes the parts that always look the same (docs/port/MOD_API.md says why each is there):
 
-    sdk/include/openrac/openrac_mod.h          the member, last in openrac_api, "Since 1.<next>."
-    sdk/api/members.tsv                        its row: area, 1.<next>, experimental (or --stable)
+    sdk/include/openrac/openrac_mod.h          the member, last in openrac_api, "Since <major>.<open>."
+    sdk/api/members.tsv                        its row: area, <major>.<open>, experimental (or --stable)
     port/game/common/mod_api/internal.h        the declaration of api_<name>
     port/game/common/mod_api/<area>.cpp        api_<name>, a stub that does nothing yet
     port/game/common/mods.cpp                  g_api.<name> = api_<name>;
 
-Then it prints what is left by hand: the stub's body, the C++ wrapper in mod.hpp, a test, and
-bump_api.py minor. Several calls for one minor are added one after the other before that bump.
+The new member joins the open minor, the one after the last SDK release (bump_api.py), so calls
+that two pull requests add meanwhile get the same "since". Then it prints what is left by hand:
+the stub's body, the C++ wrapper in mod.hpp, a test, and bump_api.py minor --note (the note for
+the changelog; it sets the version in every place).
 Stdlib only.
 """
 from __future__ import annotations
@@ -27,6 +29,7 @@ import sys
 import textwrap
 from pathlib import Path
 
+import bump_api
 import gen_api_lock
 import gen_reference
 
@@ -151,10 +154,11 @@ def add_call(root: Path, area: str, name: str, returns: str, params: str, about:
         raise SystemExit(f"{MEMBERS}: {name} is already a member")
     if re.search(rf"\bapi_{name}\b", internal + mods):
         raise SystemExit(f"api_{name} is already in the port's code")
-    minor_at = re.search(r"^#define OPENRAC_MOD_API_MINOR (\d+)$", header, re.M)
-    if not minor_at or "} openrac_api;" not in header:
-        raise SystemExit(f"{HEADER}: no OPENRAC_MOD_API_MINOR or no openrac_api")
-    since = f"1.{int(minor_at.group(1)) + 1}"
+    major_at = re.search(r"^#define OPENRAC_MOD_API_MAJOR (\d+)$", header, re.M)
+    if not major_at or "} openrac_api;" not in header:
+        raise SystemExit(f"{HEADER}: no OPENRAC_MOD_API_MAJOR or no openrac_api")
+    major = int(major_at.group(1))
+    since = f"{major}.{open_minor(root, major)}"
 
     # Every file is worked out before any is written, so a refusal leaves the tree as it was.
     end = header.index("} openrac_api;")
@@ -177,6 +181,18 @@ def add_call(root: Path, area: str, name: str, returns: str, params: str, about:
     return since
 
 
+def open_minor(root: Path, major: int) -> int:
+    """The minor a new member joins: the one after the last stable release (bump_api.py), 0 before
+    the major's first."""
+    try:
+        release = bump_api.last_release(root, major)
+    except SystemExit as e:  # the tags could not be read (no network for a shallow clone)
+        minor = bump_api.header_api(root)[1] + 1
+        print(f"warning: {e}; guessed {major}.{minor} (bump_api.py --check tells)", file=sys.stderr)
+        return minor
+    return release.version[1] + 1 if release else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("area", help="the member's area: " + ", ".join(gen_api_lock.AREAS))
@@ -194,7 +210,7 @@ def main(argv: list[str] | None = None) -> int:
           1. port/game/common/mod_api/{args.area}.cpp: the body of api_{args.name}
           2. sdk/include/openrac/mod.hpp: its C++ wrapper (an older port's table is shorter: a has_<name>() that checks m_api->size)
           3. a test in the area's port/tests/mod_*_test.cpp, else mod_loader_test.cpp (docs/port/MOD_API.md)
-          4. python3 sdk/tools/bump_api.py minor --note "what it does ({args.name})"
+          4. python3 sdk/tools/bump_api.py minor --note "what it does ({args.name})" (the changelog's note; sets the version)
         """))
     return 0
 

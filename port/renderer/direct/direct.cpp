@@ -123,6 +123,7 @@ void GifInterpreter::clear() {
     m_gif_pending.clear();
     m_targets.clear();
     m_vertices.clear();
+    m_flat_sprites.clear();
     m_draws.clear();
     m_hud_side = 0;
     m_hud_stretch = false;
@@ -357,6 +358,7 @@ bool GifInterpreter::vif(std::span<const std::uint8_t> stream) {
 void GifInterpreter::write_prim(std::uint64_t value) {
     m_prim = gs::Prim::decode(value);
     m_queued = 0;  // a PRIM write starts a new primitive
+    m_strip_triangles = 0;
     m_state_dirty = true;
 }
 
@@ -761,17 +763,67 @@ void GifInterpreter::hud_side(int side, bool stretch, int split) {
             e.first = std::min(e.first, triangles[i].left);
             e.second = std::max(e.second, triangles[i].right);
         }
+        // A small part is a glyph or an icon when it is low: the glyphs of one line of text (close
+        // together, on the same height) are one run, which goes out as a whole, so a line across
+        // the middle of a panel is never split into the pieces left, middle and right of it.
+        constexpr float kGlyphHeight = 32.0f / 208.0f;
+        constexpr float kRunGap = 12.0f / 256.0f;
+        std::vector<int> run(triangles.size());
+        std::vector<std::pair<float, float>> run_extent;
+        if (m_hud_stretch) {
+            for (std::size_t i = 0; i < run.size(); ++i) {
+                run[i] = static_cast<int>(i);
+            }
+            const auto run_root = [&](int n) {
+                while (run[static_cast<std::size_t>(n)] != n) {
+                    n = run[static_cast<std::size_t>(n)];
+                }
+                return n;
+            };
+            const auto glyph = [&](const Triangle& t) {
+                return t.right - t.left < kMiddle && t.bottom - t.top < kGlyphHeight;
+            };
+            for (std::size_t i = 0; i < triangles.size(); ++i) {
+                const Triangle& p = triangles[i];
+                if (!glyph(p)) {
+                    continue;
+                }
+                for (std::size_t k = i + 1; k < triangles.size(); ++k) {
+                    const Triangle& q = triangles[k];
+                    const float shared = std::min(p.bottom, q.bottom) - std::max(p.top, q.top);
+                    const float lower = std::min(p.bottom - p.top, q.bottom - q.top) / 2.0f;
+                    if (glyph(q) && shared > lower && p.left <= q.right + kRunGap
+                        && q.left <= p.right + kRunGap) {
+                        run[static_cast<std::size_t>(run_root(static_cast<int>(k)))] =
+                            run_root(static_cast<int>(i));
+                    }
+                }
+            }
+            run_extent.assign(
+                triangles.size(),
+                {std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()}
+            );
+            for (std::size_t i = 0; i < triangles.size(); ++i) {
+                auto& e = run_extent[static_cast<std::size_t>(run_root(static_cast<int>(i)))];
+                e.first = std::min(e.first, triangles[i].left);
+                e.second = std::max(e.second, triangles[i].right);
+                run[i] = run_root(static_cast<int>(i));
+            }
+        }
         for (std::size_t i = 0; i < triangles.size(); ++i) {
             const auto& e = extent[static_cast<std::size_t>(root(static_cast<int>(i)))];
             const float mid = (e.first + e.second) / 2.0f;
             if (m_hud_stretch && e.first < -kMiddle && e.second > kMiddle) {
                 // A frame round the screen. A small part (a glyph, a corner) goes out whole by
-                // where it is, so it keeps its shape; a long one (an edge, a bar's fill) by each
-                // corner, so it grows to the sides. The line is a little wider than the middle
-                // third: a bar ends at a box on the middle, and both its corners there stay.
+                // where it is, so it keeps its shape; a line of glyphs by where the line is; a
+                // long one (an edge, a bar's fill) by each corner, so it grows to the sides. The
+                // line is a little wider than the middle third: a bar ends at a box on the
+                // middle, and both its corners there stay.
                 constexpr float kStretchMiddle = 64.0f / 256.0f;
                 const Triangle& t = triangles[i];
-                const float centre = (t.left + t.right) / 2.0f;
+                const auto& r = run_extent[static_cast<std::size_t>(run[i])];
+                const float centre =
+                    r.first <= r.second ? (r.first + r.second) / 2.0f : (t.left + t.right) / 2.0f;
                 const bool whole = t.right - t.left < kMiddle;
                 for (std::uint32_t k = t.first; k < t.first + 3; ++k) {
                     const float x = whole ? centre : m_vertices[k].x;
@@ -986,7 +1038,20 @@ void GifInterpreter::native_quad(const UiQuad& quad) {
 }
 
 void GifInterpreter::moby_draw(std::uint64_t value) {
-    const std::uint32_t target = m_recorded_target != 0 ? m_recorded_target : offscreen_target();
+    std::uint32_t target = m_recorded_target != 0 ? m_recorded_target : offscreen_target();
+    // A block a recorded panel was drawn through is that panel, so its mobys go there too, after
+    // the panel's clear. Going Commando's cutscene object preview (Fizzwidget on a monitor) marks
+    // its moby after the panel is closed.
+    bool aliased = false;
+    if (m_recorded_target == 0 && target != 0) {
+        for (const auto& [block, id] : m_panel_alias) {
+            if (block == target) {
+                target = id;
+                aliased = true;
+                break;
+            }
+        }
+    }
     if (target != 0) {
         DirectDraw d;
         d.state.target = target;
@@ -1006,10 +1071,12 @@ void GifInterpreter::moby_draw(std::uint64_t value) {
                 break;
             }
         }
-        if (std::find(m_drawn.begin(), m_drawn.end(), target) == m_drawn.end()) {
+        // The panel is published and sampled by its block already (panel_aliases).
+        if (!aliased && std::find(m_drawn.begin(), m_drawn.end(), target) == m_drawn.end()) {
             m_drawn.push_back(target);
         }
-        if (std::find(m_offscreen.begin(), m_offscreen.end(), target) == m_offscreen.end()) {
+        if (!aliased
+            && std::find(m_offscreen.begin(), m_offscreen.end(), target) == m_offscreen.end()) {
             m_offscreen.push_back(target);
         }
         m_draws.push_back(d);
@@ -1162,10 +1229,12 @@ void GifInterpreter::run_command(const FrameCommand& c) {
                 s.texture = m_textures.ui_image(
                     r.images[i].hash, *r.images[i].image, r.images[i].indexed.get()
                 );
+                s.sharp_scale = true;
             } else {
                 s.snapshot_picture = c.index;
                 s.combine = TextureCombine::Decal;
                 s.tcc = false;
+                s.sharp_scale = true;
             }
             native_rect(c, s, 1.0f);
             break;
@@ -1624,7 +1693,14 @@ void GifInterpreter::kick(bool draw) {
         case gs::PrimKind::TriangleStrip:
             if (m_queued == 3) {
                 if (draw) {
+                    if (m_strip_triangles == 0) {
+                        m_strip_first = m_queue[0];
+                        m_strip_begin = m_vertices.size();
+                    }
                     emit_triangle(m_queue[0], m_queue[1], m_queue[2], m_queue[2]);
+                    if (++m_strip_triangles == 2) {
+                        note_strip_rect(m_queue[2]);
+                    }
                 }
                 m_queue[0] = m_queue[1];
                 m_queue[1] = m_queue[2];
@@ -2260,6 +2336,132 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
     emit_quad(corners);
 }
 
+// The bevelled frame the games draw behind their text boxes (rac1's DrawUIFrame) is seven flat
+// rectangles of one colour (each a strip of two triangles): the box, then on each side three bars
+// that grow 1, 2 and 4 pixels outward and 1, 2 and 4 pixels shorter. At the window's size each step is several pixels wide.
+// When the newest seven sprites are exactly that, they are replaced by one rectangle, the bars'
+// outer edges and the box's height, whose corners are quarter circles of the bevel's 4 pixels.
+// A flat strip of two triangles that is an axis-aligned rectangle (corners 0 and 3 opposite) goes
+// on the list of the last rectangles; `last` is the strip's fourth vertex.
+void GifInterpreter::note_strip_rect(const GsVertex& last) {
+    const GsVertex& first = m_strip_first;
+    const bool rectangle = !attributes().tme && m_vertices.size() - m_strip_begin == 6
+                           && first.x != last.x && first.y != last.y && m_queue[0].x == last.x
+                           && m_queue[0].y == first.y && m_queue[1].x == first.x
+                           && m_queue[1].y == last.y;
+    if (!rectangle) {
+        m_flat_sprites.clear();
+        return;
+    }
+    if (!m_flat_sprites.empty() && m_flat_sprites.back().end != m_strip_begin) {
+        m_flat_sprites.clear();
+    }
+    m_flat_sprites.push_back({first, last, m_strip_begin, m_vertices.size()});
+    if (m_flat_sprites.size() > 7) {
+        m_flat_sprites.erase(m_flat_sprites.begin());
+    }
+    round_ui_frame(last);
+}
+
+void GifInterpreter::round_ui_frame(const GsVertex& last) {
+    constexpr std::size_t kSprites = 7;
+    constexpr std::int64_t kPixel = 16;
+    constexpr std::int64_t kBevel = 4 * kPixel;
+    constexpr int kArcSteps = 8;
+    if (m_flat_sprites.size() < kSprites || m_draws.empty()) {
+        return;
+    }
+    const FlatSprite* run = &m_flat_sprites[m_flat_sprites.size() - kSprites];
+    const DirectDraw& draw = m_draws.back();
+    const std::size_t first = run[0].begin;
+    if (first < draw.first || draw.first + draw.count != m_vertices.size()
+        || run[kSprites - 1].end != m_vertices.size()) {
+        return;
+    }
+    const auto x0 = static_cast<std::int64_t>(run[0].a.x);
+    const auto y0 = static_cast<std::int64_t>(run[0].a.y);
+    const auto x1 = static_cast<std::int64_t>(run[0].b.x);
+    const auto y1 = static_cast<std::int64_t>(run[0].b.y);
+    if (y1 - y0 < 2 * kBevel || x1 - x0 < 2 * kBevel) {
+        return;
+    }
+
+    // Bars: inset along the box's edge, and where they run across it (from the outer to the inner x).
+    struct Bar {
+        std::int64_t inset, from, to;
+    };
+
+    const Bar bars[6] = {
+        {1 * kPixel, x0 - 2 * kPixel, x0},
+        {2 * kPixel, x0 - 3 * kPixel, x0 - 2 * kPixel},
+        {4 * kPixel, x0 - 4 * kPixel, x0 - 3 * kPixel},
+        {1 * kPixel, x1, x1 + 2 * kPixel},
+        {2 * kPixel, x1 + 2 * kPixel, x1 + 3 * kPixel},
+        {4 * kPixel, x1 + 3 * kPixel, x1 + 4 * kPixel},
+    };
+    for (std::size_t i = 0; i < 6; ++i) {
+        const GsVertex& a = run[i + 1].a;
+        const GsVertex& b = run[i + 1].b;
+        if (static_cast<std::int64_t>(a.y) != y0 + bars[i].inset
+            || static_cast<std::int64_t>(b.y) != y1 - bars[i].inset
+            || static_cast<std::int64_t>(a.x) != bars[i].from
+            || static_cast<std::int64_t>(b.x) != bars[i].to) {
+            return;
+        }
+    }
+    for (std::size_t i = 0; i < kSprites; ++i) {
+        if (run[i].b.z != last.z || std::memcmp(run[i].b.rgba, last.rgba, 4) != 0) {
+            return;
+        }
+    }
+
+    // One rectangle with round corners, as a fan from its centre: no two triangles overlap, so a
+    // blended frame is not darker anywhere.
+    const double left = static_cast<double>(x0 - kBevel);
+    const double right = static_cast<double>(x1 + kBevel);
+    const double top = static_cast<double>(y0);
+    const double bottom = static_cast<double>(y1);
+    const double radius = static_cast<double>(kBevel);
+    const double pi = 3.14159265358979323846;
+    std::vector<GsVertex> ring;
+    const double centres[4][2] = {
+        {right - radius, top + radius},     // top right
+        {left + radius, top + radius},      // top left
+        {left + radius, bottom - radius},   // bottom left
+        {right - radius, bottom - radius},  // bottom right
+    };
+    for (int corner = 0; corner < 4; ++corner) {
+        // Counter-clockwise on the screen, starting up and turning left from the top right.
+        const double start = (pi / 2.0) * corner;
+        for (int step = 0; step <= kArcSteps; ++step) {
+            const double angle = start + (pi / 2.0) * step / kArcSteps;
+            GsVertex v = last;
+            v.x = static_cast<std::uint32_t>(
+                std::llround(centres[corner][0] + radius * std::cos(angle))
+            );
+            v.y = static_cast<std::uint32_t>(
+                std::llround(centres[corner][1] - radius * std::sin(angle))
+            );
+            ring.push_back(v);
+        }
+    }
+    GsVertex centre = last;
+    centre.x = static_cast<std::uint32_t>((left + right) / 2.0);
+    centre.y = static_cast<std::uint32_t>((top + bottom) / 2.0);
+
+    m_vertices.resize(first);
+    m_draws.back().count = static_cast<std::uint32_t>(first - draw.first);
+    m_flat_sprites.clear();
+    std::vector<DirectVertex> fan;
+    const DirectVertex middle = convert(centre);
+    for (std::size_t i = 0; i < ring.size(); ++i) {
+        fan.push_back(middle);
+        fan.push_back(convert(ring[i]));
+        fan.push_back(convert(ring[(i + 1) % ring.size()]));
+    }
+    append_vertices(fan);
+}
+
 void GifInterpreter::emit_line(const GsVertex& a, const GsVertex& b) {
     // A line is a quad one pixel wide (GL core profile draws no wide lines,
     // and one draw call takes triangles only).
@@ -2483,6 +2685,7 @@ bool DirectRenderer::init(RenderState& state, std::string& error) {
         u.alpha_ref = p.uniform("alpha_ref");
         u.alpha_keep_failing = p.uniform("alpha_keep_failing");
         u.distance_field = p.uniform("distance_field");
+        u.sharp_scale = p.uniform("sharp_scale");
         u.tex_T1 = p.uniform("tex_T1");
         u.pixel_offset = p.uniform("pixel_offset");
         u.source_scale = p.uniform("source_scale");
@@ -2765,6 +2968,7 @@ std::array<unsigned, 2> DirectRenderer::apply(const DirectState& s, RenderState&
         glUniform1i(m_uniforms.tfx, static_cast<GLint>(s.combine));
         glUniform1f(m_uniforms.tex_alpha_scale, s.texture_full_alpha ? 0.5f : 1.0f);
         glUniform1i(m_uniforms.distance_field, s.distance_field ? 1 : 0);
+        glUniform1i(m_uniforms.sharp_scale, s.sharp_scale ? 1 : 0);
         if (s.distance_field) {
             glActiveTexture(GL_TEXTURE0 + 1);
             textures[1] = render_state.textures.gl_texture(s.field);

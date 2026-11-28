@@ -35,6 +35,10 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     lock = json.loads((ROOT / "sdk.lock").read_text())
     version, want = lock["version"], (lock.get("sha256") or "").lower()
+    if not lock.get("url"):
+        print("fetch_sdk: sdk.lock pins no release (this is the template from an OpenRAC checkout): "
+              "take the template from an SDK archive, whose sdk.lock pins that release", file=sys.stderr)
+        return 1
     if not want:
         if args.source:
             print("fetch_sdk: sdk.lock has no sha256 to check a local archive against", file=sys.stderr)

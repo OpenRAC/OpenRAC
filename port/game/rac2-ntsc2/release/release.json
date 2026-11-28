@@ -102,6 +102,10 @@
   "PLANET_INFO_COUNT_TITLE": {
    "value": "0x578",
    "why": "func_US2_0033FDD8 draws the existing heading at self+0x578 after the collected/total row."
+  },
+  "PICTURE_TOP": {
+   "value": "0",
+   "why": "the lines the 416-line picture sits below the top of the 2D screen (NTSC: none)"
   }
  },
  "hand_names": {

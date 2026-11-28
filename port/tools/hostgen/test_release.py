@@ -111,6 +111,16 @@ class ReleaseNames(unittest.TestCase):
                                       {"mine"})
         self.assertEqual(got, {"PH_G1": "func_002836E0"})
 
+    def test_the_releases_own_datum_without_a_row(self):
+        # PAL's own D_PAL_L00_001B0800 is at that address in PAL's level 0: with no row it loses
+        # its tag. Another tag, or a function, stays as it is.
+        r = release.Release({"names": {"D_PAL_001AE200": "D_001AE200"}})
+        r.own_tag = "PAL"
+        self.assertEqual(r.name("D_PAL_L00_001B0800"), "D_L00_001B0800")
+        self.assertEqual(r.name("D_PAL_001AE200"), "D_001AE200")
+        self.assertEqual(r.name("D_US2_L00_001B0800"), "D_US2_L00_001B0800")
+        self.assertEqual(r.name("func_PAL_L00_00391958"), "func_PAL_L00_00391958")
+
     def test_a_level_files_names_of_its_level(self):
         # In an Oozla file func_00312B68 is level 1's copy of func_002A9640 (the primary's level
         # catalogue), not the executable's address it states: it is that function in the release.
@@ -327,6 +337,11 @@ class Carried(unittest.TestCase):
         self.assertNotIn("func_00132028", text)
         self.assertNotIn("func_001326D8", text)
 
+    def test_ps2_float_names_are_spelled_as_hostgen_matches_them(self):
+        self.assertEqual(release_carry.ps2_float_name("game_FUN_002A0F68"), "func_002A0F68")
+        self.assertEqual(release_carry.ps2_float_name("FUN_002A0F68"), "func_002A0F68")
+        self.assertEqual(release_carry.ps2_float_name("func_00283798"), "func_00283798")
+
     def test_the_hook_run(self):
         table = release.Release({"names": {"func_0026F720": "func_0026F588", "func_0026F728": "func_0026F590"}})
 
@@ -367,6 +382,13 @@ class Committed(unittest.TestCase):
                 self.assertEqual(missing, [], "addresses the shared C uses and the table lacks")
                 missing = sorted(k for k in wanted_k if f"#define RAC2_K_{k} " not in header)
                 self.assertEqual(missing, [], "constants the shared C uses and the table lacks")
+
+    def test_ps2_float_lists_name_functions_hostgen_can_match(self):
+        for game in ("rac2-pal", "rac2-ntsc2"):
+            cfg = json.loads((REPO / "port/game" / game / "hostgen.json").read_text())
+            with self.subTest(game=game):
+                bad = [n for n in cfg.get("ps2_float", []) if release_carry.ps2_float_name(n) != n]
+                self.assertEqual(bad, [])
 
     def test_rac1_release_hand_c_uses_its_own_data(self):
         # A release's own hand C names its data by the release's addresses. PAL v1's packet builder
