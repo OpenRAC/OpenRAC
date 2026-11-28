@@ -1,22 +1,22 @@
 {
  "about": "The NTSC-U view of rac3-decomp: each PAL address name and NTSC-U's name for it, the PAL definitions NTSC-U has other code for, and the values of the names with no address of their own. Written by port/tools/hostgen/release_rac3.py from config/us/map.tsv and config/us/names.tsv; do not edit.",
  "source": {
-  "commit": "5c6b77006dcf8f0e3b5c8321638aef6cc1bedc82",
+  "commit": "feb370679d738faedc8e33a7132a859b645c1baa",
   "version": "us",
   "table": "config/us/map.tsv, config/us/names.tsv"
  },
  "evidence": {
-  "function: a second row of one name (the first kept)": 7,
-  "function: asm": 22,
+  "function: a second row of one name (the first kept)": 6,
+  "function: asm": 21,
   "function: differs": 205,
-  "function: match": 4531,
+  "function: match": 4532,
   "function: none": 26,
   "function: paired by hand (release.json)": 2,
   "global: placed by hand (release.json)": 3,
   "global: renamed to its NTSC-U address": 1689,
   "global: the front end's own address": 325,
   "global: the front end's, placed by hand (release.json)": 2,
-  "no NTSC-U place (marked)": 3412,
+  "no NTSC-U place (marked)": 3409,
   "src/us: its own name, without the mark": 1357,
   "value: a name with no address of its own": 6180,
   "value: the executable's kept over the front end's": 1
@@ -8152,7 +8152,6 @@
   "func_00387F68": "func_PAL_00387F68",
   "func_00388138": "func_PAL_00388138",
   "func_003881B0": "func_PAL_003881B0",
-  "func_003882C8": "func_PAL_003882C8",
   "func_00388398": "func_PAL_00388398",
   "func_003883C8": "func_PAL_003883C8",
   "func_00388440": "func_PAL_00388440",
@@ -9349,13 +9348,11 @@
   "func_003A02DC": "func_PAL_003A02DC",
   "func_003A0BC8": "func_PAL_003A0BC8",
   "func_003A0EB0": "func_PAL_003A0EB0",
-  "func_003A3C80": "func_PAL_003A3C80",
   "func_003A4A78": "func_PAL_003A4A78",
   "func_003A4E70": "func_PAL_003A4E70",
   "func_003A53E0": "func_PAL_003A53E0",
   "func_003A6640": "func_PAL_003A6640",
   "func_003A8060": "func_PAL_003A8060",
-  "func_003A8628": "func_PAL_003A8628",
   "func_003ADD30": "func_PAL_003ADD30",
   "func_003ADDD0": "func_PAL_003ADDD0",
   "func_003AE438": "func_PAL_003AE438",
@@ -15113,17 +15110,6 @@
    "func_003A5508": "func_003A00E8",
    "func_003A5550": "func_003A0130"
   },
-  "nonmatching/frontbin/func_003A8500.c": {
-   "D_0022DF20": "D_00229FA0",
-   "func_003A8500": "func_003A30D8",
-   "func_003A8630": "func_003A30E0"
-  },
-  "nonmatching/frontbin/func_003A91D0.c": {
-   "func_003A9150": "func_003A3C00",
-   "func_003A91D0": "func_003A3C80",
-   "func_003A92F0": "func_003A3DA0",
-   "func_003D9DA8": "func_003D4858"
-  },
   "nonmatching/frontbin/func_003C3BE8.c": {
    "func_0038D098": "func_00388960",
    "func_003C3BE8": "func_003BE6A8"
@@ -15232,6 +15218,7 @@
   "func_003A7EF8",
   "func_003A8040",
   "func_003A8440",
+  "func_003A8500",
   "func_003A9FC8",
   "func_003AA380",
   "func_003AA3C8",
@@ -15750,6 +15737,11 @@
    "nonmatching/boot_elf/",
    "src/boot_elf/",
    "src/us/boot_elf/"
+  ],
+  "func_003A8500": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
   ],
   "func_003A9FC8": [
    "nonmatching/frontbin/",

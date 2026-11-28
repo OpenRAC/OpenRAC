@@ -11,9 +11,9 @@
     "repo": "https://github.com/OpenRAC/rac3-decomp",
     "branch": "master",
     "license": "GPL-3.0",
-    "commit": "5c6b77006dcf8f0e3b5c8321638aef6cc1bedc82",
-    "date": "2026-11-27",
-    "imported": "2026-11-27"
+    "commit": "feb370679d738faedc8e33a7132a859b645c1baa",
+    "date": "2026-11-28",
+    "imported": "2026-11-28"
   },
   "versions": {
     "ntsc": {
@@ -47,9 +47,9 @@
         "repo": "https://github.com/OpenRAC/rac3-decomp",
         "branch": "master",
         "license": "GPL-3.0",
-        "commit": "5c6b77006dcf8f0e3b5c8321638aef6cc1bedc82",
-        "date": "2026-11-27",
-        "imported": "2026-11-27"
+        "commit": "feb370679d738faedc8e33a7132a859b645c1baa",
+        "date": "2026-11-28",
+        "imported": "2026-11-28"
       },
       "build": {
         "host": "Linux natively (wibo, binutils 2.10-ee); macOS through wibo-macos; the NTSC-U programs with tools/asm_build.py --version us (docs/versions.md)",
@@ -124,9 +124,9 @@
         "repo": "https://github.com/OpenRAC/rac3-decomp",
         "branch": "master",
         "license": "GPL-3.0",
-        "commit": "5c6b77006dcf8f0e3b5c8321638aef6cc1bedc82",
-        "date": "2026-11-27",
-        "imported": "2026-11-27"
+        "commit": "feb370679d738faedc8e33a7132a859b645c1baa",
+        "date": "2026-11-28",
+        "imported": "2026-11-28"
       },
       "build": {
         "host": "Linux natively (wibo, binutils 2.10-ee); macOS through wibo-macos; tools/build.py for the core programs and tools/build_levels.py for the levels (README.md)",
