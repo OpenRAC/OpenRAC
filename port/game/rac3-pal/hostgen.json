@@ -196,6 +196,7 @@
   "asm": {
     "enabled": true,
     "signatures": {
+      "func_L01_003F7188": "void (int)",
       "func_0038B500": "void (int, int, int, int, int, int, int, int, float, long long, long long)",
       "func_0038E7E8__frontbin": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_0038F078__frontbin": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",

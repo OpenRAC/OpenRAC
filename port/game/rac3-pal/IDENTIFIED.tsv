@@ -463,12 +463,19 @@ code	func_L01_004BA830	0x004BA830	vendor_price	the price of the vendor's row und
 code	func_L01_004BAA20	0x004BAA20	vendor_weapon_list	the vendor's weapons rows from vendor_stock (asm, signature int (int) from its callers' declarations); hook rac3.vendor.build_list
 code	func_L01_004443E8	0x004443E8	moby_killed	an enemy's death: experience, bolts (bolts_drop) (asm at the pin); rac2 Moby_RecordDeath's job; hook rac3.moby.record_death
 code	func_L01_00446978	0x00446978	damage_queue	a damage record queued in the hit ring 0x001EED00 (asm); rac2 Moby_PostHit's job; hook rac3.combat.post_hit
+code	func_L01_004468C8	0x004468C8	ball_damage_pushed_at_joint	a ball damage query at an attacker's joint; hook rac3.combat.melee_at_joint
 code	func_L01_0044D360	0x0044D360	bolts_drop	a burst of bolt coins from a moby (asm); rac2 Bolt_SpawnPickups's job; hook rac3.bolt.spawn_pickups
 code	func_L01_002F8F20	0x002F8F20	bolt_coin_spawn	one bolt coin (asm); hook rac3.bolt.spawn_pickup
 code	func_L01_002F88E0	0x002F88E0	bolt_pickup_collect	a coin collected: its value to player_bolts 0x00142660 (asm); hook rac3.bolt.collect
 code	func_L01_004D7658	0x004D7658	level_load	the levels' copy of frontbin's level_load (catalogue row func_003BD030): the transition, level_current and the files' read; hook rac3.level.load
 code	func_L01_004227D8	0x004227D8	give_level_items	a level's standing items at its start; hook rac3.level.give_items
 code	func_L01_004EDE10	0x004EDE10	hero_death_done	the death counted and the respawn asked (0x001A71D2); hook rac3.player.death_done
+code	func_L01_004E20E8	0x004E20E8	hero_tick	the hero's whole update each frame, from gameplay_update (func_L01_004B8ED0) after moby_update_all; copies func_L02_004B8000 (level 2) and func_L04_004F21E8 (levels 4, 8, 9, 27); rac2 Hero_Update's job; hook rac3.player.update
+code	func_L01_004E13A0	0x004E13A0	-	the hero's update in another body (no name in rac3-decomp's names.tsv yet) (+0x25E4 not 0), which hero_tick calls in place of its own steps; copies func_L02_004B7370 (levels 2, 9), func_L23_004C3330 (23), func_L30_004AEF20 (30-36); hook rac3.player.update_character
+code	func_L01_0050FB40	0x0050FB40	hero_anim_set	(sequence, start keyframe, blend): starts a hero animation; hook rac3.player.set_animation
+code	func_L01_0050F9E8	0x0050F9E8	hero_guise_anim_remap	the disguise classes' sequence for a hero animation; hook rac3.player.remap_animation
+code	func_L01_004EC600	0x004EC600	hero_item_switch	what the hero holds in a hand slot: the wrench, the gun (asm); hook rac3.player.switch_item
+code	func_L01_003F7188	0x003F7188	reticle_markers_draw	the levels' copy of frontbin's reticle_markers_draw (catalogue row func_00385D28): a player's queued markers drawn, the queue emptied with one view; void (int) as frontbin's C, the asm analysis gives float (int) from a stray $f0; hook rac3.hud.markers.draw
 code	func_L01_00439300	0x00439300	moby_remove	Veldin's copy of frontbin's moby_remove (catalogue row func_003C2880, 49 places): play.c's moby_kill calls it
 data	D_L01_001E0020	0x001E0020	moby_dynamic	Veldin's: the first moby the game made (the placed mobys' end, func_L01_0042AF50's loop); NTSC-U 0x001E00A0 (rac3_level_pairs.py); play.c's moby keys
 code	func_L01_00448890	0x00448890	angle_approach	turns an angle towards a goal, speeding its rate up and easing it to a stop takes sqrt.s of a negative distance when it turns the other way, so headers/vu0.h sqrt_asm takes the root of |x| as the EE does

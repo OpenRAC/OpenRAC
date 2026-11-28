@@ -147,6 +147,70 @@ struct Hero_DeathDone {
     using fn = void (*)();
 };
 
+// The hero's whole update each frame (hero_tick), from the level's frame in play (gameplay_update, game mode 0) after every moby's update (moby_update_all) and before the frame's draw: the pad, his state machine and movement, ledges, his collision and animation and the camera's copy of him. Florana (level 2) and levels 4, 8, 9 and 27 have copies of their own; together they are one hook point over the 34 story levels. While he is in another body (hero +0x25E4 not 0) it runs rac3.player.update_character in place of its own steps. Going Commando's rac2.player.update.
+struct Hero_Update {
+    static constexpr const char* id = "rac3.player.update";
+    static constexpr const char* name = "Hero_Update";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// The hero's update while he is in another body (hero +0x25E4: 1 Clank, 2 Clank in Holostar Studios, 3 a disguise such as the Tyhrra-Guise, 5 Qwark in the vid-comics): rac3.player.update calls it each frame in place of its own steps, for that body's moby, state, collision and animation. Levels 2 and 9, level 23 and the vid-comics (30 to 36) have copies of their own; together they are one hook point over the 34 story levels.
+struct Hero_UpdateCharacter {
+    static constexpr const char* id = "rac3.player.update_character";
+    static constexpr const char* name = "Hero_UpdateCharacter";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// Starts a hero animation (hero_anim_set): sequence from keyframe start_key, blended in from the pose he is in over blend ticks (negative: a blend curve, -1 is 11 ticks, -2 is 16). In a disguise (hero +0x25E4 is 3) the sequence goes through rac3.player.remap_animation first. The hero's states call it.
+struct Hero_SetAnimation {
+    static constexpr const char* id = "rac3.player.set_animation";
+    static constexpr const char* name = "Hero_SetAnimation";
+    static constexpr const char* signature = "void(i32,i32,f32)";
+    using fn = void (*)(int32_t, int32_t, float);
+};
+
+// The body's sequence for a hero animation (hero_guise_anim_remap) on the disguise classes 0x1A4E and 0x173B (the class of the hero's moby, its +0xAA); any other class gets the animation back. rac3.player.set_animation calls it while he wears a disguise (hero +0x25E4 is 3).
+struct Hero_RemapAnimation {
+    static constexpr const char* id = "rac3.player.remap_animation";
+    static constexpr const char* name = "Hero_RemapAnimation";
+    static constexpr const char* signature = "i32(i32)";
+    using fn = int32_t (*)(int32_t);
+};
+
+// What the hero holds in a hand slot (hero_item_switch; slot 0 is his hand): Square brings out the wrench, Circle (or R1 where the settings say R1 fires) the equipped gun, L2 and R2 with the wrench out the gun with its lock-on mod. The hero's states call it each frame; a replacement that does not call the original keeps what he holds.
+struct Hero_SwitchItem {
+    static constexpr const char* id = "rac3.player.switch_item";
+    static constexpr const char* name = "Hero_SwitchItem";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
+// Draws a player's screen markers (reticle_markers_draw, the levels' copy of the front end's), the ones queued this frame with reticle_marker_add (func_L01_003F6F20 on PAL), from the frame's draw after the level's update; with one view (0x001D6698 is 0) it then empties the queue. The 34 story levels.
+struct Hud_DrawMarkers {
+    static constexpr const char* id = "rac3.hud.markers.draw";
+    static constexpr const char* name = "Hud_DrawMarkers";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
+// Runs a ball damage query at an attacker's joint (ball_damage_pushed_at_joint), passing flags into the query before collision filtering. Returns the query's result. The PAL catalogue lists this function in levels 1, 2, 4-10, 12, 13, 16, 18-24 and 26-29; it does not list it in 3, 11, 14, 17 or 30-36.
+struct Moby_MeleeAtJoint {
+    static constexpr const char* id = "rac3.combat.melee_at_joint";
+    static constexpr const char* name = "Moby_MeleeAtJoint";
+    static constexpr const char* signature = "i32(u32,i32,f32,i32,f32,f32,i32,i32,i32)";
+    using fn = int32_t (*)(uint32_t, int32_t, float, int32_t, float, float, int32_t, int32_t, int32_t);
+};
+
+// Updates an indexed collision sphere using a guest vector and two scale parameters. The moby collision pointer must refer to compatible writable sphere records. PAL catalogue lists a copy in all 49 levels; Veldin 0x00439790, Florana 0x004119C8, Marcadia 0x00448F10. Hooks must preserve this requirement when forwarding.
+struct Moby_UpdateCollisionSphere {
+    static constexpr const char* id = "rac3.moby.update_collision_sphere";
+    static constexpr const char* name = "Moby_UpdateCollisionSphere";
+    static constexpr const char* signature = "void(u32,i32,u32,f32,f32)";
+    using fn = void (*)(uint32_t, int32_t, uint32_t, float, float);
+};
+
 namespace hooks {
     namespace bolt {
         using collect = rac3::Bolt_Collect;
@@ -154,8 +218,14 @@ namespace hooks {
         using spawn_pickups = rac3::Bolt_SpawnPickups;
     }  // namespace bolt
     namespace combat {
+        using melee_at_joint = rac3::Moby_MeleeAtJoint;
         using post_hit = rac3::Moby_PostHit;
     }  // namespace combat
+    namespace hud {
+        namespace markers {
+            using draw = rac3::Hud_DrawMarkers;
+        }  // namespace markers
+    }  // namespace hud
     namespace item {
         using give = rac3::Item_Give;
         using upgrade = rac3::Item_Upgrade;
@@ -166,10 +236,16 @@ namespace hooks {
     }  // namespace level
     namespace moby {
         using record_death = rac3::Moby_RecordDeath;
+        using update_collision_sphere = rac3::Moby_UpdateCollisionSphere;
     }  // namespace moby
     namespace player {
         using death_done = rac3::Hero_DeathDone;
+        using remap_animation = rac3::Hero_RemapAnimation;
+        using set_animation = rac3::Hero_SetAnimation;
+        using switch_item = rac3::Hero_SwitchItem;
         using take_damage = rac3::Hero_TakeDamage;
+        using update = rac3::Hero_Update;
+        using update_character = rac3::Hero_UpdateCharacter;
     }  // namespace player
     namespace vendor {
         using build_list = rac3::Vendor_BuildList;
