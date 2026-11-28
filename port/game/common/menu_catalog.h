@@ -141,6 +141,7 @@ enum class Id : std::uint8_t {
     MobyPicker,
     ObjectViewer,
     MeatProxyReview,
+    TexturePack,
     LevelSelect,
     KeepPaused,
     StepTick,

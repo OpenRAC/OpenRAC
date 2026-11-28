@@ -29,6 +29,7 @@
 #include "mods.h"
 #include "options_menu.h"
 #include "renderer/gl/gl.h"
+#include "renderer/textures/texture_pack.h"
 #include "renderer/ui/menu_icons.h"
 #include "settings.h"
 
@@ -525,6 +526,10 @@ Item own_item(Id id, std::uint8_t where) {
             it.shown = s.developer;
             it.on = s.meat_proxy_review;
             return it;
+        case Id::TexturePack:
+            it.shown = renderer::texture_pack::has_pictures();
+            it.on = renderer::texture_pack::shown();
+            return it;
         case Id::LevelSelect:
             it.shown = s.developer;
             return it;
@@ -919,6 +924,9 @@ bool act(Id id, int by) {
         case Id::MeatProxyReview:
             s.meat_proxy_review = !s.meat_proxy_review;
             return s.meat_proxy_review;
+        case Id::TexturePack:
+            renderer::texture_pack::set_shown(!renderer::texture_pack::shown());
+            return false;
         case Id::LevelSelect:
             press(SDLK_F1);
             return true;

@@ -242,6 +242,9 @@ constexpr Entry kEntries[] = {
      "Look at a picked object on its own: its model, bones, lights and materials."},
     {Id::MeatProxyReview, Tab::Developer, "Tools", kSwitch, D, "Meat Proxy Review",
      "Open saved freecam views and record feedback."},
+    {Id::TexturePack, Tab::Developer, "Tools", kSwitch, A, "Texture pack",
+     "Shows or hides the texture pack's pictures, to compare them with the game's. Menus and the "
+     "font change at once; world textures change at the next level."},
     {Id::LevelSelect, Tab::Developer, "Tools", kAction, A, "Level select",
      "Goes to another level. F1 opens it too."},
     {Id::KeepPaused, Tab::Developer, "Time", kSwitch, A, "Keep paused",
@@ -401,6 +404,7 @@ constexpr std::array<const char*, kIds> kOptionNames = {
     "moby_picker",
     "object_viewer",
     "meat_proxy_review",
+    "texture_pack",
     "level_select",
     "keep_paused",
     "step_tick",
