@@ -345,6 +345,13 @@ class Pairing:
         return None if place is None else place + address - start
 
 
+def ps2_float_name(name: str) -> str:
+    """A "ps2_float" name as hostgen matches it (lower.py _ps2): func_ at its address, also for a
+    release's FUN_ name (PAL's game_FUN_002A0F68, the animation step)."""
+    m = re.fullmatch(r"(?:game_)?FUN_([0-9A-F]{8})", name)
+    return f"func_{m.group(1)}" if m else name
+
+
 def carry_list(p: Pairing, names: list[str], why: str) -> list[str]:
     out = []
     for n in names:
@@ -395,7 +402,7 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
     for key in ("id", "title", "serial", "frame_rate", "tick_rate"):
         out[key] = facts[key]
     out["entry"] = p.function(cfg["entry"], "entry")
-    out["ps2_float"] = carry_list(p, cfg.get("ps2_float", []), "ps2_float")
+    out["ps2_float"] = [ps2_float_name(n) for n in carry_list(p, cfg.get("ps2_float", []), "ps2_float")]
     # The releases' own C: the primary's skip of it is the release's facts' (the other release's).
     own = facts["skip"]
     out["skip"] = [own["as"] if s in own["own"] else s for s in cfg.get("skip", [])]

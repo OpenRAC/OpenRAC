@@ -33,6 +33,7 @@ uniform int alpha_test;       // 0 off, else TEST.ATST (2 LESS ... 7 NOTEQUAL)
 uniform float alpha_ref;      // TEST.AREF
 uniform int alpha_keep_failing;  // the second pass of the double draw
 uniform int distance_field;   // the texture's alpha is a distance field (text drawn sharp)
+uniform int sharp_scale;      // a picture scaled up: cubic (Catmull-Rom) instead of bilinear
 uniform int source_scale;     // the blend's weight of Cs, applied here (GlBlend): 1 As, 2 FIX; 3, 4 the weight itself
 uniform float source_fix;     // FIX / 128, unclamped
 
@@ -58,6 +59,34 @@ bool alpha_passes(float a) {
 // OPENRAC_UPSCALED_TEXTURE_COLOURS_SOURCE
 #endif
 
+// A picture drawn larger than it is: Catmull-Rom through five bilinear taps, which keeps edges and
+// small text crisp where bilinear blurs them. Where it is not larger (a texel is at least a pixel),
+// the plain sample.
+vec4 sample_scaled_picture(vec2 uv) {
+    vec2 size = vec2(textureSize(tex_T0, 0));
+    vec2 texel = uv * size;
+    if (max(length(dFdx(texel)), length(dFdy(texel))) >= 1.0) {
+        return texture(tex_T0, uv);
+    }
+    vec2 centre = floor(texel - 0.5) + 0.5;
+    vec2 f = texel - centre;
+    vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+    vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+    vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+    vec2 w3 = f * f * (-0.5 + 0.5 * f);
+    vec2 w12 = w1 + w2;
+    vec2 near = (centre + w2 / w12) / size;
+    vec2 before = (centre - 1.0) / size;
+    vec2 after = (centre + 2.0) / size;
+    vec4 sum = texture(tex_T0, vec2(near.x, before.y)) * (w12.x * w0.y)
+             + texture(tex_T0, vec2(before.x, near.y)) * (w0.x * w12.y)
+             + texture(tex_T0, near) * (w12.x * w12.y)
+             + texture(tex_T0, vec2(after.x, near.y)) * (w3.x * w12.y)
+             + texture(tex_T0, vec2(near.x, after.y)) * (w12.x * w3.y);
+    float weight = w12.x * w0.y + w0.x * w12.y + w12.x * w12.y + w3.x * w12.y + w12.x * w3.y;
+    return clamp(sum / weight, 0.0, 1.0);
+}
+
 void main() {
     vec4 c = v_colour;
     // Active volumetric transport replaces the strip's authored fog.
@@ -81,7 +110,9 @@ void main() {
 #elif defined(OPENRAC_UPSCALED_TEXTURE_COLOURS)
         vec4 t = sample_upscaled_texture_colours(v_stq.xy / v_stq.z) * 255.0;
 #else
-        vec4 t = texture(tex_T0, v_stq.xy / v_stq.z) * 255.0;
+        vec4 t = (sharp_scale != 0 ? sample_scaled_picture(v_stq.xy / v_stq.z)
+                                   : texture(tex_T0, v_stq.xy / v_stq.z))
+                 * 255.0;
 #endif
 #ifndef OPENRAC_EFFECT_FIXED
         if (distance_field != 0) {

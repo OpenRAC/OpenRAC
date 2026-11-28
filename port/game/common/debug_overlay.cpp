@@ -747,6 +747,21 @@ bool event(const SDL_Event& e) {
         if (keyboard_mouse_capture_event(e)) {
             return true;
         }
+        if (s.texture_key_capture && e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
+            // A modifier alone waits for the key it goes with.
+            if (e.key.key == SDLK_LCTRL || e.key.key == SDLK_RCTRL || e.key.key == SDLK_LSHIFT
+                || e.key.key == SDLK_RSHIFT || e.key.key == SDLK_LALT || e.key.key == SDLK_RALT) {
+                return true;
+            }
+            s.texture_key_capture = false;
+            if (e.key.key != SDLK_ESCAPE) {
+                settings::get().texture_pack_key =
+                    std::string((e.key.mod & SDL_KMOD_CTRL) != 0 ? "Ctrl+" : "")
+                    + SDL_GetScancodeName(e.key.scancode);
+                settings::save();
+            }
+            return true;
+        }
         if (s.menu_key_capture && e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
             s.menu_key_capture = false;
             if (e.key.key != SDLK_ESCAPE) {

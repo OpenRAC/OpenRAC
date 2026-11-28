@@ -5,12 +5,18 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <bit>
 #include <cctype>
 #include <charconv>
+#include <chrono>
+#include <condition_variable>
+#include <deque>
 #include <format>
 #include <memory>
 #include <mutex>
+#include <set>
+#include <thread>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
@@ -18,6 +24,7 @@
 #define XXH_INLINE_ALL
 #include <xxhash.h>
 
+#include "common/joining_thread.h"
 #include "common/log.h"
 
 namespace openrac::renderer::pcsx2_pack {
@@ -155,11 +162,14 @@ std::optional<Rgba8Image> load(const fs::path& path) {
     return read_png ? read_png(path) : std::nullopt;
 }
 
-// Define a cache so we are not decoding the same replacement picture multiple times. The cache is limited to a few hundred MB
+// Pictures already decoded, so that one is not decoded twice. The limit is a few hundred MB;
+// precaching raises it (set_loading).
 #if defined(__ANDROID__)
-constexpr std::size_t kMaxCachedPictureBytes = std::size_t{256} << 20;
+constexpr std::size_t kCacheBytes = std::size_t{256} << 20;
+constexpr std::size_t kPrecacheBytes = std::size_t{512} << 20;
 #else
-constexpr std::size_t kMaxCachedPictureBytes = std::size_t{512} << 20;
+constexpr std::size_t kCacheBytes = std::size_t{512} << 20;
+constexpr std::size_t kPrecacheBytes = std::size_t{2048} << 20;
 #endif
 
 struct CachedPicture {
@@ -172,16 +182,27 @@ std::mutex cache_lock;
 std::unordered_map<std::string, CachedPicture> cached_pictures;
 std::size_t cached_bytes = 0;
 std::uint64_t cached_uses = 0;
+std::size_t cache_limit = kCacheBytes;
+// Bumped by configure(): a picture read for an older pack is not kept.
+std::uint64_t pack_generation = 0;
+std::atomic<bool> async_loading{true};
+std::atomic<bool> precaching{false};
+
+std::string cache_key(const fs::path& path, AlphaScale alpha) {
+    return path_text(path) + (alpha == AlphaScale::Full ? "\x1f" : "\x1e");
+}
 
 // Read from the cache or load and cache the picture.
 std::shared_ptr<const Rgba8Image> read_cached(const fs::path& path, AlphaScale alpha) {
-    const std::string key = path_text(path) + (alpha == AlphaScale::Full ? "\x1f" : "\x1e");
+    const std::string key = cache_key(path, alpha);
+    std::uint64_t generation = 0;
     {
         const std::lock_guard guard(cache_lock);
         if (const auto found = cached_pictures.find(key); found != cached_pictures.end()) {
             found->second.used = ++cached_uses;
             return found->second.image;
         }
+        generation = pack_generation;
     }
     auto picture = load(path);
     if (!picture || picture->pixels.empty()) {
@@ -190,20 +211,20 @@ std::shared_ptr<const Rgba8Image> read_cached(const fs::path& path, AlphaScale a
     if (alpha == AlphaScale::Full) {
         // PCSX2's PSMT8 textures have a 4-bit alpha channel. The pack's replacement pictures are RGBA8, so we double the alpha channel to fill the 8 bits.
         for (std::size_t a = 3; a < picture->pixels.size(); a += 4) {
-            picture->pixels[a] =
-                static_cast<std::uint8_t>(std::min(255, picture->pixels[a] * 2));
+            picture->pixels[a] = static_cast<std::uint8_t>(std::min(255, picture->pixels[a] * 2));
         }
     }
     auto shared = std::make_shared<const Rgba8Image>(std::move(*picture));
     const std::size_t bytes = shared->pixels.size();
-    if (bytes > kMaxCachedPictureBytes) {
+    const std::lock_guard guard(cache_lock);
+    if (bytes > cache_limit || generation != pack_generation) {
         return shared;
     }
-    const std::lock_guard guard(cache_lock);
-    while (!cached_pictures.empty() && cached_bytes + bytes > kMaxCachedPictureBytes) {
+    while (!cached_pictures.empty() && cached_bytes + bytes > cache_limit) {
         const auto oldest = std::min_element(
-            cached_pictures.begin(), cached_pictures.end(),
-            [](const auto& a, const auto& b) { return a.second.used < b.second.used; }
+            cached_pictures.begin(), cached_pictures.end(), [](const auto& a, const auto& b) {
+                return a.second.used < b.second.used;
+            }
         );
         cached_bytes -= oldest->second.bytes;
         cached_pictures.erase(oldest);
@@ -214,6 +235,167 @@ std::shared_ptr<const Rgba8Image> read_cached(const fs::path& path, AlphaScale a
         cached_bytes += bytes;
     }
     return found->second.image;
+}
+
+std::shared_ptr<const Rgba8Image> cached_only(const std::string& key) {
+    const std::lock_guard guard(cache_lock);
+    if (const auto found = cached_pictures.find(key); found != cached_pictures.end()) {
+        found->second.used = ++cached_uses;
+        return found->second.image;
+    }
+    return nullptr;
+}
+
+// Reads pictures on its own thread: the ones the game asked for first, then (when precaching) the
+// whole pack, smallest files first, until the cache is full.
+class Loader {
+public:
+    ~Loader() { stop(); }
+
+    // The picture is not read yet: it is queued, and `pending` says the caller should ask again
+    // once ready_version() changes.
+    std::shared_ptr<const Rgba8Image> get(const fs::path& path, AlphaScale alpha, bool& pending) {
+        const std::string key = cache_key(path, alpha);
+        if (auto found = cached_only(key)) {
+            return found;
+        }
+        {
+            const std::lock_guard guard(m_lock);
+            if (m_failed.contains(key)) {
+                return nullptr;
+            }
+            if (m_wanted.insert(key).second) {
+                m_urgent.push_back({path, alpha, key});
+            }
+            start();
+        }
+        m_wake.notify_one();
+        pending = true;
+        return nullptr;
+    }
+
+    void precache(std::vector<fs::path> list) {
+        {
+            const std::lock_guard guard(m_lock);
+            m_ahead = std::move(list);
+            m_next = 0;
+            start();
+        }
+        m_wake.notify_one();
+    }
+
+    // Forgets what is queued and failed: a new pack.
+    void reset() {
+        const std::lock_guard guard(m_lock);
+        m_urgent.clear();
+        m_wanted.clear();
+        m_failed.clear();
+        m_ahead.clear();
+        m_next = 0;
+    }
+
+    // Ends the thread, which finishes the picture it reads first.
+    void stop() {
+        {
+            const std::lock_guard guard(m_lock);
+            m_stop = true;
+        }
+        m_wake.notify_all();
+        m_thread.join();
+    }
+
+    std::uint64_t version() const { return m_version.load(std::memory_order_relaxed); }
+
+private:
+    struct Job {
+        fs::path path;
+        AlphaScale alpha;
+        std::string key;
+    };
+
+    void start() {
+        if (!m_started) {
+            m_started = true;
+            m_thread = JoiningThread([this] { run(); });
+        }
+    }
+
+    void run() {
+        for (;;) {
+            Job job;
+            bool urgent = false;
+            {
+                std::unique_lock guard(m_lock);
+                m_wake.wait(guard, [&] {
+                    return m_stop || !m_urgent.empty() || (precaching && m_next < m_ahead.size());
+                });
+                if (m_stop) {
+                    return;
+                }
+                if (!m_urgent.empty()) {
+                    job = std::move(m_urgent.front());
+                    m_urgent.pop_front();
+                    urgent = true;
+                } else {
+                    job = {m_ahead[m_next++], AlphaScale::Gs, {}};
+                    job.key = cache_key(job.path, job.alpha);
+                }
+            }
+            if (!urgent && !room_left()) {
+                const std::lock_guard guard(m_lock);
+                m_next = m_ahead.size();
+                continue;
+            }
+            const bool ok = cached_only(job.key) != nullptr || read_cached(job.path, job.alpha);
+            const std::lock_guard guard(m_lock);
+            if (!ok) {
+                m_failed.insert(job.key);
+            }
+            // A picture a texture waits for: its conversion is made again. Once the queue is
+            // empty, or at most every 50 ms, so that a burst of pictures does not have every
+            // waiting texture made again for each one.
+            const auto now = std::chrono::steady_clock::now();
+            m_dirty = m_wanted.erase(job.key) != 0 || m_dirty;
+            if (m_dirty
+                && (m_urgent.empty() || now - m_last_bump >= std::chrono::milliseconds(50))) {
+                m_version.fetch_add(1, std::memory_order_relaxed);
+                m_last_bump = now;
+                m_dirty = false;
+            }
+        }
+    }
+
+    static bool room_left() {
+        const std::lock_guard guard(cache_lock);
+        return cached_bytes + (std::size_t{16} << 20) <= cache_limit;
+    }
+
+    std::mutex m_lock;
+    std::condition_variable m_wake;
+    std::deque<Job> m_urgent;
+    std::set<std::string> m_wanted;
+    std::set<std::string> m_failed;
+    std::vector<fs::path> m_ahead;
+    std::size_t m_next = 0;
+    std::atomic<std::uint64_t> m_version{0};
+    bool m_dirty = false;
+    std::chrono::steady_clock::time_point m_last_bump{};
+    bool m_started = false;
+    bool m_stop = false;
+    JoiningThread m_thread;
+};
+
+Loader loader;
+
+// A picture for a texture: read now, or (with `pending`, when loading in the background is on)
+// queued, and null until it is ready.
+std::shared_ptr<const Rgba8Image> picture_for(
+    const fs::path& path, AlphaScale alpha, bool* pending
+) {
+    if (pending != nullptr && async_loading) {
+        return loader.get(path, alpha, *pending);
+    }
+    return read_cached(path, alpha);
 }
 
 const std::vector<Crop>* crops_for(const gs::Tex0& tex0, std::span<const std::uint32_t> palette) {
@@ -229,11 +411,14 @@ const std::vector<Crop>* crops_for(const gs::Tex0& tex0, std::span<const std::ui
 
 void configure(const fs::path& replacements, LoadPng load_png) {
     read_png = load_png;
+    loader.reset();
     {
         // Clear the cache before clearing the files and crops, so that any cached pictures are not kept around after the pack is cleared.
         const std::lock_guard guard(cache_lock);
         cached_pictures.clear();
         cached_bytes = 0;
+        ++pack_generation;
+        cache_limit = precaching ? kPrecacheBytes : kCacheBytes;
     }
     files.clear();
     crops.clear();
@@ -259,6 +444,22 @@ void configure(const fs::path& replacements, LoadPng load_png) {
             }
         }
     }
+    if (precaching && async_loading && !files.empty()) {
+        // Smallest files first: most pictures fit the cache that way.
+        std::vector<std::pair<std::uintmax_t, fs::path>> sized;
+        sized.reserve(files.size());
+        for (const auto& [name, file] : files) {
+            std::error_code ignored;
+            sized.emplace_back(fs::file_size(file, ignored), file);
+        }
+        std::ranges::sort(sized);
+        std::vector<fs::path> list;
+        list.reserve(sized.size());
+        for (auto& [size, file] : sized) {
+            list.push_back(std::move(file));
+        }
+        loader.precache(std::move(list));
+    }
     std::size_t crop_count = 0;
     for (auto& [group, entries] : crops) {
         // Shared one-texel margins belong to the next cell, where that cell starts.
@@ -277,6 +478,15 @@ void configure(const fs::path& replacements, LoadPng load_png) {
     }
 }
 
+void set_loading(bool in_background, bool precache) {
+    async_loading = in_background;
+    precaching = precache;
+}
+
+std::uint64_t ready_version() {
+    return loader.version();
+}
+
 bool enabled() {
     return !files.empty() || !crops.empty();
 }
@@ -286,7 +496,8 @@ bool replace(
     const gs::Tex0& tex0,
     std::span<const std::uint8_t> raster,
     std::span<const std::uint32_t> palette,
-    AlphaScale alpha
+    AlphaScale alpha,
+    bool* pending
 ) {
     if (files.empty() || tex0.tw > 10 || tex0.th > 10
         || (tex0.psm != gs::kPsmt8 && tex0.psm != gs::kPsmt8h) || palette.size() != 256
@@ -301,7 +512,7 @@ bool replace(
         return false;
     }
     // Get the replacement picture from the cache or load it from disk and cache it.
-    const auto replacement = read_cached(found->second, alpha);
+    const auto replacement = picture_for(found->second, alpha, pending);
     // Missing or invalid files leave the original texture intact.
     if (!replacement) {
         return false;
@@ -332,7 +543,8 @@ bool replace_crops(
     const gs::Tex0& tex0,
     std::span<const std::uint8_t> raster,
     std::span<const std::uint32_t> palette,
-    std::array<int, 2> extent
+    std::array<int, 2> extent,
+    bool* pending
 ) {
     const auto* entries = crops_for(tex0, palette);
     const auto [width, height] = extent;
@@ -357,7 +569,7 @@ bool replace_crops(
         if (XXH3_64bits_digest(&hash) != crop.hash) {
             continue;
         }
-        const auto picture = read_cached(crop.file, AlphaScale::Gs);
+        const auto picture = picture_for(crop.file, AlphaScale::Gs, pending);
         if (!picture) {
             continue;
         }
@@ -414,7 +626,8 @@ bool replace_indexed8(
     std::span<const std::uint8_t> indices,
     std::span<const std::uint32_t> palette,
     AlphaScale alpha,
-    bool high
+    bool high,
+    bool* pending
 ) {
     const auto width = static_cast<unsigned>(image.width);
     const auto height = static_cast<unsigned>(image.height);
@@ -426,7 +639,7 @@ bool replace_indexed8(
     tex0.psm = high ? gs::kPsmt8h : gs::kPsmt8;
     tex0.tw = static_cast<std::uint32_t>(std::countr_zero(width));
     tex0.th = static_cast<std::uint32_t>(std::countr_zero(height));
-    return replace(image, tex0, indices, palette, alpha);
+    return replace(image, tex0, indices, palette, alpha, pending);
 }
 
 }  // namespace openrac::renderer::pcsx2_pack

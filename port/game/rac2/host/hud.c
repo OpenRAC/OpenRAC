@@ -153,7 +153,9 @@ void func_0034AD10(gaddr panel) {
 #define SHIP_HUD_(name)                                                                            \
     int name(void) {                                                                               \
         const int side = openrac_game_hud_side();                                                  \
-        side_marker(side);                                                                         \
+        if (side != 0) {                                                                           \
+            hud_side(side, OPENRAC_HUD_STRETCH);                                                   \
+        }                                                                                          \
         const int result = name##__game();                                                         \
         if (side != 0) {                                                                           \
             hud_side(0, 0);                                                                        \

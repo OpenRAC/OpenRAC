@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import json
+import re
 import unittest
 import tempfile
 import shutil
@@ -26,6 +27,26 @@ class QueryPoints(unittest.TestCase):
                     self.assertNotIn("[40]&",body)
                 extras=next(body for body in bodies.values() if ".text_id = openrac_mod_play_query(16u" in body)
                 self.assertIn({"ntsc":"0x3202","pal":"0x1114","ntsc2":"0x3098"}[version],extras)
+    def test_release_bodies_use_their_files_own_names(self):
+        # A release file's own names (PAL Tabora's call to its hero_reset_position_and_direction copy) must
+        # stay the release's: the primary's name has no function there, and the body would be left out.
+        source=ROOT/"games/rac2/decomp"
+        if not (source/"src").is_dir():self.skipTest("needs the pinned RAC2 source checkout")
+        catalogue=ROOT/"port/game/rac2/play_queries.json"
+        data=json.loads(catalogue.read_text())
+        for version in ("pal","ntsc2"):
+            with self.subTest(version=version):
+                view=release.Release.load(ROOT/f"port/game/rac2-{version}/release/release_names.json")
+                bodies=playqueries.build(source,catalogue,version,view)
+                for point in data["points"].values():
+                    row=point[version]
+                    body=bodies[row["symbol"]]
+                    self.assertNotIn("_V1_",body)
+                    for word in view.units.get(row["source"],{}):
+                        self.assertIsNone(re.search(r"(?<!\w)"+re.escape(word)+r"(?!\w)",body),(row["symbol"],word))
+        tabora=playqueries.build(source,catalogue,"pal",release.Release.load(ROOT/"port/game/rac2-pal/release/release_names.json"))
+        self.assertIn("func_L00_002B9CD8(",tabora["func_L08_003FB598"])
+
     def test_spaceship_reward_indices_remain_numeric_on_every_disc(self):
         source=ROOT/"games/rac2/decomp"
         if not (source/"src").is_dir():self.skipTest("needs the pinned RAC2 source checkout")

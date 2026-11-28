@@ -59,8 +59,8 @@ Download `openrac-mod-sdk-<version>.zip` from the
 [OpenRAC release](https://github.com/OpenRAC/OpenRAC/releases) named
 `sdk-v<version>` and unpack it anywhere. You do not need a copy of OpenRAC.
 
-The version is the interface's `MAJOR.MINOR` plus a patch number for SDK fixes.
-A mod built with SDK 1.0.x works with every 1.y port. Each release lists the
+A stable SDK `1.N.0` has interface 1.N; a dev SDK `1.N.P` may already have the
+next minor. A mod built for interface 1.N loads in every port with 1.N or newer. Each release lists the
 archive's SHA-256, so a build can pin it (see openrac-mods' `sdk.lock` and
 `tools/fetch_sdk.py`). Below, `<SDK>` is the unpacked folder, or `sdk/` in an
 OpenRAC checkout. To build the archive from a checkout, run
@@ -75,6 +75,7 @@ your own.
 
 ## Releases
 
-Each SDK version is released as `sdk-v<version>` on OpenRAC/OpenRAC. SDK
-releases are never marked Latest, because the launcher updates from the Latest
-release and ignores releases that are not its own.
+CI releases each SDK as `sdk-v<version>` on OpenRAC/OpenRAC: a dev SDK on each
+push to master, a stable one with each stable launcher. SDK releases are
+never marked Latest, because the launcher updates from the Latest release and
+ignores releases that are not its own.

@@ -115,7 +115,7 @@ the game made it, with the keys drawn over your picture. Each key icon is a
 texture of its own (24 x 16, dumped into `Interface/`), so you can replace
 it too.
 
-**Compare with the game.** Ctrl+F2 hides and shows the pack. The HUD, menus
+**Compare with the game.** The Texture pack switch in the menu's Developer tab, or its key (Ctrl+F2; change it in the same tab), hides and shows the pack. The HUD, menus
 and font change at once; world textures change at the next level.
 Textures the game makes while it runs (a fade, an animated screen) change from
 frame to frame, so each frame is a texture of its own; replacing those is not
@@ -208,6 +208,10 @@ palette hashes. It also looks up cropped 8-bit interface textures whose
 legacy PCSX2 filenames contain the source rectangle (`-r<hex>`). Crops are
 placed back in the interface atlas, so a crop changes only its rectangle.
 OpenRAC loads PNG and DDS replacements (DXT1, DXT3, DXT5, and 32-bit RGB/RGBA).
+A picture the cache lacks is read on another thread, and the original shows until it is
+ready (setting `pcsx2_pack_background`, on by default). The cache holds 512 MB (256 MB on
+Android). `pcsx2_pack_precache` reads the pack at the start, smallest files first, into a
+bigger cache (2 GB; 512 MB on Android). Both switches are also in the Developer tab.
 Regular OpenRAC texture packs take priority. Region names containing only
 dimensions (`-rWxH`), dedicated mip levels, and other GS pixel formats still
 use the original textures. Some older level exports lost raw palette alpha values above

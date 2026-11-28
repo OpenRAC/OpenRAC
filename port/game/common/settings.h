@@ -153,6 +153,10 @@ struct Settings {
     // A texture pack from <data>/texture_packs/<game id>/ (docs/port/TEXTURE_PACKS.md); takes
     // effect at the next start.
     bool texture_pack = true;
+    // A PCSX2 pack's pictures are read on another thread (the original shows until then), and
+    // optionally the whole pack at the start. Both take effect at the next start.
+    bool pcsx2_pack_background = true;
+    bool pcsx2_pack_precache = false;
     bool probe_spheres = false;        // diagnostic placement/fade overlay
     bool medial_axis_debug = false;    // Baked centre paths and junctions.
     bool ceiling_area_lights = false;  // Baked source rectangles and emitting-direction arrows.
@@ -261,6 +265,9 @@ struct Settings {
     // The key that opens and closes the menu, by its place on the keyboard: an SDL scancode name
     // ("`", the key under Escape; "F4", "M"), or "Alt" (either Alt pressed and let go by itself).
     std::string menu_bar_key = "`";
+    // The key that shows and hides the texture pack: an SDL scancode name, with "Ctrl+" before it
+    // when Ctrl is held ("Ctrl+F2").
+    std::string texture_pack_key = "Ctrl+F2";
     // The controller button that does the same (settings.ini's menu_button): "start+back", Start and
     // Select pressed together, which the game never sees (platform/menu_chord.h); an SDL gamepad
     // button name ("paddle1", the Steam Controller's R4; "misc1"); or "none".

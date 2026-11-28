@@ -1,0 +1,1 @@
+A mod's overlay drawn over the game's menus and scenes too (on_overlay_phases, openrac_overlay.phase), the pad's button icons in the HUD's and the overlay's text, each shown as the player's device has it (OPENRAC_UI_L1 ... OPENRAC_UI_RIGHT_STICK), and a button's label for the device in use (button_label).
