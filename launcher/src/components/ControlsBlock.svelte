@@ -97,9 +97,13 @@
     window.removeEventListener("keydown", take, true);
   });
 
-  const version = $derived(
-    app.library?.games.flatMap((g) => g.versions).find((v) => v.key === app.version) ?? null,
-  );
+  /** The game Keyboard and mouse opens for: the one picked, else the first (Android picks none
+   *  until its shelf is used). */
+  const version = $derived.by(() => {
+    const all = app.library?.games.flatMap((g) => g.versions) ?? [];
+
+    return all.find((v) => v.key === app.version) ?? all[0] ?? null;
+  });
 </script>
 
 <section class="panel controls" id="controls">
@@ -141,41 +145,56 @@
             <small class="warn">Also {clashes[row.id]?.join(", ")}</small>
           {/if}
         </span>
-        <span class="caps">
-          {#each keys as key, slot (key)}
-            <button
-              class="cap"
-              class:waiting={waiting?.id === row.id && waiting.slot === slot}
-              aria-label={`${row.name}: ${shortcutLabel(key)}. Change`}
-              onclick={() => (waiting = { id: row.id, slot })}>{shortcutLabel(key)}</button
-            >
+        <div class="caps" role="group" aria-label={row.name}>
+          {#each [0, 1] as slot (slot)}
+            {@const key = keys[slot]}
+            {@const busy = waiting?.id === row.id && waiting.slot === slot}
+            {#if key !== undefined || slot === keys.length || busy}
+              <span class="cap-wrap">
+                <button
+                  class="cap"
+                  class:waiting={busy}
+                  class:empty={!key && !busy}
+                  class:clash={!!key && !!clashes[row.id]}
+                  aria-label={busy
+                    ? "Press a key"
+                    : key
+                      ? `${row.name}: ${shortcutLabel(key)}. Change`
+                      : `${row.name}: add a key`}
+                  onclick={() => (waiting = { id: row.id, slot })}
+                  >{#if busy}Press a key…{:else if key}{shortcutLabel(key)}{:else}<span class="add"
+                      >{slot === 0 ? "None" : "Add"}</span
+                    >{/if}</button
+                >{#if key && !busy}<button
+                    class="clear"
+                    aria-label={`Remove ${shortcutLabel(key)} from ${row.name}`}
+                    title={`Remove ${shortcutLabel(key)}`}
+                    onclick={() =>
+                      void save(row.id, shortcutValue(keys.filter((_, i) => i !== slot)))}
+                    ><Icon name="x" size={14} /></button
+                  >{/if}
+              </span>
+            {:else}
+              <span></span>
+            {/if}
           {/each}
-          {#if keys.length < 2}
-            <button
-              class="cap add"
-              class:waiting={waiting?.id === row.id && waiting.slot === keys.length}
-              aria-label={keys.length ? `${row.name}: add a key` : `${row.name}: none. Set a key`}
-              onclick={() => (waiting = { id: row.id, slot: keys.length })}
-              >{keys.length ? "+" : "None"}</button
-            >
-          {/if}
-          {#if row.keys !== row.defaults}
-            <button
-              class="ghost small"
-              title={`Back to ${row.defaults.split(",").map(shortcutLabel).join(" or ")}`}
-              onclick={() => void save(row.id, null)}>Default</button
-            >
-          {/if}
-        </span>
+          <button
+            class="default"
+            disabled={row.keys === row.defaults}
+            aria-label={`${row.name}: back to ${row.defaults.split(",").map(shortcutLabel).join(" or ")}`}
+            title={row.keys === row.defaults
+              ? "The default"
+              : `Back to ${row.defaults.split(",").map(shortcutLabel).join(" or ")}`}
+            onclick={() => void save(row.id, null)}><Icon name="reset" size={16} /></button
+          >
+        </div>
       </div>
     {/each}
   {/each}
 
   {#if rows.some((r) => r.keys !== r.defaults)}
     <div class="end">
-      <button class="ghost small" onclick={() => void resetAll()}
-        >Shortcuts back to the defaults</button
-      >
+      <button class="small" onclick={() => void resetAll()}>Shortcuts back to the defaults</button>
     </div>
   {/if}
 </section>
@@ -185,28 +204,153 @@
     margin: 14px 0 0;
   }
 
+  /* The same caps as a Keyboard and mouse bind (KeyBindSetting.svelte): two columns, the same on
+     every row, then the way back to the default. */
   .caps {
-    display: flex;
     flex: none;
-    flex-wrap: wrap;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: repeat(2, 156px) 40px;
     align-items: center;
-    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .cap-wrap {
+    display: flex;
+    align-items: stretch;
   }
 
   .cap {
-    min-width: 44px;
-    padding: 4px 10px;
-    font-family: var(--mono, monospace);
-    font-size: 0.8125rem;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 6px 12px;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--control);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
   }
 
-  .cap.add {
-    color: var(--soft);
+  .cap-wrap:has(.clear) .cap {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .cap.empty {
+    background: transparent;
+    box-shadow: none;
+    border: 1px dashed var(--line-field);
   }
 
   .cap.waiting {
-    outline: 2px solid var(--warn);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    color: var(--amber);
+    box-shadow: none;
+    background: var(--on-fill);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .cap.clash {
+    background: var(--on-fill);
+    color: var(--amber);
+  }
+
+  .add {
+    font-family: var(--font-sans);
+    font-weight: 400;
+    color: var(--dim);
+  }
+
+  .clear,
+  .default {
+    display: grid;
+    place-items: center;
+    min-height: 40px;
+    padding: 0 8px;
+    color: var(--soft);
+    background: var(--control);
+    cursor: pointer;
+  }
+
+  .clear {
+    min-width: 34px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+
+  .default {
+    width: 40px;
+    padding: 0;
+    border-radius: var(--radius-sm);
+  }
+
+  .default:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  @media (hover: hover) {
+    :global(html:where(:not([data-input="pad"]))) .cap:hover,
+    :global(html:where(:not([data-input="pad"]))) .default:hover:not(:disabled) {
+      background: var(--on-fill);
+      color: var(--amber);
+    }
+
+    :global(html:where(:not([data-input="pad"]))) .clear:hover {
+      color: var(--err);
+    }
+  }
+
+  .cap:focus-visible,
+  .clear:focus-visible,
+  .default:focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 560px) {
+    .shortcut {
+      flex-wrap: wrap;
+    }
+
+    .caps {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) 40px;
+      width: 100%;
+    }
+  }
+
+  /* Android's 44 px finger height, as every other button there (app.css). */
+  :global(html[data-platform="android"]) .cap,
+  :global(html[data-platform="android"]) .clear,
+  :global(html[data-platform="android"]) .default {
+    min-height: 44px;
+  }
+
+  :global(html[data-platform="android"]) .caps {
+    grid-template-columns: repeat(2, 156px) 44px;
+  }
+
+  :global(html[data-platform="android"]) .default {
+    width: 44px;
+  }
+
+  @keyframes pulse {
+    50% {
+      opacity: 0.75;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cap.waiting {
+      animation: none;
+    }
   }
 
   .warn {

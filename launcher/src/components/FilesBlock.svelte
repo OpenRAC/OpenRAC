@@ -12,7 +12,10 @@
   const versions = $derived(app.library?.games.flatMap((g) => g.versions) ?? []);
   let picked = $state<string | null>(app.version);
   const version = $derived(
-    versions.find((v) => v.key === picked) ?? versions.find((v) => v.key === app.version) ?? null,
+    versions.find((v) => v.key === picked) ??
+      versions.find((v) => v.key === app.version) ??
+      versions[0] ??
+      null,
   );
   let places = $state<FilePlace[]>([]);
   let failed = $state<string | null>(null);

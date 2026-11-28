@@ -740,7 +740,7 @@
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: 7px 12px;
-    min-height: 36px;
+    min-height: 40px;
   }
 
   .actions select:focus-visible {

@@ -927,7 +927,7 @@
   }
 
   .reset-all {
-    min-height: 34px;
+    min-height: 40px;
   }
 
   .failure {
