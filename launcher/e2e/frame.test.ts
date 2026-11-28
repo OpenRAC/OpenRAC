@@ -84,7 +84,7 @@ async function openSettings(query = "") {
 }
 
 it("shows Metal and OpenGL as the macOS renderer choices", async () => {
-  await openSettings("&macos&vulkan");
+  await openSettings("&macos&vulkan&tab=games");
   const renderer = page.getByRole("radiogroup", { name: "Renderer" });
 
   expect(await renderer.getByRole("radio").allTextContents()).toEqual(["Metal", "OpenGL"]);

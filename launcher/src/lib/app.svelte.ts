@@ -1,7 +1,6 @@
 // The UI's shared state: settings, the library, navigation, toasts and the
 // job queue. Pages read `app` and call the functions below; nothing else
 // talks to the Rust side except through api.ts.
-import { tick } from "svelte";
 
 import {
   type ActionView,
@@ -753,9 +752,15 @@ export async function saveConfig(config: Config): Promise<boolean> {
 /** Settings, Files: the one place every folder of the player's files opens from (FilesBlock.svelte);
  *  other pages point here rather than open a folder. */
 export function openFilesSettings() {
+  settingsView.tab = "files";
   app.page = "settings";
-  void tick().then(() => document.getElementById("files")?.scrollIntoView({ block: "start" }));
 }
+
+/** Settings' tabs (Settings.svelte), the same on desktop and Android. */
+export type SettingsTab = "general" | "games" | "controls" | "files" | "updates" | "advanced";
+
+/** The Settings tab open; kept while the player visits other pages. */
+export const settingsView = $state<{ tab: SettingsTab }>({ tab: "general" });
 
 export function openVersion(key: string) {
   app.version = key;
