@@ -280,7 +280,7 @@ void note_hover_row(int entry, std::string section, std::string title, std::stri
 struct ControlsRow {
     bool shown = true;
     bool enabled = true;  // false: drawn greyed out, takes no press
-    std::string label;  // empty: the catalog's
+    std::string label;    // empty: the catalog's
     bool on = false;
     std::string value;
     bool can_lower = true;
@@ -300,6 +300,9 @@ void draw_controls_panel(menu::Id id);
 // (true: the event is used up).
 bool keyboard_mouse_shown();
 void keyboard_mouse_panel();
+
+// The Files tab's rows (debug/menu_files.cpp): each folder OpenRAC writes to, opened when pressed.
+void file_places_panel();
 // The built-in's gyro settings, a heading and a card of their own (the Gamepad sub tab).
 void keyboard_mouse_gyro();
 bool keyboard_mouse_capture_event(const SDL_Event& e);

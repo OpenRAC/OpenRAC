@@ -81,7 +81,7 @@ async function press(...buttons: string[]) {
 }
 
 it("shows Metal as the iOS renderer", async () => {
-  await page.goto(`${base}?built&latest&page=settings&vulkan`);
+  await page.goto(`${base}?built&latest&page=settings&vulkan&tab=games`);
   const renderer = page.locator(".setting").filter({ hasText: "Renderer" });
 
   await renderer.getByText("Metal", { exact: true }).waitFor();

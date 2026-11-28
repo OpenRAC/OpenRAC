@@ -6,7 +6,7 @@
   // from. extractor/MODDING.md is the modder's guide.
   import Icon from "$components/Icon.svelte";
   import { type ActionView, api, inTauri, pickFolder, type VersionView } from "$lib/api";
-  import { app, guardShown, jobs, runChain, toast } from "$lib/app.svelte";
+  import { app, guardShown, jobs, openFilesSettings, runChain, toast } from "$lib/app.svelte";
   import { levelName, levelsOf } from "$lib/labels";
   import { ASSETS } from "$lib/modsText";
   import { hidePaths } from "$lib/paths";
@@ -88,7 +88,6 @@
 
     if (ok && folder) {
       toast(ASSETS.exported(levelName(v.game, level)));
-      await guardShown(end?.folder ? api.openOutput(folder) : api.openGameFolder(v.game, folder));
     } else if (!ok) {
       toast(ASSETS.exportStopped, "error");
     }
@@ -185,7 +184,7 @@
             </button>
           {/if}
           {#if exported && busy !== "export"}
-            <button class="ghost" onclick={() => void guardShown(api.openOutput(exported))}
+            <button class="ghost" onclick={openFilesSettings}
               ><Icon name="folder" size={16} />{ASSETS.openFolder}</button
             >
           {/if}

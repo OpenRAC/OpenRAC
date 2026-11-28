@@ -19,6 +19,7 @@
 #include "common/log.h"
 #include "debug_overlay.h"
 #include "frontend.h"
+#include "frontend/shortcuts.h"
 #include "game/common/frontend/state.h"
 #include "renderer/gl/gl.h"
 #include "settings.h"
@@ -192,10 +193,10 @@ std::string hdr_status() {
     return sent + "; " + screen + ".";
 }
 
-// The window's own keys: F11 and Alt+Return change between fullscreen and the window, F9 and F10
-// turn the port's volume down and up a tenth, F2 shows or hides the frame counter, the texture pack's key (Ctrl+F2 unless
-// changed in the Developer tab) shows or hides the pack to compare it with the game's, and F4
-// toggles enhanced graphics; none of them while a mod greys its option out (option_off).
+// The window's own keys (frontend/shortcuts.h, changed in Controls, Shortcuts): full screen and
+// the window, the port's volume down and up a tenth, the frame counter, the texture pack shown or
+// hidden to compare it with the game's, and enhanced graphics; none of them while a mod greys its
+// option out (option_off).
 // True when the event was one of them.
 bool window_key(const SDL_Event& event) {
     window_event(event);
@@ -203,11 +204,13 @@ bool window_key(const SDL_Event& event) {
         return false;
     }
     using debug_overlay::option_off;
-    if (debug_overlay::texture_pack_key_hit(event.key)) {
+    using shortcuts::hit;
+    using SId = shortcuts::Id;
+    if (hit(SId::TexturePack, event.key)) {
         debug_overlay::toggle_texture_pack();
         return true;
     }
-    if (event.key.key == SDLK_F2) {  // the frame counter, as the Video options' row
+    if (hit(SId::FrameCounter, event.key)) {  // the frame counter, as the Video options' row
         if (option_off(menu::Id::FrameCounter)) {
             return true;
         }
@@ -215,7 +218,7 @@ bool window_key(const SDL_Event& event) {
         settings::save();
         return true;
     }
-    if (event.key.key == SDLK_F4 && gl::enhanced_rendering_available()) {
+    if (hit(SId::EnhancedGraphics, event.key) && gl::enhanced_rendering_available()) {
         if (option_off(menu::Id::EnhancedGraphics)) {
             return true;
         }
@@ -235,18 +238,17 @@ bool window_key(const SDL_Event& event) {
         log::info("enhanced graphics {}", graphics.enhanced_graphics ? "on" : "off");
         return true;
     }
-    if (event.key.key == SDLK_F9 || event.key.key == SDLK_F10) {
+    const bool louder = hit(SId::VolumeUp, event.key);
+    if (louder || hit(SId::VolumeDown, event.key)) {
         if (option_off(menu::Id::Volume)) {
             return true;
         }
-        settings::set_volume(settings::get().volume + (event.key.key == SDLK_F10 ? 10 : -10));
+        settings::set_volume(settings::get().volume + (louder ? 10 : -10));
         settings::save();
         log::info("volume {}", settings::get().volume);
         return true;
     }
-    const bool alt_return = (event.key.key == SDLK_RETURN || event.key.key == SDLK_KP_ENTER)
-                            && (event.key.mod & SDL_KMOD_ALT) != 0;
-    if (event.key.key != SDLK_F11 && !alt_return) {
+    if (!hit(SId::FullScreen, event.key)) {
         return false;
     }
     if (option_off(menu::Id::FullScreen) || option_off(menu::Id::DisplayMode)) {
@@ -254,8 +256,9 @@ bool window_key(const SDL_Event& event) {
     }
     // Between the window and borderless full screen.
     settings::Settings& s = settings::get();
-    s.display_mode = s.display_mode == settings::DisplayMode::Windowed ? settings::DisplayMode::Borderless
-                                                                       : settings::DisplayMode::Windowed;
+    s.display_mode = s.display_mode == settings::DisplayMode::Windowed
+                         ? settings::DisplayMode::Borderless
+                         : settings::DisplayMode::Windowed;
     settings::save();
     apply_settings();
     return true;

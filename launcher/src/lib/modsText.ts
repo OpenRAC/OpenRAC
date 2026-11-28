@@ -343,6 +343,8 @@ export const TEXTURES = {
   whereItIs:
     "Your pack is in My mods, with the other packs, where you switch it on, share it or replace it.",
   goToMine: "Show it in My mods",
+  foldersAre: "The saved textures and your pack are folders in Settings, Files.",
+  goToFiles: "Settings, Files",
 } as const;
 
 /** Mods, the switch under Play on the game's page (GamePlayer.svelte): off,
@@ -387,8 +389,7 @@ export const EDITOR = {
     `Packed ${edits} changed object${edits === 1 ? "" : "s"} in ${levels} level${levels === 1 ? "" : "s"}. Turn on Mods under Play to try them.`,
   packedNone: "Nothing to pack: your levels are as on the disc.",
   docs: "Editor documentation",
-  projects: "Level projects",
-  packedFolder: "Packed levels",
+  folders: "Their folders: Settings, Files",
 } as const;
 
 // ---- Sentences with a name or a number in them ----
@@ -534,7 +535,7 @@ export const ASSETS = {
   lead: "Export a level's models and textures, edit them in Blender or an image editor, then import them back as a pack.",
   howItWorks: "How it works",
   exportTitle: "Export",
-  exportLine: "Opens a folder of glTF models and PNG textures.",
+  exportLine: "Writes a folder of glTF models and PNG textures, in Exports (Settings, Files).",
   exporting: "Writing the files…",
   readFirst: "Read the levels from your disc first: a few minutes, once.",
   readyFirst: "Get the levels ready first, on the game's page.",
@@ -542,7 +543,7 @@ export const ASSETS = {
   whatLabel: "What to export",
   read: "Read the levels",
   export: "Export",
-  openFolder: "Open folder",
+  openFolder: "Settings, Files",
   importTitle: "Import your edits",
   importLine: "Choose the folder you edited: your changes become a pack in My mods.",
   importing: "Checking what you changed…",
@@ -554,7 +555,7 @@ export const ASSETS = {
   importStopped: "The import stopped. The activity log has what it said.",
   exportStopped: "The export stopped. The activity log has what it said.",
   readStopped: "Reading the levels stopped. The activity log has what it said.",
-  exported: (level: string) => `Exported ${level}: the folder is opening.`,
+  exported: (level: string) => `Exported ${level}: it is in Exports, in Settings, Files.`,
   weaponsNote:
     "Weapons and gadgets come from whichever level has each one; the level chosen does not matter.",
 } as const;
@@ -578,9 +579,9 @@ export const INTERFACE = {
   exportKind: (kind: string) => `Export ${kind}`,
   export: "Export",
   exporting: "Making the pictures from your disc…",
-  exportLine: "Opens a folder of them. A few seconds.",
+  exportLine: "Writes a folder of them, in Exports (Settings, Files). A few seconds.",
   exported: (written: number, skipped: number) =>
-    `Exported ${written}${skipped ? `; ${skipped} not on your disc` : ""}. Opening the folder.`,
+    `Exported ${written}${skipped ? `; ${skipped} not on your disc` : ""}. They are in Exports, in Settings, Files.`,
   exportStopped: "The export stopped. The activity log says why.",
   notReady: "Build the game and set up your disc first.",
   nothingYet: "Not available for this version yet.",
@@ -689,7 +690,7 @@ export const AUDIO = {
   lead: "Export the game's sounds as WAV files, edit or replace them, then import them back as a pack.",
   howItWorks: "How it works",
   exportTitle: "Export",
-  exportLine: "Opens a folder of WAV files.",
+  exportLine: "Writes a folder of WAV files, in Exports (Settings, Files).",
   exporting: "Writing the files…",
   readyFirst: "Set the game up from your disc first, on its page.",
   levelLabel: "Level to export",
@@ -703,9 +704,9 @@ export const AUDIO = {
     all: "Everything is about 2.1 GB.",
   },
   export: "Export",
-  openFolder: "Open folder",
+  openFolder: "Settings, Files",
   exportStopped: "The export stopped. The activity log has what it said.",
-  exported: "Exported: the folder is opening.",
+  exported: "Exported: it is in Exports, in Settings, Files.",
   importTitle: "Import your edits",
   importLine: "Choose the folder you edited: the files you changed become a pack in My mods.",
   importing: "Checking what you changed…",

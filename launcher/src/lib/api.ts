@@ -44,6 +44,7 @@ import type { EditorState } from "./generated/EditorState";
 import type { EnhancedView } from "./generated/EnhancedView";
 import type { ExportedSaves } from "./generated/ExportedSaves";
 import type { ExportedTexturePack } from "./generated/ExportedTexturePack";
+import type { FilePlace } from "./generated/FilePlace";
 import type { FoundDisc } from "./generated/FoundDisc";
 import type { GameSaveStatus } from "./generated/GameSaveStatus";
 import type { GameView } from "./generated/GameView";
@@ -117,6 +118,7 @@ import type { Scope } from "./generated/Scope";
 import type { Shared } from "./generated/Shared";
 import type { ShareMod } from "./generated/ShareMod";
 import type { SharePreview } from "./generated/SharePreview";
+import type { ShortcutRow } from "./generated/ShortcutRow";
 import type { Started } from "./generated/Started";
 import type { SteamState } from "./generated/SteamState";
 import type { TextureFolder } from "./generated/TextureFolder";
@@ -184,6 +186,10 @@ export type { Config };
 export type { ControlsScope };
 
 export type { ControlsView };
+
+export type { FilePlace };
+
+export type { ShortcutRow };
 
 export type { Detected };
 
@@ -393,6 +399,8 @@ export const api = {
   saveConfig: (config: Config) => call<Config>("save_config", { config }),
   detect: () => call<Detected>("detect"),
   checkRoot: (path: string) => call<Check>("check_root", { path }),
+  checkFolder: (path: string, mayBeMissing: boolean) =>
+    call<Check>("check_folder", { path, mayBeMissing }),
   checkTool: (tool: Tool, path: string) => call<Check>("check_tool", { tool, path }),
   /** OpenRAC Editor as downloaded (core editor_install.rs). */
   editorInstall: () => call<EditorInstall>("editor_install_status"),
@@ -469,9 +477,18 @@ export const api = {
   /** The other disc's saves onto this one's card, after a backup: all of them, or the chosen slots. */
   copySaves: (from: string, serial: string, choice: SaveImportChoice) =>
     call<ImportedSaves>("copy_saves", { from, serial, choice }),
-  openSavesFolder: (serial: string) => call<null>("open_saves_folder", { serial }),
-  /** Android: OpenRAC's place in the system's Files app (the saves, settings, games, discs). */
-  showFiles: () => call<null>("show_files"),
+  /** Settings, Files: every folder of the player's files, with a game version's own when given. */
+  filePlaces: (game: string | null, version: string | null) =>
+    call<FilePlace[]>("file_places", { game, version }),
+  /** Opens one of those folders, by its id (made if it is not there yet). */
+  openFilePlace: (id: string, game: string | null, version: string | null) =>
+    call<null>("open_file_place", { id, game, version }),
+  /** Settings, Controls: the game's keyboard shortcuts (core key_shortcuts.rs). */
+  shortcutsView: () => call<ShortcutRow[]>("shortcuts_view"),
+  /** Binds `keys` ("F11,Alt+Enter"; "" none) to a shortcut; null puts its default back. */
+  shortcutsSet: (id: string, keys: string | null) =>
+    call<ShortcutRow[]>("shortcuts_set", { id, keys }),
+  shortcutsReset: () => call<ShortcutRow[]>("shortcuts_reset"),
   /** A game's session logs and crash reports, the newest first. */
   reportsList: (game: string) => call<ReportEntry[]>("reports_list", { game }),
   /** The newest crash report written since `since` (seconds since 1970). */
@@ -505,9 +522,6 @@ export const api = {
     call<Differences>("set_game_fix", { game, version, id, on }),
   /** Deletes every log and crash report of the game; returns how many files went. */
   reportsDeleteAll: (game: string) => call<number>("reports_delete_all", { game }),
-  /** Opens the folder of a game's logs, or of its crash reports. */
-  openReportsFolder: (game: string, crashes: boolean) =>
-    call<null>("open_reports_folder", { game, crashes }),
   /** One slot for the save editor. */
   readSave: (serial: string, slot: number) => call<SaveView>("read_save", { serial, slot }),
   /** Writes the editor's change: refused while the game runs with the card; backs the card up first. */
@@ -597,9 +611,6 @@ export const api = {
       dumping: change.dumping ?? null,
       pcsx2: change.pcsx2 ?? null,
     }),
-  /** Opens a folder of the pack, or of the saved textures (`dump`); `folder` "" is the whole one. */
-  texturePacksOpen: (game: string, version: string, dump: boolean, folder = "") =>
-    call<null>("texture_packs_open", { game, version, dump, folder }),
   texturePacksPreview: (game: string, version: string, source: string) =>
     call<TexturePackPreview>("texture_packs_preview", { game, version, source }),
   texturePacksImport: (
@@ -749,10 +760,6 @@ export const api = {
   pluginsOrphans: (game: string, id: string) => call<Orphan[]>("plugins_orphans", { game, id }),
   pluginsRemoveWith: (game: string, version: string, id: string, also: string[]) =>
     call<PluginView[]>("plugins_remove_with", { game, version, id, also }),
-  /** A folder inside the game's set-up folder (an export), opened with the system. */
-  openGameFolder: (game: string, path: string) => call<null>("open_game_folder", { game, path }),
-  /** A folder a job wrote (a job exit's `outputs`), opened with the system; a file opens its folder. */
-  openOutput: (path: string) => call<null>("open_output", { path }),
   openBakeLog: (version: string, path: string) => call<null>("open_bake_log", { version, path }),
   /** One level's project in OpenRAC Editor (the version's editor-open action). */
   openLevelInEditor: (version: string, level: number) =>

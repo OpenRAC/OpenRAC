@@ -4,10 +4,10 @@
   // a player follows: save the game's pictures while playing, then repaint or upscale them into their
   // pack. The pack itself is a row of My mods' packs (PacksPanel.svelte), where it is switched on,
   // shared or replaced; a line here says so, with the way there. Counts per folder (Interface,
-  // Shared, each planet) open that folder. Hashes, paths and the environment the game is started
-  // with stay out of sight: they are in the docs.
-  import { api, type TextureFolder, type TexturePackView, type VersionView } from "$lib/api";
-  import { toast } from "$lib/app.svelte";
+  // Shared, each planet); the folders themselves open from Settings, Files. Hashes, paths and the
+  // environment the game is started with stay out of sight: they are in the docs.
+  import { api, type TexturePackView, type VersionView } from "$lib/api";
+  import { openFilesSettings, toast } from "$lib/app.svelte";
   import { grouped } from "$lib/format";
   import { keepRead, lastRead } from "$lib/lastRead";
   import { TEXTURES } from "$lib/modsText";
@@ -87,11 +87,6 @@
           : "The game no longer saves its textures.",
       );
     });
-
-  const openFolder = (dump: boolean, folder: TextureFolder | null = null) =>
-    work(async () => {
-      await api.texturePacksOpen(version.game, version.name, dump, folder?.path ?? "");
-    });
 </script>
 
 <svelte:element
@@ -141,21 +136,12 @@
               onchange={(e) => void setDumping(e.currentTarget.checked)}
             />
           </label>
-          <button class="ghost small" disabled={busy} onclick={() => void openFolder(true)}>
-            <Icon name="folder" size={14} />Open saved textures
-          </button>
         </div>
         {#if view.dumpCount}
           <div class="span counts" aria-label="Saved textures by folder">
             <span class="total">{textureCount(view.dumpCount)} saved</span>
             {#each view.dump as folder (folder.path)}
-              <button
-                class="count"
-                title={`Open ${folder.label}`}
-                onclick={() => void openFolder(true, folder)}
-              >
-                {folder.label}<b>{grouped(folder.count)}</b>
-              </button>
+              <span class="count">{folder.label}<b>{grouped(folder.count)}</b></span>
             {/each}
           </div>
         {/if}
@@ -177,27 +163,20 @@
             picture, without .png.
           </p>
         </div>
-        <div class="controls">
-          <button class="ghost small" disabled={busy} onclick={() => void openFolder(false)}>
-            <Icon name="folder" size={14} />Open your pack
-          </button>
-        </div>
         {#if view.packCount}
           <div class="span counts" aria-label="Your pack by folder">
             <span class="total">{textureCount(view.packCount)} in your pack</span>
             {#each view.pack as folder (folder.path)}
-              <button
-                class="count"
-                title={`Open ${folder.label}`}
-                onclick={() => void openFolder(false, folder)}
-              >
-                {folder.label}<b>{grouped(folder.count)}</b>
-              </button>
+              <span class="count">{folder.label}<b>{grouped(folder.count)}</b></span>
             {/each}
           </div>
         {/if}
       </li>
     </ol>
+    <p class="where">
+      <Icon name="folder" size={14} /><span class="grow">{TEXTURES.foldersAre}</span>
+      <button class="small" onclick={openFilesSettings}>{TEXTURES.goToFiles}</button>
+    </p>
     <p class="where">
       <Icon name="info" size={14} /><span class="grow">{TEXTURES.whereItIs}</span>
       {#if onshow}<button class="small" onclick={onshow}>{TEXTURES.goToMine}</button>{/if}
@@ -250,10 +229,7 @@
     color: var(--soft);
     cursor: pointer;
   }
-  ol.steps .controls button {
-    min-width: 0;
-  }
-  /* A folder's count: its name and number, opening it. */
+  /* A folder's count: its name and number. */
   .counts {
     display: flex;
     flex-wrap: wrap;

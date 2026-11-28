@@ -81,10 +81,10 @@ bool event(const SDL_Event& event);
 struct Tick {
     const char* game = "";
     std::span<const std::uint8_t> ram;
-    int level = -1;                              // the level program loaded; -1 the boot program
-    const host::GameState* state = nullptr;      // the camera the tick is drawn from, the mobys
-    std::uint32_t draws = 0;                     // the layers the game drew (bit n: renderer::Bucket n)
-    std::uint64_t tick = 0;                      // the window's frame counter
+    int level = -1;                          // the level program loaded; -1 the boot program
+    const host::GameState* state = nullptr;  // the camera the tick is drawn from, the mobys
+    std::uint32_t draws = 0;                 // the layers the game drew (bit n: renderer::Bucket n)
+    std::uint64_t tick = 0;                  // the window's frame counter
     std::size_t packet_bytes = 0, ui_quads = 0, effect_quads = 0, strips = 0, mobys_drawn = 0;
 };
 
@@ -100,16 +100,16 @@ void before_render(renderer::Renderer* renderer, std::uint64_t frame);
 // After the frame was put in the window and before the swap: draws the overlay, if shown.
 struct Shown {
     SDL_Window* window = nullptr;
-    int window_width = 0, window_height = 0;     // the drawable, in pixels
+    int window_width = 0, window_height = 0;                  // the drawable, in pixels
     int box_x = 0, box_y = 0, box_width = 0, box_height = 0;  // the game's picture in it
     const renderer::Renderer* renderer = nullptr;
-    const renderer::Camera* camera = nullptr;    // the picture's view and projection
-    int frame_width = 0, frame_height = 0;       // the frame buffer the game is drawn in
+    const renderer::Camera* camera = nullptr;  // the picture's view and projection
+    int frame_width = 0, frame_height = 0;     // the frame buffer the game is drawn in
     int last_world_width = 0, last_world_height = 0;
     bool vsync = false, interpolating = false;
-    double refresh_interval = 0.0;               // seconds; 0 unknown
-    double cost = 0.0;                           // seconds: what a frame costs before its swap
-    double tick_period = 0.0;                    // seconds
+    double refresh_interval = 0.0;  // seconds; 0 unknown
+    double cost = 0.0;              // seconds: what a frame costs before its swap
+    double tick_period = 0.0;       // seconds
     scene::ObjectPicker* picker = nullptr;
     const scene::LevelData* picker_level = nullptr;
     std::span<const scene::Instance> picker_live;
@@ -185,7 +185,8 @@ struct Notification {
     std::string text{};   // second line, quieter; may hold several lines
     // Keys shown as caps before the text, "or" between entries; "+" joins keys pressed together.
     std::vector<std::string> keys{};
-    std::string folder{};  // a press on the card opens it (or the folder holding this file)
+    // A quieter line under the rest: where a saved file can be found ("In Menu > Files").
+    std::string where{};
     Tone tone = Tone::Info;
     double seconds = 5.0;  // time on screen (paused while hidden); 0: until dismiss()
 };
@@ -212,11 +213,6 @@ void game_page_step(menu::Id id, int by);
 
 // Whether a mod greyed out entry `id` (openrac_api.menu_option_set): its keys leave it alone too.
 bool option_off(menu::Id id);
-
-// The texture pack's key (settings.ini's texture_pack_key) as the player reads it ("Ctrl+F2"), and
-// whether a key press is it. Defined in debug/menu_bar.cpp.
-std::string texture_pack_key_label();
-bool texture_pack_key_hit(const SDL_KeyboardEvent& key);
 
 // Shows or hides the texture pack's pictures, with a note on screen. The Developer tab's switch
 // does the same without it. Defined in debug/menu_bar.cpp.

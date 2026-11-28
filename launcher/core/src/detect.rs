@@ -181,6 +181,25 @@ pub fn check_root(path: &Path) -> Check {
     }
 }
 
+/// Whether `path` can be one of the player's folders (the games, install or save folder): a full
+/// path to a folder. `may_be_missing`: one not there yet is fine, it is made when needed.
+pub fn check_folder(path: &Path, may_be_missing: bool) -> Check {
+    let refused = |message: &str| Check { ok: false, version: None, message: message.into() };
+    if !path.is_absolute() {
+        return refused("not a full path");
+    }
+    if path.is_dir() {
+        return Check { ok: true, version: None, message: "a folder".into() };
+    }
+    if path.exists() {
+        return refused("a file, not a folder");
+    }
+    if !may_be_missing {
+        return refused("no such folder");
+    }
+    Check { ok: true, version: None, message: "made when needed".into() }
+}
+
 /// The names each tool goes by on PATH, most specific first.
 fn names(tool: Tool) -> &'static [&'static str] {
     match tool {
@@ -456,6 +475,19 @@ pub fn run(mut cmd: Command, timeout: Duration) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn checks_a_players_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("file");
+        std::fs::write(&file, "x").unwrap();
+        let missing = dir.path().join("missing");
+        assert!(super::check_folder(dir.path(), false).ok);
+        assert!(!super::check_folder(&file, true).ok);
+        assert!(!super::check_folder(&missing, false).ok);
+        assert!(super::check_folder(&missing, true).ok);
+        assert!(!super::check_folder(std::path::Path::new("games"), true).ok);
+    }
+
     use super::*;
     use crate::testing::checkout;
 

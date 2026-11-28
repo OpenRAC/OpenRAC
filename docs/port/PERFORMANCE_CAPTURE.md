@@ -24,8 +24,8 @@ and snapshots of the game's state (`_effects.json`, below). Send the whole zip.
 - Android: the **Diagnostics recordings** folder in the Files app.
 - Desktop: `perf/` in OpenRAC's data folder, beside the memory cards: `%LOCALAPPDATA%\openrac\perf`
   on Windows, `~/Library/Application Support/OpenRAC/perf` on macOS,
-  `~/.local/share/openrac/perf` on Linux. Developer > **Record diagnostics** >
-  **Open recordings folder** opens it, and the message after a recording names the file.
+  `~/.local/share/openrac/perf` on Linux. The menu's **Files** tab (and the launcher's
+  Settings, Files) opens it, and the message after a recording names the file.
 
 **Tips:** keep it short and repeatable. Stay in one place in one level, keep the same
 settings and record for 30 s. Record the same scene before and after a change.

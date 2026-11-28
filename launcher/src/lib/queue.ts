@@ -27,7 +27,7 @@ export interface Job {
   queuedAt: number;
   startedAt: number | null;
   endedAt: number | null;
-  /** The folders it wrote, from its exit event: what "Open folder" opens (api.openOutput). */
+  /** The folders it wrote, from its exit event. */
   outputs: string[];
   /** What it was asked with (a level, a file), as one string: the same action with other inputs
    *  is another job. Empty when it was asked with nothing. */

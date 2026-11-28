@@ -1,10 +1,14 @@
 <script lang="ts">
-  // Three groups: where things are (folders), the programs the launcher uses,
-  // and how the launcher itself behaves. Edits stay local until saved; the bar
-  // that saves them stays in view at the bottom of the window. With `setup`,
+  // Settings in tabs, the same on desktop and Android: General, Games (where they are and how
+  // they draw), Controls, Files, Updates, Advanced. Edits stay local until saved; the bar that
+  // saves them stays in view at the bottom of the window. With `setup`,
   // the first-run screen: one question (the games folder), and what was found by itself, folded.
   import AddToSteam from "$components/AddToSteam.svelte";
+  import ControlsBlock from "$components/ControlsBlock.svelte";
+  import FilesBlock from "$components/FilesBlock.svelte";
   import GpuDrivers from "$components/GpuDrivers.svelte";
+  import Icon from "$components/Icon.svelte";
+  import KeyboardMousePage from "$components/KeyboardMousePage.svelte";
   import Logo from "$components/Logo.svelte";
   import MultiplayerServer from "$components/MultiplayerServer.svelte";
   import PathField from "$components/PathField.svelte";
@@ -22,7 +26,7 @@
     updateChannelOf,
     updateSourceOf,
   } from "$lib/api";
-  import { app, guardShown, lookForUpdate, saveConfig } from "$lib/app.svelte";
+  import { app, lookForUpdate, saveConfig, type SettingsTab, settingsView } from "$lib/app.svelte";
   import { supports } from "$lib/capabilities";
   import { DISCORD_URL, PYTHON_URL, REPO_URL, SITE_URL } from "$lib/links";
   import { SETTINGS_TEXT } from "$lib/modsText";
@@ -35,6 +39,27 @@
   import { channelName, devBranches } from "$lib/updates";
 
   let { setup = false }: { setup?: boolean } = $props();
+
+  /** Controls' Keyboard and mouse page, open for this version's key; null: Settings itself. */
+  let keyboardPage = $state<string | null>(null);
+
+  const TABS: {
+    id: SettingsTab;
+    label: string;
+    icon: "gear" | "disc" | "bolt" | "folder" | "download" | "terminal";
+  }[] = [
+    { id: "general", label: "General", icon: "gear" },
+    { id: "games", label: "Games", icon: "disc" },
+    { id: "controls", label: "Controls", icon: "bolt" },
+    { id: "files", label: "Files", icon: "folder" },
+    { id: "updates", label: "Updates", icon: "download" },
+    { id: "advanced", label: "Advanced", icon: "terminal" },
+  ];
+  // ?tab=files (or another tab's id) opens that tab at start: handy for screenshots, as ?page= is.
+  const askedTab =
+    typeof location === "undefined" ? null : new URLSearchParams(location.search).get("tab");
+  if (TABS.some((t) => t.id === askedTab)) settingsView.tab = askedTab as SettingsTab;
+  const tab = $derived(settingsView.tab);
 
   /** The saved settings; this page only shows once they are loaded. */
   function saved(): Config {
@@ -69,6 +94,9 @@
     "multiplayerName",
     "multiplayerServerHost",
     "multiplayerServerPort",
+    "checkModUpdates",
+    "autoUpdateMods",
+    "cleanupUnusedDeps",
   ] as const satisfies (keyof Config)[];
   type Edited = Pick<Config, (typeof EDITED)[number]>;
 
@@ -96,14 +124,6 @@
   );
   const isIos = $derived(app.info?.platform === "ios");
   const rendererLabel = $derived(app.info?.platform === "macos" ? "Metal" : "Vulkan");
-  /** Advanced opens by itself when something in it is on. */
-  let advancedOpen = $state(
-    saved().detailedGameLog ||
-      saved().developer ||
-      saved().saveEditorAdvanced ||
-      saved().renderer === "vulkan" ||
-      saved().safeRendering,
-  );
 
   /** The update channel as this page has it, saved or not. */
   const channel = $derived<UpdateChannel>(app.info ? updateChannelOf(app.info, draft) : "stable");
@@ -202,8 +222,15 @@
   const serverError = $derived(
     isIos ? null : serverProblem(draft.multiplayerServerHost, draft.multiplayerServerPort),
   );
+  /** A Discord application ID is a number of 17 to 20 digits (empty: OpenRAC's own); another one
+   *  would show nothing in Discord, and say nothing. */
+  const discordIdError = $derived(
+    /^(\d{17,20})?$/.test(draft.discordClientId?.trim() ?? "")
+      ? null
+      : "An application ID is a number of 17 to 20 digits.",
+  );
   /** Anything typed that cannot be saved yet. */
-  const formError = $derived(nameError ?? serverError);
+  const formError = $derived(nameError ?? serverError ?? discordIdError);
   /** The Multiplayer name shows only while a mod that uses it (the multiplayer mod) is on in one
    *  of the games; hidden, it keeps its value. */
   let nameUsed = $state(false);
@@ -246,29 +273,23 @@
   });
   const tool = (t: "python" | "docker") => (path: string) => api.checkTool(t, path);
   const root = (path: string): Promise<Check> => api.checkRoot(path);
+  /** A folder field's check (core detect.rs check_folder), then what it is used for. */
+  const folderCheck =
+    (mayBeMissing: boolean, says: (path: string) => string) =>
+    async (path: string): Promise<Check> => {
+      const found = await api.checkFolder(path, mayBeMissing);
+
+      return found.ok ? { ...found, message: says(path) } : found;
+    };
   /** The install folder only has to be a place to write; the extractor makes what it needs inside. */
-  const installFolder = (path: string): Promise<Check> =>
-    Promise.resolve({
-      ok: true,
-      version: null,
-      message: `Games are set up in ${path}/active/<game>/data`,
-    });
-
+  const installFolder = folderCheck(
+    true,
+    (path) => `Games are set up in ${path}/active/<game>/data`,
+  );
   /** The games folder is looked through when it is saved; what it holds shows on the Games page. */
-  const gamesFolder = (path: string): Promise<Check> =>
-    Promise.resolve({
-      ok: true,
-      version: null,
-      message: `Disc images (.iso) are looked for in ${path}`,
-    });
-
+  const gamesFolder = folderCheck(false, (path) => `Disc images (.iso) are looked for in ${path}`);
   /** The save folder only has to be a place to write; the games make a folder per disc in it. */
-  const saveFolder = (path: string): Promise<Check> =>
-    Promise.resolve({
-      ok: true,
-      version: null,
-      message: `Saves are kept in ${path}/<disc serial>`,
-    });
+  const saveFolder = folderCheck(true, (path) => `Saves are kept in ${path}/<disc serial>`);
 
   let rac3Gate = $state<Rac3Gate>();
 
@@ -433,425 +454,39 @@
         onclick={() => void save(true)}>{saving ? "Starting…" : "Start"}</button
       >
     </div>
+  {:else if keyboardPage}
+    <KeyboardMousePage version={keyboardPage} onback={() => (keyboardPage = null)} />
   {:else}
     <h1>Settings</h1>
 
-    <!-- Android has no folders to choose: the app keeps its files in one place, which the Files app
-         shows (FilesProvider.kt, "Your files" below), and its picker copies discs there. -->
-    {#if !onAndroid}
-      <section class="panel">
-        <h2>Your games</h2>
-        {#if rootHere}
-          <PathField
-            label="OpenRAC folder"
-            hint="Your copy of OpenRAC: the folder with games/ and tools/ in it."
-            folder
-            bind:value={draft.root}
-            candidates={found?.roots}
-            detail={draft.developer}
-            check={root}
-          />
-          {#if !draft.root}
-            <p class="dim note">
-              No copy yet? <button class="link" onclick={() => void api.openUrl(REPO_URL)}
-                >Get OpenRAC</button
-              >, then choose its folder here.
-            </p>
-          {/if}
-        {/if}
-        <PathField
-          label="Games folder"
-          hint="The folder with your PlayStation 2 disc images (.iso). OpenRAC finds its games in it."
-          folder
-          bind:value={draft.discsDir}
-          detail={draft.developer}
-          check={gamesFolder}
-        />
-        <PathField
-          label="Install folder"
-          hint="Where your games are set up from your discs. A few GB per game."
-          folder
-          bind:value={draft.installDir}
-          detail={draft.developer}
-          check={installFolder}
-        />
-        <!-- The games' memory cards, in a folder the player can sync (Syncthing, a cloud drive). The
-             saves already made are copied there when it is saved (save_config); Play gives the
-             game --cards. Empty: the default, beside the games' settings. -->
-        <PathField
-          label="Save folder"
-          hint="Where your games keep their saves, for example a folder you sync between computers. Your saves are copied there when you save. Empty: the default."
-          folder
-          bind:value={draft.saveDir}
-          detail
-          check={saveFolder}
-        />
-      </section>
-    {:else}
-      <section class="panel">
-        <h2>Your files</h2>
-        <div class="setting">
-          <span class="text">
-            <strong>In the Files app, under OpenRAC</strong>
-            <small>
-              Your saves, settings, games and disc images. Uninstalling asks whether to keep the
-              app's data: keep it, and all of it is back when you install OpenRAC again.
-            </small>
-          </span>
-          <button onclick={() => void guardShown(api.showFiles())}>Open Files</button>
-        </div>
-      </section>
-      <GpuDrivers />
-    {/if}
-
-    <section class="panel">
-      <h2>General</h2>
-      <div class="setting theme">
-        <span class="text">
-          <strong id="theme-label">Theme</strong>
-          <small>The launcher's colours. Its accent is the game's.</small>
-        </span>
-        <div class="themes" role="radiogroup" aria-labelledby="theme-label" use:tablist>
-          {#each PALETTES as p (p.id)}
-            <button
-              role="radio"
-              aria-checked={draft.theme === p.id}
-              tabindex={draft.theme === p.id ? 0 : -1}
-              class:on={draft.theme === p.id}
-              onclick={() => (draft.theme = p.id)}
-              ><span
-                class="swatch"
-                style={`--s-ink: ${p.swatch[0]}; --s-panel: ${p.swatch[1]}; --s-text: ${p.swatch[2]}`}
-                aria-hidden="true"><i></i></span
-              >{p.name}</button
-            >
-          {/each}
-        </div>
-      </div>
-      <label class="setting">
-        <span class="text">
-          <strong>Game colours</strong>
-          <small>The bar, buttons and panels in the picked game's own colour, not the gold.</small>
-        </span>
-        <input type="checkbox" role="switch" class="switch" bind:checked={draft.gameColors} />
-      </label>
-      <!-- Android has neither: its Games tab is a shelf of discs, and no Discord app on the
-           device reads a desktop's rich presence. -->
-      {#if !onAndroid}
-        <AddToSteam />
-        <label class="setting">
-          <span class="text">
-            <strong>Show in Discord</strong>
-            <small>Your status says when you are playing.</small>
-          </span>
-          <input type="checkbox" role="switch" class="switch" bind:checked={draft.discordRpc} />
-        </label>
-      {/if}
-      <!-- The name online mods show the other players; the game gets it as OPENRAC_PLAYER_NAME. -->
-      {#if nameUsed}
-        <div class="field">
-          <label for="multiplayer-name">Multiplayer name</label>
-          <input
-            id="multiplayer-name"
-            type="text"
-            class="mono"
-            autocomplete="off"
-            spellcheck="false"
-            maxlength="16"
-            aria-invalid={!!nameError}
-            aria-describedby="multiplayer-name-note"
-            bind:value={draft.multiplayerName}
-          />
-          <p id="multiplayer-name-note" class="dim note">
-            {nameError ??
-              "What other players see in online mods. 3 to 16 letters, digits and underscores."}
-          </p>
-        </div>
-      {/if}
-      <!-- Where every game's online play goes; the game gets it as OPENRAC_SERVER. -->
-      {#if !isIos}
-        <MultiplayerServer
-          bind:host={draft.multiplayerServerHost}
-          bind:port={draft.multiplayerServerPort}
-        />
-      {/if}
-    </section>
-
-    <section class="panel">
-      <h2>Updates</h2>
-      {#if !supports(app.info, "updates")}<p class="muted">
-          This build receives updates through its distribution channel, such as the App Store.
-        </p>{/if}
-      <label class="setting">
-        <span class="text">
-          <strong>Look for updates at start</strong>
-          <small>Nothing is installed without your click.</small>
-        </span>
-        <input
-          type="checkbox"
-          role="switch"
-          class="switch"
-          disabled={!supports(app.info, "updates")}
-          bind:checked={draft.checkUpdates}
-        />
-      </label>
-      <label class="setting">
-        <span class="text">
-          <strong>Look for mod updates at start</strong>
-          <small
-            >Once a day, for the mods you added from a link. The Mods tab still looks when you ask.</small
-          >
-        </span>
-        <input
-          type="checkbox"
-          role="switch"
-          class="switch"
-          disabled={!supports(app.info, "updates")}
-          bind:checked={draft.checkModUpdates}
-        />
-      </label>
-      <label class="setting">
-        <span class="text">
-          <strong>{SETTINGS_TEXT.autoUpdate}</strong>
-          <small>{SETTINGS_TEXT.autoUpdateLine}</small>
-        </span>
-        <input
-          type="checkbox"
-          role="switch"
-          class="switch"
-          disabled={!supports(app.info, "updates")}
-          bind:checked={draft.autoUpdateMods}
-        />
-      </label>
-      <label class="setting">
-        <span class="text">
-          <strong>{SETTINGS_TEXT.cleanUp}</strong>
-          <small>{SETTINGS_TEXT.cleanUpLine}</small>
-        </span>
-        <input
-          type="checkbox"
-          role="switch"
-          class="switch"
-          bind:checked={draft.cleanupUnusedDeps}
-        />
-      </label>
-      {#if app.info?.updateChannels && supports(app.info, "updates")}
-        <div class="setting">
-          <span class="text">
-            <strong>Channel</strong>
-            <small>
-              {#if channel === "dev"}
-                The newest build of <span class="mono">{devBranch}</span>, tried less.
-              {:else}
-                The released versions.
-              {/if}
-            </small>
-          </span>
-          <div class="segmented" role="radiogroup" aria-label="Update channel">
-            <button
-              role="radio"
-              aria-checked={channel === "stable"}
-              onclick={() => (draft.updateChannel = "stable")}>Stable</button
-            >
-            <button
-              role="radio"
-              aria-checked={channel === "dev"}
-              onclick={() => (draft.updateChannel = "dev")}>Development</button
-            >
-          </div>
-        </div>
-        <!-- A fork's launcher may follow any branch of the fork that CI builds (launcher.yml publishes
-             each one's rolling launcher-dev-<branch> release); OpenRAC's own follows master. -->
-        {#if channel === "dev" && app.info.updateChannels.dev.fork}
-          <div class="field">
-            <label for="update-branch">Branch</label>
-            <input
-              id="update-branch"
-              type="text"
-              class="mono"
-              list="update-branches"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder={`Empty: ${builtBranch}`}
-              bind:value={draft.updateBranch}
-            />
-            <datalist id="update-branches">
-              {#each branches as branch (branch)}<option value={branch}></option>{/each}
-            </datalist>
-            <p class="dim note">
-              Development builds of this branch of <span class="mono"
-                >{app.info.updateChannels.dev.repository}</span
-              >; only a build newer than yours installs.
-            </p>
-          </div>
-        {/if}
-      {/if}
-      <p class="dim note status">
+    <div class="tabs" role="tablist" aria-label="Settings" use:tablist>
+      {#each TABS as t (t.id)}
         <button
-          class="link"
-          disabled={looked === "looking" || !supports(app.info, "updates")}
-          onclick={() => void checkNow()}>Check now</button
+          role="tab"
+          id={`settings-tab-${t.id}`}
+          aria-controls="settings-panel"
+          aria-selected={tab === t.id}
+          tabindex={tab === t.id ? 0 : -1}
+          class:on={tab === t.id}
+          onclick={() => (settingsView.tab = t.id)}
+          ><Icon name={t.icon} size={16} />{t.label}</button
         >
-        {#if looked === "looking"}· Looking…{:else if app.update?.missingBuild}· {app.update.name}
-          is out, but not yet for this system.
-          <button class="link" onclick={() => (app.showUpdateModal = true)}>Details</button
-          >{:else if app.update?.switchTo}· {channelName(app.update.switchTo)}
-          {app.update.version} can replace this build.
-          <button class="link" onclick={() => (app.showUpdateModal = true)}>Switch</button
-          >{:else if looked === "found" || app.update}· {app.update?.name ?? "A new version"} is out.
-          <button class="link" onclick={() => (app.showUpdateModal = true)}>Update</button
-          >{:else if looked === "none"}· You have the latest ({app.info?.version ??
-            ""}).{:else if looked === "failed"}· Could not check: {lookError}.{/if}
-        {#if source && supports(app.info, "updates")}
-          · <button class="link" onclick={() => void api.openUrl(source.page)}>Releases</button>
-          {#if draft.developer}
-            · <span class="mono"
-              >github.com/{source.repository} · {source.channel ?? "latest release"}</span
-            >
-          {/if}
-        {/if}
-      </p>
-    </section>
+      {/each}
+    </div>
 
-    <!-- A player is asked for Python only when none was found; contributors find it in Developer. -->
-    {#if !app.info?.standalone && !onAndroid && !draft.developer && !app.config?.python}
-      <section class="panel">
-        <h2>Programs</h2>
-        <PathField
-          label="Python"
-          hint="Python 3.10 or newer: OpenRAC's tools run with it."
-          bind:value={draft.python}
-          candidates={found?.pythons}
-          detail={draft.developer}
-          check={tool("python")}
-        />
-      </section>
-    {/if}
-
-    <section class="panel">
-      <details class="more" bind:open={advancedOpen}>
-        <summary><h2>Advanced</h2></summary>
-        <label class="setting">
-          <span class="text">
-            <strong>Detailed game logs</strong>
-            <small
-              >Turn on when we ask you to. Logs and crash reports are under Help, on each game's
-              page.</small
-            >
-          </span>
-          <input
-            type="checkbox"
-            role="switch"
-            class="switch"
-            bind:checked={draft.detailedGameLog}
-          />
-        </label>
-        {#if desktopRenderer}
-          <div class="setting">
-            <span class="text">
-              <strong>Renderer</strong>
-              <small>
-                {draft.renderer === "vulkan"
-                  ? `${rendererLabel} is the default. The game falls back to OpenGL if it cannot start.`
-                  : "OpenGL 4.1."}
-                From the game's next start: a running game keeps its renderer.
-              </small>
-            </span>
-            <div class="segmented" role="radiogroup" aria-label="Renderer">
-              <button
-                role="radio"
-                aria-checked={draft.renderer === "vulkan"}
-                onclick={() => (draft.renderer = "vulkan")}>{rendererLabel}</button
-              >
-              <button
-                role="radio"
-                aria-checked={draft.renderer === "opengl"}
-                onclick={() => (draft.renderer = "opengl")}>OpenGL</button
-              >
-            </div>
-          </div>
-        {:else if isIos}
-          <div class="setting">
-            <span class="text">
-              <strong>Renderer</strong>
-            </span>
-            <span>Metal</span>
-          </div>
-        {/if}
-        {#if app.info?.platform === "linux"}
-          <!-- The launcher's own window without WebKitGTK's accelerated compositing
-               (core/src/webkit.rs); on by itself after a start that crashed. -->
-          <label class="setting">
-            <span class="text">
-              <strong>Safe rendering</strong>
-              <small
-                >For a launcher that crashes or stays blank. No page slides. The launcher restarts.</small
-              >
-            </span>
-            <input
-              type="checkbox"
-              role="switch"
-              class="switch"
-              bind:checked={draft.safeRendering}
-            />
-          </label>
-        {/if}
-        <label class="setting">
-          <span class="text">
-            <strong>Advanced save editing</strong>
-            <small>Every field of a save, raw bytes too. Your memory card is backed up first.</small
-            >
-          </span>
-          <input
-            type="checkbox"
-            role="switch"
-            class="switch"
-            bind:checked={draft.saveEditorAdvanced}
-          />
-        </label>
-        <label class="setting">
-          <span class="text">
-            <strong>Developer tools</strong>
-            <small
-              >The Develop tab (builds, checks, decompilation, the console), disc serials and file
-              names.</small
-            >
-          </span>
-          <input type="checkbox" role="switch" class="switch" bind:checked={draft.developer} />
-        </label>
-        {#if draft.developer}
-          <!-- What developer tools add: under the switch, set in from it. -->
-          <div class="dev">
-            <label class="setting">
-              <span class="text">
-                <strong>Incremental builds (for developers)</strong>
-                <small
-                  >After a change to OpenRAC, build only what changed instead of the game from
-                  scratch. A build folder OpenRAC cannot vouch for (another OpenRAC version, no
-                  build stamp) is still built from scratch. The Rebuild from scratch action stays.</small
-                >
-              </span>
-              <input
-                type="checkbox"
-                role="switch"
-                class="switch"
-                bind:checked={draft.incrementalBuilds}
-              />
-            </label>
-            <label class="setting">
-              <span class="text">
-                <strong>{RAC3_SWITCH.title}</strong>
-                <small>{RAC3_SWITCH.hint}</small>
-              </span>
-              <input
-                type="checkbox"
-                role="switch"
-                class="switch"
-                checked={draft.rac3Dev}
-                onchange={toggleRac3}
-              />
-            </label>
-            {#if !rootHere && !onAndroid}
+    <div
+      id="settings-panel"
+      class="tabpanel"
+      role="tabpanel"
+      aria-labelledby={`settings-tab-${tab}`}
+    >
+      {#if tab === "games"}
+        <!-- Android has no folders to choose: the app keeps its files in one place, which the Files app
+         shows (FilesProvider.kt, Files below), and its picker copies discs there. -->
+        {#if !onAndroid}
+          <section class="panel">
+            <h2>Your games</h2>
+            {#if rootHere}
               <PathField
                 label="OpenRAC folder"
                 hint="Your copy of OpenRAC: the folder with games/ and tools/ in it."
@@ -861,58 +496,474 @@
                 detail={draft.developer}
                 check={root}
               />
+              {#if !draft.root}
+                <p class="dim note">
+                  No copy yet? <button class="link" onclick={() => void api.openUrl(REPO_URL)}
+                    >Get OpenRAC</button
+                  >, then choose its folder here.
+                </p>
+              {/if}
             {/if}
-            {#if !onAndroid}
-              <PathField
-                label="Python"
-                hint="Python 3.10 or newer: OpenRAC's tools run with it."
-                bind:value={draft.python}
-                candidates={found?.pythons}
-                detail={draft.developer}
-                check={tool("python")}
-              />
-              <PathField
-                label="Docker"
-                hint="The build container of Ratchet & Clank (PAL) and Deadlocked runs in it, on Linux and macOS. Optional."
-                bind:value={draft.docker}
-                candidates={found?.dockers}
-                detail={draft.developer}
-                check={tool("docker")}
-              />
-            {/if}
-            {#if app.info}
-              <dl class="facts">
-                <dt>System</dt>
-                <dd>{app.info.platform}</dd>
-                {#if app.info.configFile}<dt>Settings file</dt>
-                  <dd class="mono">{app.info.configFile}</dd>{/if}
-              </dl>
-            {/if}
-          </div>
-        {/if}
-        {#if draft.developer && draft.discordRpc && !onAndroid}
-          <div class="field">
-            <label for="discord-client-id">Discord application ID</label>
-            <input
-              id="discord-client-id"
-              type="text"
-              class="mono"
-              placeholder="Empty: OpenRAC's own"
-              bind:value={draft.discordClientId}
+            <PathField
+              label="Games folder"
+              hint="The folder with your PlayStation 2 disc images (.iso). OpenRAC finds its games in it."
+              folder
+              bind:value={draft.discsDir}
+              detail={draft.developer}
+              check={gamesFolder}
             />
-            <p class="dim note">
-              To show your own name and art, create an app at
-              <button
-                class="link"
-                onclick={() => void api.openUrl("https://discord.com/developers/applications")}
-              >
-                discord.com/developers/applications
-              </button>.
-            </p>
-          </div>
+            <PathField
+              label="Install folder"
+              hint="Where your games are set up from your discs. A few GB per game."
+              folder
+              bind:value={draft.installDir}
+              detail={draft.developer}
+              check={installFolder}
+            />
+            <!-- The games' memory cards, in a folder the player can sync (Syncthing, a cloud drive). The
+             saves already made are copied there when it is saved (save_config); Play gives the
+             game --cards. Empty: the default, beside the games' settings. -->
+            <PathField
+              label="Save folder"
+              hint="Where your games keep their saves, for example a folder you sync between computers. Your saves are copied there when you save. Empty: the default."
+              folder
+              bind:value={draft.saveDir}
+              detail
+              check={saveFolder}
+            />
+          </section>
+        {:else}
+          <GpuDrivers />
         {/if}
-      </details>
-    </section>
+        {#if desktopRenderer || isIos}
+          <section class="panel">
+            <h2>Graphics</h2>
+            {#if desktopRenderer}
+              <div class="setting">
+                <span class="text">
+                  <strong>Renderer</strong>
+                  <small>
+                    {draft.renderer === "vulkan"
+                      ? `${rendererLabel} is the default. The game falls back to OpenGL if it cannot start.`
+                      : "OpenGL 4.1."}
+                    From the game's next start: a running game keeps its renderer.
+                  </small>
+                </span>
+                <div class="segmented" role="radiogroup" aria-label="Renderer">
+                  <button
+                    role="radio"
+                    aria-checked={draft.renderer === "vulkan"}
+                    onclick={() => (draft.renderer = "vulkan")}>{rendererLabel}</button
+                  >
+                  <button
+                    role="radio"
+                    aria-checked={draft.renderer === "opengl"}
+                    onclick={() => (draft.renderer = "opengl")}>OpenGL</button
+                  >
+                </div>
+              </div>
+            {:else if isIos}
+              <div class="setting">
+                <span class="text">
+                  <strong>Renderer</strong>
+                </span>
+                <span>Metal</span>
+              </div>
+            {/if}
+          </section>
+        {/if}
+        <!-- A player is asked for Python only when none was found; contributors find it in Developer. -->
+        {#if !app.info?.standalone && !onAndroid && !draft.developer && !app.config?.python}
+          <section class="panel">
+            <h2>Programs</h2>
+            <PathField
+              label="Python"
+              hint="Python 3.10 or newer: OpenRAC's tools run with it."
+              bind:value={draft.python}
+              candidates={found?.pythons}
+              detail={draft.developer}
+              check={tool("python")}
+            />
+          </section>
+        {/if}
+      {:else if tab === "controls"}
+        <ControlsBlock onkeyboard={(key) => (keyboardPage = key)} />
+      {:else if tab === "files"}
+        <FilesBlock />
+      {:else if tab === "general"}
+        <section class="panel">
+          <h2>General</h2>
+          <div class="setting theme">
+            <span class="text">
+              <strong id="theme-label">Theme</strong>
+              <small
+                >The colours of the launcher and of the game's menu. The accent is the game's.</small
+              >
+            </span>
+            <div class="themes" role="radiogroup" aria-labelledby="theme-label" use:tablist>
+              {#each PALETTES as p (p.id)}
+                <button
+                  role="radio"
+                  aria-checked={draft.theme === p.id}
+                  tabindex={draft.theme === p.id ? 0 : -1}
+                  class:on={draft.theme === p.id}
+                  onclick={() => (draft.theme = p.id)}
+                  ><span
+                    class="swatch"
+                    style={`--s-ink: ${p.swatch[0]}; --s-panel: ${p.swatch[1]}; --s-text: ${p.swatch[2]}`}
+                    aria-hidden="true"><i></i></span
+                  >{p.name}</button
+                >
+              {/each}
+            </div>
+          </div>
+          <label class="setting">
+            <span class="text">
+              <strong>Game colours</strong>
+              <small
+                >The bar, buttons and panels in each game's own colour instead of the gold, here and
+                in the game's menu.</small
+              >
+            </span>
+            <input type="checkbox" role="switch" class="switch" bind:checked={draft.gameColors} />
+          </label>
+          <!-- Android has neither: its Games tab is a shelf of discs, and no Discord app on the
+           device reads a desktop's rich presence. -->
+          {#if !onAndroid}
+            <AddToSteam />
+            <label class="setting">
+              <span class="text">
+                <strong>Show in Discord</strong>
+                <small>Your status says when you are playing.</small>
+              </span>
+              <input type="checkbox" role="switch" class="switch" bind:checked={draft.discordRpc} />
+            </label>
+          {/if}
+          <!-- The name online mods show the other players; the game gets it as OPENRAC_PLAYER_NAME. -->
+          {#if nameUsed}
+            <div class="field">
+              <label for="multiplayer-name">Multiplayer name</label>
+              <input
+                id="multiplayer-name"
+                type="text"
+                class="mono"
+                autocomplete="off"
+                spellcheck="false"
+                maxlength="16"
+                aria-invalid={!!nameError}
+                aria-describedby="multiplayer-name-note"
+                bind:value={draft.multiplayerName}
+              />
+              <p id="multiplayer-name-note" class="dim note">
+                {nameError ??
+                  "What other players see in online mods. 3 to 16 letters, digits and underscores."}
+              </p>
+            </div>
+          {/if}
+          <!-- Where every game's online play goes; the game gets it as OPENRAC_SERVER. -->
+          {#if !isIos}
+            <MultiplayerServer
+              bind:host={draft.multiplayerServerHost}
+              bind:port={draft.multiplayerServerPort}
+            />
+          {/if}
+        </section>
+      {:else if tab === "updates"}
+        <section class="panel">
+          <h2>Updates</h2>
+          {#if !supports(app.info, "updates")}<p class="muted">
+              This build receives updates through its distribution channel, such as the App Store.
+            </p>{/if}
+          <label class="setting">
+            <span class="text">
+              <strong>Look for updates at start</strong>
+              <small>Nothing is installed without your click.</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              class="switch"
+              disabled={!supports(app.info, "updates")}
+              bind:checked={draft.checkUpdates}
+            />
+          </label>
+          <label class="setting">
+            <span class="text">
+              <strong>Look for mod updates at start</strong>
+              <small
+                >Once a day, for the mods you added from a link. The Mods tab still looks when you
+                ask.</small
+              >
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              class="switch"
+              disabled={!supports(app.info, "updates")}
+              bind:checked={draft.checkModUpdates}
+            />
+          </label>
+          <label class="setting">
+            <span class="text">
+              <strong>{SETTINGS_TEXT.autoUpdate}</strong>
+              <small>{SETTINGS_TEXT.autoUpdateLine}</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              class="switch"
+              disabled={!supports(app.info, "updates")}
+              bind:checked={draft.autoUpdateMods}
+            />
+          </label>
+          <label class="setting">
+            <span class="text">
+              <strong>{SETTINGS_TEXT.cleanUp}</strong>
+              <small>{SETTINGS_TEXT.cleanUpLine}</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              class="switch"
+              bind:checked={draft.cleanupUnusedDeps}
+            />
+          </label>
+          {#if app.info?.updateChannels && supports(app.info, "updates")}
+            <div class="setting">
+              <span class="text">
+                <strong>Channel</strong>
+                <small>
+                  {#if channel === "dev"}
+                    The newest build of <span class="mono">{devBranch}</span>, tried less.
+                  {:else}
+                    The released versions.
+                  {/if}
+                </small>
+              </span>
+              <div class="segmented" role="radiogroup" aria-label="Update channel">
+                <button
+                  role="radio"
+                  aria-checked={channel === "stable"}
+                  onclick={() => (draft.updateChannel = "stable")}>Stable</button
+                >
+                <button
+                  role="radio"
+                  aria-checked={channel === "dev"}
+                  onclick={() => (draft.updateChannel = "dev")}>Development</button
+                >
+              </div>
+            </div>
+            <!-- A fork's launcher may follow any branch of the fork that CI builds (launcher.yml publishes
+             each one's rolling launcher-dev-<branch> release); OpenRAC's own follows master. -->
+            {#if channel === "dev" && app.info.updateChannels.dev.fork}
+              <div class="field">
+                <label for="update-branch">Branch</label>
+                <input
+                  id="update-branch"
+                  type="text"
+                  class="mono"
+                  list="update-branches"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder={`Empty: ${builtBranch}`}
+                  bind:value={draft.updateBranch}
+                />
+                <datalist id="update-branches">
+                  {#each branches as branch (branch)}<option value={branch}></option>{/each}
+                </datalist>
+                <p class="dim note">
+                  Development builds of this branch of <span class="mono"
+                    >{app.info.updateChannels.dev.repository}</span
+                  >; only a build newer than yours installs.
+                </p>
+              </div>
+            {/if}
+          {/if}
+          <p class="dim note status">
+            <button
+              class="link"
+              disabled={looked === "looking" || !supports(app.info, "updates")}
+              onclick={() => void checkNow()}>Check now</button
+            >
+            {#if looked === "looking"}· Looking…{:else if app.update?.missingBuild}· {app.update
+                .name}
+              is out, but not yet for this system.
+              <button class="link" onclick={() => (app.showUpdateModal = true)}>Details</button
+              >{:else if app.update?.switchTo}· {channelName(app.update.switchTo)}
+              {app.update.version} can replace this build.
+              <button class="link" onclick={() => (app.showUpdateModal = true)}>Switch</button
+              >{:else if looked === "found" || app.update}· {app.update?.name ?? "A new version"} is out.
+              <button class="link" onclick={() => (app.showUpdateModal = true)}>Update</button
+              >{:else if looked === "none"}· You have the latest ({app.info?.version ??
+                ""}).{:else if looked === "failed"}· Could not check: {lookError}.{/if}
+            {#if source && supports(app.info, "updates")}
+              · <button class="link" onclick={() => void api.openUrl(source.page)}>Releases</button>
+              {#if draft.developer}
+                · <span class="mono"
+                  >github.com/{source.repository} · {source.channel ?? "latest release"}</span
+                >
+              {/if}
+            {/if}
+          </p>
+        </section>
+      {:else}
+        <section class="panel">
+          <h2>Advanced</h2>
+          <label class="setting">
+            <span class="text">
+              <strong>Detailed game logs</strong>
+              <small
+                >More detail in the game's log, for a bug report. Turn on when we ask you to. The
+                logs are in Files.</small
+              >
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              class="switch"
+              bind:checked={draft.detailedGameLog}
+            />
+          </label>
+          {#if app.info?.platform === "linux"}
+            <!-- The launcher's own window without WebKitGTK's accelerated compositing
+               (core/src/webkit.rs); on by itself after a start that crashed. -->
+            <label class="setting">
+              <span class="text">
+                <strong>Safe rendering</strong>
+                <small
+                  >For a launcher that crashes or stays blank. No page slides. The launcher
+                  restarts.</small
+                >
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                class="switch"
+                bind:checked={draft.safeRendering}
+              />
+            </label>
+          {/if}
+          <label class="setting">
+            <span class="text">
+              <strong>Advanced save editing</strong>
+              <small
+                >Every field of a save, raw bytes too. Your memory card is backed up first.</small
+              >
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              class="switch"
+              bind:checked={draft.saveEditorAdvanced}
+            />
+          </label>
+          <label class="setting">
+            <span class="text">
+              <strong>Developer tools</strong>
+              <small
+                >The Develop tab (builds, checks, decompilation, the console), disc serials and file
+                names.</small
+              >
+            </span>
+            <input type="checkbox" role="switch" class="switch" bind:checked={draft.developer} />
+          </label>
+          {#if draft.developer}
+            <!-- What developer tools add: under the switch, set in from it. -->
+            <div class="dev">
+              <label class="setting">
+                <span class="text">
+                  <strong>Incremental builds (for developers)</strong>
+                  <small
+                    >After a change to OpenRAC, build only what changed instead of the game from
+                    scratch. A build folder OpenRAC cannot vouch for (another OpenRAC version, no
+                    build stamp) is still built from scratch. The Rebuild from scratch action stays.</small
+                  >
+                </span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  class="switch"
+                  bind:checked={draft.incrementalBuilds}
+                />
+              </label>
+              <label class="setting">
+                <span class="text">
+                  <strong>{RAC3_SWITCH.title}</strong>
+                  <small>{RAC3_SWITCH.hint}</small>
+                </span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  class="switch"
+                  checked={draft.rac3Dev}
+                  onchange={toggleRac3}
+                />
+              </label>
+              {#if !rootHere && !onAndroid}
+                <PathField
+                  label="OpenRAC folder"
+                  hint="Your copy of OpenRAC: the folder with games/ and tools/ in it."
+                  folder
+                  bind:value={draft.root}
+                  candidates={found?.roots}
+                  detail={draft.developer}
+                  check={root}
+                />
+              {/if}
+              {#if !onAndroid}
+                <PathField
+                  label="Python"
+                  hint="Python 3.10 or newer: OpenRAC's tools run with it."
+                  bind:value={draft.python}
+                  candidates={found?.pythons}
+                  detail={draft.developer}
+                  check={tool("python")}
+                />
+                <PathField
+                  label="Docker"
+                  hint="The build container of Ratchet & Clank (PAL) and Deadlocked runs in it, on Linux and macOS. Optional."
+                  bind:value={draft.docker}
+                  candidates={found?.dockers}
+                  detail={draft.developer}
+                  check={tool("docker")}
+                />
+              {/if}
+              {#if app.info}
+                <dl class="facts">
+                  <dt>System</dt>
+                  <dd>{app.info.platform}</dd>
+                  {#if app.info.configFile}<dt>Settings file</dt>
+                    <dd class="mono">{app.info.configFile}</dd>{/if}
+                </dl>
+              {/if}
+            </div>
+          {/if}
+          {#if draft.developer && draft.discordRpc && !onAndroid}
+            <div class="field">
+              <label for="discord-client-id">Discord application ID</label>
+              <input
+                id="discord-client-id"
+                type="text"
+                class="mono"
+                placeholder="Empty: OpenRAC's own"
+                aria-invalid={!!discordIdError}
+                bind:value={draft.discordClientId}
+              />
+              {#if discordIdError}<p class="err note" role="alert">{discordIdError}</p>{/if}
+              <p class="dim note">
+                To show your own name and art, create an app at
+                <button
+                  class="link"
+                  onclick={() => void api.openUrl("https://discord.com/developers/applications")}
+                >
+                  discord.com/developers/applications
+                </button>.
+              </p>
+            </div>
+          {/if}
+        </section>
+      {/if}
+    </div>
 
     <p class="dim about">
       OpenRAC Launcher {app.info?.version ?? ""}
@@ -938,6 +989,51 @@
 {/if}
 
 <style>
+  /* The tabs: as Mods' tabs, each a button of its own with an icon. */
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tabs button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    background: var(--control);
+    padding: 8px 18px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--soft);
+    transition:
+      color var(--fast) var(--ease),
+      background var(--fast) var(--ease);
+  }
+
+  .tabs button.on {
+    background: var(--on-fill);
+    color: var(--amber);
+  }
+
+  @media (hover: hover) {
+    :global(html:where(:not([data-input="pad"]))) .tabs button:hover:not(.on) {
+      background: var(--control-hi);
+      color: var(--text);
+    }
+  }
+
+  .tabs button:focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 2px;
+  }
+
+  .tabpanel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--page-gap, 18px);
+  }
+
   .page {
     max-width: var(--page-max, 820px);
     margin: 0 auto;

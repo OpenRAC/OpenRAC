@@ -183,7 +183,7 @@
     white-space: nowrap;
     text-align: center;
     justify-content: center;
-    min-height: 38px;
+    min-height: 40px;
     padding: 6px 12px;
     font-family: var(--font-mono);
     font-size: 0.875rem;
@@ -262,6 +262,12 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       width: 100%;
     }
+  }
+
+  /* Android's 44 px finger height, as every other button there (app.css). */
+  :global(html[data-platform="android"]) .cap,
+  :global(html[data-platform="android"]) .clear {
+    min-height: 44px;
   }
 
   @keyframes pulse {

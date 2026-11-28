@@ -34,9 +34,12 @@
 #include "debug/overlay.h"
 #include "debug/ui_scale.h"
 #include "frontend.h"
+#include "frontend/shortcuts.h"
 #include "mods.h"
 #include "openrac/game_host.h"
+#include "platform/shortcut_keys.h"
 #include "program/control.h"
+#include "program/file_places.h"
 #include "renderer/frame/colour_transfer.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/gl_stats.h"
@@ -506,23 +509,38 @@ void follow_scale(SDL_Window* window) {
 
 void panel(const Shown& shown) {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + 10.0f, viewport->WorkPos.y + 10.0f), ImGuiCond_Always);
-    ImGui::SetNextWindowSizeConstraints(ImVec2(0.0f, 0.0f), ImVec2(viewport->WorkSize.x - 20.0f, viewport->WorkSize.y - 20.0f));
+    ImGui::SetNextWindowPos(
+        ImVec2(viewport->WorkPos.x + 10.0f, viewport->WorkPos.y + 10.0f), ImGuiCond_Always
+    );
+    ImGui::SetNextWindowSizeConstraints(
+        ImVec2(0.0f, 0.0f), ImVec2(viewport->WorkSize.x - 20.0f, viewport->WorkSize.y - 20.0f)
+    );
     ImGui::SetNextWindowBgAlpha(0.82f);
     // On a touch screen it has no keys to name, and a gamepad moves through it while the game is
     // paused (draw); a finger scrolls it.
     const bool keys = !drawer_possible();
-    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize
-                                   | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing
-                                   | (keys ? ImGuiWindowFlags_NoNav : ImGuiWindowFlags_None);
+    const ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize
+        | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing
+        | (keys ? ImGuiWindowFlags_NoNav : ImGuiWindowFlags_None);
     if (ImGui::Begin("OpenRAC debug", nullptr, flags)) {
         if (!keys) {
             drag_scroll(s.panel_scroll);
         }
         const Averages a = averages();
         const std::string where = openrac_game_level_name(s.level);
-        text_coloured(kYellow, "OpenRAC {}  {}  tick {}  {:.0f} tps  {:.0f} fps", s.game, where, s.tick, a.tps, a.fps);
-        if (ImGui::Button(keys ? (s.paused ? "resume (F5)" : "pause (F5)") : (s.paused ? "resume" : "pause"))) {
+        text_coloured(
+            kYellow,
+            "OpenRAC {}  {}  tick {}  {:.0f} tps  {:.0f} fps",
+            s.game,
+            where,
+            s.tick,
+            a.tps,
+            a.fps
+        );
+        if (ImGui::Button(
+                keys ? (s.paused ? "resume (F5)" : "pause (F5)") : (s.paused ? "resume" : "pause")
+            )) {
             s.paused = !s.paused;
             s.held_frames = 0;
         }
@@ -550,7 +568,9 @@ void panel(const Shown& shown) {
         if (ImGui::Checkbox("dump frames", &dumping)) {
             if (dumping) {
                 std::string error;
-                s.message = stats::open_dump(s.dump_path, error) ? "frames are written to " + s.dump_path : error;
+                s.message = stats::open_dump(s.dump_path, error)
+                                ? "frames are written to " + s.dump_path
+                                : error;
             } else {
                 stats::close_dump();
                 s.message = "frame dump closed";
@@ -588,27 +608,30 @@ void panel(const Shown& shown) {
             shaders_section();
         }
         if (keys) {
-            text_coloured(kDim, "F3 hide  F5 pause  F6 step  F7/F8 slower/faster  F12 screenshot");
+            using shortcuts::label;
+            using SId = shortcuts::Id;
+            text_coloured(
+                kDim,
+                "{} hide  {} pause  {} step  {}/{} slower/faster  {} screenshot",
+                label(SId::StatsPanel),
+                label(SId::Pause),
+                label(SId::StepTick),
+                label(SId::Slower),
+                label(SId::Faster),
+                label(SId::Screenshot)
+            );
         }
     }
     ImGui::End();
 }
 
-// A screenshot's file: in the working folder; on Android, whose apps run in "/" (not writable),
-// in the app's own files (HOME, which the launcher sets).
+// A screenshot's file: in OpenRAC's screenshots folder (program/file_places.h), which the menu's
+// Files tab opens.
 std::string shot_name(std::uint64_t tick, bool enhanced) {
     const std::string name =
         std::format("openrac_window_{}{}.png", tick, enhanced ? "_enhanced" : "");
-#if defined(__ANDROID__)
-    if (const std::optional<std::string> home = env::system_variable("HOME");
-        home && !home->empty()) {
-        std::error_code ignored;
-        const std::filesystem::path dir = std::filesystem::path(*home) / "screenshots";
-        std::filesystem::create_directories(dir, ignored);
-        return (dir / name).string();
-    }
-#endif
-    return name;
+    const std::u8string path = (program::screenshots_dir() / name).u8string();
+    return std::string(path.begin(), path.end());
 }
 
 // The window as it is now, overlay included (the back buffer, before the swap), top row first.
@@ -619,8 +642,11 @@ std::vector<std::uint8_t> read_window(int width, int height) {
     std::vector<std::uint8_t> flipped(pixels.size());
     const std::size_t stride = static_cast<std::size_t>(width) * 4;
     for (int y = 0; y < height; ++y) {
-        std::memcpy(flipped.data() + static_cast<std::size_t>(y) * stride,
-                    pixels.data() + static_cast<std::size_t>(height - 1 - y) * stride, stride);
+        std::memcpy(
+            flipped.data() + static_cast<std::size_t>(y) * stride,
+            pixels.data() + static_cast<std::size_t>(height - 1 - y) * stride,
+            stride
+        );
     }
     for (std::size_t i = 3; i < flipped.size(); i += 4) {
         flipped[i] = 0xFF;
@@ -747,18 +773,17 @@ bool event(const SDL_Event& e) {
         if (keyboard_mouse_capture_event(e)) {
             return true;
         }
-        if (s.texture_key_capture && e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
+        if (s.shortcut_capture >= 0 && e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
             // A modifier alone waits for the key it goes with.
-            if (e.key.key == SDLK_LCTRL || e.key.key == SDLK_RCTRL || e.key.key == SDLK_LSHIFT
-                || e.key.key == SDLK_RSHIFT || e.key.key == SDLK_LALT || e.key.key == SDLK_RALT) {
+            if (platform::shortcut_modifier(e.key.scancode)) {
                 return true;
             }
-            s.texture_key_capture = false;
-            if (e.key.key != SDLK_ESCAPE) {
-                settings::get().texture_pack_key =
-                    std::string((e.key.mod & SDL_KMOD_CTRL) != 0 ? "Ctrl+" : "")
-                    + SDL_GetScancodeName(e.key.scancode);
-                settings::save();
+            const auto id = static_cast<shortcuts::Id>(s.shortcut_capture);
+            s.shortcut_capture = -1;
+            if (e.key.scancode == SDL_SCANCODE_DELETE || e.key.scancode == SDL_SCANCODE_BACKSPACE) {
+                shortcuts::set(id, {});
+            } else if (e.key.scancode != SDL_SCANCODE_ESCAPE) {
+                shortcuts::set(id, {platform::shortcut_of(e.key)});
             }
             return true;
         }
@@ -844,13 +869,15 @@ bool event(const SDL_Event& e) {
         return true;
     }
     if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
-        if (e.key.key == SDLK_F3 && (e.key.mod & SDL_KMOD_CTRL) != 0) {
+        using shortcuts::hit;
+        using SId = shortcuts::Id;
+        if (hit(SId::RecordDiagnostics, e.key)) {
             if (!option_off(menu::Id::RecordGameplay)) {
                 toggle_capture(false);
             }
             return true;
         }
-        if (e.key.key == SDLK_F3) {
+        if (hit(SId::StatsPanel, e.key)) {
             if (option_off(menu::Id::DebugOverlay)) {
                 return true;
             }
@@ -859,40 +886,41 @@ bool event(const SDL_Event& e) {
             return true;
         }
         // Pause, step, speed and the screenshot are their own: they work with the panel hidden,
-        // and say so in the picture (status_badge).
-        switch (e.key.key) {
-            case SDLK_F5:
-                if (option_off(menu::Id::KeepPaused)) {
-                    return true;
-                }
+        // and say so in the picture (status_badge). Their keys are the player's (Controls,
+        // Shortcuts).
+        if (hit(SId::Pause, e.key)) {
+            if (!option_off(menu::Id::KeepPaused)) {
                 s.paused = !s.paused;
                 s.held_frames = 0;
-                return true;
-            case SDLK_F6:
-                if (option_off(menu::Id::StepTick)) {
-                    return true;
-                }
+            }
+            return true;
+        }
+        if (hit(SId::StepTick, e.key)) {
+            if (!option_off(menu::Id::StepTick)) {
                 s.paused = true;
                 s.step = true;
-                return true;
-            case SDLK_F7:
-                if (option_off(menu::Id::Speed)) {
-                    return true;
-                }
+            }
+            return true;
+        }
+        if (hit(SId::Slower, e.key)) {
+            if (!option_off(menu::Id::Speed)) {
                 s.stretch = std::min(s.stretch * 2.0, 16.0);
-                return true;
-            case SDLK_F8:
-                if (option_off(menu::Id::Speed)) {
-                    return true;
-                }
+            }
+            return true;
+        }
+        if (hit(SId::Faster, e.key)) {
+            if (!option_off(menu::Id::Speed)) {
                 s.stretch = std::max(s.stretch / 2.0, 1.0);
-                return true;
-            case SDLK_F12:
-                if (option_off(menu::Id::Screenshot)) {
-                    return true;
-                }
+            }
+            return true;
+        }
+        if (hit(SId::Screenshot, e.key)) {
+            if (!option_off(menu::Id::Screenshot)) {
                 s.shot_tick = s.tick;
-                return true;
+            }
+            return true;
+        }
+        switch (e.key.key) {
             // The menu, open at its Controls tab (debug/menu_controls.cpp).
             case SDLK_F13:
                 if (menu_window_possible()) {
@@ -958,7 +986,8 @@ void tick(const Tick& t) {
         s.reload_at = -1;
         std::string message;
         const int done = renderer::gl_stats::reload_all(shader_root(), message);
-        s.message = std::format("{} programs reloaded{}", done, message.empty() ? "" : "\n" + message);
+        s.message =
+            std::format("{} programs reloaded{}", done, message.empty() ? "" : "\n" + message);
         log::info("debug overlay: {}", s.message);
     }
     stats::gauge("mobys", t.state != nullptr ? static_cast<double>(t.state->mobys.size()) : 0.0);
@@ -1000,7 +1029,9 @@ void begin(bool first, bool held, float alpha, std::uint64_t tick_number) {
         stats::set_frame(tick_number, alpha);
         stats::lap("scene");
     } else {
-        stats::begin_frame(held ? stats::FrameKind::Held : stats::FrameKind::Between, tick_number, alpha);
+        stats::begin_frame(
+            held ? stats::FrameKind::Held : stats::FrameKind::Between, tick_number, alpha
+        );
     }
 }
 
@@ -1047,7 +1078,8 @@ void draw(const Shown& shown) {
     const stats::Scope scope("overlay");
     capture_frame(shown);
     // The processor's load, each half second.
-    if (const stats::Frame* f = stats::history(0); s.visible && f != nullptr && f->start_s - s.cpu_wall >= 0.5) {
+    if (const stats::Frame* f = stats::history(0);
+        s.visible && f != nullptr && f->start_s - s.cpu_wall >= 0.5) {
         const double seconds = stats::process_cpu_seconds();
         s.cpu_load = s.cpu_wall > 0.0 ? (seconds - s.cpu_seconds) / (f->start_s - s.cpu_wall) : 0.0;
         s.cpu_seconds = seconds;
@@ -1108,7 +1140,8 @@ void draw(const Shown& shown) {
     std::string scripted_shot;
     const stats::Frame* last = stats::history(0);
     const bool tick_frame = last == nullptr || last->kind != stats::FrameKind::Between;
-    if (s.shot_every > 0 && tick_frame && s.tick % s.shot_every == 0 && s.tick >= s.shot_from && s.shots < 10000) {
+    if (s.shot_every > 0 && tick_frame && s.tick % s.shot_every == 0 && s.tick >= s.shot_from
+        && s.shots < 10000) {
         // Once a tick; and once more while paused, a few pictures in ("_held").
         static std::uint64_t written = ~0ull;
         static int held = 0;
@@ -1170,8 +1203,8 @@ void draw(const Shown& shown) {
         const bool saved = write_window(path, shown.window_width, shown.window_height);
         notify({
             .title = saved ? "Screenshot saved" : "The screenshot could not be saved",
-            .text = path,
-            .folder = saved ? path : std::string(),
+            .text = saved ? path.substr(path.find_last_of("/\\") + 1) : path,
+            .where = saved ? program::kFilesHint : std::string(),
             .tone = saved ? Tone::Done : Tone::Error,
             .seconds = saved ? 3.0 : 8.0,
         });

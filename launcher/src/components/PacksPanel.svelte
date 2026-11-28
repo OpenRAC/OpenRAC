@@ -300,11 +300,6 @@
             ...(pack.packCount
               ? [{ label: TEXTURES.share, icon: "upload" as const, run: () => void share() }]
               : []),
-            {
-              label: TEXTURES.openFolder,
-              icon: "folder" as const,
-              run: () => void guardShown(api.texturePacksOpen(v.game, v.name, false)),
-            },
             ...(!onAndroid && pack.pcsx2Path
               ? [
                   {

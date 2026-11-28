@@ -123,7 +123,7 @@ that finds nothing says so once.
 ## Graphics and sound packs
 
 Your texture pack comes first: its switch, a badge, Make your own, and a menu
-(Share my pack, Replace with a pack, Open its folder). Then each pack with a
+(Share my pack, Replace with a pack). Then each pack with a
 grip, a switch, what it replaces, up, down and remove.
 
 ## Level editor, Models and textures, Audio

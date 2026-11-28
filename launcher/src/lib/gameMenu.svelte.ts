@@ -4,7 +4,7 @@
 import type { MenuItem } from "$components/Menu.svelte";
 
 import { api, ask, type GameView, onAndroid, type VersionView } from "./api";
-import { app, gameWindow, guard, openVersion, run, saveConfig, uninstallGame } from "./app.svelte";
+import { app, gameWindow, openVersion, run, saveConfig, uninstallGame } from "./app.svelte";
 import { isBuilt, type PlayerState, rebuild, rebuildSteps } from "./player.svelte";
 
 /** Asked of the game's page as it opens: unfold Help with its logs (the menu's way from Games). */
@@ -60,14 +60,8 @@ export function gameMenu(
 
   if (setUp) items.push({ label: "Logs and crash reports", icon: "book", run: showLogs });
 
-  // Android: the game's files are in the Files app (Settings, Your files), and the activity log
-  // is the rail's running job.
+  // The game's folders are in Settings, Files. Android: the activity log is the rail's running job.
   if (!onAndroid) {
-    items.push({
-      label: "Open the game's folder",
-      icon: "folder",
-      run: () => void guard(api.openPath(v.dir)),
-    });
     items.push({ label: "Activity log", icon: "terminal", run: () => (app.page = "tasks") });
   }
 

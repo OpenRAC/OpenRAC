@@ -9,7 +9,7 @@
 
   import FoldHead from "$components/FoldHead.svelte";
   import Icon from "$components/Icon.svelte";
-  import { api, onAndroid, type ReportEntry } from "$lib/api";
+  import { api, type ReportEntry } from "$lib/api";
   import { app, countCrashes, dismissCrashes, guard, saveConfig } from "$lib/app.svelte";
   import { copyText } from "$lib/clipboard";
   import { DISCORD_URL, ISSUES_URL } from "$lib/links";
@@ -200,15 +200,10 @@
         <div class="inside">
           <p class="intro muted">
             The game keeps a log each time you play, and writes a report when it crashes. If
-            something goes wrong, copy or save one and send it to us.
+            something goes wrong, copy or save one and send it to us. Their folder is in Settings,
+            Files.
           </p>
           <div class="row tools">
-            {#if !onAndroid}
-              <!-- Android opens no app's own folders: Save puts a report where the player chooses. -->
-              <button class="small" onclick={() => void guard(api.openReportsFolder(game, false))}>
-                <Icon name="folder" size={14} />Open folder
-              </button>
-            {/if}
             {#if entries && entries.length > 0}
               <button
                 class="ghost small danger"

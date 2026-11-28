@@ -28,7 +28,7 @@ constexpr Kind kPanel = Kind::Panel;
 constexpr Entry kEntries[] = {
     // ---- Graphics ----
     {Id::FullScreen, Tab::Graphics, "Display", kSwitch, D, "Full screen",
-     "Fills the screen with the game's window, or gives the window back. F11 does the same."},
+     "Fills the screen with the game's window, or gives the window back. Its key is in Controls, Shortcuts."},
     {Id::DisplayMode, Tab::Graphics, "Display", kChoice, DG, "Display mode",
      "Windowed, or borderless full screen at the display's own resolution."},
     {Id::Monitor, Tab::Graphics, "Display", kChoice, D, "Monitor",
@@ -70,7 +70,7 @@ constexpr Entry kEntries[] = {
      "Waits for the display before showing a frame, which stops tearing. Off shows frames as "
      "soon as they are drawn."},
     {Id::FrameCounter, Tab::Graphics, "Frames", kChoice, AG, "Frame counter",
-     "Shows the frames a second in a corner of the picture. F2 changes it too."},
+     "Shows the frames a second in a corner of the picture. Its key is in Controls, Shortcuts."},
     {Id::Hdr, Tab::Graphics, "HDR", kChoice, AG, "HDR",
      "High dynamic range output, whenever the screen offers it, with Vulkan or with Metal on "
      "macOS. Turned on from Off, it starts with the game's next start (at once with Metal)."},
@@ -154,7 +154,7 @@ constexpr Entry kEntries[] = {
 
     // ---- Game ----
     {Id::Volume, Tab::Game, "Sound", kChoice, A, "Volume",
-     "The game's volume, in steps of 10%. F9 and F10 change it too."},
+     "The game's volume, in steps of 10%. Its keys are in Controls, Shortcuts."},
     {Id::MuteInBackground, Tab::Game, "Sound", kSwitch, D, "Mute in background",
      "Silences the game while another window has the focus."},
     {Id::SkipCutscenes, Tab::Game, "Game", kSwitch, A, "Skip cutscenes",
@@ -219,6 +219,12 @@ constexpr Entry kEntries[] = {
      "The mouse's sensitivity and feel, and the key for each action. Pick a key's row to replace "
      "it (press the new key, mouse button or wheel; Esc cancels), add a second or remove one. A "
      "mark: another action has that key too."},
+    {Id::Shortcuts, Tab::Controls, "Shortcuts", kPanel, D, "Shortcuts",
+     "The keys for the port's own actions: a screenshot, full screen, the volume, and the "
+     "developer's tools. Pick a row and press the new key; Ctrl, Shift or Alt may be held with "
+     "it. Esc cancels, Delete leaves it with no key. A mark: another shortcut has that key too."},
+    {Id::FreecamHelp, Tab::Controls, "Freecam", kNote, A, "Freecam keys",
+     "How to move the freecam (Developer tab), with the keyboard or the controller."},
     {Id::TouchActionButtons, Tab::Controls, "Touch controls", kSwitch, T, "Action buttons",
      "Buttons that show what they do (jump, fire, the ship's boost) and change with what the game "
      "is doing. Off: the DualShock's buttons."},
@@ -234,8 +240,8 @@ constexpr Entry kEntries[] = {
 
     // ---- Developer ----
     {Id::DebugOverlay, Tab::Developer, "Inspect", kSwitch, A, "Debug overlay",
-     "The frame's timings, the renderer's passes, memory, mobys and the game's state. F3 shows "
-     "and hides it."},
+     "The frame's timings, the renderer's passes, memory, mobys and the game's state. Its key "
+     "is in Controls, Shortcuts."},
     {Id::MobyPicker, Tab::Developer, "Inspect", kSwitch, D, "Moby picker",
      "Click a moby in the picture to select it and see its fields."},
     {Id::ObjectViewer, Tab::Developer, "Inspect", kSwitch, D, "Object viewer",
@@ -245,8 +251,6 @@ constexpr Entry kEntries[] = {
     {Id::TexturePack, Tab::Developer, "Textures", kSwitch, A, "Texture pack",
      "Shows or hides the texture pack's pictures, to compare them with the game's. Menus and the "
      "font change at once; world textures change at the next level."},
-    {Id::TexturePackKey, Tab::Developer, "Textures", kPanel, D, "Texture pack key",
-     "The key that shows and hides the texture pack. Ctrl can be part of it."},
     {Id::TexturePackBackground, Tab::Developer, "Textures", kSwitch, A,
      "Load PCSX2 pack in background",
      "Reads a PCSX2 pack's pictures on another thread. The original picture shows until the "
@@ -256,27 +260,26 @@ constexpr Entry kEntries[] = {
      "Reads a PCSX2 pack's pictures at the start, smallest files first, until the cache is full. "
      "Uses more memory. Counts from the next start."},
     {Id::LevelSelect, Tab::Developer, "Level", kAction, A, "Level select",
-     "Goes to another level. F1 opens it too."},
+     "Goes to another level. Its key is in Controls, Shortcuts."},
     {Id::KeepPaused, Tab::Developer, "Time", kSwitch, A, "Keep paused",
-     "The game waits while the menu is open; this keeps it paused once the menu is closed. F5 "
-     "pauses and resumes in play."},
+     "The game waits while the menu is open; this keeps it paused once the menu is closed. A "
+     "key pauses and resumes in play (Controls, Shortcuts)."},
     {Id::StepTick, Tab::Developer, "Time", kAction, A, "Step one tick",
-     "Runs the game for one tick and pauses it again. F6 does the same."},
+     "Runs the game for one tick and pauses it again. Its key is in Controls, Shortcuts."},
     {Id::Speed, Tab::Developer, "Time", kChoice, A, "Speed",
-     "Slows the game down, to half, a quarter and so on. F7 and F8 do the same."},
+     "Slows the game down, to half, a quarter and so on. Its keys are in Controls, Shortcuts."},
     {Id::Screenshot, Tab::Developer, "Capture", kAction, A, "Screenshot",
-     "Saves the picture once the menu has closed. F12 takes one in play."},
+     "Saves the picture once the menu has closed. Its key takes one in play (Controls, Shortcuts)."},
     {Id::RecordGameplay, Tab::Developer, "Record diagnostics", kAction, A, "Gameplay recording",
      "Records while you play, for the length below. Use it to catch stutters or a slow place or "
      "moment. It starts a moment after the menu closes; opening the menu ends it, and its "
-     "report is copied and saved. Ctrl+F3 starts and stops one too."},
+     "report is copied and saved. A key starts and stops one too (Controls, Shortcuts). "
+     "Recordings are in the Files tab."},
     {Id::RecordLength, Tab::Developer, "Record diagnostics", kChoice, A, "Recording length",
      "How long a gameplay recording runs, or until it is stopped."},
     {Id::RecordSweep, Tab::Developer, "Record diagnostics", kAction, A, "Graphics sweep",
      "Stand still while it runs: it changes the graphics settings every few seconds, with "
      "VSync off, and measures what each one costs. Shown while Enhanced graphics is on."},
-    {Id::RecordFolder, Tab::Developer, "Record diagnostics", kAction, D, "Open recordings folder",
-     "Opens the folder the recordings and their reports are saved in."},
     {Id::SlowCpu, Tab::Developer, "Performance", kChoice, A, "Simulate slow CPU",
      "Makes each frame's work take longer, as on a weaker device's processor, to test how the "
      "game copes."},
@@ -294,8 +297,10 @@ constexpr Entry kEntries[] = {
      "Puts the freecam where the game's camera is."},
     {Id::FreecamExit, Tab::Developer, "Freecam", kAction, A, "Exit freecam",
      "Gives the view back to the game and puts the freecam's settings back as they came."},
-    {Id::FreecamHelp, Tab::Developer, "Freecam", kNote, A, "Freecam controls",
-     "How to move the freecam, with the keyboard or the controller, whichever was used last."},
+    // ---- Files ----
+    {Id::FilePlaces, Tab::Files, "Your files", kPanel, A, "Your files",
+     "Where OpenRAC keeps what it saves. Pick a row to open its folder; when it cannot be "
+     "opened, its path is copied."},
 
     // ---- Program ----
     {Id::Quit, Tab::Program, "", kAction, A, "Quit game",
@@ -304,7 +309,7 @@ constexpr Entry kEntries[] = {
 // clang-format on
 
 constexpr std::array<const char*, kTabs> kTabNames =
-    {"Graphics", "Enhanced", "Game", "Controls", "Developer", "Program"};
+    {"Graphics", "Enhanced", "Game", "Controls", "Developer", "Files", "Program"};
 
 // The entries by Id, checked as the program is compiled: each Id once, in order.
 constexpr bool in_order() {
@@ -405,6 +410,8 @@ constexpr std::array<const char*, kIds> kOptionNames = {
     "player_two",
     "menu_open",
     "keyboard_mouse",
+    "shortcuts",
+    "freecam_help",
     "touch_action_buttons",
     "touch_button_size",
     "touch_camera_speed",
@@ -415,7 +422,6 @@ constexpr std::array<const char*, kIds> kOptionNames = {
     "object_viewer",
     "meat_proxy_review",
     "texture_pack",
-    "texture_pack_key",
     "texture_pack_background",
     "texture_pack_precache",
     "level_select",
@@ -426,7 +432,6 @@ constexpr std::array<const char*, kIds> kOptionNames = {
     "record_gameplay",
     "record_length",
     "record_sweep",
-    "record_folder",
     "slow_cpu",
     "freecam",
     "freecam_mode",
@@ -434,7 +439,7 @@ constexpr std::array<const char*, kIds> kOptionNames = {
     "freecam_speed",
     "freecam_reset",
     "freecam_exit",
-    "freecam_help",
+    "file_places",
     "quit",
 };
 

@@ -37,7 +37,7 @@
 #include "openrac/game_host.h"
 #include "options_menu.h"
 #include "platform/performance_hint.h"
-#include "platform/show_folder.h"
+#include "program/file_places.h"
 #include "program/options.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/gl_stats.h"
@@ -383,23 +383,9 @@ void configure_capture() {
     }
 }
 
-// The folder the captures go to: perf/ in OpenRAC's data folder, beside the cards and settings
-// (%LOCALAPPDATA%\openrac\perf on Windows); on Android the app's own files (HOME), which the
-// Files app shows as "Diagnostics recordings". Absolute, so the notification says where it is.
+// The folder the captures go to (program::recordings_dir), absolute so the report says where.
 std::filesystem::path capture_dir() {
-#if defined(__ANDROID__)
-    std::filesystem::path dir = "perf";
-    if (const std::optional<std::string> home = env::system_variable("HOME");
-        home && !home->empty()) {
-        dir = std::filesystem::path(*home) / "perf";
-    }
-#else
-    std::filesystem::path dir = program::data_home() / "perf";
-#endif
-    std::error_code ignored;
-    std::filesystem::create_directories(dir, ignored);
-    const std::filesystem::path absolute = std::filesystem::absolute(dir, ignored);
-    return absolute.empty() ? dir : absolute;
+    return program::recordings_dir();
 }
 
 std::string level_name(int level) {
@@ -728,7 +714,7 @@ void finish_capture(const Shown& shown, const perf_capture::Recorder& recorder) 
                 ? std::format("Diagnostics report {}", copied ? "copied to the clipboard" : "ready")
                 : std::string("The diagnostics report could not be saved"),
         .text = (written ? "Saved to " : "Not written to ") + where,
-        .folder = written ? where : std::string(),
+        .where = written ? program::kFilesHint : std::string(),
         .tone = written ? Tone::Done : Tone::Error,
         .seconds = written ? 8.0 : 15.0,
     };
@@ -798,18 +784,6 @@ void toggle_settings_sweep() {
 
 double settings_sweep_seconds() {
     return kSweepSteps * kSweepStepS;
-}
-
-void open_capture_folder() {
-    if (!platform::show_folder(capture_dir())) {
-        const std::u8string path8 = capture_dir().u8string();
-        notify({
-            .title = "The folder could not be opened",
-            .text = std::string(path8.begin(), path8.end()),
-            .tone = Tone::Error,
-            .seconds = 6.0,
-        });
-    }
 }
 
 bool capture_busy() {

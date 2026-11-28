@@ -74,6 +74,7 @@ add_library(openrac_platform STATIC
   platform/performance_hint.cpp
   platform/pump.cpp
   platform/rumble.cpp
+  platform/shortcut_keys.cpp
   platform/show_folder.cpp
   platform/touch_actions.cpp
   platform/touch_pad.cpp
@@ -86,6 +87,10 @@ target_include_directories(openrac_platform PRIVATE "${PROJECT_SOURCE_DIR}/../sd
 openrac_warnings(openrac_platform)
 # What the player bound each pad button to (platform/bindings.h).
 openrac_add_test(bindings SOURCES tests/bindings_test.cpp INCLUDES . LIBS openrac_platform)
+# A shortcut's keys as the controls file writes them (platform/shortcut_keys.h).
+openrac_add_test(shortcut_keys SOURCES tests/shortcut_keys_test.cpp INCLUDES . LIBS openrac_platform)
+# What the desktop is given to open a folder (platform/show_folder.h).
+openrac_add_test(show_folder SOURCES tests/show_folder_test.cpp INCLUDES . LIBS openrac_platform)
 # The controls files and the store that layers them (platform/controls_file.h,
 # game/common/controls_store.h).
 openrac_add_test(controls SOURCES tests/controls_test.cpp game/common/controls_store.cpp

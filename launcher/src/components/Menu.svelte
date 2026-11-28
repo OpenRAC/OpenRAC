@@ -187,9 +187,10 @@
     display: inline-flex;
   }
 
+  /* As tall as every other button (40 px; 44 on Android, app.css). */
   .trigger {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     padding: 0;
     justify-content: center;
     background: var(--control);
@@ -197,8 +198,17 @@
 
   /* As tall as the three dots beside it, the words centred on the icon. */
   .words {
-    height: 44px;
+    height: 40px;
     line-height: 1;
+  }
+
+  :global(html[data-platform="android"]) .trigger {
+    width: 44px;
+    height: 44px;
+  }
+
+  :global(html[data-platform="android"]) .words {
+    height: 44px;
   }
 
   .words.compact {

@@ -267,6 +267,16 @@ fn save_config(state: State<'_, AppState>, mut config: Config) -> Result<Config,
     {
         return Err("the multiplayer server must be a host name or an IP address, and a port from 1 to 65535".into());
     }
+    // The games, install and save folders: full paths to a folder (or none yet), as the page
+    // checks them; a relative one would follow whatever folder the launcher was started in.
+    for (name, dir) in [("games", &config.discs_dir), ("install", &config.install_dir), ("save", &config.save_dir)] {
+        if let Some(dir) = dir.as_deref().filter(|d| !d.as_os_str().is_empty()) {
+            let check = detect::check_folder(dir, true);
+            if !check.ok {
+                return Err(format!("the {name} folder {}: {}", dir.display(), check.message));
+            }
+        }
+    }
     // Developer tools switched off: back to the carried copy (detect::settle).
     detect::settle(&mut config, state.bundled.as_deref());
     // The page sends the settings back without the paths the launcher keeps its own files
@@ -336,6 +346,11 @@ async fn detect(state: State<'_, AppState>) -> Result<Detected, String> {
 #[tauri::command]
 async fn check_root(path: PathBuf) -> Check {
     detect::check_root(&path)
+}
+
+#[tauri::command]
+async fn check_folder(path: PathBuf, may_be_missing: bool) -> Check {
+    detect::check_folder(&path, may_be_missing)
 }
 
 #[tauri::command]
@@ -661,22 +676,6 @@ async fn texture_packs_set(
         launcher_log::line(&format!("{game}/{version}: saving textures {}", if on { "on" } else { "off" }));
     }
     texture_packs_view(state, game, version).await
-}
-
-/// Opens a folder of the pack (`dump` false) or of the saved textures, made if it is not there.
-#[tauri::command]
-fn texture_packs_open(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    game: String,
-    version: String,
-    dump: bool,
-    folder: String,
-) -> Result<(), String> {
-    let data = game_data_dir(&state, &game)?;
-    let home = openrac_launcher_core::saves::data_home();
-    let dir = openrac_launcher_core::texture_packs::folder(&home, &data, &game, &version, dump, &folder)?;
-    open_path_with_system(&app, &dir.to_string_lossy())
 }
 
 /// What a pack's .zip holds, refused for another game's or one that is not a pack.
@@ -1067,17 +1066,6 @@ async fn report_save(app: AppHandle, state: State<'_, AppState>, game: String, f
     launcher_log::line(&format!("saved a report: {}", out.display()));
     let _ = app.opener().reveal_item_in_dir(&out);
     Ok(reports::tidy(&out.to_string_lossy(), reports::home().as_deref()))
-}
-
-/// Opens the folder a game's logs are in (its crash reports' folder when `crashes`).
-#[tauri::command]
-fn open_reports_folder(app: AppHandle, state: State<'_, AppState>, game: String, crashes: bool) -> Result<(), String> {
-    let data = game_data(&state, &game)?;
-    let dir = if crashes && data.join("crashes").is_dir() { data.join("crashes") } else { data };
-    if !dir.is_dir() {
-        return Err("nothing has been logged for this game yet".into());
-    }
-    open_path_with_system(&app, &dir.to_string_lossy())
 }
 
 #[tauri::command]
@@ -2976,55 +2964,6 @@ async fn plugins_remove_with(
     .await
 }
 
-/// Opens a folder inside a game's set-up folder (an export, the overrides): folders only, and
-/// only there, so the page cannot open anything else with it.
-#[tauri::command]
-fn open_game_folder(app: AppHandle, state: State<'_, AppState>, game: String, path: String) -> Result<(), String> {
-    let install = state.config.lock().unwrap().install_dir.clone().ok_or("no install folder (Settings)")?;
-    let data = install::data_dir(&install, &game);
-    let _ = std::fs::create_dir_all(data.join("exports"));
-    let data = std::fs::canonicalize(&data).map_err(|e| format!("{}: {e}", data.display()))?;
-    let wanted = Path::new(&path);
-    if !wanted.exists()
-        && !wanted.components().any(|c| c == std::path::Component::ParentDir)
-        && detect::plain(wanted).starts_with(detect::plain(&data))
-    {
-        // A folder of the set-up a tool writes (the level editor's projects, packed levels)
-        // before it first has: opened empty rather than refused.
-        std::fs::create_dir_all(wanted).map_err(|e| format!("{path}: {e}"))?;
-    }
-    let target = std::fs::canonicalize(wanted).map_err(|e| format!("{path}: {e}"))?;
-    if !target.starts_with(&data) || !target.is_dir() {
-        return Err(format!("{path} is not a folder of the game's set-up"));
-    }
-    open_path_with_system(&app, &target.to_string_lossy())
-}
-
-/// Opens a folder a job wrote (a `job-exit`'s `outputs`, a `Started`'s `output`) with the system's
-/// file manager; a file opens its folder. Only the folders the launcher's tools write: the
-/// checkout's assets/ and build/, and the per-user install folder with the games' set-up folders.
-#[tauri::command]
-fn open_output(app: AppHandle, state: State<'_, AppState>, path: String) -> Result<(), String> {
-    let (root, install) = {
-        let c = state.config.lock().unwrap();
-        (c.root.clone(), c.install_dir.clone())
-    };
-    let target = std::fs::canonicalize(&path).map_err(|e| format!("{path}: {e}"))?;
-    let target = if target.is_dir() { target } else { target.parent().map(Path::to_path_buf).unwrap_or(target) };
-    let mut allowed = Vec::new();
-    if let Some(root) = root.and_then(|r| std::fs::canonicalize(r).ok()) {
-        allowed.push(root.join("assets"));
-        allowed.push(root.join("build"));
-    }
-    if let Some(install) = install.and_then(|i| std::fs::canonicalize(i).ok()) {
-        allowed.push(install);
-    }
-    if !allowed.iter().any(|folder| target.starts_with(folder)) {
-        return Err(format!("{path} is not a folder the launcher's tools write"));
-    }
-    open_path_with_system(&app, &target.to_string_lossy())
-}
-
 /// Open a lighting diagnostic in the system's text viewer, only after checking its owning cache.
 #[tauri::command]
 fn open_bake_log(app: AppHandle, state: State<'_, AppState>, version: String, path: String) -> Result<(), String> {
@@ -3044,13 +2983,82 @@ fn open_level_in_editor(state: State<'_, AppState>, version: String, level: u32)
     state.jobs.start(&plan, config.root.as_deref(), |_| {})
 }
 
+/// Settings, Files: the folders the player's files are in (core files.rs), with `game`/`version`'s
+/// own when one is picked. Opening goes through [`open_file_place`], by a place's id only.
+fn with_file_places<T>(
+    state: &State<'_, AppState>,
+    game: Option<String>,
+    version: Option<String>,
+    then: impl FnOnce(&openrac_launcher_core::files::Inputs) -> T,
+) -> Result<T, String> {
+    let config = state.config.lock().unwrap().clone();
+    let home = openrac_launcher_core::saves::data_home();
+    // The app's files (HOME, OpenracSetup.kt); before that is set, the folder the data home is in
+    // (files/share/openrac).
+    let android_home = cfg!(target_os = "android")
+        .then(|| {
+            std::env::var_os("HOME")
+                .map(PathBuf::from)
+                .or_else(|| home.parent().and_then(Path::parent).map(Path::to_path_buf))
+        })
+        .flatten();
+    let data = match (&game, &config.install_dir) {
+        (Some(game), Some(_)) => Some(game_data(state, game)?),
+        _ => None,
+    };
+    let standalone = state.bundled.as_deref().is_some_and(|copy| detect::on_the_copy(config.root.as_deref(), copy));
+    let checkout = config.root.as_deref().filter(|_| !standalone);
+    let version = match (&game, &version, &data) {
+        (Some(game), Some(version), Some(data)) => Some((game.as_str(), version.as_str(), data.as_path())),
+        _ => None,
+    };
+    let inputs = openrac_launcher_core::files::Inputs {
+        data_home: &home,
+        android_home: android_home.as_deref(),
+        version,
+        developer: config.developer,
+        checkout,
+    };
+    Ok(then(&inputs))
+}
+
 #[tauri::command]
-fn open_saves_folder(app: AppHandle, serial: String) -> Result<(), String> {
-    let dir = openrac_launcher_core::saves::get_memcard_dir(&serial);
-    if !dir.exists() {
-        let _ = std::fs::create_dir_all(&dir);
-    }
-    open_path_with_system(&app, &dir.to_string_lossy())
+async fn file_places(
+    state: State<'_, AppState>,
+    game: Option<String>,
+    version: Option<String>,
+) -> Result<Vec<openrac_launcher_core::files::Place>, String> {
+    with_file_places(&state, game, version, openrac_launcher_core::files::places)
+}
+
+/// Opens one place of Settings, Files, made if it is not there yet.
+#[tauri::command]
+fn open_file_place(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    game: Option<String>,
+    version: Option<String>,
+) -> Result<(), String> {
+    let folder = with_file_places(&state, game, version, |inputs| openrac_launcher_core::files::folder(inputs, &id))??;
+    open_path_with_system(&app, &folder.to_string_lossy())
+}
+
+/// Settings, Controls: the game's keyboard shortcuts (core key_shortcuts.rs).
+#[tauri::command]
+fn shortcuts_view() -> Result<Vec<openrac_launcher_core::key_shortcuts::Row>, String> {
+    openrac_launcher_core::key_shortcuts::view(&openrac_launcher_core::saves::data_home())
+}
+
+/// Binds `keys` to a shortcut ("" none); null puts its default back.
+#[tauri::command]
+fn shortcuts_set(id: String, keys: Option<String>) -> Result<Vec<openrac_launcher_core::key_shortcuts::Row>, String> {
+    openrac_launcher_core::key_shortcuts::set(&openrac_launcher_core::saves::data_home(), &id, keys.as_deref())
+}
+
+#[tauri::command]
+fn shortcuts_reset() -> Result<Vec<openrac_launcher_core::key_shortcuts::Row>, String> {
+    openrac_launcher_core::key_shortcuts::reset(&openrac_launcher_core::saves::data_home())
 }
 
 /// The launcher's icons in each size the desktop's icon theme takes (core desktop.rs).
@@ -3224,6 +3232,7 @@ pub fn run() {
             save_config,
             detect,
             check_root,
+            check_folder,
             check_tool,
             editor_install_status,
             editor_newest,
@@ -3235,6 +3244,11 @@ pub fn run() {
             run_action,
             cancel_job,
             open_path,
+            file_places,
+            open_file_place,
+            shortcuts_view,
+            shortcuts_set,
+            shortcuts_reset,
             open_url,
             install_game,
             prepare_disc,
@@ -3255,7 +3269,6 @@ pub fn run() {
             save_copy_sources,
             preview_save_copy,
             copy_saves,
-            open_saves_folder,
             read_save,
             write_save,
             read_save_rac2,
@@ -3282,7 +3295,6 @@ pub fn run() {
             texture_packs_view,
             interface_runs_view,
             texture_packs_set,
-            texture_packs_open,
             texture_packs_preview,
             texture_packs_import,
             texture_packs_export,
@@ -3336,8 +3348,6 @@ pub fn run() {
             plugins_dependents,
             plugins_orphans,
             plugins_remove_with,
-            open_game_folder,
-            open_output,
             open_bake_log,
             open_level_in_editor,
             reports_list,
@@ -3346,7 +3356,6 @@ pub fn run() {
             report_save,
             report_delete,
             reports_delete_all,
-            open_reports_folder,
             differences,
             set_game_fix,
             controls_view,
@@ -3360,7 +3369,6 @@ pub fn run() {
             android::pick_disc,
             android::pick_zip,
             android::pick_memory_card,
-            android::show_files,
             android::gpu_drivers,
             android::gpu_driver_import,
             android::gpu_driver_select,

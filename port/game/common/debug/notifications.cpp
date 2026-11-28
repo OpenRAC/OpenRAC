@@ -9,11 +9,11 @@
 #include <cmath>
 #include <imgui.h>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "debug/menu_ui.h"
 #include "debug/overlay.h"
-#include "platform/show_folder.h"
 
 namespace openrac::frontend::debug_overlay {
 
@@ -107,19 +107,95 @@ struct Layout {
     float width = 0.0f;   // the content's, right of the mark
     float height = 0.0f;  // the content's
     float title_h = 0.0f;
-    float wrap = 0.0f;    // title wrap width
     float keys_w = 0.0f;  // the caps' line, 0 without keys
-    float text_wrap = 0.0f;
+    float text_h = 0.0f;  // the second line's, caps or text
+    std::string title;    // the lines as drawn: wrapped, and cut with "..." past their limit
+    std::string text;
+    std::string where;
 };
 
 constexpr float kOrWidth = 22.0f;  // the "or" between two ways, in dp
+// The most lines each part of a card takes; more ends in "...".
+constexpr int kTitleLines = 2;
+constexpr int kTextLines = 3;
+
+float text_width(ImFont* font, std::string_view text) {
+    return font
+        ->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, text.data(), text.data() + text.size())
+        .x;
+}
+
+// The byte where the UTF-8 character after `at` starts.
+std::size_t next_char(std::string_view text, std::size_t at) {
+    ++at;
+    while (at < text.size() && (static_cast<unsigned char>(text[at]) & 0xC0) == 0x80) {
+        ++at;
+    }
+    return at;
+}
+
+// `text` in lines no wider than `width`, broken at spaces where it can (a long file name or path
+// anywhere), and at most `most` of them: the last one kept ends in "..." when more was left.
+std::string fit_lines(ImFont* font, std::string_view text, float width, int most) {
+    std::vector<std::string> lines;
+    std::string line;
+    bool cut = false;
+    for (std::size_t i = 0; i < text.size();) {
+        const std::size_t next = next_char(text, i);
+        const std::string_view ch = text.substr(i, next - i);
+        if (ch == "\n") {
+            lines.push_back(std::move(line));
+            line.clear();
+            i = next;
+        } else if (!line.empty() && text_width(font, line + std::string(ch)) > width) {
+            // Back to the last space when the line has one; the rest starts the next line.
+            const std::size_t space = line.rfind(' ');
+            std::string rest;
+            if (space != std::string::npos && space > 0) {
+                rest = line.substr(space + 1);
+                line.resize(space);
+            }
+            lines.push_back(std::move(line));
+            line = std::move(rest);
+            if (ch == " " && line.empty()) {
+                i = next;
+            }
+        } else {
+            line += ch;
+            i = next;
+        }
+        if (static_cast<int>(lines.size()) >= most) {
+            cut = i < text.size() || !line.empty();
+            break;
+        }
+    }
+    if (static_cast<int>(lines.size()) < most && !line.empty()) {
+        lines.push_back(std::move(line));
+    }
+    if (cut && !lines.empty()) {
+        std::string& last = lines.back();
+        while (!last.empty() && text_width(font, last + "...") > width) {
+            std::size_t back = last.size() - 1;
+            while (back > 0 && (static_cast<unsigned char>(last[back]) & 0xC0) == 0x80) {
+                --back;
+            }
+            last.resize(back);
+        }
+        last += "...";
+    }
+    std::string out;
+    for (std::size_t k = 0; k < lines.size(); ++k) {
+        out += (k > 0 ? "\n" : "") + lines[k];
+    }
+    return out;
+}
 
 Layout measure(const Notification& n, float most) {
     Layout l;
     ImFont* title = menu_fonts.strong;
     ImFont* body = menu_fonts.body;
-    l.wrap = most;
-    const ImVec2 t = title->CalcTextSizeA(title->FontSize, FLT_MAX, most, n.title.c_str());
+    l.title = fit_lines(title, n.title, most, kTitleLines);
+    const ImVec2 t = title->CalcTextSizeA(title->FontSize, FLT_MAX, 0.0f, l.title.c_str());
     l.title_h = t.y;
     l.width = t.x;
     for (std::size_t i = 0; i < n.keys.size(); ++i) {
@@ -129,13 +205,22 @@ Layout measure(const Notification& n, float most) {
     float second_h = n.keys.empty() ? 0.0f : key_cap_height();
     if (!n.text.empty()) {
         const float gap = n.keys.empty() ? 0.0f : dp(8.0f);
-        l.text_wrap = std::max(most - l.keys_w - gap, dp(120.0f));
-        const ImVec2 b = body->CalcTextSizeA(body->FontSize, FLT_MAX, l.text_wrap, n.text.c_str());
+        const float wrap = std::max(most - l.keys_w - gap, dp(120.0f));
+        l.text = fit_lines(body, n.text, wrap, kTextLines);
+        const ImVec2 b = body->CalcTextSizeA(body->FontSize, FLT_MAX, 0.0f, l.text.c_str());
         second_w += gap + b.x;
         second_h = std::max(second_h, b.y);
     }
+    l.text_h = second_h;
     l.width = std::max(l.width, second_w);
     l.height = l.title_h + (second_h > 0.0f ? dp(4.0f) + second_h : 0.0f);
+    if (!n.where.empty()) {
+        ImFont* small = menu_fonts.small;
+        l.where = fit_lines(small, n.where, most, 1);
+        const ImVec2 w = small->CalcTextSizeA(small->FontSize, FLT_MAX, 0.0f, l.where.c_str());
+        l.width = std::max(l.width, w.x);
+        l.height += dp(4.0f) + w.y;
+    }
     return l;
 }
 
@@ -162,13 +247,7 @@ void draw_card(
     ImFont* title = menu_fonts.strong;
     ImFont* body = menu_fonts.body;
     list->AddText(
-        title,
-        title->FontSize,
-        ImVec2(x, y),
-        ui_colors::fade(ui().text, alpha),
-        n.title.c_str(),
-        nullptr,
-        l.wrap
+        title, title->FontSize, ImVec2(x, y), ui_colors::fade(ui().text, alpha), l.title.c_str()
     );
     y += l.title_h + dp(4.0f);
     float cx = x;
@@ -192,13 +271,17 @@ void draw_card(
         const float tx = n.keys.empty() ? x : cx + dp(8.0f);
         const float ty = n.keys.empty() ? y : beside_caps(body, middle);
         list->AddText(
-            body,
-            body->FontSize,
-            ImVec2(tx, ty),
-            ui_colors::fade(ui().soft, alpha),
-            n.text.c_str(),
-            nullptr,
-            l.text_wrap
+            body, body->FontSize, ImVec2(tx, ty), ui_colors::fade(ui().soft, alpha), l.text.c_str()
+        );
+    }
+    if (!l.where.empty()) {
+        ImFont* small = menu_fonts.small;
+        list->AddText(
+            small,
+            small->FontSize,
+            ImVec2(x, l.text_h > 0.0f ? y + l.text_h + dp(4.0f) : y),
+            ui_colors::fade(ui().dim, alpha),
+            l.where.c_str()
         );
     }
     // Time left, as a line along the bottom that shrinks.
@@ -281,17 +364,7 @@ bool press_notification(ImVec2 at) {
             || at.y > card.b.y) {
             continue;
         }
-        // A card with a file opens its folder; a timed one goes once pressed. The press is the
-        // card's either way, not the game's.
-        if (!card.n.folder.empty() && !platform::show_folder(card.n.folder)) {
-            notify({
-                .title = "The folder could not be opened",
-                .text = card.n.folder,
-                .tone = Tone::Error,
-                .seconds = 6.0,
-            });
-            return true;  // `card` may have moved
-        }
+        // A press only puts a timed card away: a saved file is found in the menu's Files tab.
         if (card.n.seconds > 0.0) {
             card.going = true;
         }

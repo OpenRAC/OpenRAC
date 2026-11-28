@@ -20,6 +20,9 @@ from the start. It is a panel in the window's top left corner, drawn with
 the window's own resolution. Until it is first shown nothing of it exists
 (no ImGui context, no measurements beyond a few counters).
 
+The keys below are the defaults; each is a shortcut changed in Controls, Shortcuts
+([CONTROLS.md](CONTROLS.md#8-shortcuts)).
+
 | Key | |
 |---|---|
 | F3 | show or hide the overlay |
@@ -27,7 +30,7 @@ the window's own resolution. Until it is first shown nothing of it exists
 | F5 | pause or resume the game |
 | F6 | run one tick, then pause again |
 | F7 / F8 | slower / faster: the game at 1/2, 1/4, 1/8, 1/16 of its speed |
-| F12 | write the window without notification cards to `openrac_window_<tick>.png` in the working directory |
+| F12 | write the window without notification cards to `openrac_window_<tick>.png` in the Screenshots folder (the menu's Files tab) |
 
 Screenshots taken with Enhanced graphics enabled add `_enhanced` before `.png`. This applies
 to F12, menu screenshots, `OPENRAC_SHOT`, and `OPENRAC_OVERLAY_SHOT`.

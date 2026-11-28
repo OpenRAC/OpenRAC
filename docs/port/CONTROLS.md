@@ -221,6 +221,7 @@ N as every player" takes their own controls away):
   camera's speed, and editing where the buttons sit.
 - **Reset**: this game's controls back to every game's, or every game's to
   the defaults (pressed twice).
+- **Keyboard and mouse, Shortcuts**: the port's own keys (section 8).
 
 ## 7. What it cannot do
 
@@ -234,10 +235,38 @@ N as every player" takes their own controls away):
 - A controller SDL does not know as a gamepad, and that no mapping in
   `gamecontrollerdb.txt` (section 1) names, is not read. SDL's own list
   covers most.
-- The port's keys (F1 to F13, Alt) do what they do whatever is bound.
+- The menu key (F13) does what it does whatever is bound.
 - The defaults are the same DualShock 2 layout for every game.
 
 The launcher has the commands a controls page will use (`controls_view`, for
 every player or one, `controls_set`, `controls_reset`, `controls_reset_player`,
 `controls_reset_players`, `controls_export`, `controls_import`,
 `controls_copy`) and no page yet.
+
+## 8. Shortcuts
+
+The port's own keys, in `global.ini` for every game, as `shortcut_<id> = keys`:
+keys by comma, each with `Ctrl+`, `Shift+` or `Alt+` before it when held
+(`shortcut_full_screen = F11,Alt+Enter`). Empty binds none; a shortcut the file
+does not name has its default. The menu's Controls tab (Keyboard and mouse,
+Shortcuts) and the launcher's Settings, Controls change them.
+
+| Shortcut | Key | Default |
+|---|---|---|
+| Screenshot | `shortcut_screenshot` | `F12` |
+| Full screen | `shortcut_full_screen` | `F11,Alt+Enter` |
+| Volume down | `shortcut_volume_down` | `F9` |
+| Volume up | `shortcut_volume_up` | `F10` |
+| Frame counter | `shortcut_frame_counter` | `F2` |
+| Enhanced graphics | `shortcut_enhanced_graphics` | `F4` |
+| Show or hide the texture pack | `shortcut_texture_pack` | `Ctrl+F2` |
+| Stats panel (Developer) | `shortcut_stats_panel` | `F3` |
+| Record diagnostics (Developer) | `shortcut_record_diagnostics` | `Ctrl+F3` |
+| Pause and resume (Developer) | `shortcut_pause` | `F5` |
+| Step one tick (Developer) | `shortcut_step_tick` | `F6` |
+| Slower (Developer) | `shortcut_slower` | `F7` |
+| Faster (Developer) | `shortcut_faster` | `F8` |
+| Level select (Developer) | `shortcut_level_select` | `F1` |
+
+Resetting every game's controls leaves the shortcuts as they are; Shortcuts back
+to the defaults removes their lines.

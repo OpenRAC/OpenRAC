@@ -10,7 +10,7 @@
   // shows here: a mod's is in its page's folded About. Above the mods, for a version that has it,
   // the built-in Enhanced graphics entry (core/src/enhanced.rs): a row and a page as a mod's, its
   // values in the game's own settings file, and the lighting bake it needs (the probe-bake action),
-  // started when it is first switched on, and Keyboard and mouse (core/src/keyboard_mouse.rs), always on.
+  // started when it is first switched on. Keyboard and mouse is in Settings, Controls, with every key.
   // With many mods, My mods' toolbar (ModsToolbar.svelte)
   // finds, shows one kind and sorts them by name; in load order a row's grip drags it to its place.
   // Mods that are only a page in the launcher (tools) sit apart, under the gameplay mods: the game
@@ -99,10 +99,7 @@
   /** The built-in Enhanced graphics entry, for a version that has it. */
   let enhanced = $state<EnhancedView | null>(lastRead<EnhancedView | null>(enhancedKey(), null));
   const isEnhanced = (id: string | null) => id === T.ENHANCED.id;
-  /** The built-in Keyboard and mouse entry (always on), for a version that has it. */
-  const keyboardKey = () => `keyboard-mouse:${v.key}`;
-  let keyboard = $state<PluginView | null>(lastRead<PluginView | null>(keyboardKey(), null));
-  let keyboardFor = $state<string | null>(hasRead(keyboardKey()) ? keyboardKey() : null);
+  /** The built-in Keyboard and mouse entry: Settings, Controls shows it (ControlsBlock.svelte). */
   const isKeyboard = (id: string | null) => id === T.KEYBOARD_MOUSE.id;
 
   /** The mod whose own page (ModTool.svelte) is shown over its page, if one is. */
@@ -112,9 +109,7 @@
   const page = $derived(
     isEnhanced(modNav.mod) && enhanced
       ? enhanced.mod
-      : isKeyboard(modNav.mod) && keyboard
-        ? keyboard
-        : (mods.find((m) => m.id === modNav.mod) ?? null),
+      : (mods.find((m) => m.id === modNav.mod) ?? null),
   );
 
   /** The lighting bake running or waiting for this version, if one is. */
@@ -149,25 +144,6 @@
   const lightingContext = $derived(`${v.key}:${reload}:${purist}:${isEnhanced(modNav.mod)}`);
   $effect(() => {
     if (lightingContext) void loadEnhanced();
-  });
-
-  let keyboardRequest = 0;
-  async function loadKeyboard() {
-    const request = ++keyboardRequest;
-    const key = keyboardKey();
-    const view = await api.keyboardMouseView(v.game, v.name).catch(() => null);
-
-    if (request === keyboardRequest) {
-      keyboard = view;
-      keyboardFor = key;
-    }
-  }
-  const keyboardContext = $derived(`${v.key}:${reload}`);
-  $effect(() => {
-    if (keyboardContext) void loadKeyboard();
-  });
-  $effect(() => {
-    if (keyboardFor === keyboardKey()) keepRead(keyboardFor, $state.snapshot(keyboard));
   });
 
   function bake() {
@@ -224,14 +200,7 @@
 
   $effect(() => {
     // A mod asked for that is not here (removed, another game's): the list.
-    if (
-      loaded &&
-      modNav.mod !== null &&
-      !page &&
-      !isEnhanced(modNav.mod) &&
-      !isKeyboard(modNav.mod)
-    )
-      closeMod();
+    if (loaded && modNav.mod !== null && !page && !isEnhanced(modNav.mod)) closeMod();
   });
 
   /** The mod whose page was last open: its row takes the focus back. */
@@ -512,20 +481,7 @@
       return;
     }
 
-    if (isKeyboard(mod.id)) {
-      const request = ++keyboardRequest;
-      const view = await api.keyboardMouseSetSetting(v.game, v.name, key, value);
-
-      if (request === keyboardRequest) keyboard = view;
-
-      return;
-    }
-
     mods = await api.pluginsSetSetting(v.game, v.name, mod.id, key, value);
-  }
-
-  function openFolder(mod: PluginView) {
-    void guardShown(api.openOutput(mod.path));
   }
 
   /** The gameplay mods and the tools, each as shown: searched, in load order or by name. */
@@ -565,16 +521,9 @@
       shows("looks") &&
       matches(modsView.query, enhanced.mod.name, enhanced.mod.description),
   );
-  const keyboardShown = $derived(
-    !!keyboard && shows("looks") && matches(modsView.query, keyboard.name, keyboard.description),
-  );
 
   /** Rows the search and the kind show. */
-  const found = $derived(
-    groups.reduce((n, g) => n + g.rows.length, 0) +
-      (enhancedShown ? 1 : 0) +
-      (keyboardShown ? 1 : 0),
-  );
+  const found = $derived(groups.reduce((n, g) => n + g.rows.length, 0) + (enhancedShown ? 1 : 0));
 
   // What the list holds, for the toolbar (counts, Mods off, a search that finds nothing).
   // Once both are read (or kept from the last visit): counted before, "All" went 10, then 11 as the
@@ -585,12 +534,10 @@
       counts: {
         gameplay: mods.filter((m) => groupOf(m.kind) === "gameplay").length,
         tools: mods.filter((m) => groupOf(m.kind) === "tools").length,
-        looks: (enhanced ? 1 : 0) + (keyboard ? 1 : 0),
+        looks: enhanced ? 1 : 0,
       },
       on:
-        mods.filter((m) => m.enabled && m.kind !== "tool").length +
-        (enhanced?.mod.enabled ? 1 : 0) +
-        (keyboard ? 1 : 0),
+        mods.filter((m) => m.enabled && m.kind !== "tool").length + (enhanced?.mod.enabled ? 1 : 0),
       found,
     });
   });
@@ -645,23 +592,19 @@
     {developer}
     updating={updating === mod.id}
     onsave={(key, value) => saveSetting(mod, key, value)}
-    onenable={(on) =>
-      void (isEnhanced(mod.id) ? setEnhanced(on) : isKeyboard(mod.id) ? undefined : setOn(mod, on))}
+    onenable={(on) => void (isEnhanced(mod.id) ? setEnhanced(on) : setOn(mod, on))}
     builtIn={isEnhanced(mod.id) && enhanced
       ? { bake: enhanced.bake, job: bakeJob, onbake: bake, ondelete: deleteBakes }
       : null}
     onupdate={() => void runUpdate(mod.id)}
     onpin={(pin) => void setPin(mod.id, pin)}
-    onfolder={() => {
-      openFolder(mod);
-    }}
     onhomepage={() => void guardShown(api.openUrl(mod.homepage))}
     onremove={() => void remove(mod)}
     ontool={() => (toolOpen = mod.id)}
   />
   {#if said}<Reason text={said.text} tone={said.failed ? "err" : "ok"} role="status" />{/if}
 {:else}
-  {#if (shows("gameplay") || enhancedShown || keyboardShown || (shows("tools") && tools.length > 0)) && !(searching() && found === 0)}
+  {#if (shows("gameplay") || enhancedShown || (shows("tools") && tools.length > 0)) && !(searching() && found === 0)}
     <section class="panel plugins" aria-label={title}>
       <div class="head">
         <h2>{title}</h2>
@@ -695,42 +638,6 @@
 
       {#if said}<Reason text={said.text} tone={said.failed ? "err" : "ok"} role="status" />{/if}
 
-      {#if keyboard && keyboardShown}
-        {@const entry = keyboard}
-        {@const badge = modBadge(entry, null, false)}
-        <ul class="built-in">
-          <li class="mod">
-            <!-- Always on: its switch shows on, greyed, with why. -->
-            <span class="always" title={T.KEYBOARD_MOUSE.alwaysOn}
-              ><input
-                type="checkbox"
-                role="switch"
-                class="switch"
-                aria-label={`${entry.name}: ${T.KEYBOARD_MOUSE.alwaysOn}`}
-                checked
-                disabled
-              /></span
-            >
-            <button
-              class="open"
-              id={`open-${entry.id}`}
-              aria-label={T.settingsAria(entry.name)}
-              onclick={() => {
-                openMod(entry.id);
-              }}
-            >
-              <span class="words">
-                <span class="name">{entry.name}</span>
-                <span class="desc">{entry.description}</span>
-              </span>
-              <span class={`badge ${badge.tone}`} title={badge.hint}
-                ><span class="dot"></span>{badge.text}</span
-              >
-              <span class="go">{T.PANEL.settings}<Icon name="next" size={16} /></span>
-            </button>
-          </li>
-        </ul>
-      {/if}
       {#if enhanced && enhancedShown}
         {@const entry = enhanced.mod}
         {@const badge = modBadge(entry, null, purist)}
@@ -918,13 +825,6 @@
                               : []),
                           ]
                         : []),
-                      {
-                        label: T.PANEL.openFolder,
-                        icon: "folder" as const,
-                        run: () => {
-                          openFolder(mod);
-                        },
-                      },
                       {
                         label: T.PANEL.remove,
                         icon: "trash" as const,

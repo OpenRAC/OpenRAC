@@ -11,6 +11,7 @@
 #include <string>
 
 #include "debug/overlay.h"
+#include "frontend/shortcuts.h"
 #include "mods.h"
 #include "renderer/math.h"
 
@@ -94,7 +95,12 @@ void status_notifications() {
         notify({
             .id = "status.speed",
             .title = "Paused",
-            .text = keys ? "F5 resumes, F6 runs one tick" : "",
+            .text = keys ? std::format(
+                               "{} resumes, {} runs one tick",
+                               shortcuts::label(shortcuts::Id::Pause),
+                               shortcuts::label(shortcuts::Id::StepTick)
+                           )
+                         : "",
             .tone = Tone::Warning,
             .seconds = 0.0,
         });
@@ -102,7 +108,12 @@ void status_notifications() {
         notify({
             .id = "status.speed",
             .title = std::format("Speed 1/{}", static_cast<int>(s.stretch)),
-            .text = keys ? "F8 faster, F7 slower" : "",
+            .text = keys ? std::format(
+                               "{} faster, {} slower",
+                               shortcuts::label(shortcuts::Id::Faster),
+                               shortcuts::label(shortcuts::Id::Slower)
+                           )
+                         : "",
             .tone = Tone::Warning,
             .seconds = 0.0,
         });

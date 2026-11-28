@@ -53,12 +53,14 @@ constexpr Old kOld[] = {
     {kDesktop, "Freecam: Fly speed", Id::FreecamSpeed},
     {kDesktop, "Freecam: Reset to game camera", Id::FreecamReset},
     {kDesktop, "Freecam: Exit Freecam", Id::FreecamExit},
+    // The freecam's keys are in the Controls tab, with every other key.
     {kDesktop, "Freecam: keys", Id::FreecamHelp},
     {kDesktop, "Debug overlay", Id::DebugOverlay},
     {kDesktop, "Moby picker", Id::MobyPicker},
     {kDesktop, "Object Viewer", Id::ObjectViewer},
     {kDesktop, "Texture pack", Id::TexturePack},
-    {kDesktop, "Texture pack key", Id::TexturePackKey},
+    // The texture pack's key is a shortcut now (Controls, Shortcuts), with every other key.
+    {kDesktop, "Texture pack key", Id::Shortcuts},
     // "Pause" (F5, which still works): the menu pauses the game; Keep paused keeps it so.
     {kDesktop, "Pause", Id::KeepPaused},
     {kDesktop, "Step one tick", Id::StepTick},
@@ -69,7 +71,9 @@ constexpr Old kOld[] = {
     {kDesktop, "Record diagnostics: Gameplay recording", Id::RecordGameplay},
     {kDesktop, "Record diagnostics: Recording length", Id::RecordLength},
     {kDesktop, "Record diagnostics: Graphics sweep", Id::RecordSweep},
-    {kDesktop, "Record diagnostics: Open recordings folder", Id::RecordFolder},
+    // The recordings' folder is a row of the Files tab, with every other folder.
+    {kDesktop, "Record diagnostics: Open recordings folder", Id::FilePlaces},
+    {kTouch, "Recordings folder", Id::FilePlaces},
     {kDesktop, "Simulate slow CPU", Id::SlowCpu},
     {kDesktop, "Level select", Id::LevelSelect},
     // The mods' own menus (mods::developer_menus) are tabs of their own, not entries.

@@ -493,6 +493,8 @@ Item own_item(Id id, std::uint8_t where) {
         case Id::KeyboardMouse:
             it.shown = keyboard_mouse_shown();
             return it;
+        case Id::Shortcuts:
+            return it;  // its panel (debug/menu_controls.cpp)
         case Id::TouchActionButtons:
             it.on = set.touch_style == 0;
             return it;
@@ -531,8 +533,6 @@ Item own_item(Id id, std::uint8_t where) {
             it.shown = renderer::texture_pack::has_pictures();
             it.on = renderer::texture_pack::shown();
             return it;
-        case Id::TexturePackKey:
-            return it;  // its panel (debug/menu_controls.cpp)
         case Id::TexturePackBackground:
             it.shown = renderer::pcsx2_pack::enabled();
             it.on = set.pcsx2_pack_background;
@@ -573,8 +573,6 @@ Item own_item(Id id, std::uint8_t where) {
             it.shown = !capture_pending() && enhanced_on();
             it.label = std::format("Graphics sweep ({:.0f} s)", settings_sweep_seconds());
             return it;
-        case Id::RecordFolder:
-            return it;
         case Id::SlowCpu:
             it.shown = slow_cpu::available();
             it.value = slow_cpu_name();
@@ -612,6 +610,10 @@ Item own_item(Id id, std::uint8_t where) {
                            "to far). Objects not submitted by the game cannot be revealed here.";
             }
             return it;
+
+        // ---- Files ----
+        case Id::FilePlaces:
+            return it;  // its panel (debug/menu_files.cpp)
 
         // ---- Program ----
         case Id::Quit:
@@ -669,7 +671,7 @@ bool act(Id id, int by) {
     switch (id) {
         // ---- Graphics ----
         case Id::FullScreen:
-            press(SDLK_F11);
+            press(shortcuts::Id::FullScreen);
             return false;
         case Id::DisplayMode:
             change_setting(kDisplayMode, by);
@@ -902,6 +904,8 @@ bool act(Id id, int by) {
             return false;
         case Id::KeyboardMouse:
             return false;  // its rows (debug/menu_keyboard_mouse.cpp)
+        case Id::Shortcuts:
+            return false;  // its panel (debug/menu_controls.cpp)
         case Id::TouchActionButtons:
             set.touch_style = set.touch_style == 0 ? 1 : 0;
             settings::save();
@@ -938,8 +942,6 @@ bool act(Id id, int by) {
         case Id::TexturePack:
             renderer::texture_pack::set_shown(!renderer::texture_pack::shown());
             return false;
-        case Id::TexturePackKey:
-            return false;  // its panel (debug/menu_controls.cpp)
         case Id::TexturePackBackground:
             set.pcsx2_pack_background = !set.pcsx2_pack_background;
             settings::save();
@@ -949,7 +951,7 @@ bool act(Id id, int by) {
             settings::save();
             return false;
         case Id::LevelSelect:
-            press(SDLK_F1);
+            press(shortcuts::Id::LevelSelect);
             return true;
         case Id::KeepPaused:
             s.keep_paused = !s.keep_paused;
@@ -982,9 +984,6 @@ bool act(Id id, int by) {
         case Id::RecordSweep:
             toggle_settings_sweep();
             return true;
-        case Id::RecordFolder:
-            open_capture_folder();
-            return false;
         case Id::SlowCpu:
             step_slow_cpu(by);
             return false;
@@ -1016,6 +1015,10 @@ bool act(Id id, int by) {
             return false;
         case Id::FreecamHelp:
             return false;
+
+        // ---- Files ----
+        case Id::FilePlaces:
+            return false;  // its panel (debug/menu_files.cpp)
 
         // ---- Program ----
         case Id::Quit:
@@ -1176,7 +1179,9 @@ namespace {
 // The freecam's keys, for the device in hand: the controller's (on Android always, it has no
 // keys of its own) or the keyboard and mouse.
 void freecam_help(std::uint8_t where) {
-    if (where == menu::kTouch || s.menu_motion.pad) {
+    // The Controls tab's sub tab says which, when it has them; else the device used last.
+    const bool sub_tabs = where == menu::kDesktop && keyboard_mouse_shown();
+    if (where == menu::kTouch || (sub_tabs ? s.controls_sub_tab == 0 : s.menu_motion.pad)) {
         const SDL_GamepadType type = pad_type();
         const bool sony = type == SDL_GAMEPAD_TYPE_PS3 || type == SDL_GAMEPAD_TYPE_PS4
                           || type == SDL_GAMEPAD_TYPE_PS5;
@@ -1345,6 +1350,11 @@ bool draw_tab(menu::Tab tab, std::uint8_t where, const SectionFilter& only) {
 
 namespace {
 
+// The sections of the port's shortcuts and of the freecam's keys: the Keyboard and mouse sub tab
+// shows both, the Gamepad one the freecam's (its controller keys).
+constexpr std::string_view kShortcuts = "Shortcuts";
+constexpr std::string_view kFreecam = "Freecam";
+
 // The Gamepad sub tab's sections before the gyro's: the controller's own, its sticks and vibration.
 // The players, the menu's button and Reset come after it.
 bool before_gyro(std::string_view section) {
@@ -1383,6 +1393,10 @@ bool draw_controls_tab(std::uint8_t where) {
         card_begin();
         draw_entry(menu::Id::KeyboardMouse, where);
         card_end();
+        // The port's own keys and the freecam's, after the game's.
+        draw_tab(menu::Tab::Controls, where, [](std::string_view section) {
+            return section == kShortcuts || section == kFreecam;
+        });
         return true;
     }
     const std::string_view kbm = panel.section;
@@ -1391,7 +1405,7 @@ bool draw_controls_tab(std::uint8_t where) {
     });
     keyboard_mouse_gyro();
     draw_tab(menu::Tab::Controls, where, [kbm](std::string_view section) {
-        return !before_gyro(section) && section != kbm;
+        return !before_gyro(section) && section != kbm && section != kShortcuts;
     });
     return true;
 }
