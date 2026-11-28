@@ -1546,16 +1546,24 @@ void TexturePool::end_frame() {
         }
     }
     // PCSX2 pack pictures read in the background since: what was drawn as the original is converted
-    // again at its next use.
+    // again at its next use. A few a frame (kPcsx2RemakesPerFrame): each is an upload of a big
+    // picture to the GPU, and many in one frame would hitch.
     if (const std::uint64_t version = pcsx2_pack::ready_version(); version != m_pcsx2_version) {
         m_pcsx2_version = version;
-        for (std::size_t i = 0; i < m_entries.size(); ++i) {
-            Entry& e = m_entries[i];
+        m_pcsx2_cursor = 0;
+        m_pcsx2_checking = true;
+    }
+    if (m_pcsx2_checking) {
+        int remade = 0;
+        for (; m_pcsx2_cursor < m_entries.size() && remade < kPcsx2RemakesPerFrame;
+             ++m_pcsx2_cursor) {
+            Entry& e = m_entries[m_pcsx2_cursor];
             if (!e.live || !e.pcsx2_pending) {
                 continue;
             }
             e.pcsx2_pending = false;
-            const auto handle = static_cast<TextureHandle>(i + 1);
+            ++remade;
+            const auto handle = static_cast<TextureHandle>(m_pcsx2_cursor + 1);
             if (e.from_upload) {
                 if (const auto found = m_converted.find(e.key);
                     found != m_converted.end() && found->second == handle) {
@@ -1566,6 +1574,7 @@ void TexturePool::end_frame() {
                 m_ui_images.erase(found);
             }
         }
+        m_pcsx2_checking = m_pcsx2_cursor < m_entries.size();
     }
     for (std::size_t i = 0; i < m_entries.size(); ++i) {
         Entry& e = m_entries[i];

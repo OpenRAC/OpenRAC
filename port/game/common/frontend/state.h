@@ -410,6 +410,7 @@ struct State {
     // effect_textures, and pcsx2_pack::ready_version() when last checked. They are converted
     // again once the picture is ready.
     std::vector<std::uint64_t> effect_textures_pending;
+    std::size_t effect_textures_to_check = 0;  // of those, still to make again (a few a frame)
     std::uint64_t effect_textures_pcsx2_version = 0;
 
     struct EffectTextureId {

@@ -285,6 +285,8 @@ public:
     void end_frame();
 
     static constexpr std::uint32_t kKeepFrames = 120;
+    // Textures made again a frame once their PCSX2 picture is read (end_frame).
+    static constexpr int kPcsx2RemakesPerFrame = 4;
 
     // Live textures, the placeholder included.
     std::size_t size() const;
@@ -452,6 +454,9 @@ private:
     std::uint64_t m_pack_version = 0;
     // pcsx2_pack::ready_version() when the conversions were last checked against it.
     std::uint64_t m_pcsx2_version = 0;
+    // Where the check of the entries waiting for a PCSX2 picture stands (end_frame).
+    std::size_t m_pcsx2_cursor = 0;
+    bool m_pcsx2_checking = false;
     // texture_pack::shown_version() when the conversions were last made.
     std::uint64_t m_shown_version = 0;
     std::uint64_t m_tick = 0;  // set_tick

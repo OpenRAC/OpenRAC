@@ -132,9 +132,9 @@ void pcsx2_texture_pack() {
         CHECK(pending && image.width == 32);
         CHECK(wait_ready(seen));
         pending = false;
-        CHECK(pcsx2_pack::replace_indexed8(
-            image, indices, palette, AlphaScale::Full, false, &pending
-        ));
+        CHECK(
+            pcsx2_pack::replace_indexed8(image, indices, palette, AlphaScale::Full, false, &pending)
+        );
         CHECK(!pending && image.width == 4);
         // A 2D image drawn as the original meanwhile is made again once its picture is ready.
         pcsx2_pack::configure(folder, nullptr);
@@ -156,9 +156,9 @@ void pcsx2_texture_pack() {
         pcsx2_pack::configure(folder, nullptr);
         pending = false;
         image = Rgba8Image(32, 16);
-        CHECK(pcsx2_pack::replace_indexed8(
-            image, indices, palette, AlphaScale::Full, false, &pending
-        ));
+        CHECK(
+            pcsx2_pack::replace_indexed8(image, indices, palette, AlphaScale::Full, false, &pending)
+        );
         CHECK(!pending && image.width == 4);
         pcsx2_pack::set_loading(true, false);
     }
