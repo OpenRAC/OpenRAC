@@ -347,7 +347,10 @@ pub fn add(map: &Path, overrides: &Path, game: &Game) -> Result<MapAdded, String
     let (manifest, mut archive) = open(map)?;
     let text = |key: &str| manifest.get(key).and_then(Value::as_str).unwrap_or_default().to_string();
     let id = text("id");
-    if !crate::overrides::valid_pack_id(&id) {
+    if id.is_empty()
+        || id.len() > 64
+        || !id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || "-.".contains(c))
+    {
         return Err("the map has no usable id".into());
     }
     if text("game") != "rac1" {
@@ -361,6 +364,11 @@ pub fn add(map: &Path, overrides: &Path, game: &Game) -> Result<MapAdded, String
             game.version.to_uppercase()
         ));
     }
+    // One pack for each disc, so the same map for two discs keeps both (a planet id is name.hex).
+    let pack = format!("{}-{disc}", id.replace('.', "-"));
+    if !crate::overrides::valid_pack_id(&pack) {
+        return Err("the map has no usable id".into());
+    }
     let files = manifest.get("files").and_then(Value::as_array).ok_or("the map lists no files")?;
     if files.len() > MOST_FILES {
         return Err("the map is too big".into());
@@ -370,7 +378,7 @@ pub fn add(map: &Path, overrides: &Path, game: &Game) -> Result<MapAdded, String
     let mut sources = Sources { list, game, disc: None, read: HashMap::new() };
     let packs = overrides.join("packs");
     std::fs::create_dir_all(&packs).map_err(|e| format!("{}: {e}", packs.display()))?;
-    let staged = packs.join(format!(".{id}.adding"));
+    let staged = packs.join(format!(".{pack}.adding"));
     let _ = std::fs::remove_dir_all(&staged);
     let made = (|| -> Result<(), String> {
         let mut total: u64 = 0;
@@ -407,7 +415,7 @@ pub fn add(map: &Path, overrides: &Path, game: &Game) -> Result<MapAdded, String
         let _ = std::fs::remove_dir_all(&staged);
         return Err(e);
     }
-    let replaced = crate::overrides::install(overrides, &id, &staged)?;
+    let replaced = crate::overrides::install(overrides, &pack, &staged)?;
     Ok(MapAdded {
         id,
         name: text("name"),
@@ -530,7 +538,7 @@ mod tests {
         let added = add(&map, &overrides, &disc).unwrap();
         assert_eq!(added.id, "test-map");
         assert!(!added.replaced);
-        let pack_dir = overrides.join("packs/test-map");
+        let pack_dir = overrides.join("packs/test-map-pal");
         assert_eq!(std::fs::read(pack_dir.join("level_11/hello.bin")).unwrap(), b"hello");
         assert_eq!(std::fs::read(pack_dir.join("level_11/core_pal.bin")).unwrap(), stream);
         assert_eq!(std::fs::read(pack_dir.join("level_11/points.bin")).unwrap(), expected_points);
@@ -540,6 +548,15 @@ mod tests {
         // Again: the same pack, in its place.
         assert!(add(&map, &overrides, &disc).unwrap().replaced);
         assert_eq!(crate::overrides::list(&overrides).unwrap().len(), 1);
+        // The same map made from another disc, with a planet id (name.hex): a pack of its own.
+        let mut other = manifest.clone();
+        other["disc"] = "ntsc".into();
+        other["id"] = "test-map.0a1b2c3d".into();
+        let other_map = f.map(&other, &[("data/0.bin", &pack), ("data/2.bin", &data_core)]);
+        let ntsc = Game { version: "ntsc", ..disc };
+        assert!(!add(&other_map, &overrides, &ntsc).unwrap().replaced);
+        assert!(overrides.join("packs/test-map-0a1b2c3d-ntsc/level_11/hello.bin").is_file());
+        assert_eq!(crate::overrides::list(&overrides).unwrap().len(), 2);
     }
 
     #[test]

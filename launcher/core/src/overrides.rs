@@ -106,15 +106,17 @@ pub fn valid_pack_id(id: &str) -> bool {
     valid_id(id)
 }
 
-/// A pack's manifest "export" (a ship destination's "destination:<id>"), when it has one.
-fn export_of(folder: &Path) -> Option<String> {
+/// A pack's manifest "export" (a ship destination's "destination:<id>") and the disc it is for,
+/// when it has one.
+fn export_of(folder: &Path) -> Option<(String, String)> {
     let text = std::fs::read_to_string(folder.join(MANIFEST)).ok()?;
     let manifest: Value = serde_json::from_str(&text).ok()?;
-    manifest.get("export").and_then(Value::as_str).map(str::to_string)
+    let version = manifest.get("version").and_then(Value::as_str).unwrap_or_default().to_string();
+    manifest.get("export").and_then(Value::as_str).map(|x| (x.to_string(), version))
 }
 
 /// Puts the pack made in `staged` (a folder beside the packs) in as pack `id`, on and last; a pack
-/// already there with that id, or with the same export (the same planet added by
+/// already there with that id, or with the same export for the same disc (the same planet added by
 /// `extractor/overrides.py`), is replaced in its place. Whether one was replaced.
 pub fn install(dir: &Path, id: &str, staged: &Path) -> Result<bool, String> {
     if !valid_id(id) {
