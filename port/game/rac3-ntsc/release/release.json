@@ -390,24 +390,14 @@
     "split_places_why": "NTSC-U's own tables/split_places.tsv: the multiplayer maps' copies of the font width wrapper (func_L01_00410820) are their own function, func_L39_005187A0, whose name the carry leaves out as no function of NTSC-U's catalogue; its signature below, as rac3-pal's func_L39_005189A0",
     "more_places": {
       "replace": true,
-      "func_L01_003BD258": "02:003A3D60,03:003A4168,05:003B1C90,06:003A9380,07:003C08B0,08:003A8D40,10:003A5328,11:0039BC48,13:003A0CA0,14:003B6260,17:0039F1D8,19:003B12E0,21:0039CB78,23:0039B2E8,24:003A8E20,27:003A4E58,28:003946A0,30:003A1D20,31:003A4AE0,32:003A6FD0,33:003A45A0,34:003A5CA0,35:003A5058,36:003AC020",
-      "func_L01_003D7990": "02:003B0260,03:003BB228,05:003CBE10,06:003BD608,07:003D7AA8,08:003BCBD0,10:003BB380,11:003B3660,13:003B9948,14:003C4098,17:003B3238,19:003C8478,21:003B33D0,23:003BD948,24:003C08E8,27:003B4588,28:003A5DD8,30:003AEE28,31:003B2EA8,32:003B9020,33:003B2470,34:003B3848,35:003B24F0,36:003BA118",
-      "func_L01_00413670": "02:003EBDD8,03:004008F0,05:0040CDA8,06:003F8240,07:00413F80,08:003F6980,10:003F6710,11:003ECD88,13:003F49D0,14:003FE100,17:003EEF60,19:004083A8,21:003EC2D0,23:003F6548,24:003FB7C8,27:003ECED8,28:003DF2F8,30:003E70D8,31:003EB6D8,32:003F3E98,33:003EC350,34:003ED980,35:003ECA00,36:003F23D8",
-      "func_L01_004948D0": "02:0046AB58,03:00481FF0,05:0048D6F8,06:00477C88,07:004937B0,08:00476870,10:004773A0,11:0046A560,13:00474628,14:0047F0A8,17:0046DDE8,19:00488AF8,21:0046B840,23:00476218,24:00479A28,27:0046B070,28:0045C2B8,30:00462868,31:00462020,32:0046B278,33:004639C0,34:00468D68,35:004631C0,36:00468D20",
-      "func_L01_004C8AC8": "02:0049EBA0,03:004B60C8,05:004C18A8,06:004AC4A0,07:004C78F0,08:004AA9C0,10:004AB608,11:0049EB08,13:004A8708,14:004B3360,17:004A1D50,19:004BCED8,21:0049F980,23:004AA420,24:004AD8B8,27:0049F1F0,28:00490300,30:00496718,31:00495ED0,32:0049F300,33:00497A48,34:0049CDF0,35:00497070,36:0049CBD0",
-      "func_L01_004D2120": "02:004A81F8,03:004BF720,05:004CAF00,06:004B5AF8,07:004D0F48,08:004B4018,10:004B4C60,11:004A8160,13:004B1D60,14:004BC9B8,17:004AB3A8,19:004C6530,21:004A8FD8,23:004B3A78,24:004B6F10,27:004A8848,28:00499958,30:0049FD70,31:0049F528,32:004A8958,33:004A10A0,34:004A6448,35:004A06C8,36:004A6228",
-      "func_L01_004D2128": "02:004A8200,03:004BF728,05:004CAF08,06:004B5B00,07:004D0F50,08:004B4020,10:004B4C68,11:004A8168,13:004B1D68,14:004BC9C0,17:004AB3B0,19:004C6538,21:004A8FE0,23:004B3A80,24:004B6F18,27:004A8850,28:00499960,30:0049FD78,31:0049F530,32:004A8960,33:004A10A8,34:004A6450,35:004A06D0,36:004A6230",
-      "func_L01_004D4860": "02:004AA938,03:004C1E60,05:004CD640,06:004B8238,07:004D3688,08:004B6758,10:004B73A0,11:004AA8A0,13:004B44A0,14:004BF0F8,17:004ADAE8,19:004C8C70,21:004AB718,23:004B61B8,24:004B9650,27:004AAF88,28:0049C098,30:004A24B0,31:004A1C68,32:004AB098,33:004A37E0,34:004A8B88,35:004A2E08,36:004A8968",
-      "func_L01_00512470": "02:004E2650,03:004FFAD8,05:0050B200,06:004F5DA8,07:005111F8,08:004EC330,10:004F4FA0,11:004E8460,13:004F2060,14:004FCCB8,17:004EB658,19:005038A0,21:004E92D8,23:004F6250,24:004F7228,27:004E0F68,28:004D9C58,30:004E50C0,31:004E4878,32:004EDCA8,33:004E63F0,34:004EB798,35:004E5A18,36:004EB578",
       "func_L01_004C78D8": "23:004A9230",
       "func_L01_004C78E0": "03:004B4EE0,24:004AC6D0",
       "func_L01_004D4C50": "03:004C2250,24:004B9A40",
       "func_L01_004D75F8": "03:004C4BF8,24:004BC3E8",
       "func_L01_004026A0": "03:003EFF28,11:003DC210,16:00412630,23:003E5828",
-      "func_L01_004D4B48": "23:004B64A0",
-      "func_L01_003EE980": "02:003C78C0,03:003DC240,05:003E8280,06:003D3D80,07:003EFF40,08:003D2840,10:003D20C0,11:003C8600,13:003D0440,14:003D9480,17:003CAB00,19:003E38C0,21:003C7FC0,23:003D1BC0,24:003D6EC0,27:003C8CC0,28:003BB280,30:003C31C0,31:003C77C0,32:003CFF80,33:003C8340,34:003C9A40,35:003C8AC0,36:003CE4C0"
+      "func_L01_004D4B48": "23:004B64A0"
     },
-    "more_places_why": "rac3-pal's are PAL's places: on the Phoenix (03) and in the Insomniac Museum (24) the catalogue folds the Vid-comic password panel's byte getter and clear into func_L01_004C78E0 and func_L01_004D75F8 and func_L01_004C78E0's real twin into func_L01_004D4C50 (tables/split_places.tsv splits them off); in Holostar Studios as Clank (23) it folds the help box's flag setter's real twin into func_L01_004D4B48 and another flag's setter into func_L01_004C78D8; and in the 24 story levels outside Veldin's family it files nine class type getters one row along (tables/split_places.tsv), the loading flight's destination getter func_L01_004D2120 among them; the real twins at NTSC-U's places; and where a caller's own code reaches a class getter or the draw callback adder (func_L01_003EE980, func_L01_004026A0, func_L01_004D4B48) at a place the catalogue files under another row, the real copy (found from the callers' calls at the same instruction)",
+    "more_places_why": "rac3-pal's are PAL's places: the Vid-comic password panel's getter and clear (Phoenix 03, Insomniac Museum 24), the help box's flag setter (Holostar Studios as Clank, 23) and the draw callback adder (03, 11, 16, 23) are filed under another row; the real twins at NTSC-U's places",
     "from_assembly": [
       "func_L39_004B4008",
       "func_L39_004B5548",
@@ -419,8 +409,10 @@
       "func_003AD9F0",
       "func_003C0160",
       "func_00391E78__frontbin",
-      "func_003BE710"
+      "func_003BE710",
+      "func_0039DB38__frontbin"
     ],
+    "pad_reader_why": "func_0039DB38__frontbin is the proven pad reader, but two flick-history lookback bounds differ from PAL at +0x7F0 and +0x850 (3 to 4 and 4 to 5). Keep NTSC-U's instructions rather than compiling PAL's C after the hand pair makes its name available.",
     "roots": [
       "func_003932B0__frontbin"
     ],
@@ -488,10 +480,26 @@
     "func_003F0700__frontbin": {
       "is": "func_003EB178__frontbin",
       "why": "frontbin's copy of func_003F0AB8: the same 8 bytes at 0x003EB178 after the same 20-byte remnant (PAL 0x003F06E8, NTSC-U 0x003EB160), the only place they occur"
+    },
+    "func_003A2DC8__frontbin": {
+      "is": "func_0039DB38__frontbin",
+      "why": "config/us/names.tsv places frontbin's func_003A2DC8 at 0x0039DB38; its inventory gives the same 2412-byte extent. Both discs' frontbin programs give one masked instruction-window match there, with all 603 words matching apart from relocated calls and flick-history lookback bounds at +0x7F0 and +0x850 (3 to 4, 4 to 5). The paired NTSC-U update 0x0039E4B0 calls this reader at +0xE8 and +0x3B0. The release keeps the reader from assembly, not PAL's C."
+    },
+    "func_L01_00460980": {
+      "is": "func_003A2F98",
+      "why": "Veldin's clear is byte-identical for all 240 bytes at PAL 0x00460980 and NTSC-U 0x0045D4D8, the only masked-window match. config/us/levels/functions.tsv names the NTSC-U row func_003A2F98, kind boot_elf, with 34 level places and the same da03d6c8989f4d0d digest as PAL's func_003A2CD8 row; the host symbol is the catalogue's boot name, not a fabricated L01 name."
+    },
+    "func_L01_00460A70": {
+      "is": "func_L01_0045D5C8",
+      "why": "PAL's func_003A2DC8 row places the reader at L01 0x00460A70; NTSC-U's func_0039DB38 frontbin row places it at L01 0x0045D5C8. Both discs' Veldin programs give one masked-window match there across all 603 words, differing only in three relocated calls and the two NTSC-U flick-history lookback bounds also present in frontbin. The paired NTSC-U update 0x0045DF40 calls 0x0045D5C8 at +0xE8 and +0x3B0."
     }
   },
   "addresses": {
     "about": "NTSC-U's value of a PAL address the shared host C writes as RAC3_ADDR() that no global of names.tsv gives: PAL's address, NTSC-U's, the evidence.",
+    "0x001D4CF4": {
+      "is": "0x001D4CF4",
+      "why": "the active pad's not-ready flag the pad update writes ($gp - 0x7BBC: NTSC-U's func_003A3A00 stores to it as PAL's func_003A3B40 does, asm/us/boot_elf/13_text/f_003A3A00.s at 0x003A3A64, and both programs' $gp is 0x001DC8B0, config/gp.tsv)"
+    },
     "0x001D55D0": {
       "is": "0x001D55D0",
       "why": "the two font headers (FontUpload func_0038E2B0 reads them, FontSelect func_0038E530 copies the selected one's into 0x001D55C0): NTSC-U's boot program registers a font's header at the same address (f_0038E140: lui 0x1D, addiu 0x55D0, the font's index times 4, sw), and Veldin's FontSelect reads it there too (f_0040D548)"
@@ -566,8 +574,11 @@
     }
   },
   "libraries_left_out": {
+    "func_003A2BC0__frontbin": "PAL-only overlay pad startup: NTSC-U's boot caller 0x003984CC initializes the core records through 0x003A2E80; frontbin enters at 0x0037D200 and calls the existing-pad iterator 0x0039E8E0 at +0x400 and +0x8D4 without pad/library initialization. Its records start at 0x001D5680, above the retained pad records and core pointers; no NTSC startup is invented or substituted.",
+    "func_L01_00460868": "PAL-only overlay pad startup: NTSC-U's level 1 entry 0x003EE988 uses iterator 0x0045E370 and updater 0x0045DF40 on the boot-initialized core pad records. All 34 NTSC-U SP programs start their records at 0x001D5680, overlap no pad/core-pointer state, and have no calls to pad/library init or port open and no GP-relative stores to the port-one core pointers. Preserve that lifecycle rather than bind a nonexistent overlay initializer.",
     "func_003AA3C8__frontbin": "DrawWidgetSpriteFrontbin: since rac3-decomp f9ea1754 NTSC-U's release view names PAL's frontbin func_003AA3C8 func_003A4E70 without its program's suffix, so frontbin's C calls a stub and the row would bind the boot program's address (inside func_003A4688); left out until the release view names it as frontbin's again"
   },
+  "pad_lifecycle_why": "The NTSC-U initializer 0x003A2E80 is the boot program's real entry, one relocated clear call being its only difference from PAL's 280-byte initializer. It initializes eight 0x5C0-byte records at 0x001CD0C0..0x001CFEC0 and pointers at 0x001D52FC/5300/5304. Overlay loads begin at 0x001D5680 and retain those records plus the ready flag 0x001D4CF4. Frontbin and Veldin have no direct calls or data pointers to boot pad init/clear or pad-library init/open; PAL's frontbin clear belongs only to its omitted overlay initializer, not to the NTSC update graph. The updater field offsets and core GP references agree across releases; only calls and the switch-table address at +0x7C differ. Keep NTSC reader instructions and remove PAL-only startup dependencies from its compiled update graph, not by pairing another program's symbol or adding stubs.",
   "globals": {
     "about": "NTSC-U's value of a global of the executable that the C of a match function reads and config/us/names.tsv gives no boot_elf row for (release_rac3.py): PAL's name, NTSC-U's address, the evidence.",
     "D_00225BC0": {
@@ -623,6 +634,10 @@
     "L01:001DBCA4": {
       "is": "001DBCE4",
       "why": "between the same code's 0x001DBCA0 and 0x001DBCBC, both moved by +0x40 (NTSC-U 0x001DBCE0, 0x001DBCFC)"
+    },
+    "L01:001DBCC8": {
+      "is": "001DBD08",
+      "why": "the glow builder's lbu of the blur byte: PAL func_L01_004DDE98 reads 0x001DBCC8, NTSC-U func_L01_004DA1B8 (the same code) reads 0x001DBD08 at the same two places; the glow block moved by +0x40"
     },
     "L01:001DF97C": {
       "is": "001DF9FC",
@@ -860,6 +875,10 @@
       "is": "00245D34",
       "why": "between the same code's 0x00245BB0 and 0x00245BCC, both moved by +0x180 (NTSC-U 0x00245D30, 0x00245D4C)"
     },
+    "L39:00245BD8": {
+      "is": "00245D58",
+      "why": "the glow builder's lbu of the blur byte: PAL level 39 func_L39_0060D7F0 reads 0x00245BD8, NTSC-U's builder (and every map's copy, e.g. func_L51_004F0918) reads 0x00245D58 at the same two places; the glow block moved by +0x180"
+    },
     "L39:0024BD00": {
       "is": "0024BE00",
       "why": "the same instruction of the same code: func_L39_0059C910 (NTSC-U func_L39_0059B580) +0x4, 2 of 2 places agree"
@@ -903,6 +922,14 @@
     "L39:002961C0": {
       "is": "002962C0",
       "why": "between the same code's 0x00294FC0 and 0x002965C0, both moved by +0x100 (NTSC-U 0x002950C0, 0x002966C0)"
+    },
+    "L01:001DF980": {
+      "is": "001DFA00",
+      "why": "between the same code's 0x001DF97C and 0x001DF984, both moved by +0x80 (NTSC-U 0x001DF9FC, 0x001DFA04)"
+    },
+    "L01:001E7C80": {
+      "is": "001E7D00",
+      "why": "between the same code's 0x001E7880 and 0x001E8480, both moved by +0x80 (NTSC-U 0x001E7900, 0x001E8500)"
     },
     "L01:001E0D70": {
       "is": "001E0DF0",
@@ -979,6 +1006,126 @@
     "L02:001E00EC": {
       "is": "001E016C",
       "why": "the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0xAC, 1 of 1 places agree"
+    },
+    "L39:0024CE20": {
+      "is": "0024CF20",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 30 of 30 places agree"
+    },
+    "L39:00352940": {
+      "is": "00352A40",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 23 of 23 places agree"
+    },
+    "L40:00249330": {
+      "is": "002494B0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L40:00357260": {
+      "is": "003573E0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L41:00249530": {
+      "is": "002496B0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L41:003573A0": {
+      "is": "00357520",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L42:00249420": {
+      "is": "002495A0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L42:0034F2A0": {
+      "is": "0034F420",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L43:002492A0": {
+      "is": "00249420",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L43:0034F120": {
+      "is": "0034F2A0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L44:00249320": {
+      "is": "002494A0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L44:0034F160": {
+      "is": "0034F2E0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L45:002492A0": {
+      "is": "00249420",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L45:0034F120": {
+      "is": "0034F2A0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L46:00248EA0": {
+      "is": "00249020",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree"
+    },
+    "L46:0035FCE0": {
+      "is": "0035FE60",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree"
+    },
+    "L47:00248FA0": {
+      "is": "00249120",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree"
+    },
+    "L47:0035FE20": {
+      "is": "0035FFA0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree"
+    },
+    "L48:00248FA0": {
+      "is": "00249120",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree"
+    },
+    "L48:0035FE60": {
+      "is": "0035FFE0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree"
+    },
+    "L49:00248FA0": {
+      "is": "00249120",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree"
+    },
+    "L49:0035FDE0": {
+      "is": "0035FF60",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree"
+    },
+    "L50:00249330": {
+      "is": "002494B0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L50:00368260": {
+      "is": "003683E0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L51:00249530": {
+      "is": "002496B0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L51:003683A0": {
+      "is": "00368520",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L52:00249420": {
+      "is": "002495A0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L52:003602A0": {
+      "is": "00360420",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L53:002492A0": {
+      "is": "00249420",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L53:00360120": {
+      "is": "003602A0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
     }
   },
   "mp_hostgen": {
@@ -1014,6 +1161,10 @@
   },
   "mp_addresses": {
     "about": "NTSC-U's address of a multiplayer executable global the host C writes as RAC3_MADDR(address) that rac3_mp_pairs.py does not pair: PAL's address, NTSC-U's, why.",
+    "0x001A58D0": {
+      "is": "0x001A5A50",
+      "why": "the first of the profile's three sensitivity tables (mp_wide.c rac3_mp_wide_rowoff): the multiplayer executable's data there is 0x180 on, as its other globals around it (0x001A3800, 0x001A5CD0 are 0x180 on)"
+    },
     "0x00241458": {
       "is": "0x002415D8",
       "why": "the two font headers: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U adds 0x15D8 to 0x00240000)"
@@ -1037,10 +1188,6 @@
     "0x00242824": {
       "is": "0x002429A4",
       "why": "level 39's (and the maps') pointer to the palette handles, beside 0x00242820: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00)"
-    },
-    "0x00230000": {
-      "is": "0x00230000",
-      "why": "the screen whose size (+0x150, +0x152) SetScissor keeps its rectangle within: PAL mp_func_00299218 and NTSC-U mp_func_002991F8, the same instructions, both read 0x00230150 and 0x00230152"
     },
     "0x002412DC": {
       "is": "0x0024145C",

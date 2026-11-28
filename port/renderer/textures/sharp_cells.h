@@ -16,11 +16,14 @@
 namespace openrac::renderer::sharp_cells {
 
 // A cell of a texture: where it is (texels), its colours as the game's texels make them (RGB, w x h
-// x 3 bytes, to know the texture by), and its sharper picture (RGB, scale times as wide and tall).
+// x 3 bytes, to know the texture by), its sharper picture (RGB, scale times as wide and tall), and
+// the texels the game had there before it was painted (RGBA, w x h x 4; empty when not known), so a
+// texture pack finds its picture of the game's own texture.
 struct Cell {
     int x = 0, y = 0, w = 0, h = 0;
     std::vector<std::uint8_t> rgb;
     std::vector<std::uint8_t> sharp;
+    std::vector<std::uint8_t> game;
 };
 
 // A texture of `width` x `height` texels with sharper cells.
@@ -55,5 +58,24 @@ void set(std::vector<Page> pages);
 // and an earlier page's cells are drawn over a later one's. False when no page matches. Any
 // thread.
 bool picture(int width, int height, const std::uint8_t* rgba, Picture& out);
+
+// A painted cell found by unpainted(): where it is, and its sharper picture (RGB, `scale` times as
+// wide and tall).
+struct Found {
+    int x = 0, y = 0, w = 0, h = 0;
+    int scale = 1;
+    std::vector<std::uint8_t> sharp;
+};
+
+// The texture `rgba` (width x height) as the game made it: `game` gets its texels with the cells of
+// every matching page put back to the game's own (Cell::game), and `cells` those cells. False when
+// no page with the game's texels matches. Any thread.
+bool unpainted(
+    int width,
+    int height,
+    const std::uint8_t* rgba,
+    std::vector<std::uint8_t>& game,
+    std::vector<Found>& cells
+);
 
 }  // namespace openrac::renderer::sharp_cells

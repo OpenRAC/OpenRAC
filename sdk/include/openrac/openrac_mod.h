@@ -126,10 +126,16 @@ extern "C" {
  * strongly saturated texels, a visor or lamps
  * (OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT), and 1.39 paint that draws the effects
  * a moby makes in its colour, and paint in weapon_look
- * (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS), and 1.40 synchronous gameplay decision
- * queries (on_play_query).
+ * (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS), 1.40 synchronous gameplay decision
+ * queries (on_play_query), 1.41 pictures of a mod's own for its overlay, drawn
+ * turned, tinted and kept in shape, and a call of the overlay under the game's
+ * 2D (overlay_image_create, overlay_image_destroy, openrac_overlay.image,
+ * image_quad, layer, aspect, OPENRAC_OVERLAY_UNDER_HUD), and 1.42 what mods
+ * offer each other: a mod's services, tables of its own found by name and
+ * version (service_provide, service_find, openrac_service), and a call once
+ * every mod has loaded (on_mods_loaded).
  */
-#define OPENRAC_MOD_API_MINOR 40
+#define OPENRAC_MOD_API_MINOR 42
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1592,6 +1598,37 @@ typedef struct openrac_moby2 {
 #define OPENRAC_OVERLAY_MENU 0x2u
 /* A level with a scene playing (OPENRAC_PLAY_SCENE): a cutscene, the ship's landing. Since 1.31. */
 #define OPENRAC_OVERLAY_SCENE 0x4u
+/* Not a phase but a layer, for on_overlay_phases' `phases` with the phases it is for: the callback
+ * is also called once a frame before the game's own 2D (its HUD, text and menus) is drawn, over the
+ * world, and what it draws in that call goes under the game's 2D, as heat haze does
+ * (openrac_overlay.layer says which call it is). That call comes before the frame is drawn: its
+ * `project` always answers 0. Drawn only in a frame that draws the level. Since 1.41. */
+#define OPENRAC_OVERLAY_UNDER_HUD 0x8u
+
+/* openrac_overlay.layer: the call over the finished frame (the game's 2D and menus included), or
+ * the one under the game's 2D (OPENRAC_OVERLAY_UNDER_HUD). Since 1.41. */
+#define OPENRAC_OVERLAY_LAYER_TOP 0u
+#define OPENRAC_OVERLAY_LAYER_UNDER_HUD 1u
+
+/* openrac_overlay_image.flags: sampled smoothly (bilinear, with mipmaps), not by the nearest pixel.
+ * Since 1.41. */
+#define OPENRAC_OVERLAY_IMAGE_SMOOTH 0x1u
+/* The largest side of an openrac_overlay_image, in pixels. Since 1.41. */
+#define OPENRAC_OVERLAY_IMAGE_SIDE_MAX 4096
+
+/* A picture of the mod's for its overlay (openrac_api.overlay_image_create), which the port
+ * copies. Since 1.41. */
+typedef struct openrac_overlay_image {
+    /* sizeof(openrac_overlay_image), set by the mod. */
+    uint32_t size;
+    /* Its size in pixels, 1 to OPENRAC_OVERLAY_IMAGE_SIDE_MAX each. */
+    int32_t width;
+    int32_t height;
+    /* width * height * 4 bytes: R G B A, top row first, the colour straight (not premultiplied). */
+    const uint8_t* rgba;
+    /* OPENRAC_OVERLAY_IMAGE_SMOOTH or 0. */
+    uint32_t flags;
+} openrac_overlay_image;
 
 /* The port's drawing over the game, handed to an overlay callback for the length of the call.
  * Screen positions are in the game's 512 x 448 picture, as menu_rect and menu_text's. It goes over
@@ -1625,6 +1662,28 @@ typedef struct openrac_overlay {
      * blend this port does not have: the last stays). Only if `size` reaches it (mod.hpp:
      * overlay_has_set_blend). Since 1.33. */
     int (*set_blend)(void* context, uint32_t blend);
+    /* Picture `image` of the mod's (overlay_image_create) centred on (x, y), `w` by `h` in the
+     * picture's units down (448 the picture's height), so that it keeps its shape on a wide
+     * picture as text does (w == h is square as shown), turned `angle` radians counter-clockwise as
+     * shown about its centre. Each texel is times `rgba` (0xRRGGBBAA: 0xFFFFFFFF as it is; the
+     * alpha fades it) and goes over the frame as set_blend says. An id that is not the mod's draws
+     * nothing. Only if `size` reaches it (mod.hpp: overlay_has_images). Since 1.41. */
+    void (*image)(
+        void* context, int image, float x, float y, float w, float h, float angle, uint32_t rgba
+    );
+    /* Picture `image` stretched over the four corners `xy` (x, y pairs in the picture's 512 x 448
+     * units, not kept in shape: top left, top right, bottom left, bottom right), each taking the
+     * place `uv` gives it in the picture (u, v pairs, 0 to 1 from the picture's top left), times
+     * `rgba`. Since 1.41. */
+    void (*image_quad)(
+        void* context, int image, const float xy[8], const float uv[8], uint32_t rgba
+    );
+    /* Which call this is: OPENRAC_OVERLAY_LAYER_TOP or OPENRAC_OVERLAY_LAYER_UNDER_HUD. Since
+     * 1.41. */
+    uint32_t layer;
+    /* The frame's width to its height as shown (16:9 is 1.78): a unit of the picture across is
+     * aspect * 448 / 512 of one down. Since 1.41. */
+    float aspect;
 } openrac_overlay;
 
 /* openrac_overlay.set_blend's `blend`: how an overlay's colour (a rectangle's or a letter's: `src`,
@@ -1935,6 +1994,29 @@ typedef struct openrac_play_query {
 } openrac_play_query;
 
 typedef void (*openrac_play_query_fn)(void* user, openrac_play_query* query);
+
+/* A service one mod offers others (openrac_api.service_provide, service_find): a table of the
+ * providing mod's, a plain C struct of function pointers (and data) whose first member is its
+ * `uint32_t size`, as openrac_api's is, so it grows at its end as the table does. Both mods include
+ * the provider's header for it. The port keeps only the pointer: what the functions do, and on
+ * which thread, is the provider's to say. Since 1.42. */
+typedef struct openrac_service {
+    /* sizeof(openrac_service), set by the caller. */
+    uint32_t size;
+    /* The version the provider offers (service_provide's `version`). */
+    uint32_t version;
+    /* The size the provider gave for its table. */
+    uint32_t table_size;
+    /* Padding; zero. */
+    uint32_t reserved;
+    /* The provider's table, valid until the program ends; null when service_find refuses. */
+    const void* table;
+    /* The provider's id. Valid until the program ends. */
+    const char* provider;
+} openrac_service;
+
+/* The longest service name, in characters (openrac_api.service_provide). Since 1.42. */
+#define OPENRAC_SERVICE_NAME_MAX 128
 
 typedef struct openrac_api {
     /* sizeof(openrac_api) as the port was built: a newer port's is larger. Since 1.0. */
@@ -3065,7 +3147,8 @@ typedef struct openrac_api {
      * of `phases` (OPENRAC_OVERLAY_PLAYING, _MENU, _SCENE; openrac_overlay.phase says which one a
      * frame is). It replaces the mod's on_overlay: one a mod. Only during openrac_mod_load.
      * Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TOO_LATE, or OPENRAC_HOOK_UNKNOWN (no fn, no phase, a
-     * bit the port has not). Since 1.31. */
+     * bit the port has not). Since 1.31. Since 1.41 OPENRAC_OVERLAY_UNDER_HUD may be added to the
+     * phases: the callback is called a second time each frame, under the game's 2D. */
     int (*on_overlay_phases)(openrac_mod* mod, openrac_overlay_fn fn, void* user, uint32_t phases);
 
     /* The label of the pad's button `button` (one OPENRAC_PAD_* bit) for the player's device now,
@@ -3384,6 +3467,58 @@ typedef struct openrac_api {
     int (*menu_option_set)(openrac_mod* mod, const char* option, int state);
     /* Register synchronous gameplay decisions during load. Since 1.40. */
     int (*on_play_query)(openrac_mod* mod, uint32_t kinds, openrac_play_query_fn fn, void* user);
+
+    /* Keeps a copy of a picture of the mod's (openrac_overlay_image: RGBA, 1 to 4096 pixels a side)
+     * for its overlay callbacks to draw with openrac_overlay.image and image_quad. Returns its id,
+     * 1 or more (never given again in this run), or OPENRAC_HOOK_UNKNOWN for a null picture, a size
+     * below its struct's, a side out of range or no pixels, or OPENRAC_HOOK_FULL when the mod keeps
+     * 256 pictures or 128 MB of them already. Kept through level loads; gone with
+     * overlay_image_destroy or the mod's unload. Any thread. Since 1.41. */
+    int (*overlay_image_create)(openrac_mod* mod, const openrac_overlay_image* image);
+
+    /* Lets go of the mod's picture image (overlay_image_create): it draws nothing from then on.
+     * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for an id that is not one of the mod's. Any
+     * thread. Since 1.41. */
+    int (*overlay_image_destroy)(openrac_mod* mod, int image);
+
+    /* Calls fn(user) once, after the last mod's openrac_mod_load has returned and before the
+     * game's first tick, in load order. During a load only the mods loaded before it are there
+     * (mod_count, mod_entry, service_find); here every mod that loaded is, so this is the place to
+     * look for another mod and ask for its services. Nothing is taken here: hooks, callbacks and
+     * services are refused with OPENRAC_E_TOO_LATE, so a mod takes in its load what it may use and
+     * decides here whether to use it. Only during openrac_mod_load. Returns OPENRAC_OK, or
+     * OPENRAC_E_TOO_LATE after load or for no fn. Since 1.42. */
+    int (*on_mods_loaded)(openrac_mod* mod, openrac_frame_fn fn, void* user);
+
+    /* Offers other mods a service (openrac_service): `table`, `size` bytes, under `name`. The mod
+     * keeps the table unchanged where it is until it unloads, at the program's end (static storage).
+     * `name` is the mod's own id, a slash and one or more of a-z 0-9 - _ . / ("rumble/effects"), at
+     * most OPENRAC_SERVICE_NAME_MAX characters. `version` (1 up) grows when the table grows at its
+     * end; a change that breaks its callers takes a new name. Only during openrac_mod_load, and a
+     * mod whose load fails takes its services with it. Returns OPENRAC_OK, OPENRAC_E_TAKEN when the
+     * mod offers that name already (the first stays), OPENRAC_E_TOO_LATE after load, or
+     * OPENRAC_E_UNKNOWN for a name of another form, a null table, or a size or version of 0.
+     * Since 1.42. */
+    int (*service_provide)(
+        openrac_mod* mod,
+        const char* name,
+        uint32_t version,
+        const void* table,
+        uint32_t size
+    );
+
+    /* Finds the service `name` of `min_version` or above into `out`, whose `size` the caller sets.
+     * During a load only the services of the mods loaded before it are there: ask in on_mods_loaded
+     * or later, and keep the answer, which stays valid until the program ends. Returns OPENRAC_OK,
+     * OPENRAC_E_SIGNATURE for a service older than min_version (`out` gets its version and provider,
+     * its table null), or OPENRAC_E_UNKNOWN for no such service, no name or a bad `out`.
+     * Since 1.42. */
+    int (*service_find)(
+        openrac_mod* mod,
+        const char* name,
+        uint32_t min_version,
+        openrac_service* out
+    );
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

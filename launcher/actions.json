@@ -638,6 +638,35 @@
         "docs": "extractor/AUDIO_MODDING.md"
       },
       {
+        "id": "audio-recipe",
+        "label": "Create an audio recipe",
+        "description": "Shares audio adjustments as a small recipe. Each player generates the sounds from their own disc.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "extractor/audio_recipe.py",
+          "create",
+          "{disc}",
+          "{data}/exports/audio-recipe",
+          "--settings",
+          "{option}",
+          "--timestamp",
+          "--unique",
+          "--into",
+          "{data}/overrides"
+        ],
+        "output": "{data}/exports",
+        "freeOption": true,
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "extractor/AUDIO_MODDING.md"
+      },
+      {
         "id": "overrides-add",
         "label": "Add an overrides pack",
         "description": "Copies a pack (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. The file you chose is never changed.",
@@ -1329,6 +1358,35 @@
         "output": "{data}/overrides",
         "cwd": ".",
         "requires": [
+          "python"
+        ],
+        "docs": "extractor/AUDIO_MODDING.md"
+      },
+      {
+        "id": "audio-recipe",
+        "label": "Create an audio recipe",
+        "description": "Shares audio adjustments as a small recipe. Each player generates the sounds from their own disc.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "extractor/audio_recipe.py",
+          "create",
+          "{disc}",
+          "{data}/exports/audio-recipe",
+          "--settings",
+          "{option}",
+          "--timestamp",
+          "--unique",
+          "--into",
+          "{data}/overrides"
+        ],
+        "output": "{data}/exports",
+        "freeOption": true,
+        "cwd": ".",
+        "requires": [
+          "disc",
           "python"
         ],
         "docs": "extractor/AUDIO_MODDING.md"
@@ -2303,7 +2361,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac2/ntsc/levels-20.json",
+        "artifact": "assets/port/rac2/ntsc/levels-21.json",
         "docs": "extractor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (extractor/README.md, \"The later games\")."
       },
@@ -2341,7 +2399,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-20.json",
+            "path": "assets/port/rac2/ntsc/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -2372,7 +2430,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-20.json",
+            "path": "assets/port/rac2/ntsc/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -2477,7 +2535,7 @@
             "from": "the disc's files (Unpack the disc's files)"
           },
           {
-            "path": "assets/port/rac2/ntsc/levels-20.json",
+            "path": "assets/port/rac2/ntsc/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -2531,7 +2589,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-20.json",
+            "path": "assets/port/rac2/ntsc/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -2628,7 +2686,7 @@
         "artifact": "port/build/release/openrac-enhanced-baker.exe",
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc/levels-20.json",
+            "path": "assets/port/rac2/ntsc/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -2692,7 +2750,7 @@
             "from": "the disc's files (Unpack the disc's files)"
           },
           {
-            "path": "assets/port/rac2/ntsc/levels-20.json",
+            "path": "assets/port/rac2/ntsc/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ]
@@ -2732,7 +2790,7 @@
             "from": "the disc's files (Unpack the disc's files)"
           },
           {
-            "path": "assets/port/rac2/ntsc/levels-20.json",
+            "path": "assets/port/rac2/ntsc/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ]
@@ -2826,7 +2884,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac2/pal/levels-20.json",
+        "artifact": "assets/port/rac2/pal/levels-21.json",
         "docs": "extractor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (extractor/README.md, \"The later games\")."
       },
@@ -2864,7 +2922,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/pal/levels-20.json",
+            "path": "assets/port/rac2/pal/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -2895,7 +2953,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/pal/levels-20.json",
+            "path": "assets/port/rac2/pal/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -2950,7 +3008,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/pal/levels-20.json",
+            "path": "assets/port/rac2/pal/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -3047,7 +3105,7 @@
         "artifact": "port/build/release/openrac-enhanced-baker.exe",
         "needs": [
           {
-            "path": "assets/port/rac2/pal/levels-20.json",
+            "path": "assets/port/rac2/pal/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -3111,7 +3169,7 @@
             "from": "the disc's files (Unpack the disc's files)"
           },
           {
-            "path": "assets/port/rac2/pal/levels-20.json",
+            "path": "assets/port/rac2/pal/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ]
@@ -3151,7 +3209,7 @@
             "from": "the disc's files (Unpack the disc's files)"
           },
           {
-            "path": "assets/port/rac2/pal/levels-20.json",
+            "path": "assets/port/rac2/pal/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ]
@@ -3245,7 +3303,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac2/ntsc2/levels-20.json",
+        "artifact": "assets/port/rac2/ntsc2/levels-21.json",
         "docs": "extractor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (extractor/README.md, \"The later games\")."
       },
@@ -3283,7 +3341,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "path": "assets/port/rac2/ntsc2/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -3314,7 +3372,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "path": "assets/port/rac2/ntsc2/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -3369,7 +3427,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "path": "assets/port/rac2/ntsc2/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -3466,7 +3524,7 @@
         "artifact": "port/build/release/openrac-enhanced-baker.exe",
         "needs": [
           {
-            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "path": "assets/port/rac2/ntsc2/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -3530,7 +3588,7 @@
             "from": "the disc's files (Unpack the disc's files)"
           },
           {
-            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "path": "assets/port/rac2/ntsc2/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ]
@@ -3570,7 +3628,7 @@
             "from": "the disc's files (Unpack the disc's files)"
           },
           {
-            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "path": "assets/port/rac2/ntsc2/levels-21.json",
             "from": "the levels (Get the levels ready)"
           }
         ]

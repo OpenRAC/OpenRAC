@@ -873,6 +873,7 @@ void LevelScene::move_scenery(const GameScenery& game) {
             set_instances(kSceneryLayers[k], resident_scenery(k));
         }
     }
+    flush_light_colours();
 }
 
 void LevelScene::relight_moved_tie(
@@ -912,26 +913,63 @@ void LevelScene::relight_moved_tie(
 }
 
 void LevelScene::upload_light_colours(std::size_t first, std::span<const std::uint32_t> colours) {
-    // The texture's rows of 1024 colours that the instance's run crosses.
+    if (colours.empty() || first + colours.size() > m_light_texels.size()) {
+        return;
+    }
+    std::copy(
+        colours.begin(), colours.end(), m_light_texels.begin() + static_cast<std::ptrdiff_t>(first)
+    );
+    m_light_dirty.emplace_back(first, first + colours.size());
+}
+
+void LevelScene::flush_light_colours() {
+    if (m_light_dirty.empty()) {
+        return;
+    }
+    // Spans less than a row apart are uploaded as one: the texels between them are sent again
+    // as the texture already has them.
     constexpr std::size_t width = kLightWidth;
+    std::sort(m_light_dirty.begin(), m_light_dirty.end());
     glBindTexture(GL_TEXTURE_2D, m_lights);
-    for (std::size_t at = 0; at < colours.size();) {
-        const std::size_t texel = first + at;
-        const std::size_t run = std::min(colours.size() - at, width - texel % width);
+    const auto upload = [&](std::size_t from, std::size_t to) {
+        const std::size_t first_row = from / width, last_row = (to - 1) / width;
+        if (first_row == last_row) {
+            glTexSubImage2D(
+                GL_TEXTURE_2D,
+                0,
+                static_cast<GLint>(from % width),
+                static_cast<GLint>(first_row),
+                static_cast<GLsizei>(to - from),
+                1,
+                GL_RGBA,
+                GL_UNSIGNED_BYTE,
+                m_light_texels.data() + from
+            );
+            return;
+        }
         glTexSubImage2D(
             GL_TEXTURE_2D,
             0,
-            static_cast<GLint>(texel % width),
-            static_cast<GLint>(texel / width),
-            static_cast<GLsizei>(run),
-            1,
+            0,
+            static_cast<GLint>(first_row),
+            static_cast<GLsizei>(width),
+            static_cast<GLsizei>(last_row - first_row + 1),
             GL_RGBA,
             GL_UNSIGNED_BYTE,
-            colours.data() + at
+            m_light_texels.data() + first_row * width
         );
-        at += run;
+    };
+    std::size_t from = m_light_dirty.front().first, to = m_light_dirty.front().second;
+    for (const auto& [a, b] : m_light_dirty) {
+        if (a > to + width) {
+            upload(from, to);
+            from = a;
+        }
+        to = std::max(to, b);
     }
+    upload(from, to);
     glBindTexture(GL_TEXTURE_2D, 0);
+    m_light_dirty.clear();
 }
 
 void LevelScene::relight_shrub(

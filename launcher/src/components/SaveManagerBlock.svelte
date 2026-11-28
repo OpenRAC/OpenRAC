@@ -7,10 +7,12 @@
   // note. File names, sizes and the card's folder name are a contributor's details: a chip and
   // tooltips with developer tools on.
   import Icon from "$components/Icon.svelte";
+  import Menu, { type MenuItem } from "$components/Menu.svelte";
   import {
     api,
     ask,
     type GameSaveStatus,
+    pickMemoryCard,
     pickSavesFile,
     type SaveBackupInfo,
     type SaveCopySource,
@@ -142,6 +144,50 @@
     if (source) transfer = { mode: "import", source };
   }
 
+  /** Import from PCSX2: its memory card's saves of this game onto OpenRAC's card, after a backup. */
+  async function importPcsx2() {
+    const dir = await api.pcsx2MemcardsDir().catch(() => null);
+    const source = await pickMemoryCard("Choose a PCSX2 memory card", dir).catch((e: unknown) => {
+      toast(`Could not open the file: ${String(e)}`, "error");
+
+      return null;
+    });
+
+    if (!source) return;
+    const yes = await ask(
+      "Copy this game's saves from the PCSX2 memory card? The saves on OpenRAC's card are backed up first, then replaced.",
+      "Import saves",
+    );
+
+    if (!yes) return;
+
+    try {
+      const done = await api.importPcsx2Saves(version.serial, source);
+      const kept = done.backup ? " The saves that were there are in Backups." : "";
+
+      toast(`Imported the saves from PCSX2.${kept}`, "info");
+      app.savesChanged++; // the card is read again
+    } catch (e) {
+      toast(`Import failed: ${String(e)}`, "error");
+    }
+  }
+
+  /** Import's menu: an OpenRAC saves file, or a PCSX2 memory card (on Android a card file only). */
+  const importItems = $derived<MenuItem[]>([
+    ...(supports(app.info, "saveTransfer")
+      ? [
+          {
+            label: "An OpenRAC saves file (.zip)…",
+            icon: "download" as const,
+            run: () => void startImport(),
+          },
+        ]
+      : []),
+    ...(version.serial
+      ? [{ label: "A PCSX2 memory card…", icon: "save" as const, run: () => void importPcsx2() }]
+      : []),
+  ]);
+
   async function openFolder() {
     try {
       await api.openSavesFolder(version.serial);
@@ -222,11 +268,9 @@
           ><Icon name="upload" size={14} />Export</button
         >
       {/if}
-      <button
-        class="small"
-        disabled={!supports(app.info, "saveTransfer")}
-        onclick={() => void startImport()}><Icon name="download" size={14} />Import</button
-      >
+      {#if importItems.length}
+        <Menu text="Import" icon="download" label="Import saves" compact items={importItems} />
+      {/if}
       {#if copySources.length}
         <!-- The same game's saves on another disc's card (PAL and US): their own card each. -->
         <button

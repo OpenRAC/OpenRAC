@@ -499,7 +499,7 @@ mod tests {
                     games: [("rac1".to_string(), vec!["pal".to_string()])].into(),
                     requires: req
                         .iter()
-                        .map(|(id, w)| Require { id: (*id).into(), version: Some((*w).into()) })
+                        .map(|(id, w)| Require { id: (*id).into(), version: Some((*w).into()), ..Default::default() })
                         .collect(),
                     changelog: format!("notes {v}"),
                     tag: format!("{id}-v{v}"),

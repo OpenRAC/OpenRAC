@@ -104,6 +104,10 @@ ${game_keys}	<key>NSHighResolutionCapable</key>
       VERBATIM)
   endif()
 
+  # libopenrac-shaders.dylib, which every program shares, stays in the build folder, five folders
+  # up from Contents/MacOS (apps/<target>/<title>.app/Contents/MacOS).
+  set_property(TARGET ${target} APPEND PROPERTY BUILD_RPATH "@executable_path/../../../../..")
+
   add_custom_target(${target}_icon DEPENDS "${icns}")
   add_dependencies(${target} ${target}_icon)
 

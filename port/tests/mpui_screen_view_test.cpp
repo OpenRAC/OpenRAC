@@ -41,6 +41,8 @@ public:
     void highlight(const Rect& rect) override { highlights.push_back(rect); }
 
     void rect(const Rect& /*rect*/, std::uint32_t rgba) override {
+        rect_colours.push_back(rgba);
+
         // The panel's field is the one rectangle drawn in the fill colour.
         if (rgba == FILL_COLOUR) {
             ++panels;
@@ -60,6 +62,7 @@ public:
     std::vector<float> text_y;       // Each text's top.
     std::vector<Rect> highlights;    // Every highlight bar drawn.
     std::vector<Sound> sounds;       // Every sound played.
+    std::vector<std::uint32_t> rect_colours;  // The colour of every rectangle drawn, in order.
     int panels = 0;                  // Panels drawn.
 };
 
@@ -226,6 +229,31 @@ void test_a_choice_steps_around() {
     );
 }
 
+// The binding sets a choice's value (held to its choices) and a keyed text's words.
+void test_the_binding_sets_values_and_texts() {
+    RecordingSkin skin;
+    Model model;
+    ScreenSpec spec;
+    spec.id = "player";
+    Item status;
+    status.kind = ItemKind::TEXT;
+    status.key = "status";
+    status.label = "-";
+    Item choice;
+    choice.kind = ItemKind::CHOICE;
+    choice.key = "team";
+    choice.choices = {"1", "2", "3"};
+    spec.items = {status, choice};
+    ScreenView view(spec, Rect{0.0f, 0.0f, 400.0f, 100.0f}, Mode::MODAL);
+    CHECK(view.set_value("team", 2) && view.value(1) == 2);
+    CHECK(view.set_value("team", 9) && view.value(1) == 2);
+    CHECK(!view.set_value("skin", 1));
+    CHECK(view.handle(Event::RIGHT, model, skin).value == 0);
+    CHECK(view.set_text("status", "READY 3/9") && !view.set_text("team", "x"));
+    view.draw(skin, model);
+    CHECK(!skin.texts.empty() && skin.texts[0] == "READY 3/9");
+}
+
 // Drawing a long list shows its page, the cursor's bar, the page count and the marks below.
 void test_drawing_a_long_list() {
     RecordingSkin skin;
@@ -233,7 +261,13 @@ void test_drawing_a_long_list() {
     fill_players(model, 24);
     ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::OVERLAY);
     view.draw(skin, model);
-    CHECK(skin.panels == 0);
+
+    // An overlay has no panel; the only fill-coloured rectangle is the scroll bar's track, and its
+    // thumb (the edge colour) follows it.
+    CHECK(skin.panels == 1);
+    CHECK(skin.rect_colours.size() == 2);
+    CHECK(skin.rect_colours.size() == 2 && skin.rect_colours[0] == FILL_COLOUR);
+    CHECK(skin.rect_colours.size() == 2 && skin.rect_colours[1] == EDGE_COLOUR);
     CHECK(skin.texts[0] == "STAGING");
     CHECK(skin.highlights.size() == 1);
     bool counted = false;
@@ -347,6 +381,7 @@ int main() {
     test_a_disabled_row_refuses_cross();
     test_an_overlay_passes_unused_events_on();
     test_a_choice_steps_around();
+    test_the_binding_sets_values_and_texts();
     test_drawing_a_long_list();
     test_long_cells_are_cut_to_their_column();
     test_a_notice_wraps_and_goes_back();

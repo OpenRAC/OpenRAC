@@ -451,6 +451,14 @@ struct Menu_Extras {
     using fn = int32_t (*)();
 };
 
+// The follow camera's read of the right stick, each tick: camera (its data at +0x70), and the guest addresses of the floats it then turns and tilts by. By then the tick's goals are set: the eye's distance and height goals (data +0x1A0 and +0x1AC), which the camera eases its distance and height (+0x18C, +0x190) towards, and the eye it wants from Ratchet (+0x160); after it the camera turns, eases and builds its view, so a mod that calls the original and then changes those moves the camera this very tick. Rac1's FollowCamera_ReadStickInput.
+struct FollowCamera_ReadStick {
+    static constexpr const char* id = "rac2.camera.follow.read_stick";
+    static constexpr const char* name = "FollowCamera_ReadStick";
+    static constexpr const char* signature = "void(u32,u32,u32)";
+    using fn = void (*)(uint32_t, uint32_t, uint32_t);
+};
+
 // Updates Boldan's clock tower: sets its hands from the console's clock and, once a second of its time, shows the Nanotech Upgrade (the moby at its pvars +0x28, class 0x11C4) on an even hour of the twelve-hour dial and hides it on an odd one.
 struct Moby_BoldanClock_Update {
     static constexpr const char* id = "rac2.moby.boldan_clock.update";
@@ -472,6 +480,11 @@ namespace hooks {
         using spawn_pickup = rac2::Bolt_SpawnPickup;
         using spawn_pickups = rac2::Bolt_SpawnPickups;
     }  // namespace bolt
+    namespace camera {
+        namespace follow {
+            using read_stick = rac2::FollowCamera_ReadStick;
+        }  // namespace follow
+    }  // namespace camera
     namespace collectibles {
         using platinum_count = rac2::PlatinumBolts_CountTotal;
     }  // namespace collectibles

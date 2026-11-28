@@ -57,6 +57,123 @@ std::size_t chain_bytes(int width, int height) {
     return bytes;
 }
 
+// `from` drawn smoothly over the w x h texels of `to` at x, y (RGBA, texel centres to centres).
+void put_scaled(Rgba8Image& to, int x, int y, int w, int h, const Rgba8Image& from) {
+    if (from.width <= 0 || from.height <= 0) {
+        return;
+    }
+    for (int ty = std::max(y, 0); ty < std::min(y + h, to.height); ++ty) {
+        const double fy = std::clamp(
+            (ty - y + 0.5) * from.height / h - 0.5, 0.0, static_cast<double>(from.height - 1)
+        );
+        const int y0 = static_cast<int>(fy);
+        const int y1 = std::min(y0 + 1, from.height - 1);
+        const double wy = fy - y0;
+        for (int tx = std::max(x, 0); tx < std::min(x + w, to.width); ++tx) {
+            const double fx = std::clamp(
+                (tx - x + 0.5) * from.width / w - 0.5, 0.0, static_cast<double>(from.width - 1)
+            );
+            const int x0 = static_cast<int>(fx);
+            const int x1 = std::min(x0 + 1, from.width - 1);
+            const double wx = fx - x0;
+            const auto texel = [&](int sx, int sy, int c) {
+                return static_cast<double>(
+                    from.pixels[(static_cast<std::size_t>(sy) * from.width + sx) * 4 + c]
+                );
+            };
+            for (int c = 0; c < 4; ++c) {
+                const double top = texel(x0, y0, c) * (1 - wx) + texel(x1, y0, c) * wx;
+                const double bottom = texel(x0, y1, c) * (1 - wx) + texel(x1, y1, c) * wx;
+                to.pixels[(static_cast<std::size_t>(ty) * to.width + tx) * 4 + c] =
+                    static_cast<std::uint8_t>(std::lround(top * (1 - wy) + bottom * wy));
+            }
+        }
+    }
+}
+
+// The painted cells of `painted` (sharp_cells::unpainted) drawn over `picture`, a picture of the
+// whole texture at any size. Each cell is a texture of its own to a pack (a key's icon has its
+// own name, whatever the font), so a pack can give every key its own look: its picture when the
+// pack has one, else (unless `only_packed`) the cell's sharper picture, or its texels.
+void draw_cells(
+    Rgba8Image& picture,
+    const Rgba8Image& painted,
+    const std::vector<sharp_cells::Found>& cells,
+    bool dump,
+    bool only_packed
+) {
+    for (const sharp_cells::Found& c : cells) {
+        Rgba8Image cell(c.w, c.h);
+        for (int y = 0; y < c.h; ++y) {
+            std::copy_n(
+                painted.pixels.data()
+                    + (static_cast<std::size_t>(c.y + y) * painted.width + c.x) * 4,
+                static_cast<std::size_t>(c.w) * 4,
+                cell.pixels.data() + static_cast<std::size_t>(y * c.w) * 4
+            );
+        }
+        const bool packed = texture_pack::replace(cell, {.interface = true, .dump = dump});
+        if (!packed && only_packed) {
+            continue;
+        }
+        if (!packed
+            && c.sharp.size() == static_cast<std::size_t>(c.w * c.scale * c.h * c.scale * 3)) {
+            // The sharper picture's colours, with the cell's own opacity.
+            Rgba8Image sharp(c.w * c.scale, c.h * c.scale);
+            for (int y = 0; y < sharp.height; ++y) {
+                for (int x = 0; x < sharp.width; ++x) {
+                    const std::size_t at = static_cast<std::size_t>(y * sharp.width + x);
+                    std::copy_n(c.sharp.data() + at * 3, 3, sharp.pixels.data() + at * 4);
+                    sharp.pixels[at * 4 + 3] =
+                        cell.pixels
+                            [(static_cast<std::size_t>(y / c.scale) * c.w + x / c.scale) * 4 + 3];
+                }
+            }
+            cell = std::move(sharp);
+        }
+        put_scaled(
+            picture,
+            c.x * picture.width / painted.width,
+            c.y * picture.height / painted.height,
+            c.w * picture.width / painted.width,
+            c.h * picture.height / painted.height,
+            cell
+        );
+    }
+}
+
+// A texture pack's picture of `image` (texture_pack::replace). A texture a built-in painted (the
+// key prompts, sharp_cells.h) is looked up as the game made it, so the pack's font fits whatever
+// keys are bound, and its painted cells are drawn over the pack's picture (draw_cells). `cells`
+// gets the painted cells and `game` the texture as the game made it; both stay empty when it was
+// not painted.
+bool replace_painted(
+    Rgba8Image& image,
+    const texture_pack::Origin& origin,
+    texture_pack::Replacement* replaced,
+    std::vector<sharp_cells::Found>& cells,
+    Rgba8Image& game
+) {
+    std::vector<std::uint8_t> texels;
+    if (!sharp_cells::unpainted(image.width, image.height, image.pixels.data(), texels, cells)) {
+        return texture_pack::replace(image, origin, replaced);
+    }
+    game = Rgba8Image(image.width, image.height);
+    game.pixels = std::move(texels);
+    Rgba8Image picture = game;
+    if (!texture_pack::replace(picture, origin, replaced)) {
+        return false;
+    }
+    // The cells go into its texels: its GPU blocks and frames have none of them.
+    if (replaced != nullptr) {
+        replaced->blocks = nullptr;
+        replaced->animation = nullptr;
+    }
+    draw_cells(picture, image, cells, origin.dump, false);
+    image = std::move(picture);
+    return true;
+}
+
 // The levels of `blocks` a texture uploads: its chain when it has one, else the first.
 std::size_t block_levels(const CompressedImage& blocks, bool mipmaps) {
     return mipmaps ? blocks.levels.size() : std::min<std::size_t>(blocks.levels.size(), 1);
@@ -195,7 +312,9 @@ bool TexturePool::ensure_mipmaps(TextureHandle texture) {
 TextureHandle TexturePool::ui_image(
     std::uint64_t hash, const Rgba8Image& image, const UiIndexed* indexed
 ) {
-    if (const auto found = m_ui_images.find(hash); found != m_ui_images.end()) {
+    // Kept apart while the pack is hidden (texture_pack::set_shown), so both stay made.
+    auto& images = texture_pack::shown() ? m_ui_images : m_ui_game_images;
+    if (const auto found = images.find(hash); found != images.end()) {
         m_entries[found->second - 1].last_used = m_frame;
         return found->second;
     }
@@ -206,9 +325,11 @@ TextureHandle TexturePool::ui_image(
     // of the game's size (the item's), so a picture of any size fits.
     Rgba8Image picture = image;
     texture_pack::Replacement replaced;
-    const bool packed = texture_pack::replace(picture, {.interface = true}, &replaced);
+    std::vector<sharp_cells::Found> painted;
+    Rgba8Image game;
+    const bool packed = replace_painted(picture, {.interface = true}, &replaced, painted, game);
     bool pcsx2 = false;
-    if (!packed && indexed != nullptr) {
+    if (!packed && indexed != nullptr && texture_pack::shown()) {
         pcsx2 = pcsx2_pack::replace_indexed8(
                     picture, indexed->indices, indexed->palette, AlphaScale::Gs
                 )
@@ -223,7 +344,7 @@ TextureHandle TexturePool::ui_image(
     entry.pack_hash = replaced.hash;
     animate(handle, std::move(replaced.animation));
     set_blocks(handle, std::move(replaced.blocks));
-    m_ui_images.emplace(hash, handle);
+    images.emplace(hash, handle);
     return handle;
 }
 
@@ -674,12 +795,20 @@ TextureHandle TexturePool::convert_upload(
     // The original, for a dump later (Entry::held): a texture pack of PCSX2's may change `image`.
     std::shared_ptr<const Rgba8Image> held =
         !dump && !key.generated ? std::make_shared<const Rgba8Image>(image) : nullptr;
-    const bool packed = texture_pack::replace(
+    // A texture a built-in painted (the key prompts) is the game's own to a pack and its dump.
+    std::vector<sharp_cells::Found> painted;
+    Rgba8Image game;
+    const bool packed = replace_painted(
         image,
         {.interface = true, .later = true, .dump = dump, .skip_empty_alpha = key.skip_empty_alpha},
-        &replaced
+        &replaced,
+        painted,
+        game
     );
-    if (!packed && clut != nullptr) {
+    if (held != nullptr && !painted.empty()) {
+        held = std::make_shared<const Rgba8Image>(game);
+    }
+    if (!packed && clut != nullptr && texture_pack::shown()) {
         pcsx2 = pcsx2_pack::replace(image, tex0, raster, colours, AlphaScale::Gs);
         if (extent[0] != 0) {
             auto extended = border.empty() ? std::vector<std::uint8_t>{}
@@ -730,6 +859,8 @@ TextureHandle TexturePool::convert_upload(
             big->width = picture.width;
             big->height = picture.height;
             big->pixels = std::move(picture.pixels);
+            // A pack's own pictures of the painted cells (its keys), over the sharper ones.
+            draw_cells(*big, image, painted, dump, true);
             log::info(
                 "textures: the upload at block {:#x} drawn from a sharper picture ({}x{})",
                 tex0.tbp0,
@@ -1384,6 +1515,12 @@ void TexturePool::release_gl() {
 void TexturePool::end_frame() {
     ++m_frame;
     m_slot_turns.clear();
+    // The pack shown or hidden since: every upload is converted again at its next use, and the
+    // old conversions retire when unused.
+    if (const std::uint64_t version = texture_pack::shown_version(); version != m_shown_version) {
+        m_shown_version = version;
+        m_converted.clear();
+    }
     // Pack pictures read in the background since: the uploads drawn as their originals meanwhile
     // are converted again at their next use.
     if (const std::uint64_t version = texture_pack::kept_version(); version != m_pack_version) {

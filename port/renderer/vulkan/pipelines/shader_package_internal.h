@@ -12,10 +12,13 @@
 
 namespace openrac::vkgl::package_detail {
 // Archive identity and bounded block sizes, in bytes; all integers use little-endian words.
-inline constexpr std::string_view kMagic = "ORSHDR01";
+inline constexpr std::string_view kMagic = "ORSHDR02";
 inline constexpr std::size_t kWordBytes = 8;
 inline constexpr std::size_t kChunkBytes = std::size_t{16} * 1024;
 inline constexpr std::size_t kMaxShaderBytes = std::size_t{16} * 1024 * 1024;
+// Each encoded program has vertex, fragment and compute vectors, followed by reflection.
+inline constexpr std::size_t kShaderStages = 3;
+inline constexpr std::size_t kProgramSections = kShaderStages + 1;
 // FNV-1a's 64-bit offset basis and prime, shared by source keys and compressed-block checksums.
 inline constexpr std::uint64_t kBasis = 0xCBF29CE484222325ull;
 inline constexpr std::uint64_t kPrime = 0x100000001B3ull;

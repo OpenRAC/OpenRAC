@@ -6,7 +6,8 @@
 // (core.hpp, kbm.hpp, the shared manifest); this file adds Going Commando's own: where the game is,
 // from the on-screen pad's context (touch.c), its menus under the mouse (menus.hpp, places.hpp)
 // and its follow and first-person cameras, which the mouse turns itself (follow_mouse.h). Out of
-// them the mouse is the right stick. It writes the pad report, the fonts' button icons
+// them the mouse is the right stick. The number keys and the wheel take a Quick Select slot's item
+// through the game's own Item_Equip. It writes the pad report, the fonts' button icons
 // (key_prompts.h) and, in play, those cameras' views, never other game state.
 
 #include "keyboard_mouse.h"
@@ -20,6 +21,7 @@
 #include <string>
 #include <string_view>
 
+#include "game/common/keyboard_mouse/controls.hpp"
 #include "game/common/keyboard_mouse/core.hpp"
 #include "game/rac2/host/follow_mouse.h"
 #include "game/rac2/host/gui_texts.h"
@@ -34,17 +36,23 @@ using kbm::Action;
 using kbm::Context;
 
 // The game's fonts on each disc (key_prompts.h): the effect bank's word and the effect texture
-// table.
+// table. Then the hero's block (D_00189E20 on NTSC-U v1.01: g_heroPos - 0x80), the Quick Select's
+// eight slots (g_equippedItemSlots: item ids, 0 for an empty one, slot 1 at the top then
+// clockwise) and Item_Equip (rac2.item.equip), which puts an item in the hero's hand as the Quick
+// Select does, by this disc's name for it.
 struct Disc {
     const char* version;
     std::uint32_t font_bank;
     std::uint32_t font_table;
+    std::uint32_t hero;
+    std::uint32_t quick_select;
+    const char* equip;
 };
 
 constexpr std::array<Disc, 3> kDiscs = {{
-    {"ntsc", 0x001B1604u, 0x001B9740u},
-    {"pal", 0x001B1604u, 0x001B9740u},
-    {"ntsc2", 0x001B1584u, 0x001B96C0u},
+    {"ntsc", 0x001B1604u, 0x001B9740u, 0x00189E20u, 0x001A73B8u, "func_002AD860"},
+    {"pal", 0x001B1604u, 0x001B9740u, 0x00189EA0u, 0x001A7438u, "func_002AE3C0"},
+    {"ntsc2", 0x001B1584u, 0x001B96C0u, 0x00189E20u, 0x001A73B8u, "func_002AE6C8"},
 }};
 
 constexpr std::uint32_t kRamBytes = 32u << 20;
@@ -420,6 +428,189 @@ bool menu_mouse(const Tick& t, bool click) {
     return false;
 }
 
+// ---- Weapons ----
+
+// The hero's block: the item in his hand (s32).
+constexpr std::uint32_t kHeroHeld = 0x1248u;
+// How long an item the keys asked for stands for the one in hand while he takes it out, so that a
+// second notch of the wheel goes on from it (a weapon switch takes about half a second).
+constexpr std::uint32_t kAskedTicks = 30u;
+
+// Item_Equip on this disc, null when the build has none (the keys then take nothing).
+std::int32_t (*s_equip)(std::int32_t) = nullptr;
+std::int32_t s_asked = 0;  // the item the keys asked for last, and the tick they did
+std::uint32_t s_asked_tick = kNoTick;
+// The item in hand at the last tick, and the one before it (Last weapon takes it).
+std::int32_t s_seen_item = 0;
+std::int32_t s_previous_item = 0;
+
+// The item ids in the Quick Select's slots, 0 for an empty one.
+std::array<std::int32_t, kbm::kQuickSelectSlots> quick_select_slots() {
+    const openrac::Memory m = s_mod->memory();
+    std::array<std::int32_t, kbm::kQuickSelectSlots> slots{};
+
+    for (std::size_t i = 0; i < slots.size(); ++i) {
+        slots[i] = m.read<std::int32_t>(s_disc->quick_select + static_cast<std::uint32_t>(4 * i));
+    }
+
+    return slots;
+}
+
+// The number keys and the wheel: the item in a Quick Select slot, or the next one round, put in the
+// hero's hand as the Quick Select does (Item_Equip; he takes it out on his next update). Only on
+// foot, and not while the Quick Select is open (it picks the slot itself).
+void weapons(const Tick& t) {
+    if (s_equip == nullptr || s_ring_open || t.touch == nullptr
+        || std::string_view(t.touch) != "foot") {
+        return;
+    }
+
+    const auto slots = quick_select_slots();
+    const auto held = s_mod->memory().read<std::int32_t>(s_disc->hero + kHeroHeld);
+
+    // The item before the one in hand, for Last weapon.
+    if (held != s_seen_item) {
+        if (s_seen_item != 0) {
+            s_previous_item = s_seen_item;
+        }
+
+        s_seen_item = held;
+    }
+
+    // For the wheel, the item asked for and not yet in hand stands for the one in hand: two
+    // notches go two on.
+    const bool asking = s_asked != 0 && s_asked != held && s_asked_tick != kNoTick
+                        && s_tick - s_asked_tick <= kAskedTicks;
+    const std::int32_t current = asking ? s_asked : held;
+
+    std::int32_t item = 0;
+
+    for (int n = 0; n < kbm::kQuickSelectSlots && item == 0; ++n) {
+        const auto a = static_cast<Action>(static_cast<int>(Action::Weapon1) + n);
+
+        if (kbm::pressed_now(s_set.binds, t, a)) {
+            item = slots[static_cast<std::size_t>(n)];
+        }
+    }
+
+    const int step = kbm::pressed_now(s_set.binds, t, Action::WeaponNext)   ? 1
+                     : kbm::pressed_now(s_set.binds, t, Action::WeaponPrev) ? -1
+                                                                            : 0;
+
+    if (item == 0 && step != 0) {
+        item = kbm::cycle_item(slots, current, step);
+    }
+
+    if (item == 0 && kbm::pressed_now(s_set.binds, t, Action::WeaponLast)) {
+        item = s_previous_item;
+    }
+
+    // An empty slot, or the item already in hand, changes nothing. An item asked for and not in
+    // hand is asked for again: the hero drops a request made while he is still switching.
+    if (item != 0 && (item != held || asking)) {
+        s_equip(item);
+        s_asked = item;
+        s_asked_tick = s_tick;
+    }
+}
+
+// ---- The camera behind Ratchet, and the aim ----
+
+// The hero's block: his facing (the z of his rotation, radians: g_heroOrientVec + 8).
+constexpr std::uint32_t kHeroYaw = 0x98u;
+// How many ticks the camera's swing behind Ratchet lasts (as Ratchet & Clank's).
+constexpr int kResetTicks = 30;
+// How many ticks the aim's look takes to come in, and to go back out.
+constexpr float kAimBlendTicks = 8.0f;
+// The overlay's picture (openrac_overlay), and the aim's look on it: the vignette's bands, how far
+// in from the edges they reach and how dark the outermost is (of 255).
+constexpr float kPictureWidth = 512.0f;
+constexpr float kPictureHeight = 448.0f;
+constexpr int kVignetteBands = 12;
+constexpr float kVignetteReach = 0.2f;
+constexpr float kVignetteAlpha = 150.0f;
+
+int s_reset_ticks = 0;     // the swing behind Ratchet still to run (follow_mouse)
+bool s_aiming = false;     // Aim held on foot this tick (it holds L1: the first-person view)
+float s_aim_blend = 0.0f;  // the aim's look on the picture: 0 none, 1 all of it
+bool s_vignette = true;    // setting aim_vignette
+// Aim toggles (setting aim_toggle) rather than holding, and is on now; the mouse's share of its
+// sensitivity while aiming (aim_sensitivity).
+bool s_aim_toggle = false;
+bool s_aim_on = false;
+float s_aim_sensitivity = 1.0f;
+// Dodge: the tick of the flip under way (-1 none), and the way it goes (the left stick).
+int s_dodge_tick = -1;
+float s_dodge_x = 0.0f;
+float s_dodge_y = 0.0f;
+// How many ticks a dodge holds the strafe and the way, and on which it presses jump.
+constexpr int kDodgeTicks = 8;
+constexpr int kDodgeJumpFrom = 1;
+constexpr int kDodgeJumpTo = 2;
+// Strafe while firing (setting strafe_fire): 0 off, 1 while firing and a moment after, 2 always on
+// foot; the ticks the strafe still lasts after the last shot, and how many it lasts.
+int s_strafe_fire = 0;
+int s_strafe_left = 0;
+int s_strafe_ticks = 30;
+// How long the strafe lasts after the last shot, in seconds.
+constexpr float kStrafeAfterFiring = 0.5f;
+
+// `v` with its part along the unit `up` taken out: its direction about the camera's axis.
+kbm::Vec3 level_part(kbm::Vec3 v, kbm::Vec3 up) {
+    return kbm::minus(v, kbm::scaled(up, kbm::dot(v, up)));
+}
+
+// The camera's swing behind Ratchet: the eye it wants and the one it eases towards turned about the
+// camera's axis by a share of the angle left, each tick, so that the eye is behind him (opposite
+// the way he faces) as the swing ends. The camera's turn lock stops it, as it stops the stick.
+void swing_behind(std::array<kbm::Vec3, 2>& offsets, kbm::Vec3 up, bool turn_locked) {
+    const float yaw = s_mod->memory().read<float>(s_disc->hero + kHeroYaw);
+
+    if (turn_locked || !std::isfinite(yaw)) {
+        s_reset_ticks = 0;
+        return;
+    }
+
+    const kbm::Vec3 behind = level_part({-std::cos(yaw), -std::sin(yaw), 0.0f}, up);
+    const kbm::Vec3 now = level_part(offsets[0], up);
+    const float angle = std::atan2(kbm::dot(kbm::cross(now, behind), up), kbm::dot(now, behind));
+    const float share = angle / static_cast<float>(s_reset_ticks);
+
+    for (kbm::Vec3& o : offsets) {
+        o = kbm::rotate(o, up, share);
+    }
+
+    --s_reset_ticks;
+}
+
+// The aim on the picture, once a frame while Aim is held or its look fades (openrac_api.on_overlay):
+// the picture's edges darkened in bands, deeper as the look comes in (aim_vignette). The crosshair is
+// the game's own, in first person.
+void draw_aim(const openrac_overlay* o) {
+    const float b = s_aim_blend;
+
+    if (o == nullptr || !s_vignette || !(b > 0.0f)) {
+        return;
+    }
+
+    const float eased = b * b * (3.0f - 2.0f * b);
+    const float sx = kPictureWidth * kVignetteReach / static_cast<float>(kVignetteBands);
+    const float sy = kPictureHeight * kVignetteReach / static_cast<float>(kVignetteBands);
+
+    for (int i = 0; i < kVignetteBands; ++i) {
+        const float out = 1.0f - static_cast<float>(i) / static_cast<float>(kVignetteBands);
+        const auto alpha = static_cast<std::uint32_t>(kVignetteAlpha * eased * out * out);
+        const float dx = sx * static_cast<float>(i);
+        const float dy = sy * static_cast<float>(i);
+        const float w = kPictureWidth - 2.0f * dx;
+        const float h = kPictureHeight - 2.0f * dy - 2.0f * sy;
+        o->rect(o->context, dx, dy, w, sy, alpha);
+        o->rect(o->context, dx, kPictureHeight - dy - sy, w, sy, alpha);
+        o->rect(o->context, dx, dy + sy, sx, h, alpha);
+        o->rect(o->context, kPictureWidth - dx - sx, dy + sy, sx, h, alpha);
+    }
+}
+
 // The tick's pad from the keyboard and mouse.
 void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     Tick t;
@@ -519,6 +710,93 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     }
     s_ring_open = ring;
     kbm::left_stick(t, held, ring, s_set, s_ring, s_keys, v);
+    weapons(t);
+
+    // Aim held on foot presses L1: the first-person view, where the shots go where it looks; that
+    // view turns with the left stick as well, so the movement keys leave it alone meanwhile, and
+    // Ratchet aims where he stands, as with L1 on a pad.
+    // With aim_toggle a press of Aim aims and another stops; leaving the foot ends it.
+    const bool aim_here = t.touch != nullptr && std::string_view(t.touch) == "foot" && !ring;
+    const bool aim_held = (held & kbm::bit(Action::Aim)) != 0;
+
+    if (!s_aim_toggle || !aim_here) {
+        s_aim_on = false;
+    } else if (kbm::pressed_now(s_set.binds, t, Action::Aim)) {
+        s_aim_on = !s_aim_on;
+    }
+
+    s_aiming = aim_here && (s_aim_toggle ? s_aim_on : aim_held);
+
+    if (aim_here) {
+        // buttons_for pressed L1 for a held Aim: on foot the aim's own button is set here instead.
+        if (aim_held && (held & kbm::bit(Action::FirstPerson)) == 0) {
+            v.held = static_cast<std::uint16_t>(v.held & ~kbm::kL1);
+        }
+
+        if (s_aiming) {
+            v.held = static_cast<std::uint16_t>(v.held | kbm::kL1);
+        }
+    }
+
+    if (s_aiming) {
+        v.left_x = 0.0f;
+        v.left_y = 0.0f;
+    }
+
+    // Dodge: on foot, not aiming, a flip the way the movement keys go (back when
+    // none is held): Going Commando's strafe held with that way, and jump pressed a tick in, as a
+    // pad's L2, stick and Cross make a side, back or front flip.
+    if (aim_here && !s_aiming && s_dodge_tick < 0
+        && kbm::pressed_now(s_set.binds, t, Action::Dodge)) {
+        const auto on = [&](Action a) {
+            return (held & kbm::bit(a)) != 0 ? 1.0f : 0.0f;
+        };
+        s_dodge_x = on(Action::MoveRight) - on(Action::MoveLeft);
+        s_dodge_y = on(Action::MoveBack) - on(Action::MoveForward);
+
+        if (s_dodge_x == 0.0f && s_dodge_y == 0.0f) {
+            s_dodge_y = 1.0f;
+        }
+
+        s_dodge_tick = 0;
+    }
+
+    if (s_dodge_tick >= 0 && !aim_here) {
+        s_dodge_tick = -1;
+    }
+
+    if (s_dodge_tick >= 0) {
+        v.held = static_cast<std::uint16_t>(v.held | kbm::kL2);
+
+        if (s_dodge_tick >= kDodgeJumpFrom && s_dodge_tick <= kDodgeJumpTo) {
+            v.held = static_cast<std::uint16_t>(v.held | kbm::kCross);
+        }
+
+        v.left_x = s_dodge_x;
+        v.left_y = s_dodge_y;
+
+        if (++s_dodge_tick >= kDodgeTicks) {
+            s_dodge_tick = -1;
+        }
+    }
+
+    // Strafe while firing (setting strafe_fire): on foot, not aiming, while Fire is held and a moment
+    // after (or always), L2 is held too, Going Commando's strafe: Ratchet faces where the camera
+    // looks and the movement keys move him sideways and back, as in modern shooters.
+    const bool strafes_here =
+        t.touch != nullptr && std::string_view(t.touch) == "foot" && !ring && !s_aiming;
+
+    if (strafes_here && (held & kbm::bit(Action::Fire)) != 0) {
+        s_strafe_left = s_strafe_ticks;
+    } else if (!strafes_here) {
+        s_strafe_left = 0;
+    } else if (s_strafe_left > 0) {
+        --s_strafe_left;
+    }
+
+    if (strafes_here && (s_strafe_fire == 2 || (s_strafe_fire == 1 && s_strafe_left > 0))) {
+        v.held = static_cast<std::uint16_t>(v.held | kbm::kL2);
+    }
 
     // The first-person camera ran lately (L1's view, the first-person mode): the mouse turns it.
     const bool aligned = s_aligned_tick != kNoTick && s_tick - s_aligned_tick <= kFollowSeenTicks;
@@ -529,12 +807,28 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     s_mouse_counts = t.play;
     // The mouse counts with the cursor captured in play; the gyro wherever it aims.
     const bool looks = (t.play || gyro.on) && !ring && !pad_look;
-    const float dx = (t.play ? in->mouse_dx : 0.0f) + gyro.dx;
-    const float dy = (t.play ? in->mouse_dy : 0.0f) + gyro.dy;
+    // While aiming the mouse turns by its share of the sensitivity (aim_sensitivity).
+    const float mouse_scale = s_aiming ? s_aim_sensitivity : 1.0f;
+    const float dx = (t.play ? in->mouse_dx * mouse_scale : 0.0f) + gyro.dx;
+    const float dy = (t.play ? in->mouse_dy * mouse_scale : 0.0f) + gyro.dy;
 
     // In play with the cursor captured the mouse turns the follow camera itself (follow_mouse),
     // and is the right stick for any other camera; the pad's own stick wins.
     const bool follow = s_follow_tick != kNoTick && s_tick - s_follow_tick <= kFollowSeenTicks;
+
+    // The camera's reset: the swing behind Ratchet (follow_mouse), the tilt let go for the game to
+    // level. The mouse turning sideways, the pad's stick or leaving the follow camera stops it.
+    if (play && follow && kbm::pressed_now(s_set.binds, t, Action::CameraReset)) {
+        s_reset_ticks = kResetTicks;
+        s_tilt.held = false;
+    }
+
+    if (!play || !follow || pad_look || dx != 0.0f) {
+        s_reset_ticks = 0;
+    }
+
+    // The aim's look on the picture comes in over a few ticks (draw_aim), and goes as it is let go.
+    s_aim_blend = kbm::clamp(s_aim_blend + (s_aiming ? 1.0f : -1.0f) / kAimBlendTicks, 0.0f, 1.0f);
     s_pad_look = pad_look;
     s_aims = looks && aligned;
     s_follows = looks && follow && !aligned;
@@ -590,7 +884,8 @@ void write_vec(std::uint32_t a, kbm::Vec3 v) {
 // one it eases towards turned and tilted alike by the mouse's motion (kbm::turn_orbit), so the
 // view turns at once; the tilt held through the game's own target (the stick state and the value
 // it tilts by, after the game's invert option). The camera's locks stop the mouse as they stop
-// the stick.
+// the stick. While the camera's reset runs they swing behind Ratchet instead (swing_behind),
+// whatever turns the camera.
 void follow_mouse(std::uint32_t camera, std::uint32_t turn, std::uint32_t tilt) {
     (void)turn;
     s_follow_tick = s_tick;
@@ -601,9 +896,10 @@ void follow_mouse(std::uint32_t camera, std::uint32_t turn, std::uint32_t tilt) 
     openrac::Memory m = s_mod->memory();
     const std::uint32_t data = m.read<std::uint32_t>(camera + 0x70u);
     float up[3] = {0.0f, 0.0f, 1.0f};
-    if (!s_follows || data < 0x00100000u || data >= kRamBytes - 0x200u
-        || openrac_rac2_follow_axis(up) == 0) {
+
+    if (data < 0x00100000u || data >= kRamBytes - 0x200u || openrac_rac2_follow_axis(up) == 0) {
         s_tilt.held = false;
+        s_reset_ticks = 0;
         return;
     }
     s_follow_up = kbm::unit_or({up[0], up[1], up[2]}, kbm::kWorldUp);
@@ -615,14 +911,28 @@ void follow_mouse(std::uint32_t camera, std::uint32_t turn, std::uint32_t tilt) 
 
     std::array<kbm::Vec3, 2> offsets =
         {read_vec(data + kFollowWanted), read_vec(data + kFollowEye)};
-    const bool moved = kbm::turn_orbit(
-        offsets.data(), 2, s_follow_up, range, s_follow_locks, dx, dy, s_set.look, s_tilt
-    );
+    bool moved = false;
+
+    if (s_reset_ticks > 0) {
+        swing_behind(offsets, s_follow_up, s_follow_locks.turn);
+        moved = true;
+    } else if (s_follows) {
+        moved = kbm::turn_orbit(
+            offsets.data(), 2, s_follow_up, range, s_follow_locks, dx, dy, s_set.look, s_tilt
+        );
+        s_tick_yaw += s_follow_locks.turn ? 0.0f : kbm::DirectLook::yaw(dx, dy, s_set.look);
+    }
+
     if (moved) {
         write_vec(data + kFollowWanted, offsets[0]);
         write_vec(data + kFollowEye, offsets[1]);
     }
-    s_tick_yaw += s_follow_locks.turn ? 0.0f : kbm::DirectLook::yaw(dx, dy, s_set.look);
+
+    // The mouse does not turn the camera now: it holds no tilt.
+    if (!s_follows) {
+        s_tilt.held = false;
+        return;
+    }
 
     // The held tilt is the game's target: the stick state at it, at rest, and the value it tilts by.
     if (s_tilt.held) {
@@ -688,7 +998,9 @@ void aligned_mouse(
 bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
     const float tick_yaw = s_tick_yaw;
     s_tick_yaw = 0.0f;
-    if (s_mod == nullptr || !s_set.low_latency || (!s_follows && !s_aims) || s_pad_look) {
+
+    if (s_mod == nullptr || !s_set.low_latency || (!s_follows && !s_aims) || s_pad_look
+        || s_reset_ticks > 0) {
         return false;
     }
     kbm::add_pending_gyro(s_gyro_on, s_mouse_counts, s_set, dx, dy);
@@ -720,6 +1032,487 @@ float ticks_per_second(const openrac::Mod& mod) {
 
 void read_settings(openrac::Mod& mod) {
     s_set = kbm::read_settings(mod, ticks_per_second(mod));
+    s_vignette = mod.setting<bool>("aim_vignette");
+    s_aim_toggle = mod.setting<bool>("aim_toggle");
+    const auto sensitivity = static_cast<float>(mod.setting<double>("aim_sensitivity"));
+    s_aim_sensitivity = sensitivity > 0.0f ? sensitivity : 1.0f;
+    const std::string strafe = mod.setting<std::string>("strafe_fire");
+    s_strafe_fire = strafe == "always" ? 2 : strafe == "firing" ? 1 : 0;
+    s_strafe_ticks = static_cast<int>(std::lround(kStrafeAfterFiring * ticks_per_second(mod)));
+}
+
+// ---- The keyboard and mouse's page in the pause menu ----
+
+// A row of the pause menu's Options list, Keyboard and mouse (the game's own Controls row is the
+// pad's), opening the page (the port draws it in a copy of the game's Camera page): the device, the
+// mouse's settings, the camera's distance, the key icons, the keys' preset, an Aim and combat page,
+// a page of keys and the reset. The keys' page opens a page for each group of keys,
+// where choosing an action takes the next key, mouse button or wheel notch for it (Escape keeps
+// the one it had). Each change is the setting's, saved as the launcher's are, and read again at once.
+namespace controls = kbm::controls;
+
+openrac::UiPage s_page_main;
+openrac::UiPage s_page_keys;
+openrac::UiPage s_page_combat;
+std::array<openrac::UiPage, controls::kKeyPages.size()> s_page_group;
+// A key being taken: the page of keys and its row, -1 for none, and whether every key and button
+// has been let go since the press that chose the row (that press is not the one taken).
+int s_capture_page = -1;
+int s_capture_row = -1;
+bool s_capture_armed = false;
+// The preset a question waits on, -1 for none.
+int s_pending_preset = -1;
+
+constexpr std::uint32_t kAskReset = 1u;
+constexpr std::uint32_t kAskPreset = 2u;
+
+// The page's rows, and its Aim and combat page's.
+enum MainRow : int {
+    kRowDevice,
+    kRowSensitivity,
+    kRowSensitivityY,
+    kRowInvert,
+    kRowTilt,
+    kRowIcons,
+    kRowPreset,
+    kRowCombat,
+    kRowKeys,
+    kRowReset,
+};
+
+enum CombatRow : int {
+    kRowAimToggle,
+    kRowAimSensitivity,
+    kRowVignette,
+    kRowStrafe,
+};
+
+// The text of a setting presets name besides the keys (controls::kPresetSettings), as it is now.
+std::string_view preset_setting_now(std::string_view key) {
+    if (key == "strafe_fire") {
+        return s_strafe_fire == 2 ? "always" : s_strafe_fire == 1 ? "firing" : "off";
+    }
+
+    return "";
+}
+
+// A choice of Off and On.
+openrac::UiItem switch_of(const char* label, bool on) {
+    return openrac::UiItem::choice_of(label, {"Off", "On"}, on ? 1u : 0u);
+}
+
+// The page as the settings are now. A preset's row shows Custom first when the keys are as
+// none of them.
+openrac::UiContent main_content() {
+    openrac::UiContent c;
+    c.title = "Keyboard and mouse";
+    const std::uint32_t device = s_set.prompt_device < 0 ? 0u : s_set.prompt_device == 1 ? 1u : 2u;
+    c.items.push_back(
+        openrac::UiItem::choice_of("Device", {"Auto", "Keyboard and mouse", "Gamepad"}, device)
+    );
+    c.items.push_back(
+        openrac::UiItem::choice_of(
+            "Mouse sensitivity",
+            controls::sensitivity_choices(),
+            static_cast<std::uint32_t>(controls::sensitivity_step(s_set.look.sensitivity))
+        )
+    );
+    c.items.push_back(
+        openrac::UiItem::choice_of(
+            "Vertical sensitivity",
+            controls::sensitivity_choices(),
+            static_cast<std::uint32_t>(controls::sensitivity_step(s_set.look.sensitivity_y))
+        )
+    );
+    c.items.push_back(switch_of("Invert vertical", s_set.look.invert_y));
+    c.items.push_back(
+        openrac::UiItem::choice_of(
+            "Camera tilt", {"Stays", "Levels out"}, s_set.look.pitch_holds ? 0u : 1u
+        )
+    );
+    c.items.push_back(switch_of("Key icons", s_set.prompts));
+    std::vector<std::string> presets;
+    const int preset = controls::preset_matching(s_set.binds, preset_setting_now);
+
+    if (preset < 0) {
+        presets.emplace_back("Custom");
+    }
+
+    for (const controls::Preset& p : controls::kPresets) {
+        presets.emplace_back(p.name);
+    }
+
+    c.items.push_back(
+        openrac::UiItem::choice_of(
+            "Keys", std::move(presets), preset < 0 ? 0u : static_cast<std::uint32_t>(preset)
+        )
+    );
+    c.items.push_back(openrac::UiItem::button("Aim and combat"));
+    c.items.push_back(openrac::UiItem::button("Change keys"));
+    c.items.push_back(openrac::UiItem::button("Reset to defaults"));
+    return c;
+}
+
+// The Aim and combat page as the settings are now.
+openrac::UiContent combat_content() {
+    openrac::UiContent c;
+    c.title = "Aim and combat";
+    c.items.push_back(
+        openrac::UiItem::choice_of("Aim", {"Hold", "Toggle"}, s_aim_toggle ? 1u : 0u)
+    );
+    c.items.push_back(
+        openrac::UiItem::choice_of(
+            "Aim sensitivity",
+            controls::step_choices(controls::kAimSensitivitySteps),
+            static_cast<std::uint32_t>(
+                controls::step_of(controls::kAimSensitivitySteps, s_aim_sensitivity)
+            )
+        )
+    );
+    c.items.push_back(switch_of("Vignette while aiming", s_vignette));
+    c.items.push_back(
+        openrac::UiItem::choice_of(
+            "Strafe while firing",
+            {"Off", "While firing", "Always"},
+            static_cast<std::uint32_t>(s_strafe_fire)
+        )
+    );
+    return c;
+}
+
+// The page of keys `group`, the row taking a key saying so.
+openrac::UiContent group_content(int group) {
+    const controls::KeyPage& page = controls::kKeyPages[static_cast<std::size_t>(group)];
+    openrac::UiContent c;
+    c.title = page.title;
+
+    for (std::size_t row = 0; row < page.count; ++row) {
+        const Action a = page.actions[row];
+        const bool taking = s_capture_page == group && s_capture_row == static_cast<int>(row);
+        c.items.push_back(
+            openrac::UiItem::button(
+                std::string(controls::action_name(a)) + ": "
+                + (taking ? "press a key (Esc: keep)" : controls::binds_label(s_set.binds.of(a)))
+            )
+        );
+    }
+
+    return c;
+}
+
+// Puts `content` on `page`, which the port refuses only for a page that is not the mod's.
+void show(const openrac::UiPage& page, const openrac::UiContent& content) {
+    try {
+        page.set(content);
+    } catch (const openrac::Error& e) {
+        s_mod->warn(std::string("the pause menu's page: ") + e.what());
+    }
+}
+
+// Sets action `a`'s binds' setting.
+void write_binds(Action a, const kbm::Binds& binds) {
+    s_mod->set_setting(kbm::kActions[static_cast<std::size_t>(a)].key, controls::binds_text(binds));
+}
+
+// Every action's keys, and the other settings presets name, as preset `p` has them.
+void apply_preset(int p) {
+    const controls::Preset& preset = controls::kPresets[static_cast<std::size_t>(p)];
+
+    for (int a = 0; a < kbm::kActionCount; ++a) {
+        const auto action = static_cast<Action>(a);
+        s_mod->set_setting(
+            kbm::kActions[static_cast<std::size_t>(a)].key,
+            std::string(controls::preset_text(preset, action))
+        );
+    }
+
+    for (const controls::PresetValue& s : controls::kPresetSettings) {
+        s_mod->set_setting(s.key, std::string(controls::preset_setting(preset, s.key)));
+    }
+}
+
+// The keys and every setting the page shows back to their defaults.
+void reset_all() {
+    apply_preset(0);
+
+    for (const controls::PresetValue& v : controls::kPageDefaults) {
+        const std::string_view value = v.value;
+
+        if (value == "true" || value == "false") {
+            s_mod->set_setting(v.key, value == "true");
+        } else if (value.find('.') != std::string_view::npos) {
+            s_mod->set_setting(v.key, std::stod(std::string(value)));
+        } else {
+            s_mod->set_setting(v.key, std::string(value));
+        }
+    }
+}
+
+// No key being taken.
+void end_capture() {
+    s_capture_page = -1;
+    s_capture_row = -1;
+    s_capture_armed = false;
+}
+
+// The page's events: a choice stepped is its setting's new value at once; Change keys
+// opens the keys' page; the reset and a preset over the player's own keys ask first.
+void main_event(const openrac::UiPage& page, const openrac::UiEvent& e) {
+    if (e.is(OPENRAC_UI_SHOW)) {
+        show(page, main_content());
+        return;
+    }
+
+    if (e.is(OPENRAC_UI_CHOOSE)) {
+        if (e.item() == kRowCombat) {
+            s_page_combat.open();
+        } else if (e.item() == kRowKeys) {
+            s_page_keys.open();
+        } else if (e.item() == kRowReset) {
+            page.confirm("Every key and setting here to its default?", kAskReset);
+        }
+
+        return;
+    }
+
+    if (e.is(OPENRAC_UI_ANSWER)) {
+        if (e.value() == 1 && e.tag() == kAskReset) {
+            reset_all();
+        } else if (e.value() == 1 && e.tag() == kAskPreset && s_pending_preset >= 0) {
+            apply_preset(s_pending_preset);
+        }
+
+        s_pending_preset = -1;
+        read_settings(*s_mod);
+        show(page, main_content());
+        return;
+    }
+
+    if (!e.is(OPENRAC_UI_CHANGE)) {
+        return;
+    }
+
+    const int v = e.value();
+
+    switch (e.item()) {
+        case kRowDevice:
+            s_mod->set_setting(
+                "prompt_device",
+                std::string(
+                    v == 0   ? "auto"
+                    : v == 1 ? "keyboard"
+                             : "gamepad"
+                )
+            );
+            s_mod->set_setting("mouse_with_gamepad", v != 2);
+            break;
+        case kRowSensitivity:
+            s_mod->set_setting(
+                "mouse_sensitivity", static_cast<double>(controls::sensitivity_of(v))
+            );
+            break;
+        case kRowSensitivityY:
+            s_mod->set_setting(
+                "mouse_sensitivity_y", static_cast<double>(controls::sensitivity_of(v))
+            );
+            break;
+        case kRowInvert:
+            s_mod->set_setting("invert_y", v == 1);
+            break;
+        case kRowTilt:
+            s_mod->set_setting("camera_tilt", std::string(v == 0 ? "hold" : "return"));
+            break;
+        case kRowIcons:
+            s_mod->set_setting("key_prompts", v == 1);
+            break;
+        case kRowPreset: {
+            // From the player's own keys (Custom, the first choice) a preset asks first.
+            const bool custom = controls::preset_matching(s_set.binds, preset_setting_now) < 0;
+            const int p = custom ? v - 1 : v;
+
+            if (p < 0) {
+                break;
+            }
+
+            if (custom) {
+                s_pending_preset = p;
+                page.confirm(
+                    std::string("Your keys as ")
+                        + controls::kPresets[static_cast<std::size_t>(p)].name + "?",
+                    kAskPreset
+                );
+                return;
+            }
+
+            apply_preset(p);
+            break;
+        }
+        default:
+            break;
+    }
+
+    read_settings(*s_mod);
+    show(page, main_content());
+}
+
+// The Aim and combat page's events: a choice stepped is its setting's new value at once.
+void combat_event(const openrac::UiPage& page, const openrac::UiEvent& e) {
+    if (e.is(OPENRAC_UI_SHOW)) {
+        show(page, combat_content());
+        return;
+    }
+
+    if (!e.is(OPENRAC_UI_CHANGE)) {
+        return;
+    }
+
+    const int v = e.value();
+
+    switch (e.item()) {
+        case kRowAimToggle:
+            s_mod->set_setting("aim_toggle", v == 1);
+            break;
+        case kRowAimSensitivity:
+            s_mod->set_setting(
+                "aim_sensitivity",
+                static_cast<double>(controls::value_of(controls::kAimSensitivitySteps, v))
+            );
+            break;
+        case kRowVignette:
+            s_mod->set_setting("aim_vignette", v == 1);
+            break;
+        case kRowStrafe:
+            s_mod->set_setting(
+                "strafe_fire",
+                std::string(
+                    v == 2   ? "always"
+                    : v == 1 ? "firing"
+                             : "off"
+                )
+            );
+            break;
+        default:
+            break;
+    }
+
+    read_settings(*s_mod);
+    show(page, combat_content());
+}
+
+// The keys' page: a row for each page of keys.
+void keys_event(const openrac::UiPage& page, const openrac::UiEvent& e) {
+    if (e.is(OPENRAC_UI_SHOW)) {
+        openrac::UiContent c;
+        c.title = "Change keys";
+
+        for (const controls::KeyPage& k : controls::kKeyPages) {
+            c.items.push_back(openrac::UiItem::button(k.title));
+        }
+
+        show(page, c);
+    } else if (e.is(OPENRAC_UI_CHOOSE) && e.item() >= 0
+               && e.item() < static_cast<int>(s_page_group.size())) {
+        s_page_group[static_cast<std::size_t>(e.item())].open();
+    }
+}
+
+// Each tick a key is being taken: once every key and button is up, the next one pressed is the
+// action's only bind, taken from any other action of its group; Escape keeps the one it had.
+void capture_step(const openrac::UiPage& page, int group) {
+    const openrac_input& in = *s_mod->api().input();
+
+    if (!s_capture_armed) {
+        s_capture_armed = !controls::any_held(in);
+        return;
+    }
+
+    if (controls::escape_pressed(in)) {
+        end_capture();
+        show(page, group_content(group));
+        return;
+    }
+
+    const int bind = controls::pressed_bind(in);
+
+    if (bind == OPENRAC_BIND_NONE) {
+        return;
+    }
+
+    const int row = s_capture_row;
+    const Action a =
+        controls::kKeyPages[static_cast<std::size_t>(group)].actions[static_cast<std::size_t>(row)];
+    kbm::Bindings binds = s_set.binds;
+
+    for (const Action changed : controls::give(binds, a, bind)) {
+        write_binds(changed, binds.of(changed));
+    }
+
+    end_capture();
+    read_settings(*s_mod);
+    show(page, group_content(group));
+    // The key may have moved the cursor (an arrow, the wheel): back to the row.
+    page.set_cursor(row);
+}
+
+// A page of keys: choosing a row takes a key for its action (capture_step); while one is being
+// taken, Triangle (Escape) keeps the one it had instead of going back.
+void group_event(int group, const openrac::UiPage& page, const openrac::UiEvent& e) {
+    const bool taking = s_capture_page == group;
+
+    if (e.is(OPENRAC_UI_SHOW) || e.is(OPENRAC_UI_HIDE)) {
+        end_capture();
+
+        if (e.is(OPENRAC_UI_SHOW)) {
+            show(page, group_content(group));
+        }
+    } else if (e.is(OPENRAC_UI_BACK)) {
+        if (taking) {
+            end_capture();
+            show(page, group_content(group));
+        } else {
+            page.back();
+        }
+    } else if (e.is(OPENRAC_UI_CHOOSE) && !taking && e.item() >= 0) {
+        s_capture_page = group;
+        s_capture_row = e.item();
+        s_capture_armed = false;
+        show(page, group_content(group));
+    } else if (e.is(OPENRAC_UI_FRAME) && taking) {
+        capture_step(page, group);
+    }
+}
+
+// The pages, and the pause menu's row that opens them, where the port has them.
+void add_controls_page(openrac::Mod& mod) {
+    if (!mod.has_pause_items() || !mod.has_settings_set()) {
+        return;
+    }
+
+    try {
+        s_page_main = mod.ui_page([](const openrac::UiPage& page, const openrac::UiEvent& e) {
+            main_event(page, e);
+        });
+        s_page_combat = mod.ui_page([](const openrac::UiPage& page, const openrac::UiEvent& e) {
+            combat_event(page, e);
+        });
+        s_page_keys = mod.ui_page([](const openrac::UiPage& page, const openrac::UiEvent& e) {
+            keys_event(page, e);
+        });
+
+        for (std::size_t g = 0; g < s_page_group.size(); ++g) {
+            const int group = static_cast<int>(g);
+            s_page_group[g] = mod.ui_page(
+                [group](const openrac::UiPage& page, const openrac::UiEvent& e) {
+                    group_event(group, page, e);
+                },
+                OPENRAC_UI_OWN_BACK
+            );
+        }
+
+        mod.ui_pause_item("Keyboard and mouse", s_page_main);
+    } catch (const openrac::Error& e) {
+        mod.warn(std::string("no keyboard and mouse page in the pause menu: ") + e.what());
+    }
 }
 
 void load(openrac::Mod& mod) {
@@ -771,6 +1564,22 @@ void load(openrac::Mod& mod) {
     s_gyro_on = false;
     s_mouse_counts = false;
     s_tilt = {};
+    s_asked = 0;
+    s_asked_tick = kNoTick;
+    s_reset_ticks = 0;
+    s_aiming = false;
+    s_aim_blend = 0.0f;
+    s_aim_on = false;
+    s_dodge_tick = -1;
+    s_seen_item = 0;
+    s_previous_item = 0;
+    s_equip = mod.function<std::int32_t (*)(std::int32_t)>(s_disc->equip);
+
+    if (s_equip == nullptr) {
+        mod.warn(
+            std::string("no ") + s_disc->equip + " on this disc: the weapon keys take nothing"
+        );
+    }
 
     mod.take_input(OPENRAC_INPUT_KEYBOARD | OPENRAC_INPUT_MOUSE);
     openrac_rac2_set_follow_mouse([](std::uint32_t camera, std::uint32_t turn, std::uint32_t tilt) {
@@ -782,6 +1591,10 @@ void load(openrac::Mod& mod) {
         }
     );
     openrac::frontend::set_mouse_turn(picture_turn);
+    mod.on_overlay([](void*, const openrac_overlay* o) { draw_aim(o); });
+    end_capture();
+    s_pending_preset = -1;
+    add_controls_page(mod);
     mod.on_settings([] { read_settings(*s_mod); });
     mod.on_pad([](int port, std::uint8_t* report, int size) { on_pad(port, report, size); });
     mod.info("keyboard and mouse on the " + std::string(mod.version()) + " disc");
@@ -795,7 +1608,7 @@ void query(openrac_mod_info* info) {
     info->api_major = OPENRAC_MOD_API_MAJOR;
     info->api_minor = OPENRAC_MOD_API_MINOR;
     info->id = "keyboard-mouse";
-    info->version = "2.2.0";
+    info->version = "2.3.0";
 }
 
 int load(const openrac_api* api, openrac_mod* mod) {

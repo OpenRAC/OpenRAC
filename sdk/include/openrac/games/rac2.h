@@ -422,6 +422,17 @@ typedef void (*openrac_rac2_Moby_CountKill)(uint32_t moby, int32_t type);
 #define OPENRAC_RAC2_SIG_Menu_Extras "i32()"
 typedef int32_t (*openrac_rac2_Menu_Extras)(void);
 
+/* FollowCamera_ReadStick: The follow camera's read of the right stick, each tick: camera (its
+ * data at +0x70), and the guest addresses of the floats it then turns and tilts by. By then the
+ * tick's goals are set: the eye's distance and height goals (data +0x1A0 and +0x1AC), which the
+ * camera eases its distance and height (+0x18C, +0x190) towards, and the eye it wants from
+ * Ratchet (+0x160); after it the camera turns, eases and builds its view, so a mod that calls
+ * the original and then changes those moves the camera this very tick. Rac1's
+ * FollowCamera_ReadStickInput. */
+#define OPENRAC_RAC2_HOOK_FollowCamera_ReadStick "FollowCamera_ReadStick"
+#define OPENRAC_RAC2_SIG_FollowCamera_ReadStick "void(u32,u32,u32)"
+typedef void (*openrac_rac2_FollowCamera_ReadStick)(uint32_t camera, uint32_t turn, uint32_t tilt);
+
 /* Moby_BoldanClock_Update: Updates Boldan's clock tower: sets its hands from the console's
  * clock and, once a second of its time, shows the Nanotech Upgrade (the moby at its pvars
  * +0x28, class 0x11C4) on an even hour of the twelve-hour dial and hides it on an odd one. */

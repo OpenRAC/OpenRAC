@@ -162,6 +162,15 @@ void check_svg() {
     CHECK(image && image->width == 40 && image->height == 20);
     CHECK(image && near(at(*image, 5, 10), {255, 0, 0, 255}, 0) && at(*image, 30, 10)[3] == 0);
 
+    // A group's opacity multiplies its children's own, as Inkscape's layers do.
+    const auto faded = pack_pictures::rasterize_svg(
+        R"(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><g style="opacity:0.2"><rect style="opacity:1" width="10" height="10" fill="#ff0000"/></g></svg>)",
+        8,
+        8,
+        why
+    );
+    CHECK(faded && near(at(*faded, 4, 4), {255, 0, 0, 51}, 2));
+
     // Not an SVG, no size, nothing drawn, too large: nothing.
     CHECK(!pack_pictures::rasterize_svg("not an svg", 8, 8, why));
     CHECK(!pack_pictures::rasterize_svg(
@@ -179,6 +188,14 @@ void check_svg() {
     std::ofstream(folder / "half.svg") << half;
     const auto loaded = pack_pictures::load_svg(folder / "half.svg", 8, 4);
     CHECK(loaded && loaded->width == 32 && loaded->height == 16);
+    // An editor's file with a large hidden picture (Inkscape keeps them) still draws its shapes.
+    std::ofstream(
+        folder / "editor.svg"
+    ) << R"(<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 10 10"><image style="display:none" width="10" height="10" xlink:href="data:image/png;base64,)"
+      << std::string(std::size_t{5} << 20, 'A')
+      << R"("/><rect width="5" height="10" fill="#ff0000"/></svg>)";
+    const auto editor = pack_pictures::load_svg(folder / "editor.svg", 8, 4);
+    CHECK(editor && near(at(*editor, 4, 8), {255, 0, 0, 255}, 0));
     std::ofstream(folder / "big.svg") << half << std::string(pack_pictures::kMaxSvgBytes, ' ');
     CHECK(!pack_pictures::load_svg(folder / "big.svg", 8, 4));
     CHECK(!pack_pictures::load_ktx2(folder / "missing.ktx2", BlockFormat::None));

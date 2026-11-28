@@ -46,6 +46,8 @@ struct Services {
     // (openrac_api.menu_option_set).
     int (*set_motors)(openrac_mod* mod, int port, int small_motor, int large_motor) = nullptr;
     int (*menu_option_set)(openrac_mod* mod, const char* option, int state) = nullptr;
+    // Interface 1.42: the version of the loaded mod `id`, null for none (openrac.mod_loaded).
+    const char* (*mod_version)(const char* id) = nullptr;
 };
 
 struct Mod {

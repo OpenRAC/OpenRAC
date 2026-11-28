@@ -5,6 +5,7 @@
 // out. Synthetic packets, laid out the way the game's 2D code builds them.
 
 #include <algorithm>
+#include <array>
 #include <cfenv>
 #include <cmath>
 #include <cstdio>
@@ -1054,7 +1055,47 @@ void recorded_frame_without_packets() {
         CHECK(gif.draws()[1].state.blend == Blend::of(BlendMode::Mix));
         const DirectState& c = gif.draws()[2].state;
         CHECK(c.colour_writes == 0 && c.depth_write && c.depth.enabled);
-        CHECK(near(gif.vertices()[12].z, 0.0f));
+        // Cleared to the far value 0 of reversed depth: -1 in the 2D pass's -1..1 clip range (0,
+        // as this once checked, is the middle of the buffer, 0.5).
+        CHECK(near(gif.vertices()[12].z, -1.0f));
+    }
+}
+
+// A recorded screen effect is a draw of no vertices of its own, with the game's values, between
+// the draws before and after it; what is drawn after it starts a draw of its own.
+void recorded_screen_effect() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    FrameRecording r;
+    FrameCommand fill;
+    fill.op = FrameOp::Fill;
+    fill.blend = BlendMode::Add;
+    ScreenEffect glow;
+    glow.kind = ScreenEffectKind::Glow;
+    glow.tint = 0x80406080u;
+    glow.threshold = 0x40;
+    glow.strength = 0x60;
+    glow.blur = 1;
+    r.screen_effects.push_back(glow);
+    FrameCommand effect;
+    effect.op = FrameOp::ScreenEffect;
+    effect.index = 0;
+    // An index past the recording's effects draws nothing.
+    FrameCommand stray = effect;
+    stray.index = 5;
+    r.commands = {fill, effect, stray, fill};
+    const std::vector<FrameSplice> splices{{0, 0}, {0, 1}, {0, 2}, {0, 3}};
+    gif.set_commands(&r, splices, 0);
+    CHECK(gif.vif({}));
+    gif.finish_commands();
+    CHECK(gif.draws().size() == 3);
+    if (gif.draws().size() == 3) {
+        const DirectDraw& d = gif.draws()[1];
+        CHECK(d.count == 0 && d.screen == glow && d.vertexless() && d.draws());
+        CHECK(d.state.target == 0);
+        CHECK(gif.draws()[0].count == 6 && gif.draws()[2].count == 6);
+        CHECK(gif.draws()[2].first == 6);
+        CHECK(gif.draws()[0].screen.kind == ScreenEffectKind::None);
     }
 }
 
@@ -1138,6 +1179,187 @@ void recorded_splices_in_a_stream() {
         CHECK(gif.draws()[1].state.blend == Blend::of(BlendMode::Add));
         CHECK(!gif.draws()[2].state.blend.enabled);
         CHECK(gif.draws()[3].state.blend == Blend::of(BlendMode::Add));
+    }
+}
+
+// A recorded panel takes the game's own packets between its begin and end (the draw environment
+// they name is only a GS block), and a texture at that block samples the panel afterwards.
+void recorded_panel_takes_the_streams() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    const auto direct = [](const GifBuilder& b) {
+        std::vector<std::uint8_t> v(12, 0);
+        const std::uint32_t code = 0x50000000u | static_cast<std::uint32_t>(b.bytes.size() / 16);
+        for (int i = 0; i < 4; ++i) {
+            v.push_back(static_cast<std::uint8_t>(code >> (8 * i)));
+        }
+        v.insert(v.end(), b.bytes.begin(), b.bytes.end());
+        return v;
+    };
+    constexpr std::uint32_t kBlock = 0x2000;
+    GifBuilder inside;
+    inside.ad(
+        {{gs::kFrame1, std::uint64_t{kBlock / 32} | (std::uint64_t{4} << 16)},
+         {gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+         {gs::kRgbaq, rgbaq(0xFF, 0, 0, 0x80)},
+         {gs::kXyz2, xyz2(0, 0, 0)},
+         {gs::kXyz2, xyz2(16, 16, 0)}}
+    );
+    GifBuilder after;
+    after.ad(
+        {{gs::kFrame1, std::uint64_t{0}},
+         {gs::kTex0_1, openrac::test::tex0(kBlock, 4, gs::kPsmct32, 8, 8, true)},
+         {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+         {gs::kUv, openrac::test::uv(0, 0)},
+         {gs::kXyz2, xyz2(0, 0, 0)},
+         {gs::kUv, openrac::test::uv(16, 16)},
+         {gs::kXyz2, xyz2(8, 8, 0)}}
+    );
+    std::vector<std::uint8_t> stream = direct(inside);
+    const std::size_t second = stream.size();
+    const std::vector<std::uint8_t> two = direct(after);
+    stream.insert(stream.end(), two.begin(), two.end());
+    FrameRecording r;
+    FrameCommand begin;
+    begin.op = FrameOp::TargetBegin;
+    begin.index = kRecordedTargets;
+    begin.width = 256;
+    begin.height = 256;
+    FrameCommand end;
+    end.op = FrameOp::TargetEnd;
+    r.commands = {begin, end};
+    const std::vector<FrameSplice> splices{{0, 0}, {second, 1}};
+    gif.set_commands(&r, splices, 0);
+    CHECK(gif.vif(stream));
+    gif.finish_commands();
+    CHECK(gif.draws().size() == 2);
+    if (gif.draws().size() == 2) {
+        CHECK(gif.draws()[0].state.target == kRecordedTargets);
+        CHECK(gif.draws()[1].state.source == kRecordedTargets);
+        CHECK(gif.draws()[1].state.target == 0);
+    }
+}
+
+namespace {
+
+// A synthetic flat HUD element needs neither an image nor a graphics packet to be recorded.
+UiItem placed_item(const std::array<float, 4>& rect, std::uint32_t place, float side) {
+    UiItem item;
+    item.flags = kUiItemFlat | kUiItemShaded;
+    item.place = place;
+    item.side = side;
+    item.x[0] = item.x[2] = rect[0];
+    item.x[1] = item.x[3] = rect[2];
+    item.y[0] = item.y[1] = rect[1];
+    item.y[2] = item.y[3] = rect[3];
+    return item;
+}
+
+// Overlapping HUD parts move together, while centred and unplaced items keep their positions.
+void recorded_native_hud_placement() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    FrameRecording r;
+    constexpr float kSide = 32.0f;  // Synthetic HUD shift, in the item's 512-wide screen pixels.
+    r.ui_items =
+        {placed_item({8.0f, 0.0f, 264.0f, 10.0f}, 1, kSide),
+         placed_item({256.0f, 0.0f, 280.0f, 10.0f}, 1, kSide),
+         placed_item({244.0f, 100.0f, 268.0f, 110.0f}, 1, kSide),
+         placed_item({448.0f, 0.0f, 464.0f, 10.0f}, 1, kSide),
+         placed_item({8.0f, 0.0f, 24.0f, 10.0f}, 0, 0.0f)};
+    std::vector<FrameSplice> splices;
+    for (std::uint32_t i = 0; i < r.ui_items.size(); ++i) {
+        FrameCommand command;
+        command.op = FrameOp::UiItem;
+        command.index = i;
+        r.commands.push_back(command);
+        splices.push_back({0, i});
+    }
+    gif.set_commands(&r, splices, 0);
+    CHECK(gif.vif({}));
+    gif.finish_commands();
+    constexpr std::size_t kVerticesPerItem = 6;  // Each strip quad becomes two native triangles.
+    CHECK(gif.vertices().size() == kVerticesPerItem * r.ui_items.size());
+    if (gif.vertices().size() != kVerticesPerItem * r.ui_items.size()) {
+        return;  // A failed size check must not turn the diagnostic into an out-of-bounds read.
+    }
+    constexpr float kShift = 2.0f * kSide / 512.0f;
+    const auto x = [](float value) {
+        return 2.0f * value / 512.0f - 1.0f;
+    };
+    CHECK(near(gif.vertices()[0].x, x(8.0f) - kShift));
+    // The second part is centred on its own, but overlaps the left element and follows it out.
+    CHECK(near(gif.vertices()[kVerticesPerItem].x, x(256.0f) - kShift));
+    CHECK(near(gif.vertices()[2 * kVerticesPerItem].x, x(244.0f)));
+    CHECK(near(gif.vertices()[3 * kVerticesPerItem].x, x(448.0f) + kShift));
+    CHECK(near(gif.vertices()[4 * kVerticesPerItem].x, x(8.0f)));
+    const float shifted = gif.vertices()[0].x;
+    gif.finish_commands();
+    CHECK(near(gif.vertices()[0].x, shifted));
+}
+
+}  // namespace
+
+// A depth rectangle (openrac_frame_fill_depth, the letterbox bars) after a residual draw at the same
+// 24-bit depth takes that draw's depth exactly, tests greater-or-equal and writes it, as the bars'
+// packet did; one at the 2D frames' lower depth lies behind it. A plain fill still neither tests nor
+// writes depth.
+void recorded_depth_fill_takes_the_residual_depth() {
+    constexpr std::uint32_t kBar = 0xFFFFF3;    // draw_letterbox_bars' vertices
+    constexpr std::uint32_t kFrame = 0xFFFFF0;  // DrawRectOverlay's vertices
+    constexpr int kDepth24 = 24;
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    GifBuilder b;
+    b
+        .ad({{gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+             {gs::kRgbaq, rgbaq(0, 0, 0, 0x80)},
+             {gs::kXyz2, xyz2(0, 0, kBar)},
+             {gs::kXyz2, xyz2(16, 16, kBar)}},
+            true);
+    CHECK(gif.gif(b.bytes));
+    const float rect[]{0.0f, 0.0f, 512.0f, 24.0f};
+    FrameRecording r;
+
+    // The bars' depth, then the 2D frames' lower one.
+    for (const std::uint32_t depth : {kBar, kFrame}) {
+        const auto c = depth_fill_command(
+            rect,
+            0x80000000u,
+            BlendMode::Opaque,
+            true,
+            depth,
+            kDepth24,
+            DepthCompare::GreaterEqual,
+            true,
+            kWriteColour
+        );
+        CHECK(c.has_value());
+        r.commands.push_back(c.value_or(FrameCommand{}));
+    }
+    FrameCommand plain;
+    plain.op = FrameOp::Fill;
+    r.commands.push_back(plain);
+    const std::vector<FrameSplice> splices{{0, 0}, {0, 1}, {0, 2}};
+    gif.set_commands(&r, splices, 0);
+    gif.finish_commands();
+
+    // The residual sprite, the two depth rectangles (one state) and the plain fill.
+    CHECK(gif.draws().size() == 3);
+    CHECK(gif.vertices().size() == 24);
+
+    // Their depth and state, when all of them are there.
+    if (gif.draws().size() == 3 && gif.vertices().size() == 24) {
+        const float residual = gif.vertices()[0].z;
+        CHECK(residual == static_cast<float>(static_cast<double>(kBar) / 16777215.0 * 2.0 - 1.0));
+        CHECK(gif.vertices()[6].z == residual && gif.vertices()[11].z == residual);
+        CHECK(gif.vertices()[12].z < residual);
+        const DirectState& bars = gif.draws()[1].state;
+        CHECK(bars.depth.enabled && bars.depth.compare == DepthCompare::GreaterEqual);
+        CHECK(bars.depth_write && bars.colour_writes == kWriteColour);
+        CHECK(!bars.blend.enabled && !bars.textured && gif.draws()[1].count == 12);
+        const DirectState& fill = gif.draws()[2].state;
+        CHECK(!fill.depth.enabled && !fill.depth_write);
     }
 }
 
@@ -1240,8 +1462,45 @@ void test_empty_recorded_scissors() {
     }
 }
 
+// Prepared view effects execute only in the view pass; an unscoped effect still reaches the main pass.
+void test_prepared_view_effect_is_not_replayed_on_composite() {
+    FrameRecorder recorder;
+    recorder.view_begin(0, {0, 0, 512, 224});
+    FrameCommand world;
+    world.op = FrameOp::World;
+    world.index = 1;
+    recorder.push(world);
+    ScreenEffect glow;
+    glow.kind = ScreenEffectKind::Glow;
+    recorder.push_screen_effect(glow);
+    recorder.view_end();
+    recorder.push_screen_effect(glow);
+    FrameRecording recording = recorder.open();
+    std::vector<FrameSplice> splices;
+
+    // This native-only submission reaches every command, without any graphics packets.
+    for (std::uint32_t n = 0; n < recording.commands.size(); ++n) {
+        splices.push_back({0, n});
+    }
+
+    CHECK(recording.resolve_views(splices));
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    gif.set_commands(&recording, splices, 0);
+    gif.finish_commands();
+    CHECK(recording.views[0].screen_effects.size() == 1);
+    CHECK(gif.draws().size() == 1);
+
+    // The global post effect remains a real draw rather than being lost with the prepared one.
+    if (gif.draws().size() == 1) {
+        CHECK(gif.draws()[0].screen == glow);
+        CHECK(gif.draws()[0].state.target == 0);
+    }
+}
+
 int main() {
     blend_weights();
+    recorded_screen_effect();
     opaque_effects();
     sprite();
     whole_target_marker();
@@ -1268,8 +1527,13 @@ int main() {
     recorded_frame_without_packets();
     flat_item_to_the_edges();
     recorded_splices_in_a_stream();
+    recorded_panel_takes_the_streams();
+    recorded_native_hud_placement();
+    recorded_depth_fill_takes_the_residual_depth();
     test_recorded_panel_scissor();
     test_recorded_screen_scissor();
     test_empty_recorded_scissors();
+    recorded_native_hud_placement();
+    test_prepared_view_effect_is_not_replayed_on_composite();
     return openrac::test::result();
 }

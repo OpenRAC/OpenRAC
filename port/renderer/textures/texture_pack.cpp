@@ -150,6 +150,25 @@ std::unordered_map<std::uint64_t, std::vector<fs::path>> pictures_under(const fs
 }
 
 std::atomic<BlockFormat> g_block_format{BlockFormat::None};
+// Whether the pack's pictures are shown (set_shown()), and one more each change.
+std::atomic<bool> g_shown{true};
+std::atomic<std::uint64_t> g_shown_version{0};
+
+// Whether the picture kept for `hash` is the one to use now; the lock is held. A KTX2 is kept in
+// the block format the GPU had when it was read, and the game learns that format only once its
+// window is open, after reading ahead has begun. A PNG or SVG has no blocks and suits any format.
+bool kept_for_now(const State& s, std::uint64_t hash) {
+    const auto kept = s.kept.find(hash);
+    if (kept == s.kept.end()) {
+        return false;
+    }
+    if (kept->second.blocks == g_block_format.load()) {
+        return true;
+    }
+    const auto files = s.files.find(hash);
+    return files != s.files.end() && !files->second.empty()
+           && files->second.front().extension() != ".ktx2";
+}
 
 // A still picture of the pack for a texture of width x height, read by its kind.
 std::optional<Picture> load_still(const Io& io, const fs::path& file, int width, int height) {
@@ -625,6 +644,9 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
     if (!s.dump.empty() && s.io.save != nullptr && origin.dump) {
         dump(s, hash, image, origin);
     }
+    if (!g_shown.load()) {
+        return false;
+    }
     // An animation comes before a still picture of the same hash.
     if (const auto animated = s.animated.find(hash); animated != s.animated.end()) {
         // One that cannot be used falls back to the still picture, if there is one.
@@ -644,8 +666,7 @@ bool replace(Rgba8Image& image, const Origin& origin, Replacement* found_out) {
         return false;
     }
     // Read before, for the GPU's block format: no file is read again.
-    if (const auto kept = s.kept.find(hash);
-        kept != s.kept.end() && kept->second.blocks == g_block_format.load()) {
+    if (const auto kept = s.kept.find(hash); kept_for_now(s, hash)) {
         kept->second.used = ++s.uses;
         image = kept->second.picture->image;
         ++s.replaced;
@@ -773,7 +794,7 @@ bool read_and_keep(
     if (budget && s.kept_bytes + size > kMaxKeptPictureBytes) {
         return false;
     }
-    if (!s.kept.contains(texture.hash) && !s.level_pictures.contains(texture.hash)) {
+    if (!kept_for_now(s, texture.hash) && !s.level_pictures.contains(texture.hash)) {
         keep(s, texture.hash, std::move(shared));
         bytes += size;
         ++read;
@@ -789,7 +810,7 @@ std::optional<std::pair<TextureId, fs::path>> next_urgent(State& s) {
         const TextureId t = s.urgent.front();
         s.urgent.erase(s.urgent.begin());
         const auto files = s.files.find(t.hash);
-        if (files != s.files.end() && !files->second.empty() && !s.kept.contains(t.hash)) {
+        if (files != s.files.end() && !files->second.empty() && !kept_for_now(s, t.hash)) {
             return std::pair{t, files->second.front()};
         }
     }
@@ -809,7 +830,7 @@ void read_ahead(const std::atomic<bool>& stop) {
         generation = s.generation;
         for (const auto& [hash, candidates] : s.files) {
             // Read already, a level's own, or an SVG (drawn at the size of a texture not met yet).
-            if (candidates.empty() || s.kept.contains(hash) || s.level_pictures.contains(hash)
+            if (candidates.empty() || kept_for_now(s, hash) || s.level_pictures.contains(hash)
                 || candidates.front().extension() == ".svg") {
                 continue;
             }
@@ -895,7 +916,7 @@ std::uint64_t kept_version() {
 bool is_kept(std::uint64_t hash) {
     State& s = state();
     const std::lock_guard guard(s.lock);
-    return s.kept.contains(hash);
+    return kept_for_now(s, hash);
 }
 
 void finish_preload() {
@@ -950,7 +971,7 @@ void read_level_pictures(std::span<const TextureId> textures) {
             const auto files = s.files.find(t.hash);
             // An animation comes first (replace()); a picture kept or read ahead is there already.
             if (files == s.files.end() || files->second.empty() || s.animated.contains(t.hash)
-                || s.kept.contains(t.hash) || s.level_ahead.contains(t.hash)) {
+                || kept_for_now(s, t.hash) || s.level_ahead.contains(t.hash)) {
                 continue;
             }
             wanted.push_back({t.hash, files->second.front(), t.width, t.height, std::nullopt});
@@ -1010,6 +1031,20 @@ void drop_level_pictures() {
 
 void set_block_format(BlockFormat format) {
     g_block_format.store(format);
+}
+
+void set_shown(bool shown) {
+    if (g_shown.exchange(shown) != shown) {
+        g_shown_version.fetch_add(1);
+    }
+}
+
+bool shown() {
+    return g_shown.load();
+}
+
+std::uint64_t shown_version() {
+    return g_shown_version.load();
 }
 
 bool dumping() {

@@ -60,6 +60,10 @@ if(TARGET openrac_assets_geometry)
 endif()
 target_compile_options(openrac_game_common PRIVATE ${OPENRAC_GAME_C_FLAGS} -Wall -Wextra)
 
+# The native UI core can be checked without game code, a window or the runtime library.
+openrac_add_test(ui_core SOURCES tests/ui_core_test.cpp ui/ui.cpp
+  INCLUDES . game/common/include runtime/include)
+
 # The VAG streams of the sound engine, on a disc image the test writes.
 add_executable(sound_engine_test "${CMAKE_CURRENT_LIST_DIR}/../tests/sound_engine_test.cpp")
 target_include_directories(sound_engine_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}/..")
@@ -481,7 +485,9 @@ function(openrac_add_game config)
   file(GLOB frontend_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/frontend/*.cpp")
   # debug/: the debug overlay's panels and the menu; with a window only.
   file(GLOB debug_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/debug/*.cpp")
+  string(JSON program_title GET "${json}" title)
   foreach(target IN LISTS targets)
+    openrac_windows_version_info(${target} "OpenRAC - ${program_title}")
     if(OPENRAC_${ID}_ASM_PART)
       set_target_properties(${target} PROPERTIES ENABLE_EXPORTS ON)
       # program/asm_part.cpp: this program looks for the part (a build with the disc has none).

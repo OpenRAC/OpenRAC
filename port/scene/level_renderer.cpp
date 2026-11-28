@@ -199,6 +199,8 @@ bool LevelScene::upload(
     recipe_input.depth_vertex = deformation_vertex(shaders::mesh_depth_vert);
     recipe_input.lighting = m_lighting != nullptr;
     recipe_input.enhanced = gl::enhanced_rendering_available();
+    recipe_input.bake_probe_modes =
+        gl::is_vulkan() && recipe_input.enhanced && recipe_input.lighting;
     m_early_capable = recipe_input.early = m_lighting && m_lighting->early_supported();
     if (m_early_capable) {
         recipe_input.early_fragment = m_lighting->early_fragment(shaders::mesh_frag);
@@ -230,6 +232,8 @@ bool LevelScene::upload(
         &m_depth_solid,
         &m_surface_depth,
         &m_surface_depth_solid,
+        &m_probe_fallback,
+        &m_probe_fallback_solid,
     };
     if (!scene_shader_recipes(
             recipe_input,
@@ -555,6 +559,7 @@ bool LevelScene::upload(
             texels.data()
         );
         glBindTexture(GL_TEXTURE_2D, 0);
+        m_light_texels = std::move(texels);
     }
     for (std::size_t layer = 0; layer < kLayerCount; ++layer) {
         build_groups(static_cast<Layer>(layer), level.instances[layer], false);
@@ -982,7 +987,11 @@ void LevelScene::release() {
         glDeleteTextures(1, &m_lights);
         m_lights = 0;
     }
+    m_light_texels.clear();
+    m_light_dirty.clear();
     m_mesh.release();
+    m_probe_fallback.release();
+    m_probe_fallback_solid.release();
     m_static_translucent.release();
     m_static_translucent_full.release();
     m_static_translucent_early.release();
@@ -1792,6 +1801,11 @@ void LevelScene::draw_visible_layer(
             static_translucent && !m_sweep_translucent_full && m_static_translucent_early.id()
             && renderer::render_opt::enabled(renderer::render_opt::Opt::BlendedEarlyLight)
             && m_lighting && m_lighting->early_matches(input, state);
+        const bool force_probe_fallback = sweep_translucent && m_sweep_translucent_unlit;
+        const bool baked_probe_fallback =
+            !state.depth_prepass && m_probe_fallback.id() && m_lighting
+            && (force_probe_fallback
+                || m_lighting->probe_mode_for_layer(layer, m_hero_enabled || m_sun_enabled) == 0);
         const renderer::Shader* selected = &m_mesh;
         // Both depth variants retain identical positions and alpha coverage.
         if (state.depth_prepass) {
@@ -1803,7 +1817,11 @@ void LevelScene::draw_visible_layer(
             }
         } else if (m_lighting && m_lighting->coverage_view() && m_coverage.id()) {
             // The coverage view: the same alpha handling, with the coverage colours.
-            selected = solid ? &m_coverage_solid : &m_coverage;
+            if (baked_probe_fallback) {
+                selected = solid ? &m_solid : &m_mesh;
+            } else {
+                selected = solid ? &m_coverage_solid : &m_coverage;
+            }
         } else if (mobys && fast_blended && m_mesh_fast.id()
                    && (pass == kMobyGlow || pass == kMobyTranslucent || pass == kMobyEffects)) {
             // The mobys' blended passes read the cheaper probe light too (Enhanced, lossy).
@@ -1834,6 +1852,13 @@ void LevelScene::draw_visible_layer(
             selected = solid ? &m_solid : &m_mesh;
         }
 
+        if (baked_probe_fallback) {
+            if (selected == &m_mesh) {
+                selected = &m_probe_fallback;
+            } else if (selected == &m_solid) {
+                selected = &m_probe_fallback_solid;
+            }
+        }
         const renderer::Shader* depth_reference = selected;
         const auto& rigid =
             state.target.normal_texture ? m_rigid_surface_depth[solid] : m_rigid_depth[solid];
@@ -1855,7 +1880,7 @@ void LevelScene::draw_visible_layer(
             set_cutout = -1;
             colour_set = false;
         }
-        if (sweep_translucent && m_sweep_translucent_unlit) {
+        if (force_probe_fallback) {
             glUniform1i(program->uniform("probe_mode"), 0);
             glUniform1i(program->uniform("sun_shadow_enabled"), 0);
             glUniform1i(program->uniform("hero_shadow_enabled"), 0);

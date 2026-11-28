@@ -23,6 +23,7 @@
 #define RAC2_ADDR_0x00137EA0u 0x00137F20u /* the release's build */
 #define RAC2_ADDR_0x00138180u 0x00138200u /* the release's build */
 #define RAC2_ADDR_0x00138280u 0x00138300u /* the release's build */
+#define RAC2_ADDR_0x00138500u 0x00138580u /* the release's build */
 #define RAC2_ADDR_0x001393E0u 0x00139460u /* the release's build */
 #define RAC2_ADDR_0x00139410u 0x00139490u /* the release's build */
 #define RAC2_ADDR_0x00139568u 0x001395E8u /* the release's build */
@@ -32,6 +33,7 @@
 #define RAC2_ADDR_0x00152C26u 0x00152CA6u /* the release's build */
 #define RAC2_ADDR_0x00152C64u 0x00152CE4u /* versionmap: between */
 #define RAC2_ADDR_0x00152C68u 0x00152CE8u /* versionmap: between */
+#define RAC2_ADDR_0x00188660u 0x001886E0u /* the release's build */
 #define RAC2_ADDR_0x0019B278u 0x0019B2F8u /* the release's build */
 #define RAC2_ADDR_0x0019B4A8u 0x0019B528u /* the release's build */
 #define RAC2_ADDR_0x001A72DCu 0x001A735Cu /* the release's build */
@@ -39,6 +41,7 @@
 #define RAC2_ADDR_0x001A7350u 0x001A73D0u /* the release's build */
 #define RAC2_ADDR_0x001A7354u 0x001A73D4u /* the release's build */
 #define RAC2_ADDR_0x001A7420u 0x001A74A0u /* the release's build */
+#define RAC2_ADDR_0x001A7428u 0x001A74A8u /* the release's build */
 #define RAC2_ADDR_0x001A79F0u 0x001A7A78u /* the release's build */
 #define RAC2_ADDR_0x001A79F8u 0x001A7A80u /* the release's build */
 #define RAC2_ADDR_0x001A7AF8u 0x001A7B80u /* the release's build */
@@ -172,6 +175,7 @@
 #define RAC2_K_PAUSE_LIST_OFFSET 0x3C210 /* v1.01 0x3BE08; func_0029C4C0 as func_0029CE58: 1 instructions */
 #define RAC2_K_PAUSE_LIST_WHICH 0x31C /* v1.01 0x2FC; func_00341610 as func_00343690: 1 instructions */
 #define RAC2_K_PAUSE_OPTIONS_ROWS 0x7 /* v1.01 0x8; by hand: func_00341610 as func_00343690: addiu $v1, $zero, 0x7 at +0x5c for v1.01's 0x8 (the Options list's rows, list 1) */
+#define RAC2_K_PICTURE_TOP 0x10 /* v1.01 0x0; by hand: the lines the 416-line picture sits below the top of the 2D screen (PAL: 448 lines) */
 #define RAC2_K_PLANET_INFO_COUNT_BUFFER 0x6C0 /* v1.01 0x600; func_0033ED88 as func_00340D78: 1 instructions */
 #define RAC2_K_PLANET_INFO_COUNT_LABEL 0xBCC /* v1.01 0x2DBB; func_0033ED88 as func_00340D78: 1 instructions */
 #define RAC2_K_PLANET_INFO_COUNT_TITLE 0x578 /* v1.01 0x4E8; func_0033ED88 as func_00340D78: 1 instructions */

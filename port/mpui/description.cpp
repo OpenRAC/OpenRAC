@@ -215,6 +215,11 @@ Item read_item(const json::Value& object) {
     // The kind decides which of the other keys mean something.
     if (kind == "text") {
         item.kind = ItemKind::TEXT;
+
+        // A text with a key is one the binding writes (a count, a countdown).
+        if (!read_text(object, "key", MAX_NAME).empty()) {
+            item.key = read_identifier(object, "key");
+        }
     } else if (kind == "button") {
         item.kind = ItemKind::BUTTON;
     } else if (kind == "choice") {

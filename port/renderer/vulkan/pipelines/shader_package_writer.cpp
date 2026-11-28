@@ -3,6 +3,7 @@
 //
 // Deterministic archive serialization with shared compressed SPIR-V/reflection chunks.
 #include <algorithm>
+#include <climits>
 #include <map>
 #include <stdexcept>
 
@@ -12,6 +13,62 @@
 namespace openrac::vkgl {
 namespace {
 using namespace package_detail;
+
+// Reads a bounded stage word count from the compilation-result codec's little-endian bytes.
+std::uint32_t program_word(std::span<const char> bytes) {
+    std::uint32_t value = 0;
+
+    // Callers check that the encoded word fits before taking this view.
+    for (unsigned n = 0; n < sizeof(value); ++n) {
+        value |= std::uint32_t(static_cast<unsigned char>(bytes[n])) << (n * CHAR_BIT);
+    }
+
+    return value;
+}
+
+// Keeps stage boundaries stable across vertex/fragment pairings without changing encoded bytes.
+std::vector<std::span<const char>> program_sections(std::span<const char> value) {
+    // SPIR-V headers start with this magic and contain five words before any instructions.
+    constexpr std::uint32_t kSpirvMagic = 0x07230203, kSpirvHeaderWords = 5;
+    constexpr std::size_t kCodeWordBytes = sizeof(std::uint32_t);
+    std::vector<std::span<const char>> sections;
+    std::size_t at = 0;
+
+    // Keeping each count with its stage preserves the compilation-result codec during lookup.
+    for (std::size_t stage = 0; stage < kShaderStages; ++stage) {
+        // Markers and truncated vector headers are opaque entries, with no inferred boundaries.
+        if (value.size() - at < kCodeWordBytes) {
+            return {value};
+        }
+
+        const auto words = program_word(value.subspan(at, kCodeWordBytes));
+
+        // Reject impossible vectors before multiplying the untrusted word count.
+        if (words > (value.size() - at - kCodeWordBytes) / kCodeWordBytes) {
+            return {value};
+        }
+
+        const auto bytes = static_cast<std::size_t>(words) * kCodeWordBytes;
+
+        // Only compilation-result vectors get stage boundaries; arbitrary blobs stay intact.
+        if (words
+            && (words < kSpirvHeaderWords
+                || program_word(value.subspan(at + kCodeWordBytes, kCodeWordBytes))
+                       != kSpirvMagic)) {
+            return {value};
+        }
+
+        sections.push_back(value.subspan(at, kCodeWordBytes + bytes));
+        at += kCodeWordBytes + bytes;
+    }
+
+    // Reflection is independent of stage lengths and can share its own final blocks.
+    if (at < value.size()) {
+        sections.push_back(value.subspan(at));
+    }
+
+    return sections;
+}
 
 // Owns the compressed blocks and index while one archive is assembled.
 class PackageBuilder {
@@ -23,19 +80,30 @@ public:
                                  : std::vector<char>{};
         const auto value = entry.uncompressed_size ? std::span<const char>(decoded) : entry.value;
 
-        if (value.empty()) {
-            throw std::runtime_error("empty shader package entry");
+        if (value.empty() || value.size() > kMaxShaderBytes) {
+            throw std::runtime_error("shader entry exceeds package limit");
+        }
+
+        const auto sections = program_sections(value);
+        std::size_t parts = 0;
+
+        // Every section starts a fresh block, preserving sharing when another stage changes size.
+        for (const auto section : sections) {
+            parts += (section.size() + kChunkBytes - 1) / kChunkBytes;
         }
 
         number(m_index, entry.key.key);
         number(m_index, entry.key.check);
         number(m_index, entry.key.length);
         number(m_index, value.size());
-        number(m_index, (value.size() + kChunkBytes - 1) / kChunkBytes);
+        number(m_index, parts);
 
-        for (std::size_t at = 0; at < value.size(); at += kChunkBytes) {
-            const auto part = value.subspan(at, std::min(kChunkBytes, value.size() - at));
-            number(m_index, chunk(part));
+        // Concatenating all referenced blocks still reconstructs the original codec verbatim.
+        for (const auto section : sections) {
+            for (std::size_t at = 0; at < section.size(); at += kChunkBytes) {
+                const auto part = section.subspan(at, std::min(kChunkBytes, section.size() - at));
+                number(m_index, chunk(part));
+            }
         }
     }
 

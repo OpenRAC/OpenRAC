@@ -28,7 +28,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from openrac_common import digest, files, games, iso9660, paths, proc, tables
+from openrac_common import background, digest, files, games, iso9660, paths, proc, tables
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -780,6 +780,48 @@ class IsoTests(TempDir):
             with self.subTest(read=read.__name__), self.assertRaises(iso9660.IsoError) as caught:
                 read(cut)
             self.assertEqual(caught.exception.detail, "a directory record is cut short")
+
+
+class BackgroundTests(unittest.TestCase):
+    """lower_priority never touches the test runner's own priority: both system calls are mocked
+    (WinDLL created where ctypes has none), and each test names the platform it takes."""
+
+    def lower(self, platform: str, wanted: str | None) -> tuple[bool, mock.Mock, mock.Mock]:
+        env = {k: v for k, v in os.environ.items() if k != "OPENRAC_PRIORITY"}
+        if wanted is not None:
+            env["OPENRAC_PRIORITY"] = wanted
+        with mock.patch.dict(os.environ, env, clear=True), \
+                mock.patch.object(background.sys, "platform", platform), \
+                mock.patch("ctypes.WinDLL", create=True) as windll, \
+                mock.patch.object(background.os, "nice", create=True) as nice:
+            windll.return_value.SetPriorityClass.return_value = 1
+            return background.lower_priority(), windll, nice
+
+    def test_lowers_by_default(self):
+        lowered, windll, _ = self.lower("win32", None)
+        self.assertTrue(lowered)
+        set_class = windll.return_value.SetPriorityClass
+        set_class.assert_called_once()
+        self.assertEqual(set_class.call_args.args[1], 0x00004000)  # BELOW_NORMAL_PRIORITY_CLASS
+        lowered, _, nice = self.lower("linux", None)
+        self.assertTrue(lowered)
+        nice.assert_called_once_with(10)
+
+    def test_normal_keeps_the_priority(self):
+        for platform in ("win32", "linux"):
+            for wanted in ("normal", " Normal ", "NORMAL"):
+                with self.subTest(platform=platform, wanted=wanted):
+                    lowered, windll, nice = self.lower(platform, wanted)
+                    self.assertFalse(lowered)
+                    windll.assert_not_called()
+                    nice.assert_not_called()
+
+    def test_other_values_still_lower(self):
+        for wanted in ("", "high", "0", "below"):
+            with self.subTest(wanted=wanted):
+                lowered, _, nice = self.lower("linux", wanted)
+                self.assertTrue(lowered)
+                nice.assert_called_once_with(10)
 
 
 if __name__ == "__main__":

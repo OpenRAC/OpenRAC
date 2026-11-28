@@ -5,16 +5,19 @@
  *
  * The game sizes its per-player state for 8 clients: arrays of 8 in its net state block (the
  * client of each slot, each slot's last receive time, ...), the table of remote players (8 x
- * 0xC70), and the arrays of 8 in the room's settings object (OBJECT_GAME_SETTINGS: names, teams,
- * clients, states, account ids). The port's relay and the server hold 24 (protocol.md 7.4).
+ * 0xC70), the arrays of 8 in the room's settings object (OBJECT_GAME_SETTINGS: names, teams,
+ * clients, states, account ids), and in a match each program's players array, the arrays of its
+ * game-mode struct (scores, the mode's columns, per-weapon counts) and the results block the map
+ * leaves for level 39's results screen. The port's relay and the server hold 24 (protocol.md 7.4).
  *
  * The game's code stays as it is; only where it indexes one of those tables does the port step in.
  * The first 8 entries of every table stay where the game keeps them, so a room of 8 is exactly
  * what it was, and any code that only ever looks at slots 0-7 sees what it saw. Entries 8-23 live
  * in tables of the port's own:
  *
- * - the net block's arrays and the remote players' table in the port's statics (game memory the
- *   game's code reaches like its own);
+ * - the net block's arrays, the remote players' table, the players array, the game-mode arrays and
+ *   the results block's arrays in the port's statics (game memory the game's code reaches like its
+ *   own);
  * - the settings object's arrays in a second net object, OBJECT_GAME_SETTINGS_WIDE (mp_net.c),
  *   which the host owns and publishes beside the game's object, with slots 8-23 of each array in
  *   the same order (rac3_mp_wide_object), so every console has the same settings for every slot.
@@ -22,15 +25,17 @@
  * mp/wide.json (written by mp/wide.py) names every instruction of the game that indexes one of
  * those tables: hostgen translates it with its address through rac3_mp_wide_address, and every
  * bound of a loop or check over the slots through rac3_mp_wide_bound, which gives the room's count
- * (rac3_mp_wide_set_slots: 8, 16 or 24) for the game's 8. In a room of 8 both are the identity.
+ * (rac3_mp_wide_set_slots: 8 to 24) for the game's 8. In a room of 8 both are the identity.
  *
- * Only the PAL disc's tables are known (NTSC-U keeps 8: rac3_mp_wide_set_slots stays at 8). */
+ * The players array and the game-mode struct are each program's own (level 39 and every map has
+ * its copy): their tables take the base of the program whose code runs. */
 #include "mp_wide.h"
 
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
+#include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "rac3_version.h"
 
@@ -39,35 +44,86 @@
 #define WIDE_EXTRA (WIDE_MAX - WIDE_GAME)
 
 /* The settings object's data pointer ($gp - 0x6980, set by its on_create callback 0x00199968). */
-#define GS_POINTER 0x00241640u
+#define GS_POINTER RAC3_MADDR(0x00241640u)
+/* The end-of-match results the map leaves for level 39 (0x82C bytes in the core, the same address
+ * in every program; filled by the map's end routine, L39_00670D90's copy). */
+#define RESULTS RAC3_MADDR(0x001FD7E8u)
 
-/* Each widened table: in game memory at `base` (or, with `gs` set, at that offset of the settings
- * object's data), `stride` bytes an entry. The order is mp/wide.json's "tables" (wide.py checks). */
+/* Where a table's entries are: at a fixed address, at an offset of the settings object's data, of
+ * the program's game-mode struct, of its players array, or of its array of remote players' structs. */
+enum {
+    AT,
+    IN_GS,
+    IN_MODE,
+    IN_PLAYERS,
+    IN_PROG,
+    IN_REC
+};
+
+/* Each widened table: `base` (an address, or an offset into what `where` names), `stride` bytes an
+ * entry. The order is mp/wide.json's "tables" (wide.py checks). */
 /* clang-format off */
 #define WIDE_TABLES(X) \
-    X(NET_CLIENT_BY_SLOT, 0, 0x001A5E18u, 4)   /* net + 0x148: the DME client of each slot */ \
-    X(NET_RECEIVE_TIME, 0, 0x001A635Cu, 4)     /* net + 0x68C: each slot's last message, net time */ \
-    X(NET_SLOT_BY_CLIENT, 0, 0x001A637Du, 1)   /* net + 0x6AD: the slot of each client index */ \
-    X(NET_STATE_TIME, 0, 0x001A6480u, 4)       /* net + 0x7B0: each slot's last player state */ \
-    X(NET_SLOT_BYTES, 0, 0x001A64A5u, 1)       /* net + 0x7D5: a byte per slot, cleared per session */ \
-    X(NET_SLOT_NAMES, 0, 0x001A64ADu, 0x10)    /* net + 0x7DD: a name per slot */ \
-    X(NET_SLOT_REQUESTS, 0, 0x001A6310u, 4)    /* net + 0x640: the host's slot requests */ \
-    X(NET_SLOT_VOICE, 0, 0x001A6330u, 4)       /* net + 0x660: each slot's voice stream state */ \
-    X(NET_PLAYERS, 0, 0x0022F3D0u, 0xC70)      /* the remote players (jitter buffer at +0x1F0) */ \
-    X(GS_NAME, 1, 0x000u, 16)                  /* OBJECT_GAME_SETTINGS: name of each slot */ \
-    X(GS_CLAN, 1, 0x080u, 8)                   /* clan tag */ \
-    X(GS_SKIN, 1, 0x0C0u, 2)                   /* skin */ \
-    X(GS_TEAM, 1, 0x0D0u, 2)                   /* team */ \
-    X(GS_CLIENT, 1, 0x0E0u, 2)                 /* owning DME client, -1 empty */ \
-    X(GS_STATE, 1, 0x0F0u, 2)                  /* slot state (joined, ready, loaded, ...) */ \
-    X(GS_RESERVED, 1, 0x100u, 2)               /* reservation (the host's) */ \
-    X(GS_VALUE_A, 1, 0x110u, 4)                /* per-mode values from the join request */ \
-    X(GS_VALUE_B, 1, 0x130u, 4) \
-    X(GS_ACCOUNT, 1, 0x150u, 4)                /* account id, -1 empty */
+    X(NET_CLIENT_BY_SLOT, AT, RAC3_MADDR(0x001A5E18u), 4) /* net + 0x148: the DME client of each slot */ \
+    X(NET_RECEIVE_TIME, AT, RAC3_MADDR(0x001A635Cu), 4)   /* net + 0x68C: each slot's last message */ \
+    X(NET_SLOT_BY_CLIENT, AT, RAC3_MADDR(0x001A637Du), 1) /* net + 0x6AD: the slot of each client */ \
+    X(NET_STATE_TIME, AT, RAC3_MADDR(0x001A6480u), 4)     /* net + 0x7B0: each slot's last state */ \
+    X(NET_SLOT_BYTES, AT, RAC3_MADDR(0x001A64A5u), 1)     /* net + 0x7D5: a byte per slot */ \
+    X(NET_SLOT_NAMES, AT, RAC3_MADDR(0x001A64ADu), 0x10)  /* net + 0x7DD: a name per slot */ \
+    X(NET_SLOT_REQUESTS, AT, RAC3_MADDR(0x001A6310u), 4)  /* net + 0x640: the host's slot requests */ \
+    X(NET_SLOT_VOICE, AT, RAC3_MADDR(0x001A6330u), 4)     /* net + 0x660: each slot's voice stream */ \
+    X(NET_PLAYERS, AT, RAC3_MADDR(0x0022F3D0u), 0xC70)    /* the remote players (jitter buffer +0x1F0) */ \
+    X(GS_NAME, IN_GS, 0x000u, 16)                         /* OBJECT_GAME_SETTINGS: each slot's name */ \
+    X(GS_CLAN, IN_GS, 0x080u, 8)                          /* clan tag */ \
+    X(GS_SKIN, IN_GS, 0x0C0u, 2)                          /* skin */ \
+    X(GS_TEAM, IN_GS, 0x0D0u, 2)                          /* team */ \
+    X(GS_CLIENT, IN_GS, 0x0E0u, 2)                        /* owning DME client, -1 empty */ \
+    X(GS_STATE, IN_GS, 0x0F0u, 2)                         /* slot state (joined, ready, loaded, ...) */ \
+    X(GS_RESERVED, IN_GS, 0x100u, 2)                      /* reservation (the host's) */ \
+    X(GS_VALUE_A, IN_GS, 0x110u, 4)                       /* per-mode values from the join request */ \
+    X(GS_VALUE_B, IN_GS, 0x130u, 4) \
+    X(GS_ACCOUNT, IN_GS, 0x150u, 4)                       /* account id, -1 empty */ \
+    X(MAP_PLAYERS, IN_PLAYERS, 0x000u, 4)                 /* the program's players, by slot */ \
+    X(MAP_PLYS, IN_PROG, 0, 0x4DC0)                       /* the remote players' structs, by slot (the game has 8) */ \
+    X(SLOT_A, IN_PROG, 1, 4)                              /* sdata word a slot (D_002410F8 in every program) */ \
+    X(SLOT_B, IN_PROG, 2, 4)                              /* sdata word a slot (D_00249790 in map 40) */ \
+    X(SLOT_C, IN_PROG, 3, 0x80)                           /* 0x80 bytes a slot: the moby ids a hero owns (D_00290178) */ \
+    X(SLOT_D, IN_PROG, 4, 0x1C)                           /* 0x1C bytes a slot: the hero's state machine (D_003AA6E0) */ \
+    X(SLOT_E, IN_PROG, 5, 4)                              /* a pointer a slot: the hero marker mobys (D_00249450) */ \
+    X(EFFECT_POOL, IN_PROG, 6, 0x40)                      /* the effect descriptors: 24 in the game (D_00265140 in map 40), 2 a hero */ \
+    X(MREC_40, IN_REC, 0x040u, 4)                           /* the game mode's per-player record: an array at +0x40 of the struct its +0x20C points to */ \
+    X(MREC_60, IN_REC, 0x060u, 4)                           /* the game mode's per-player record: an array at +0x60 of the struct its +0x20C points to */ \
+    X(MREC_88, IN_REC, 0x088u, 4)                           /* the game mode's per-player record: an array at +0x88 of the struct its +0x20C points to */ \
+    X(MREC_A8, IN_REC, 0x0A8u, 4)                           /* the game mode's per-player record: an array at +0xA8 of the struct its +0x20C points to */ \
+    X(MREC_C8, IN_REC, 0x0C8u, 4)                           /* the game mode's per-player record: an array at +0xC8 of the struct its +0x20C points to */ \
+    X(MREC_E8, IN_REC, 0x0E8u, 4)                           /* the game mode's per-player record: an array at +0xE8 of the struct its +0x20C points to */ \
+    X(MREC_108, IN_REC, 0x108u, 4)                          /* the game mode's per-player record: an array at +0x108 of the struct its +0x20C points to */ \
+    X(MREC_128, IN_REC, 0x128u, 4)                          /* the game mode's per-player record: an array at +0x128 of the struct its +0x20C points to */ \
+    X(MREC_148, IN_REC, 0x148u, 4)                          /* the game mode's per-player record: an array at +0x148 of the struct its +0x20C points to */ \
+    X(PLY_MODE, AT, RAC3_MADDR(0x001A58B4u), 1)           /* a byte a slot at the profile struct + 0xA4 */ \
+    X(MODE_SCORE, IN_MODE, 0x018u, 4)                     /* game mode: kills and deaths, s16 each */ \
+    X(MODE_COLUMN_A, IN_MODE, 0x038u, 1)                  /* the modes' columns (siege, CTF) */ \
+    X(MODE_COLUMN_B, IN_MODE, 0x040u, 1) \
+    X(MODE_COLUMN_C, IN_MODE, 0x048u, 1) \
+    X(MODE_COLUMN_D, IN_MODE, 0x050u, 1) \
+    X(MODE_SHARE, IN_MODE, 0x058u, 4)                     /* a float a slot (siege's share) */ \
+    X(MODE_WEAPONS, IN_MODE, 0x078u, 0x24)                /* kills and deaths per weapon */ \
+    X(MODE_SUICIDES, IN_MODE, 0x198u, 2) \
+    X(RESULT_NAME, AT, RESULTS + 0x000u, 0x20)            /* the results: each slot's name */ \
+    X(RESULT_FLAG, AT, RESULTS + 0x100u, 4) \
+    X(RESULT_TEAM, AT, RESULTS + 0x120u, 4) \
+    X(RESULT_SCORE, AT, RESULTS + 0x140u, 4)              /* kills and deaths, s16 each */ \
+    X(RESULT_COLUMN_A, AT, RESULTS + 0x160u, 1) \
+    X(RESULT_COLUMN_B, AT, RESULTS + 0x168u, 1) \
+    X(RESULT_COLUMN_C, AT, RESULTS + 0x170u, 1) \
+    X(RESULT_COLUMN_D, AT, RESULTS + 0x178u, 1) \
+    X(RESULT_SHARE, AT, RESULTS + 0x180u, 4) \
+    X(RESULT_SUICIDES, AT, RESULTS + 0x1B8u, 2) \
+    X(RESULT_WEAPONS, AT, RESULTS + 0x1C8u, 0x24)
 /* clang-format on */
 
 enum {
-#define WIDE_ID(name, gs, base, stride) WIDE_##name,
+#define WIDE_ID(name, where, base, stride) WIDE_##name,
     WIDE_TABLES(WIDE_ID)
 #undef WIDE_ID
     WIDE_TABLE_COUNT
@@ -75,26 +131,177 @@ enum {
 
 static const struct {
     const char* name;
-    int gs;
+    int where;
     uint32_t base, stride;
 } wide_table[WIDE_TABLE_COUNT] = {
 
-#define WIDE_ROW(name, gs, base, stride) {#name, gs, base, stride},
+#define WIDE_ROW(name, where, base, stride) {#name, where, base, stride},
     WIDE_TABLES(WIDE_ROW)
 #undef WIDE_ROW
 };
 
+/* Each program's players array (8 pointers, by slot), game-mode struct (ui-scoreboard.md 2.3) and
+ * array of the remote players' 0x4DC0-byte structs (D_00315040 in map 40; slot s at + s * 0x4DC0, the
+ * game's eight end where the next table of the program begins), then the program's own per-slot
+ * tables (SLOT_A..D; the same instructions name other addresses in each program): level 39 and the
+ * maps 40-53 (the split-screen 54 and 55 are never online). */
+#define PROGRAM_FIRST 39
+#define PROGRAM_LAST 53
+
+#define PROG_TABLES 7 /* the IN_PROG tables, in WIDE_TABLES order */
+
+static const struct {
+    uint32_t players, mode, prog[PROG_TABLES];
+} wide_program[PROGRAM_LAST - PROGRAM_FIRST + 1] = {
+    {RAC3_LADDR(39, 0x0024CE20u),
+     RAC3_LADDR(39, 0x00352940u),
+     {RAC3_LADDR(39, 0x00310900u),
+      RAC3_LADDR(39, 0x002410F8u),
+      RAC3_LADDR(39, 0x0024D528u),
+      RAC3_LADDR(39, 0x00293F38u),
+      RAC3_LADDR(39, 0x004840A0u),
+      RAC3_LADDR(39, 0x0024CF40u),
+      RAC3_LADDR(39, 0x00268F00u)}},
+    {RAC3_LADDR(40, 0x00249330u),
+     RAC3_LADDR(40, 0x00357260u),
+     {RAC3_LADDR(40, 0x00315040u),
+      RAC3_LADDR(40, 0x002410F8u),
+      RAC3_LADDR(40, 0x00249790u),
+      RAC3_LADDR(40, 0x00290178u),
+      RAC3_LADDR(40, 0x003AA6E0u),
+      RAC3_LADDR(40, 0x00249450u),
+      RAC3_LADDR(40, 0x00265140u)}},
+    {RAC3_LADDR(41, 0x00249530u),
+     RAC3_LADDR(41, 0x003573A0u),
+     {RAC3_LADDR(41, 0x00315180u),
+      RAC3_LADDR(41, 0x002410F8u),
+      RAC3_LADDR(41, 0x00249900u),
+      RAC3_LADDR(41, 0x002902B8u),
+      RAC3_LADDR(41, 0x003A9D20u),
+      RAC3_LADDR(41, 0x00249650u),
+      RAC3_LADDR(41, 0x00265280u)}},
+    {RAC3_LADDR(42, 0x00249420u),
+     RAC3_LADDR(42, 0x0034F2A0u),
+     {RAC3_LADDR(42, 0x0030D080u),
+      RAC3_LADDR(42, 0x002410F8u),
+      RAC3_LADDR(42, 0x002497F0u),
+      RAC3_LADDR(42, 0x002901B8u),
+      RAC3_LADDR(42, 0x003A1C20u),
+      RAC3_LADDR(42, 0x00249540u),
+      RAC3_LADDR(42, 0x00265180u)}},
+    {RAC3_LADDR(43, 0x002492A0u),
+     RAC3_LADDR(43, 0x0034F120u),
+     {RAC3_LADDR(43, 0x0030CF00u),
+      RAC3_LADDR(43, 0x002410F8u),
+      RAC3_LADDR(43, 0x00249670u),
+      RAC3_LADDR(43, 0x00290038u),
+      RAC3_LADDR(43, 0x003A19E0u),
+      RAC3_LADDR(43, 0x002493C0u),
+      RAC3_LADDR(43, 0x00265000u)}},
+    {RAC3_LADDR(44, 0x00249320u),
+     RAC3_LADDR(44, 0x0034F160u),
+     {RAC3_LADDR(44, 0x0030CF40u),
+      RAC3_LADDR(44, 0x002410F8u),
+      RAC3_LADDR(44, 0x002496C0u),
+      RAC3_LADDR(44, 0x00290078u),
+      RAC3_LADDR(44, 0x003A1760u),
+      RAC3_LADDR(44, 0x00249440u),
+      RAC3_LADDR(44, 0x00265040u)}},
+    {RAC3_LADDR(45, 0x002492A0u),
+     RAC3_LADDR(45, 0x0034F120u),
+     {RAC3_LADDR(45, 0x0030CF00u),
+      RAC3_LADDR(45, 0x002410F8u),
+      RAC3_LADDR(45, 0x00249658u),
+      RAC3_LADDR(45, 0x00290038u),
+      RAC3_LADDR(45, 0x003A19A0u),
+      RAC3_LADDR(45, 0x002493C0u),
+      RAC3_LADDR(45, 0x00265000u)}},
+    {RAC3_LADDR(46, 0x00248EA0u),
+     RAC3_LADDR(46, 0x0035FCE0u),
+     {RAC3_LADDR(46, 0x0031DAC0u),
+      RAC3_LADDR(46, 0x002410F8u),
+      RAC3_LADDR(46, 0x00249240u),
+      RAC3_LADDR(46, 0x002A0BF8u),
+      RAC3_LADDR(46, 0x003B1F20u),
+      RAC3_LADDR(46, 0x00248FC0u),
+      RAC3_LADDR(46, 0x00275BC0u)}},
+    {RAC3_LADDR(47, 0x00248FA0u),
+     RAC3_LADDR(47, 0x0035FE20u),
+     {RAC3_LADDR(47, 0x0031DC00u),
+      RAC3_LADDR(47, 0x002410F8u),
+      RAC3_LADDR(47, 0x00249370u),
+      RAC3_LADDR(47, 0x002A0D38u),
+      RAC3_LADDR(47, 0x003B2320u),
+      RAC3_LADDR(47, 0x002490C0u),
+      RAC3_LADDR(47, 0x00275D00u)}},
+    {RAC3_LADDR(48, 0x00248FA0u),
+     RAC3_LADDR(48, 0x0035FE60u),
+     {RAC3_LADDR(48, 0x0031DC40u),
+      RAC3_LADDR(48, 0x002410F8u),
+      RAC3_LADDR(48, 0x002493A0u),
+      RAC3_LADDR(48, 0x002A0D78u),
+      RAC3_LADDR(48, 0x003B2AA0u),
+      RAC3_LADDR(48, 0x002490C0u),
+      RAC3_LADDR(48, 0x00275D40u)}},
+    {RAC3_LADDR(49, 0x00248FA0u),
+     RAC3_LADDR(49, 0x0035FDE0u),
+     {RAC3_LADDR(49, 0x0031DBC0u),
+      RAC3_LADDR(49, 0x002410F8u),
+      RAC3_LADDR(49, 0x00249340u),
+      RAC3_LADDR(49, 0x002A0CF8u),
+      RAC3_LADDR(49, 0x003B2020u),
+      RAC3_LADDR(49, 0x002490C0u),
+      RAC3_LADDR(49, 0x00275CC0u)}},
+    {RAC3_LADDR(50, 0x00249330u),
+     RAC3_LADDR(50, 0x00368260u),
+     {RAC3_LADDR(50, 0x00326040u),
+      RAC3_LADDR(50, 0x002410F8u),
+      RAC3_LADDR(50, 0x00249790u),
+      RAC3_LADDR(50, 0x002A1178u),
+      RAC3_LADDR(50, 0x003BB6E0u),
+      RAC3_LADDR(50, 0x00249450u),
+      RAC3_LADDR(50, 0x00276140u)}},
+    {RAC3_LADDR(51, 0x00249530u),
+     RAC3_LADDR(51, 0x003683A0u),
+     {RAC3_LADDR(51, 0x00326180u),
+      RAC3_LADDR(51, 0x002410F8u),
+      RAC3_LADDR(51, 0x00249900u),
+      RAC3_LADDR(51, 0x002A12B8u),
+      RAC3_LADDR(51, 0x003BAD20u),
+      RAC3_LADDR(51, 0x00249650u),
+      RAC3_LADDR(51, 0x00276280u)}},
+    {RAC3_LADDR(52, 0x00249420u),
+     RAC3_LADDR(52, 0x003602A0u),
+     {RAC3_LADDR(52, 0x0031E080u),
+      RAC3_LADDR(52, 0x002410F8u),
+      RAC3_LADDR(52, 0x002497F0u),
+      RAC3_LADDR(52, 0x002A11B8u),
+      RAC3_LADDR(52, 0x003B2C20u),
+      RAC3_LADDR(52, 0x00249540u),
+      RAC3_LADDR(52, 0x00276180u)}},
+    {RAC3_LADDR(53, 0x002492A0u),
+     RAC3_LADDR(53, 0x00360120u),
+     {RAC3_LADDR(53, 0x0031DF00u),
+      RAC3_LADDR(53, 0x002410F8u),
+      RAC3_LADDR(53, 0x00249670u),
+      RAC3_LADDR(53, 0x002A1038u),
+      RAC3_LADDR(53, 0x003B29E0u),
+      RAC3_LADDR(53, 0x002493C0u),
+      RAC3_LADDR(53, 0x00276000u)}},
+};
+
 static int wide_slots = WIDE_GAME;
 static gaddr
-    wide_ext[WIDE_TABLE_COUNT]; /* the port's tables of entries 8-23 (net block, players) */
+    wide_ext[WIDE_TABLE_COUNT]; /* the port's tables of entries 8-23 (all but the settings') */
 static gaddr wide_object;       /* OBJECT_GAME_SETTINGS_WIDE's data on this console */
+static int wide_overlay = -1;   /* the program the per-program tables were last used in */
 
 /* Where each settings array's slots 8-23 sit in OBJECT_GAME_SETTINGS_WIDE: the arrays in their
  * order, each WIDE_EXTRA entries long. */
 static uint32_t wide_object_offset(int table) {
     uint32_t off = 0;
     for (int t = 0; t < table; t++) {
-        if (wide_table[t].gs) {
+        if (wide_table[t].where == IN_GS) {
             off += wide_table[t].stride * WIDE_EXTRA;
         }
     }
@@ -123,6 +330,7 @@ int rac3_mp_wide_available(void) {
 #ifdef RAC3_PAL
     return 1;
 #else
+    /* NTSC-U's sites and addresses are not carried yet (wide.json, release.json): its rooms stay at 8. */
     return 0;
 #endif
 }
@@ -146,6 +354,9 @@ int rac3_mp_wide_slots(void) {
 
 /* A bound of the game's over its slots (8; 7 for "the last slot", ...): the room's. */
 int rac3_mp_wide_bound(int game) {
+    if (game == 24) { /* the effect pool's size: two descriptors a hero past the game's eight */
+        return game + 4 * (wide_slots - WIDE_GAME);
+    }
     return game + wide_slots - WIDE_GAME;
 }
 
@@ -154,26 +365,103 @@ int rac3_mp_wide_span(int game) {
     return game / WIDE_GAME * wide_slots;
 }
 
+/* The entries the game keeps in a table itself: 8, but the effect descriptors' pool of 24 (the room
+ * adds its own beyond them). */
+static uint32_t wide_native(int table) {
+    return table == WIDE_EFFECT_POOL ? 24u : (uint32_t)WIDE_GAME;
+}
+
+/* The entries the port adds past the game's: 16 for a per-slot table, but 64 for the effect pool, which
+ * takes two a hero and 24 heroes' worth with headroom (24 + 64 = 88 for the game's 24). */
+#define POOL_EXTRA 64u
+
+static uint32_t wide_extra(int table) {
+    return table == WIDE_EFFECT_POOL ? POOL_EXTRA : (uint32_t)WIDE_EXTRA;
+}
+
+static gaddr wide_extension(int table) {
+    if (wide_ext[table] == 0) {
+        wide_ext[table] = openrac_guest_static(wide_extra(table) * wide_table[table].stride);
+        memset(G(wide_ext[table]), 0, wide_extra(table) * wide_table[table].stride);
+    }
+    return wide_ext[table];
+}
+
+/* A new program (a map loaded, level 39 again): the players array's and the game-mode struct's
+ * entries 8-23 are the new program's, empty as the game's own are when it starts; at a map's start
+ * the results' too (the map's end routine fills them, after its memset of the game's block). */
+static void wide_program_changed(int overlay) {
+    for (int t = 0; t < WIDE_TABLE_COUNT; t++) {
+        const int program = wide_table[t].where == IN_PLAYERS || wide_table[t].where == IN_MODE
+                            || wide_table[t].where == IN_PROG || wide_table[t].where == IN_REC;
+        const int results = t >= WIDE_RESULT_NAME && overlay > PROGRAM_FIRST;
+        if ((program || results) && wide_ext[t] != 0) {
+            memset(G(wide_ext[t]), 0, wide_extra(t) * wide_table[t].stride);
+        }
+    }
+    wide_overlay = overlay;
+}
+
+/* The game's base of a table: an address, or 0 where the table has none now (no settings object,
+ * a program without the table). */
+static uint32_t wide_base(int table) {
+    const uint32_t base = wide_table[table].base;
+    switch (wide_table[table].where) {
+        case IN_GS:
+            return GREF(uint32_t, GS_POINTER) != 0 ? GREF(uint32_t, GS_POINTER) + base : 0;
+        case IN_REC: {
+            const int overlay = openrac_game_loaded_overlay();
+            if (overlay < PROGRAM_FIRST || overlay > PROGRAM_LAST) {
+                return 0;
+            }
+            if (overlay != wide_overlay) {
+                wide_program_changed(overlay);
+            }
+            const uint32_t mode = wide_program[overlay - PROGRAM_FIRST].mode;
+            const uint32_t record = mode != 0 ? GREF(uint32_t, mode + 0x20Cu) : 0;
+            return record != 0 ? record + base : 0;
+        }
+        case IN_MODE:
+        case IN_PROG:
+        case IN_PLAYERS: {
+            const int overlay = openrac_game_loaded_overlay();
+            if (overlay < PROGRAM_FIRST || overlay > PROGRAM_LAST) {
+                return 0;
+            }
+            if (overlay != wide_overlay) {
+                wide_program_changed(overlay);
+            }
+            const int where = wide_table[table].where;
+            const int row = overlay - PROGRAM_FIRST;
+            if (where == IN_PROG) {
+                return wide_program[row].prog[base];
+            }
+            const uint32_t at =
+                where == IN_MODE ? wide_program[row].mode : wide_program[row].players;
+            return at != 0 ? at + base : 0;
+        }
+        default:
+            return base;
+    }
+}
+
 /* An address the game formed into one of the tables, from the game's base: entries 0-7 where the
  * game has them, 8-23 in the port's table. */
 uint32_t rac3_mp_wide_address(uint32_t address, int table) {
     if (table < 0 || table >= WIDE_TABLE_COUNT) {
         return address;
     }
-    uint32_t base = wide_table[table].base;
+    const uint32_t base = wide_base(table);
     const uint32_t stride = wide_table[table].stride;
-    if (wide_table[table].gs) {
-        const uint32_t gs = GREF(uint32_t, GS_POINTER);
-        if (gs == 0) {
-            return address;
-        }
-        base += gs;
-    }
-    const uint32_t rel = address - base;
-    if (rel < WIDE_GAME * stride || rel >= WIDE_MAX * stride) {
+    if (base == 0) {
         return address;
     }
-    if (wide_table[table].gs) {
+    const uint32_t native = wide_native(table);
+    const uint32_t rel = address - base;
+    if (rel < native * stride || rel >= (native + wide_extra(table)) * stride) {
+        return address;
+    }
+    if (wide_table[table].where == IN_GS) {
         if (wide_object == 0) {
             /* No OBJECT_GAME_SETTINGS_WIDE yet (a console that has the game's object but not the
              * port's): slots 8-23 go to a table of their own, never into the object's next field. */
@@ -186,18 +474,295 @@ uint32_t rac3_mp_wide_address(uint32_t address, int table) {
         }
         return wide_object + wide_object_offset(table) + rel - WIDE_GAME * stride;
     }
-    if (wide_ext[table] == 0) {
-        wide_ext[table] = openrac_guest_static(WIDE_EXTRA * stride);
-        memset(G(wide_ext[table]), 0, WIDE_EXTRA * stride);
+    return wide_extension(table) + rel - native * stride;
+}
+
+/* The offset an address of a [row][slot] table of the game's has from the table's first entry:
+ * the profile's three sensitivity tables (D_001A58D0, D_001A5930, D_001A5990: three rows of eight
+ * words, 0x60 bytes each, one after the other). SLOT4 is the slot * 4 and ROW32 the row * 0x20,
+ * which the game adds before it adds the table. A slot of 8 to 23 cannot be told from a slot of
+ * a later row by the address alone, so the sum is formed here: slots 8 and up go to a region of
+ * the port's, a row of 0x120 bytes (three tables 0x60 apart, 0x40 bytes of slots each), as an
+ * offset from the first table. The others are the game's sum. */
+#define SENS_ROW 0x120u
+#define SENS_BYTES (3 * SENS_ROW)
+
+uint32_t rac3_mp_wide_rowoff(uint32_t slot4, uint32_t row32) {
+    static gaddr ext;
+    if (slot4 < WIDE_GAME * 4u || slot4 >= WIDE_MAX * 4u || row32 > 2 * 0x20u) {
+        return slot4 + row32;
     }
-    return wide_ext[table] + rel - WIDE_GAME * stride;
+    if (ext == 0) {
+        ext = openrac_guest_static(SENS_BYTES);
+        memset(G(ext), 0, SENS_BYTES);
+    }
+    return (uint32_t)(ext + row32 / 0x20u * SENS_ROW + (slot4 - WIDE_GAME * 4u)
+                      - RAC3_MADDR(0x001A58D0u));
+}
+
+/* A byte array of eight on a function's stack, indexed by slot (the damage a hero's attackers did,
+ * map 40's 004255A0 and 00431768): PTR is the game's element address, SLOT the index. A slot of 8
+ * or more would write over the frame's other locals; its element goes to a scratch of the port's,
+ * which nothing reads back (the game sums the first eight). */
+uint32_t rac3_mp_wide_scratch(uint32_t ptr, uint32_t slot) {
+    static gaddr scratch;
+    if (slot < WIDE_GAME || slot >= WIDE_MAX) {
+        return ptr;
+    }
+    if (scratch == 0) {
+        scratch = openrac_guest_static(WIDE_MAX);
+        memset(G(scratch), 0, WIDE_MAX);
+    }
+    return scratch + slot;
 }
 
 /* A new session: the port's net-block entries 8-23 cleared as the game clears its own. */
 void rac3_mp_wide_reset(void) {
     for (int t = 0; t < WIDE_TABLE_COUNT; t++) {
-        if (wide_ext[t] != 0) {
+        if (wide_ext[t] != 0 && wide_table[t].where == AT && t < WIDE_RESULT_NAME) {
             memset(G(wide_ext[t]), 0, WIDE_EXTRA * wide_table[t].stride);
         }
+    }
+}
+
+/* Slot `slot`'s entry of the settings array at `offset` of the settings object's data (+0x000
+ * names, +0x0E0 clients, ...), wherever the port keeps it; 0 without a settings object. */
+gaddr rac3_mp_wide_settings(uint32_t offset, int slot) {
+    for (int t = 0; t < WIDE_TABLE_COUNT; t++) {
+        if (wide_table[t].where == IN_GS && wide_table[t].base == offset) {
+            const uint32_t base = wide_base(t);
+            return base == 0
+                       ? 0
+                       : rac3_mp_wide_address(base + wide_table[t].stride * (uint32_t)slot, t);
+        }
+    }
+    return 0;
+}
+
+/* Slot `slot`'s entry of the results' array at `offset` of the results block (+0x000 names, +0x120
+ * teams, +0x140 kills and deaths, +0x1B8 suicides, ...), wherever the port keeps it. */
+gaddr rac3_mp_wide_results(uint32_t offset, int slot) {
+    for (int t = WIDE_RESULT_NAME; t < WIDE_TABLE_COUNT; t++) {
+        if (wide_table[t].base == RESULTS + offset) {
+            return rac3_mp_wide_address(
+                RESULTS + offset + wide_table[t].stride * (uint32_t)slot, t
+            );
+        }
+    }
+    return RESULTS + offset;
+}
+
+/* The game-mode struct's array at `offset` (+0x18 kills and deaths, +0x38/+0x48/+0x50 the modes'
+ * columns, +0x198 suicides), slots `first` to `first + count - 1`, copied out (`out`) or in. The
+ * channel 5 end-of-match message carries slots 0-7 of these; the port's companion the others. */
+int rac3_mp_wide_mode_copy(uint32_t offset, int first, int count, uint8_t* bytes, int out) {
+    for (int t = 0; t < WIDE_TABLE_COUNT; t++) {
+        if (wide_table[t].where == IN_MODE && wide_table[t].base == offset) {
+            const uint32_t base = wide_base(t);
+            const uint32_t stride = wide_table[t].stride;
+            if (base == 0) {
+                return 0;
+            }
+            for (int i = 0; i < count; i++) {
+                const gaddr at = rac3_mp_wide_address(base + stride * (uint32_t)(first + i), t);
+                if (out) {
+                    memcpy(bytes + stride * (uint32_t)i, G(at), stride);
+                } else {
+                    memcpy(G(at), bytes + stride * (uint32_t)i, stride);
+                }
+            }
+            return (int)stride * count;
+        }
+    }
+    return 0;
+}
+
+/* ---- The end of a match (L39_00670D90's copy in each map) ---- */
+
+/* The end routine fills the results block for the game's eight slots only: names from the
+ * settings, the player's flag and team, and from the game-mode struct the scores and the mode's
+ * columns, and decides the winner (+0x1A8). The wrap runs after it and does the same for slots 8 and
+ * up, from the port's tables, then decides the winner again over every slot. */
+#define RES_FLAG 0x100u
+#define RES_TEAM 0x120u
+#define RES_SCORE 0x140u
+#define RES_SUICIDES 0x1B8u
+#define RES_WINNER 0x1A8u
+#define RES_TEAMS                                                                                  \
+    0x2E8u /* eight team records of 0xA4 bytes: idx[8], a[8], b[8], ..., count at +0x8C */
+#define RES_TEAM_BYTES 0xA4u
+#define RES_TEAM_COUNT 0x8Cu
+#define RES_GAME_TYPE 0x80Cu
+#define PLAYER_LOCAL 0x1A14u   /* a byte: this console's player */
+#define PLAYER_PROFILE 0x2534u /* the word the local player's profile reset takes */
+#define PLAYER_TEAM 0x2548u
+
+/* The game-mode struct's arrays the end copies into the results, and the results' array of each
+ * (offset in the mode, offset in the results, bytes an entry). The first five are also what the
+ * channel 5 end message carries for slots 0-7; the port's relay message carries the others'. */
+static const struct {
+    uint32_t mode, result, bytes;
+    int sent;
+} wide_end_array[] = {
+    {0x018u, 0x140u, 4, 1},
+    {0x198u, 0x1B8u, 2, 1},
+    {0x038u, 0x160u, 1, 1},
+    {0x048u, 0x170u, 1, 1},
+    {0x050u, 0x178u, 1, 1},
+    {0x040u, 0x168u, 1, 0},
+    {0x058u, 0x180u, 4, 0},
+    {0x078u, 0x1C8u, 0x24, 0},
+};
+
+#define WIDE_END_ARRAYS (sizeof wide_end_array / sizeof wide_end_array[0])
+
+/* The players' slot `slot` struct (0: none). */
+static gaddr wide_player(int slot) {
+    const uint32_t base = wide_base(WIDE_MAP_PLAYERS);
+    return base == 0
+               ? 0
+               : GREF(gaddr, rac3_mp_wide_address(base + 4u * (uint32_t)slot, WIDE_MAP_PLAYERS));
+}
+
+/* The bytes the end message carries for slots 8 to slots-1 (at most 24 - 8 slots of each array
+ * the game's own message has: scores 4, suicides 2, three columns of 1). */
+int rac3_mp_wide_end_pack(uint8_t* out, int capacity) {
+    if (wide_slots <= WIDE_GAME) {
+        return 0;
+    }
+    const int count = wide_slots - WIDE_GAME;
+    int n = 0;
+    for (size_t a = 0; a < WIDE_END_ARRAYS; a++) {
+        if (!wide_end_array[a].sent) {
+            continue;
+        }
+        if (n + (int)wide_end_array[a].bytes * count > capacity
+            || rac3_mp_wide_mode_copy(wide_end_array[a].mode, WIDE_GAME, count, out + n, 1) == 0) {
+            return 0;
+        }
+        n += (int)wide_end_array[a].bytes * count;
+    }
+    return n;
+}
+
+/* The same, received: the room's width first (a console with another width ignores it). */
+void rac3_mp_wide_end_unpack(const uint8_t* in, int length) {
+    if (wide_slots <= WIDE_GAME) {
+        return;
+    }
+    const int count = wide_slots - WIDE_GAME;
+    int n = 0;
+    fprintf(
+        stderr,
+        "[info] rac3: online: the end message's slots 8-%d came (%d bytes)\n",
+        wide_slots - 1,
+        length
+    );
+    for (size_t a = 0; a < WIDE_END_ARRAYS; a++) {
+        if (!wide_end_array[a].sent) {
+            continue;
+        }
+        if (n + (int)wide_end_array[a].bytes * count > length) {
+            return;
+        }
+        uint8_t copy[WIDE_EXTRA * 4];
+        memcpy(copy, in + n, (size_t)wide_end_array[a].bytes * (size_t)count);
+        rac3_mp_wide_mode_copy(wide_end_array[a].mode, WIDE_GAME, count, copy, 0);
+        n += (int)wide_end_array[a].bytes * count;
+    }
+}
+
+/* The winner of a deathmatch, over every slot (L39_00670D90's choice, which sees eight). Teams:
+ * the team with the most kills less suicides, fewer deaths on a tie, a tie of both none (-1);
+ * else the same for the players, the winner being the best one's team. */
+static int wide_winner(int teams) {
+    const gaddr gs = GREF(gaddr, GS_POINTER);
+    int best_index = -1, best1 = -1, best2 = -1, tie = 0;
+    for (int t = 0; t < (teams ? 8 : wide_slots); t++) {
+        int sum1 = 0, sum2 = 0, any = 0;
+        for (int j = teams ? 0 : t; j < (teams ? wide_slots : t + 1); j++) {
+            const gaddr client = rac3_mp_wide_settings(0x0E0u, j);
+            if (client == 0 || GREF(int16_t, client) == -1) {
+                continue;
+            }
+            if (teams && GREF(int16_t, rac3_mp_wide_settings(0x0D0u, j)) != t) {
+                continue;
+            }
+            const gaddr score = rac3_mp_wide_results(RES_SCORE, j);
+            sum1 += GREF(int16_t, score) - GREF(int16_t, rac3_mp_wide_results(RES_SUICIDES, j));
+            sum2 += GREF(int16_t, score + 2u);
+            any = 1;
+        }
+        if (!teams && !any) {
+            continue;
+        }
+        if (best1 < sum1 || (sum1 == best1 && sum2 < best2)) {
+            best1 = sum1;
+            best2 = sum2;
+            best_index = t;
+            tie = 0;
+        } else if (sum1 == best1 && sum2 == best2) {
+            tie = 1;
+        }
+    }
+    (void)gs;
+    if (tie || best_index < 0) {
+        return -1;
+    }
+    return teams ? best_index : GREF(int32_t, rac3_mp_wide_results(RES_TEAM, best_index));
+}
+
+void rac3_mp_wide_end_results(int reason, int (*profile_reset)(int)) {
+    const gaddr gs = GREF(gaddr, GS_POINTER);
+    if (wide_slots <= WIDE_GAME || gs == 0) {
+        return;
+    }
+    fprintf(
+        stderr,
+        "[info] rac3: online: the match ends (reason %d): results for slots 8-%d\n",
+        reason,
+        wide_slots - 1
+    );
+    for (int i = WIDE_GAME; i < wide_slots; i++) {
+        const gaddr name = rac3_mp_wide_results(0x000u, i);
+        const gaddr from = rac3_mp_wide_settings(0x000u, i);
+        memset(G(name), 0, 0x20);
+        if (GREF(uint8_t, from) != 0) {
+            memcpy(G(name), G(from), 15); /* the game's strcpy of a 16-byte name */
+        }
+        GREF(int32_t, rac3_mp_wide_results(RES_FLAG, i)) = 0;
+        const gaddr player = wide_player(i);
+        if (player != 0) {
+            const int32_t team = GREF(int32_t, player + PLAYER_TEAM);
+            if (GREF(uint8_t, player + PLAYER_LOCAL) != 0) {
+                GREF(int32_t, rac3_mp_wide_results(RES_FLAG, i)) = 1;
+                profile_reset(GREF(int32_t, player + PLAYER_PROFILE));
+            }
+            GREF(int32_t, rac3_mp_wide_results(RES_TEAM, i)) = team;
+            if (team >= 0 && team < 8) {
+                const gaddr record = RESULTS + RES_TEAMS + RES_TEAM_BYTES * (gaddr)team;
+                const int32_t n = GREF(int32_t, record + RES_TEAM_COUNT);
+                /* The record lists eight members; a team of more lists the first eight. */
+                if (n >= 0 && n < 8) {
+                    GREF(float, record + 0x20u + 4u * (gaddr)n) =
+                        GREF(float, rac3_mp_wide_settings(0x110u, i));
+                    GREF(float, record + 0x40u + 4u * (gaddr)n) =
+                        GREF(float, rac3_mp_wide_settings(0x130u, i));
+                    GREF(int32_t, record + 4u * (gaddr)n) = i;
+                    GREF(int32_t, record + RES_TEAM_COUNT) = n + 1;
+                }
+            }
+        }
+        for (size_t a = 0; a < WIDE_END_ARRAYS; a++) {
+            uint8_t bytes[0x24];
+            rac3_mp_wide_mode_copy(wide_end_array[a].mode, i, 1, bytes, 1);
+            memcpy(
+                G(rac3_mp_wide_results(wide_end_array[a].result, i)), bytes, wide_end_array[a].bytes
+            );
+        }
+    }
+    /* Deathmatch (type 2) ends 1 and 5 name the winner from the scores: over every slot now. */
+    if ((reason == 1 || reason == 5) && GREF(int32_t, RESULTS + RES_GAME_TYPE) == 2) {
+        GREF(int32_t, RESULTS + RES_WINNER) = wide_winner(GREF(int8_t, gs + 0x19Du) != 0);
     }
 }

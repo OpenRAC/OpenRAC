@@ -33,7 +33,8 @@ typedef struct openrac_ui_adapter {
 /* The game's adapter, kept (not copied) from now on. */
 void openrac_ui_set_adapter(const openrac_ui_adapter* adapter);
 
-/* The game's 2D screen, as its adapter says (512 x 448 without one). */
+/* The game's 2D screen, as its adapter says (512 x 448 without one). A non-finite or nonpositive
+ * dimension also takes its corresponding default, keeping native scaling usable during loading. */
 void openrac_ui_screen(float* width, float* height);
 
 /* A glyph of text: the cell `cell` (u0, v0, u1, v1, in the page's texels) of `page`, drawn over
@@ -52,7 +53,8 @@ int openrac_ui_draw_glyph(const openrac_ui_glyph* glyph);
 /* A quad of an image, or of colour alone: four corners (strip order: 0-1-2, 1-2-3) in the game's
  * 2D pixels, each corner's texel of `image` and colour; `flags` OPENRAC_UI_FLAT (no image: the
  * colours alone), OPENRAC_UI_SHADED (shaded between the corners' colours, else each triangle in
- * the colour of its last corner), OPENRAC_UI_NEAREST (the image texel by texel). Nonzero when the
+ * the colour of its last corner), OPENRAC_UI_NEAREST (the image texel by texel), OPENRAC_UI_REPEAT
+ * (the image repeated past its edges). Nonzero when the
  * window draws it; 0: the caller draws its way. */
 typedef struct openrac_ui_quad {
     openrac_game_ui_image image;
@@ -78,6 +80,15 @@ int openrac_ui_draw_rect(
 /* What the 2D layer draws from here on is cut to `rect` (x0, y0, x1, y1 in the game's 2D pixels,
  * x1 and y1 past the last pixel kept; NULL: the whole target), as the game's own scissor cuts it. */
 void openrac_ui_scissor(const float* rect);
+
+/* The HUD's placement: what the layer draws from openrac_ui_place_begin to openrac_ui_place_end is
+ * the game's HUD, its elements (the items that overlap) whose middle lies past the middle third of
+ * the screen moved `side` of the game's pixels out to their side (the player's "HUD: Edges" in a
+ * wider picture: openrac_game_hud_side; 0 moves nothing). Carried on each item
+ * (openrac_game_ui_item::side, ::place); nothing is written into the game's display list. A begin
+ * inside a placement belongs to it. */
+void openrac_ui_place_begin(int side);
+void openrac_ui_place_end(void);
 
 /* Image `index` of the game's table `table`, through its adapter: nonzero when there is one. */
 int openrac_ui_image(int table, int index, openrac_game_ui_image* out);

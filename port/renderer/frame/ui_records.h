@@ -77,6 +77,9 @@ struct UiItem {
     float screen_height = 448.0f;
     std::uint32_t flags = 0;  // kUiItem*
     std::uint32_t image = 0;  // index into the recording's images; unused when flat
+    // The HUD's placement (openrac_game_ui_item::side, ::place): 0 none.
+    float side = 0.0f;
+    std::uint32_t place = 0;
 };
 
 inline constexpr std::uint32_t kUiItemGlyph = 1;
@@ -84,5 +87,6 @@ inline constexpr std::uint32_t kUiItemFlat = 2;
 inline constexpr std::uint32_t kUiItemShaded = 4;
 inline constexpr std::uint32_t kUiItemClip = 8;
 inline constexpr std::uint32_t kUiItemNearest = 16;
+inline constexpr std::uint32_t kUiItemRepeat = 32;
 
 }  // namespace openrac::renderer

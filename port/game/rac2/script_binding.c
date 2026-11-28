@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[56];
+static const openrac_script_point k_points[57];
 
 /* Shape S0: void(i32) (amount). */
 typedef void (*S0_fn)(int32_t);
@@ -483,6 +483,27 @@ static void S23_call(void* original, const openrac_script_value* v, openrac_scri
 }
 #define S23_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S23_THUNK(N, I, 0) S23_THUNK(N, I, 1) S23_THUNK(N, I, 2) S23_THUNK(N, I, 3) S23_THUNK(N, I, 4) S23_THUNK(N, I, 5) S23_THUNK(N, I, 6) S23_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
+/* Shape S24: void(u32,u32,u32) (camera, turn, tilt). */
+typedef void (*S24_fn)(uint32_t, uint32_t, uint32_t);
+static const uint8_t k_S24_kinds[] = {OPENRAC_SV_U32, OPENRAC_SV_U32, OPENRAC_SV_U32};
+static const char* const k_S24_names[] = {"camera", "turn", "tilt"};
+static void S24_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S24_fn)original)((uint32_t)v[0].i, (uint32_t)v[1].i, (uint32_t)v[2].i);
+}
+#define S24_THUNK(N, I, K) static void N##_##K(uint32_t camera, uint32_t turn, uint32_t tilt) { \
+    openrac_script_value v[3] = {{0, 0.0}}; \
+    v[0].i = (int64_t)camera; \
+    v[1].i = (int64_t)turn; \
+    v[2].i = (int64_t)tilt; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S24_fn)k_##N##_links[K].original)(camera, turn, tilt); \
+        return; \
+    } \
+}
+#define S24_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S24_THUNK(N, I, 0) S24_THUNK(N, I, 1) S24_THUNK(N, I, 2) S24_THUNK(N, I, 3) S24_THUNK(N, I, 4) S24_THUNK(N, I, 5) S24_THUNK(N, I, 6) S24_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
 S0_POINT(Hero_TakeDamage, 0) /* rac2.player.take_damage */
 S1_POINT(Moby_GetHitMessage, 1) /* rac2.combat.get_hit */
 S2_POINT(Moby_PostHit, 2) /* rac2.combat.post_hit */
@@ -538,9 +559,10 @@ S16_POINT(Moby_BoldanCutscene_Update, 51) /* rac2.moby.boldan_cutscene.update */
 S16_POINT(Moby_HypnomaticPart_Update, 52) /* rac2.moby.hypnomatic_part.update */
 S23_POINT(Moby_CountKill, 53) /* rac2.combat.count_kill */
 S11_POINT(Menu_Extras, 54) /* rac2.menu.extras */
-S16_POINT(Moby_BoldanClock_Update, 55) /* rac2.moby.boldan_clock.update */
+S24_POINT(FollowCamera_ReadStick, 55) /* rac2.camera.follow.read_stick */
+S16_POINT(Moby_BoldanClock_Update, 56) /* rac2.moby.boldan_clock.update */
 
-static const openrac_script_point k_points[56] = {
+static const openrac_script_point k_points[57] = {
     {"rac2.player.take_damage", "void(i32)", 1, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S0_call},
     {"rac2.combat.get_hit", "u32(u32,u32,i32)", 3, k_S1_kinds, k_S1_names, OPENRAC_SV_U32, k_Moby_GetHitMessage_links, k_Moby_GetHitMessage_thunks, S1_call},
     {"rac2.combat.post_hit", "void(u32,u32)", 2, k_S2_kinds, k_S2_names, OPENRAC_SV_VOID, k_Moby_PostHit_links, k_Moby_PostHit_thunks, S2_call},
@@ -596,16 +618,18 @@ static const openrac_script_point k_points[56] = {
     {"rac2.moby.hypnomatic_part.update", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Moby_HypnomaticPart_Update_links, k_Moby_HypnomaticPart_Update_thunks, S16_call},
     {"rac2.combat.count_kill", "void(u32,i32)", 2, k_S23_kinds, k_S23_names, OPENRAC_SV_VOID, k_Moby_CountKill_links, k_Moby_CountKill_thunks, S23_call},
     {"rac2.menu.extras", "i32()", 0, k_S11_kinds, k_S11_names, OPENRAC_SV_I32, k_Menu_Extras_links, k_Menu_Extras_thunks, S11_call},
+    {"rac2.camera.follow.read_stick", "void(u32,u32,u32)", 3, k_S24_kinds, k_S24_names, OPENRAC_SV_VOID, k_FollowCamera_ReadStick_links, k_FollowCamera_ReadStick_thunks, S24_call},
     {"rac2.moby.boldan_clock.update", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Moby_BoldanClock_Update_links, k_Moby_BoldanClock_Update_thunks, S16_call},
 };
 
-static const openrac_script_alias k_aliases[232] = {
+static const openrac_script_alias k_aliases[236] = {
     {"Arena_Prize", "rac2.arena.prize"},
     {"ArmorVendor_BuildList", "rac2.armor_vendor.build_list"},
     {"ArmorVendor_Buy", "rac2.armor_vendor.buy"},
     {"Bolt_Collect", "rac2.bolt.collect"},
     {"Bolt_SpawnPickup", "rac2.bolt.spawn_pickup"},
     {"Bolt_SpawnPickups", "rac2.bolt.spawn_pickups"},
+    {"FollowCamera_ReadStick", "rac2.camera.follow.read_stick"},
     {"Hero_ApproachSpeed", "rac2.player.approach_speed"},
     {"Hero_NanotechSteps", "rac2.player.nanotech_steps"},
     {"Hero_TakeDamage", "rac2.player.take_damage"},
@@ -756,6 +780,9 @@ static const openrac_script_alias k_aliases[232] = {
     {"func_L00_00373D40", "rac2.armor_vendor.buy"},
     {"func_L00_00375068", "rac2.armor_vendor.buy"},
     {"func_L00_00376810", "rac2.armor_vendor.buy"},
+    {"func_L00_00424F98", "rac2.camera.follow.read_stick"},
+    {"func_L00_004264A8", "rac2.camera.follow.read_stick"},
+    {"func_L00_0042A488", "rac2.camera.follow.read_stick"},
     {"func_L01_002A8B30", "rac2.player.update"},
     {"func_L01_002A8C48", "rac2.player.update"},
     {"func_L01_002A8D48", "rac2.player.update"},
@@ -840,8 +867,8 @@ static const openrac_script_field k_fields[1] = {
 };
 
 static const openrac_script_binding k_binding = {
-    "rac2", 3, k_discs, 56, k_points, 0, k_fields, NULL,
-    232, k_aliases,
+    "rac2", 3, k_discs, 57, k_points, 0, k_fields, NULL,
+    236, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {

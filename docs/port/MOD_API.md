@@ -14,6 +14,13 @@ The files `sdk/api/openrac_api.lock`, `types.lock` and `macros.lock` record the
 table. CI runs `sdk/tools/gen_api_lock.py --check --against origin/develop` and
 fails if a change does more than add.
 
+## A call, or a service?
+
+A call is for what the port does. What one mod does for others (a mixer of
+the mods' rumble, a shared movement state) is better a service of that mod
+(`service_provide`, [sdk/docs/mods-together.md](../../sdk/docs/mods-together.md)):
+it changes with the mod, not with the interface.
+
 ## Where the code goes
 
 Each member has an **area**, written in `sdk/api/members.tsv`. The area decides

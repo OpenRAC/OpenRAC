@@ -1,6 +1,6 @@
 # The end of a job that used ./.github/actions/port-build-cache. On a push, schedule or manual
-# run, writes each cache whose content is new: the sources and the preparation when their key
-# missed, the hostgen output when its games' input digests (gen/inputs.sha256) differ from the
+# run (develop's merge queue hands them on through .github/actions/cache-out), writes each cache
+# whose content is new: the sources and the preparation when their key missed, the hostgen output when its games' input digests (gen/inputs.sha256) differ from the
 # copy it started from. An unchanged game never adds another copy of the same output.
 name: Save the port build preparation cache
 description: Save the port's dependency sources, CMake preparation and hostgen output when new
@@ -11,8 +11,11 @@ runs:
       shell: bash
       env:
         EVENT: ${{ github.event_name }}
+        BASE: ${{ github.event.merge_group.base_ref }}
       run: |
-        if [ "$EVENT" = pull_request ] || [ "$EVENT" = merge_group ] || [ -z "$OPENRAC_PBC_PRESET" ]; then
+        # A pull request and master's queue save nothing; develop's queue hands its caches on
+        # (.github/actions/cache-out).
+        if [ "$EVENT" = pull_request ] || { [ "$EVENT" = merge_group ] && [ "$BASE" != refs/heads/develop ]; } || [ -z "$OPENRAC_PBC_PRESET" ]; then
           exit 0
         fi
         writes() { [ -n "$1" ] && [ "$2" != true ] && echo true || echo false; }
@@ -28,7 +31,7 @@ runs:
             echo "hostgen_key=$key" >> "$GITHUB_OUTPUT"
           fi
         fi
-    - if: steps.plan.outputs.sources == 'true'
+    - if: steps.plan.outputs.sources == 'true' && github.event_name != 'merge_group'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       continue-on-error: true
       with:
@@ -36,7 +39,14 @@ runs:
           port/build/${{ env.OPENRAC_PBC_PRESET }}/_deps/*-src
           !port/build/${{ env.OPENRAC_PBC_PRESET }}/_deps/openrac_compressonator-src
         key: ${{ env.OPENRAC_PBC_SOURCES_KEY }}
-    - if: steps.plan.outputs.prep == 'true'
+    - if: steps.plan.outputs.sources == 'true' && github.event_name == 'merge_group'
+      uses: ./.github/actions/cache-out
+      with:
+        path: |
+          port/build/${{ env.OPENRAC_PBC_PRESET }}/_deps/*-src
+          !port/build/${{ env.OPENRAC_PBC_PRESET }}/_deps/openrac_compressonator-src
+        key: ${{ env.OPENRAC_PBC_SOURCES_KEY }}
+    - if: steps.plan.outputs.prep == 'true' && github.event_name != 'merge_group'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       continue-on-error: true
       with:
@@ -47,9 +57,28 @@ runs:
           !port/build/**/*.obj
           !port/build/**/*.pdb
         key: ${{ env.OPENRAC_PBC_PREP_KEY }}
-    - if: steps.plan.outputs.hostgen == 'true'
+    - if: steps.plan.outputs.prep == 'true' && github.event_name == 'merge_group'
+      uses: ./.github/actions/cache-out
+      with:
+        path: |
+          port/build/${{ env.OPENRAC_PBC_PRESET }}/CMakeCache.txt
+          port/build/${{ env.OPENRAC_PBC_PRESET }}/CMakeFiles/[0-9]*
+          !port/build/**/*.o
+          !port/build/**/*.obj
+          !port/build/**/*.pdb
+        key: ${{ env.OPENRAC_PBC_PREP_KEY }}
+    - if: steps.plan.outputs.hostgen == 'true' && github.event_name != 'merge_group'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       continue-on-error: true
+      with:
+        path: |
+          port/build/${{ env.OPENRAC_PBC_PRESET }}/games/*/gen/**/*
+          !port/build/${{ env.OPENRAC_PBC_PRESET }}/games/*/gen/prep
+          !port/build/${{ env.OPENRAC_PBC_PRESET }}/games/*/gen/prep/**
+          !port/build/${{ env.OPENRAC_PBC_PRESET }}/games/*/gen/hostgen.stamp
+        key: ${{ steps.plan.outputs.hostgen_key }}
+    - if: steps.plan.outputs.hostgen == 'true' && github.event_name == 'merge_group'
+      uses: ./.github/actions/cache-out
       with:
         path: |
           port/build/${{ env.OPENRAC_PBC_PRESET }}/games/*/gen/**/*

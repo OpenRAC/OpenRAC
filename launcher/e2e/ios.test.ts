@@ -167,6 +167,7 @@ it("exports a chosen slot through the native share command", async () => {
 
 it("opens Files and previews a save before an explicit import confirmation", async () => {
   await page.getByRole("button", { name: "Import", exact: true }).click();
+  await page.getByRole("menuitem", { name: "An OpenRAC saves file (.zip)…" }).click();
   const dialog = page.getByRole("dialog", { name: "Import saves" });
 
   await dialog.getByText(/Replaces Kerwan/).waitFor();

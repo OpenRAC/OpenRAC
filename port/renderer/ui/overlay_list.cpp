@@ -72,16 +72,16 @@ bool OverlayList::set_blend(std::uint32_t blend) {
     return true;
 }
 
-void OverlayList::quad(OverlayBlend blend, const std::array<OverlayVertex, 4>& corners) {
+void OverlayList::quad(OverlayBlend blend, int image, const std::array<OverlayVertex, 4>& corners) {
     // Corners: top left, top right, bottom left, bottom right.
     const auto first = static_cast<std::uint32_t>(m_vertices.size());
     m_vertices.insert(
         m_vertices.end(), {corners[0], corners[1], corners[2], corners[1], corners[3], corners[2]}
     );
-    if (!m_batches.empty() && m_batches.back().blend == blend) {
+    if (!m_batches.empty() && m_batches.back().blend == blend && m_batches.back().image == image) {
         m_batches.back().count += kVerticesPerQuad;
     } else {
-        m_batches.push_back({first, static_cast<std::uint32_t>(kVerticesPerQuad), blend});
+        m_batches.push_back({first, static_cast<std::uint32_t>(kVerticesPerQuad), blend, image});
     }
 }
 
@@ -93,11 +93,55 @@ void OverlayList::rect(float x, float y, float w, float h, std::uint32_t colour)
     const std::array<std::uint8_t, 4> c = bytes_of(colour);
     quad(
         m_blend,
-        {OverlayVertex{x, y, c},
-         OverlayVertex{x + w, y, c},
-         OverlayVertex{x, y + h, c},
-         OverlayVertex{x + w, y + h, c}}
+        0,
+        {OverlayVertex{x, y, 0, 0, c},
+         OverlayVertex{x + w, y, 0, 0, c},
+         OverlayVertex{x, y + h, 0, 0, c},
+         OverlayVertex{x + w, y + h, 0, 0, c}}
     );
+}
+
+void OverlayList::image(
+    int image, float x, float y, float w, float h, float angle, std::uint32_t colour
+) {
+    if (image <= 0 || !finite(x) || !finite(y) || !finite(w) || !finite(h) || !finite(angle)
+        || w <= 0.0f || h <= 0.0f || m_vertices.size() + kVerticesPerQuad > kOverlayVerticesMax) {
+        return;
+    }
+    // Turned where a unit across is as long as one down (as shown), then back to the picture's
+    // units: a unit across is `across` of one down.
+    const float across = kOverlayHeight / kOverlayWidth * m_aspect;
+    const float c = std::cos(angle);
+    const float s = std::sin(angle);
+    auto corner = [&](float dx, float dy, float u, float v) {
+        // y grows downward, so counter-clockwise as shown is (dx c + dy s, -dx s + dy c).
+        const float rx = dx * c + dy * s;
+        const float ry = -dx * s + dy * c;
+        return OverlayVertex{x + rx / across, y + ry, u, v, bytes_of(colour)};
+    };
+    const float hw = w * 0.5f;
+    const float hh = h * 0.5f;
+    quad(
+        m_blend,
+        image,
+        {corner(-hw, -hh, 0, 0), corner(hw, -hh, 1, 0), corner(-hw, hh, 0, 1), corner(hw, hh, 1, 1)}
+    );
+}
+
+void OverlayList::image_quad(
+    int image, const std::array<float, 8>& xy, const std::array<float, 8>& uv, std::uint32_t colour
+) {
+    if (image <= 0 || m_vertices.size() + kVerticesPerQuad > kOverlayVerticesMax
+        || !std::all_of(xy.begin(), xy.end(), finite)
+        || !std::all_of(uv.begin(), uv.end(), finite)) {
+        return;
+    }
+    const std::array<std::uint8_t, 4> c = bytes_of(colour);
+    std::array<OverlayVertex, 4> corners;
+    for (std::size_t i = 0; i < corners.size(); ++i) {
+        corners[i] = OverlayVertex{xy[i * 2], xy[i * 2 + 1], uv[i * 2], uv[i * 2 + 1], c};
+    }
+    quad(m_blend, image, corners);
 }
 
 void OverlayList::text(

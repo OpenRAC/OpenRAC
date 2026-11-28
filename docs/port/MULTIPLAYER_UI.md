@@ -97,7 +97,7 @@ project, https://github.com/Horizon-Private-Server/horizon-server and its UYA pl
 reference only; no code was taken). OpenRAC's descriptions carry them as data, never as code.
 
 Actions are a closed set: `back`, `open:<screen>`, `game:<name>` (the binding's own: `join`,
-`ready`, `start`, `leave`, `team`, `create`), `server:<key>` (sends `UI ACTION key value` to the
+`select`, `ready`, `team`, `skin`, `start`, `leave`, `create`), `server:<key>` (sends `UI ACTION key value` to the
 server). Screens with an id the binding knows (`game_list`, `staging`, `scoreboard`) sit on the
 game's screen; others are extra native screens opened by `open:` or shown on a hook (`on`).
 
@@ -134,12 +134,21 @@ score lists, to try their paging past eight rows before the game's tables hold m
 | 0x005D69C0 GUI element render | place the native cursor's bar (the game's own element) before it, print the native text after it |
 
 Bound screens: staging (0x21: the player rows, widgets 0xF+n..0x57+n, become a `PlayerList` of up
-to 24, from tNW_GameSettings for slots 0-7 and the port's room for the rest), the two game lists
-(0x0F, 0x19: widget 8 becomes a `Table` of the lobby's records), later the end-of-match
-scoreboard. Actions reuse the game's own controls: JOIN on native row k sets the game list's
-cursor (widget vtable +0x88) and focus (screen+0x290 = 8), then injects Cross, so the game's own
-join path runs; ready, team and start do the same on the staging widgets. Nothing calls the lobby's
-internals directly.
+to 24 from the port's room, `host/mp_room.c`), the two game lists (0x0F, 0x19: widget 8 becomes a
+`Table` of the lobby's records) and the end-of-match scoreboard. JOIN on native row k sets the game
+list's cursor (widget vtable +0x88) and focus (screen+0x290 = 8), then injects Cross, so the game's
+own join path runs.
+
+The staging room and the scoreboard are the room's, in every room on the PAL disc: its players
+(their names, clans, teams, skins and READY), READY on Circle, START (the Start button, or Cross on
+the game's START widget, which the room grants when every joiner is ready and then hands to the
+game's own START), the countdown and the results. The room's design is in
+[rac3-mp-wide-rooms.md](../handoff/notes/rac3-mp-wide-rooms.md) section 9. The binding's game
+actions for it: `game:select` on a staging row (the player's own row opens the description's
+`player` screen modally), `game:team` and `game:skin` (choices, their value the room's) and
+`game:ready`. A text item with a `key` is one the binding writes: the staging screen's `status`
+(`READY n/m`, `STARTING IN n`). For these the contract has `openrac_mp_ui_open_modal`,
+`openrac_mp_ui_set_value` (what a choice shows) and `openrac_mp_ui_set_text`.
 
 The end-of-match scoreboard is level 39's results screen (0x12), which the map hands its results in
 a core block (0x001FD7E8): with a description's `scoreboard` screen its rows become a `scores`
@@ -156,9 +165,11 @@ screen, so a game's skin can move to the port's native 2D path without touching 
 rac3's skin today prints with level 39's FontPrint (font via FontSelect 0x00591BA0, widths
 FontTextWidth 0x00591F98) in the menus' gold 0x8066CCFF, focused pulse to 0x66D6EEFA over 0x25
 frames, disabled 0x80808080, and places the game's own highlight-bar element (0x00689F00); sounds
-are 0x00688340 (3 move, 4 select, 0x17 back). Rectangles and images draw nothing yet: they arrive
-with the native UI work, which replaces those draw functions with the port's GS-free 2D items
-(`openrac_game_ui_item`). Button tokens are the SDK 1.31 characters (`\x10` Cross ...).
+are 0x00688340 (3 move, 4 select, 0x17 back). Rectangles are the port's GS-free 2D items
+(`openrac_game_ui_item`, through `openrac/ui.h`). Images draw nothing yet: no screen of the core
+asks for one (`Skin::sprite` has no caller), though level 39's HUD bank images they would draw
+from are kept as the game sent them (`host/textures.c`). Button tokens are the SDK 1.31
+characters (`\x10` Cross ...).
 
 ## 8. rac4 reuse
 

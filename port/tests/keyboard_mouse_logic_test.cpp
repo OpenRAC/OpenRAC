@@ -11,6 +11,7 @@
 // The manifest is the one beside kbm.hpp (KBM_MANIFEST, set by cmake/Window.cmake).
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <initializer_list>
 #include <map>
@@ -18,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "game/common/keyboard_mouse/controls.hpp"
 #include "game/common/keyboard_mouse/kbm.hpp"
 #include "game/rac1/keyboard_mouse/menus.hpp"
 #include "game/rac2/keyboard_mouse/menus.hpp"
@@ -83,9 +85,17 @@ void conflicts() {
     b.binds[static_cast<std::size_t>(Action::MenuBack)] = {41, 0};  // Escape, also Pause (play)
     CHECK(kbm::conflicts(b).empty());
 
-    // Every default's name is one the table knows.
+    // Every default's name is one the table knows. Aim, Dodge and Last weapon have none: the Modern
+    // preset binds them.
     for (const kbm::ActionInfo& a : kbm::kActions) {
         kbm::Binds parsed;
+
+        if (std::strcmp(a.key, "aim") == 0 || std::strcmp(a.key, "dodge") == 0
+            || std::strcmp(a.key, "weapon_last") == 0) {
+            CHECK(a.fallback[0] == '\0');
+            continue;
+        }
+
         CHECK(kbm::parse_binds(a.fallback, parsed) && parsed[0] != 0);
     }
 }
@@ -1010,6 +1020,106 @@ void manifest(const char* path) {
           "gyro_calibrate"}) {
         CHECK(text.find(std::string("\"key\": \"") + key + "\"") != std::string::npos);
     }
+
+    // The pause menu page's presets are the manifest's: the same name and, in its values, the same
+    // keys with the same texts and no other.
+    for (const kbm::controls::Preset& p : kbm::controls::kPresets) {
+        if (std::string_view(p.id) == "default") {
+            continue;
+        }
+
+        const std::size_t at = text.find(std::string("\"id\": \"") + p.id + "\"");
+        CHECK(at != std::string::npos);
+
+        if (at == std::string::npos) {
+            continue;
+        }
+
+        const std::size_t open = text.find("\"values\": {", at);
+        const std::size_t close = text.find('}', open);
+        const std::string values = text.substr(open, close - open);
+        CHECK(
+            text.substr(at, open - at).find(std::string("\"name\": \"") + p.name + "\"")
+            != std::string::npos
+        );
+        int ours = 0;
+
+        for (const kbm::controls::PresetValue& v : p.values) {
+            if (v.key != nullptr) {
+                ++ours;
+                CHECK(
+                    values.find(std::string("\"") + v.key + "\": \"" + v.value + "\"")
+                    != std::string::npos
+                );
+            }
+        }
+
+        int theirs = 0;
+
+        for (std::size_t i = values.find("\": \""); i != std::string::npos;
+             i = values.find("\": \"", i + 1)) {
+            ++theirs;
+        }
+
+        CHECK(ours == theirs);
+    }
+
+    // The page's own defaults are the manifest's.
+    for (const kbm::controls::PresetValue& v : kbm::controls::kPageDefaults) {
+        const std::size_t at = text.find(std::string("\"key\": \"") + v.key + "\"");
+        CHECK(at != std::string::npos);
+
+        if (at == std::string::npos) {
+            continue;
+        }
+
+        const std::string object = text.substr(at, text.find('}', at) - at);
+        const std::string_view value = v.value;
+        const bool plain = value == "true" || value == "false" || value.find('.') != value.npos;
+        const std::string want = plain ? std::string(value) : "\"" + std::string(value) + "\"";
+        CHECK(object.find("\"default\": " + want) != std::string::npos);
+    }
+}
+
+// The pause menu page's pages of keys list every action once.
+void key_pages() {
+    std::array<int, kbm::kActionCount> seen{};
+
+    for (const kbm::controls::KeyPage& page : kbm::controls::kKeyPages) {
+        CHECK(page.count <= page.actions.size());
+
+        for (std::size_t i = 0; i < page.count; ++i) {
+            ++seen[static_cast<std::size_t>(page.actions[i])];
+        }
+    }
+
+    for (int n : seen) {
+        CHECK(n == 1);
+    }
+
+    // A key given to an action leaves the others of its group; a menu's key may stay in play.
+    kbm::Bindings b;
+    b.binds[static_cast<std::size_t>(Action::MoveForward)] = {26, 82};  // W, Up
+    b.binds[static_cast<std::size_t>(Action::MenuUp)] = {82, 0};        // Up
+    const auto changed = kbm::controls::give(b, Action::Jump, 26);
+    CHECK(changed.size() == 2 && changed[0] == Action::Jump && changed[1] == Action::MoveForward);
+    CHECK((b.of(Action::MoveForward) == kbm::Binds{82, 0}));
+    CHECK((b.of(Action::MenuUp) == kbm::Binds{82, 0}));
+    CHECK(kbm::controls::binds_text(b.of(Action::Jump)) == "KeyW");
+    CHECK(kbm::controls::binds_label({20, 0}) == "Q");
+
+    // The sensitivity's steps round trip.
+    CHECK(kbm::controls::sensitivity_step(1.0f) == 9 && kbm::controls::sensitivity_of(9) == 1.0f);
+    CHECK(kbm::controls::sensitivity_step(37.0f) == kbm::controls::kSensitivitySteps - 1);
+
+    // The aim's sensitivity by twentieths from 0.10 to 2.00, kept within them.
+    const kbm::controls::Steps& aim = kbm::controls::kAimSensitivitySteps;
+    const auto aims = kbm::controls::step_choices(aim);
+    CHECK(
+        aims.size() == 39 && aims.front() == "0.10" && aims[8] == "0.50" && aims.back() == "2.00"
+    );
+    CHECK(kbm::controls::step_of(aim, 1.0f) == 18 && kbm::controls::value_of(aim, 18) == 1.0f);
+    CHECK(kbm::controls::step_of(aim, 3.0f) == 38 && kbm::controls::step_of(aim, 0.0f) == 0);
 }
 
 }  // namespace
@@ -1218,6 +1328,7 @@ int main(int argc, char** argv) {
     test_gyro_pixels();
 
     manifest(argc > 1 ? argv[1] : KBM_MANIFEST);
+    key_pages();
 
     if (g_failures == 0) {
         std::puts("keyboard-mouse logic: all passed");

@@ -97,7 +97,8 @@ class BuildAndroidTests(unittest.TestCase):
         """Creates fake build outputs, including SDL and the NDK runtime, without compiling."""
         build, app, ndk, python = (self.dir / name for name in ("build", "app", "ndk", "python"))
         names = ["libopenrac-rac1-ntsc.so", "libopenrac-rac1-ntsc-cli.so",
-                 "libopenrac-python.so", "libSDL3.so", "libopenrac-enhanced-baker.so"]
+                 "libopenrac-python.so", "libSDL3.so", "libopenrac-enhanced-baker.so",
+                 build_android.SHADERS]
         names += [f"lib{name}.so" for name in build_android.ADRENOTOOLS_HOOKS]
         build.mkdir()
         for name in names:
@@ -118,6 +119,21 @@ class BuildAndroidTests(unittest.TestCase):
         for name in ("libopenrac-enhanced-baker.so",):
             self.assertIn(name, names)
             self.assertEqual((app / "src/main/jniLibs/arm64-v8a" / name).read_bytes(), name.encode())
+
+    def test_android_library_collection_carries_the_shaders_once(self):
+        build, app, ndk, python = self.native_tree()
+        with mock.patch.object(build_android, "PORT_BUILD", build), \
+                mock.patch.object(build_android, "APP", app):
+            names = build_android.collect_libraries(["rac1-ntsc"], ndk, python, True)
+        self.assertEqual(names.count(build_android.SHADERS), 1)
+
+    def test_android_packaging_rejects_missing_shaders(self):
+        build, app, ndk, python = self.native_tree()
+        (build / build_android.SHADERS).unlink()
+        with mock.patch.object(build_android, "PORT_BUILD", build), \
+                mock.patch.object(build_android, "APP", app), self.assertRaises(SystemExit) as stop:
+            build_android.collect_libraries(["rac1-ntsc"], ndk, python, True)
+        self.assertIn(build_android.SHADERS, str(stop.exception))
 
     def test_android_packaging_rejects_a_missing_baker(self):
         build, app, ndk, python = self.native_tree()

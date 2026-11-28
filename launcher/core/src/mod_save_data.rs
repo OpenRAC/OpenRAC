@@ -239,6 +239,8 @@ fn find(text: &str, clock: &[u8; 8], size: usize) -> Option<(usize, Vec<u8>)> {
 const NGPP_ID: &str = "ng-plus-plus";
 const NGPP_MARKER: &str = "ngpp-tiers";
 const NGPP_LAYOUT: u32 = 4;
+/// The record size of the tiers file (the manifest of a mod not installed here is not at hand).
+const NGPP_SIZE: usize = 56;
 const NGPP_ZODIAC: usize = 43;
 const NGPP_RYNO: usize = 44;
 /// The Zodiac's steps before Alpha in layouts 3 and 4.
@@ -460,6 +462,8 @@ impl RecordFiles {
         for (id, spec) in &self.mods {
             let Ok(path) = file_of(&self.mod_data, id, spec) else { continue };
             let Ok(text) = read_text(&path) else { continue };
+            // Carried in the layout now, whatever layout the file is in here.
+            let text = current_text(id, spec, text);
             let data = text
                 .lines()
                 .filter_map(|line| line.trim_end().split_once(' '))
@@ -490,7 +494,15 @@ impl RecordFiles {
             return Err(format!("{}'s record is not one", record.id));
         }
         let path = self.mod_data.join(&record.id).join(&record.file);
+        // The record is in the layout now (records_of): the file it goes into must be too, marker
+        // included, or the mod reads a file with no marker as layout 1 and moves every level.
+        let size = self.mods.iter().find(|(m, _)| *m == record.id).map_or(NGPP_SIZE, |(_, s)| s.size);
         let text = read_text(&path)?;
+        let text = if record.id == NGPP_ID && record.file == "tiers.txt" && size > NGPP_RYNO {
+            ngpp_to_current(&text, size)
+        } else {
+            text
+        };
         let key = hex(clock);
         let line = format!("{key} {}", record.data);
         let mut lines: Vec<String> = text.lines().map(str::to_string).collect();

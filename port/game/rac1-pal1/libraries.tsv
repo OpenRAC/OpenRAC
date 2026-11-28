@@ -107,13 +107,13 @@ func_00123EF0	mc	sceMcGetDir	host
 func_00124200	mc	sceMcFormat	host
 func_001242D0	mc	sceMcDelete	host
 func_001243E8	mc	sceMcUnformat	host
-func_00124510	dbc	sceDbcInit	host	pads come from the platform layer
-func_00124A48	pad2	scePad2Init	game	it only sets libpad2's state (its init flag, its socket table cleared); the port's pad functions keep no state there
-func_00124A88	pad2	scePad2CreateSocket	host
-func_00124BD8	pad2	scePad2Read	host
-func_00124CB0	pad2	scePad2GetButtonProfile	host
-func_00124DA0	pad2	scePad2GetState	host
-func_001250D8	vib	sceVibGetProfile	host
+func_00124510	dbc	sceDbcInit	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124A48	pad2	scePad2Init	game	libpad2's state only (its init flag, its socket table cleared); no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124A88	pad2	scePad2CreateSocket	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124BD8	pad2	scePad2Read	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124CB0	pad2	scePad2GetButtonProfile	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124DA0	pad2	scePad2GetState	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_001250D8	vib	sceVibGetProfile	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
 func_00125218	vu0	sceVu0UnitMatrix	host	port/game/rac1/host/vector.c
 func_001252B8	vu0	sceVu0RotMatrixZ	host
 func_00125360	vu0	sceVu0RotMatrixX	host
@@ -166,6 +166,8 @@ func_0012D728	game	_start	host	crt0, the program's entry point: the port starts 
 func_0012D8F0	kernel	ExitThread	host	system call 0x23: crt0's return address for the main thread, which never returns; the program ends
 func_0012D8F8	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's functions
 func_001F4180	draw	SetupGifPaging	wrap	sets the four draw flags at 0x18A3D0 retail has on before its first frame (nothing in the game's code stores them by name)
+func_002330E0	draw	VU1_initChain	wrap	the real list initialization, then producer-owned recorder construction at its new cursor (rac1/host/frame_list_owner.c)	void (void)
+func_00233140	draw	VU1_swapChain	wrap	the real buffer swap, then producer-owned recorder construction at its new cursor (rac1/host/frame_list_owner.c)	void (void)
 func_00208C38	memcard	CheckBootMemoryCard	wrap	skip the startup memory card notice with OPENRAC_DIRECT (rac1/host/boot.c)
 func_00208E40	memcard	NewGameInit	wrap	a new game starts in level 0; with --level N it starts in level N instead (rac1/host/boot.c)
 func_00208D68	memcard	memcard_RestoreGame	wrap	a loaded save: the language and the Sound page stay the player's, which the port remembers between runs (rac1/host/options.c)
@@ -364,6 +366,8 @@ func_L00_001FEE50	game	func_L00_001FEE50	host	a place the catalogue folds into a
 func_L00_001FEEC0	game	func_L00_001FEEC0	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c)	float (float)
 func_L00_001FEEF8	game	func_L00_001FEEF8	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c)	float (float)
 func_L00_001FEF08	game	func_L00_001FEF08	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c)	float (float)
+func_00216B40	pad	InitPads	host	init_pads: the pad record's socket is its port; libdbc and libpad2 are not started, the port's pad update needs neither (rac1/host/pad_state.c)	void (void)
+func_00216BC0	pad	Pad_UpdatePort	host	poll_pad_device_state: the profiles and the report a poll are the port's, from its controllers (openrac_pad_report, through the mods' pad callbacks), handed to the game's Pad_ProcessReport; no libpad2 call (rac1/host/pad_state.c)	void (unsigned int)
 func_00216E20	pad	Pad_ProcessReport	hook	the pad's report into its state, each poll: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none	void (unsigned int, unsigned int, int)
 func_L00_002111B8	hero	Hero_UpdateMotionInput	hook	the stick into the hero, early in his update: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none	void (void)
 func_L00_00211978	hero	Hero_TurnToHeading	hook	eases the facing toward the move yaw: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none	void (int, float, float, float)

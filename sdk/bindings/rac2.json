@@ -812,6 +812,22 @@
       "about": "Processes the extras menu and returns its menu result."
     },
     {
+      "id": "rac2.camera.follow.read_stick",
+      "name": "FollowCamera_ReadStick",
+      "signature": "void(u32,u32,u32)",
+      "params": [
+        "camera",
+        "turn",
+        "tilt"
+      ],
+      "symbols": {
+        "ntsc": "func_L00_00424F98",
+        "pal": "func_L00_0042A488",
+        "ntsc2": "func_L00_004264A8"
+      },
+      "about": "The follow camera's read of the right stick, each tick: camera (its data at +0x70), and the guest addresses of the floats it then turns and tilts by. By then the tick's goals are set: the eye's distance and height goals (data +0x1A0 and +0x1AC), which the camera eases its distance and height (+0x18C, +0x190) towards, and the eye it wants from Ratchet (+0x160); after it the camera turns, eases and builds its view, so a mod that calls the original and then changes those moves the camera this very tick. Rac1's FollowCamera_ReadStickInput."
+    },
+    {
       "id": "rac2.moby.boldan_clock.update",
       "name": "Moby_BoldanClock_Update",
       "signature": "void(u32)",

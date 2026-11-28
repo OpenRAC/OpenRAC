@@ -28,7 +28,7 @@ list(APPEND shader_inputs "${PROJECT_SOURCE_DIR}/cmake/Dependencies.cmake")
 if(TARGET openrac_fsr3_shaders)
   list(APPEND shader_inputs "${CMAKE_CURRENT_BINARY_DIR}/generated/fsr3/fsr3_sources.h")
 endif()
-set(version "OpenRAC shader package 1\n")
+set(version "OpenRAC shader package 2\n")
 if(OPENRAC_ENHANCED_RENDERING)
   string(APPEND version "enhanced=1\n")
 else()
@@ -68,6 +68,7 @@ openrac_warnings(openrac_shader_data)
 set(backend_version "SPIR-V reflection format 3\n")
 foreach(input IN ITEMS renderer/vulkan/pipelines/shader_backend.cpp
     renderer/vulkan/pipelines/shader_reflection.cpp
+    renderer/vulkan/pipelines/shader_optimization.cpp
     renderer/vulkan/pipelines/native_shader_backend.cpp
     renderer/vulkan/pipelines/shader_compiler_internal.h
     renderer/vulkan/pipelines/shader_specialization.h
@@ -87,10 +88,11 @@ file(CONFIGURE OUTPUT "${generated}/shader_backend_version.h" CONTENT
 
 add_library(openrac_shader_backend STATIC
   renderer/vulkan/pipelines/shader_backend.cpp
+  renderer/vulkan/pipelines/shader_optimization.cpp
   renderer/vulkan/pipelines/shader_reflection.cpp
   renderer/vulkan/pipelines/native_shader_backend.cpp)
 target_include_directories(openrac_shader_backend PUBLIC . PRIVATE "${generated}")
-target_link_libraries(openrac_shader_backend PRIVATE openrac_glslang)
+target_link_libraries(openrac_shader_backend PRIVATE openrac_glslang SPIRV-Tools-opt)
 openrac_warnings(openrac_shader_backend)
 
 add_library(openrac_shader_recipes STATIC
@@ -156,15 +158,22 @@ if(OPENRAC_SHADER_PACKAGE)
       "-DPython3_EXECUTABLE:FILEPATH=${Python3_EXECUTABLE}")
     if(APPLE)
       list(APPEND host_args "-DCMAKE_OSX_ARCHITECTURES:STRING=${CMAKE_HOST_SYSTEM_PROCESSOR}")
+    elseif(CMAKE_HOST_UNIX)
+      # The tool opens no window: a Linux host without X11 or Wayland headers (the Android
+      # build's runner) still configures SDL, which otherwise stops there.
+      list(APPEND host_args "-DSDL_UNIX_CONSOLE_BUILD:BOOL=ON")
     endif()
     # Reuse the parent's pinned dependency sources, with independent native build files.
     get_cmake_property(shader_variables VARIABLES)
     foreach(variable IN LISTS shader_variables)
-      if(variable MATCHES "^([a-zA-Z0-9_]+)_SOURCE_DIR$" AND IS_DIRECTORY "${${variable}}")
-        string(TOUPPER "${CMAKE_MATCH_1}" dependency)
-        if(NOT dependency MATCHES "^(FETCHCONTENT|OPENRAC_PORT|CMAKE)")
-          list(APPEND host_args "-DFETCHCONTENT_SOURCE_DIR_${dependency}:PATH=${${variable}}")
-        endif()
+      # Read only *_SOURCE_DIR values: reading every variable trips CMake 4's
+      # deprecated-variable policy (CMP0218).
+      if(NOT variable MATCHES "^([a-zA-Z0-9_]+)_SOURCE_DIR$")
+        continue()
+      endif()
+      string(TOUPPER "${CMAKE_MATCH_1}" dependency)
+      if(IS_DIRECTORY "${${variable}}" AND NOT dependency MATCHES "^(FETCHCONTENT|OPENRAC_PORT|CMAKE)")
+        list(APPEND host_args "-DFETCHCONTENT_SOURCE_DIR_${dependency}:PATH=${${variable}}")
       endif()
     endforeach()
     if(CMAKE_HOST_WIN32)
@@ -174,7 +183,7 @@ if(OPENRAC_SHADER_PACKAGE)
     endif()
     ExternalProject_Add(openrac_shader_compiler_host
       SOURCE_DIR "${PROJECT_SOURCE_DIR}" BINARY_DIR "${host_dir}"
-      CMAKE_GENERATOR Ninja CMAKE_ARGS ${host_args}
+      CMAKE_GENERATOR Ninja CMAKE_ARGS ${host_args} "-DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>"
       BUILD_COMMAND "${CMAKE_COMMAND}" --build <BINARY_DIR> --target openrac-shader-compiler
       BUILD_BYPRODUCTS "${host_executable}" BUILD_ALWAYS TRUE INSTALL_COMMAND "")
     set(compiler "${host_executable}")
@@ -191,15 +200,35 @@ if(OPENRAC_SHADER_PACKAGE)
 else()
   set(package_source renderer/vulkan/pipelines/empty_shader_package.cpp)
 endif()
-add_library(openrac_builtin_shaders STATIC
-  renderer/vulkan/pipelines/builtin_shader_package.cpp
-  renderer/vulkan/pipelines/error_shader.cpp "${package_source}")
-target_link_libraries(openrac_builtin_shaders PUBLIC openrac_shader_data)
-openrac_warnings(openrac_builtin_shaders)
+# The package is the same for every game and version of a build, so it is one shared library,
+# libopenrac-shaders, beside the programs (on Android in the APK's library folder), not a copy in
+# each program. iOS builds one game into its app, so the package stays built in there.
+option(OPENRAC_SHARED_SHADER_PACKAGE "Shaders as one shared library beside the programs" ON)
+if(OPENRAC_SHADER_PACKAGE AND OPENRAC_SHARED_SHADER_PACKAGE AND NOT OPENRAC_IOS)
+  add_library(openrac_shader_package SHARED "${package_source}")
+  # Only bytes and one C function, compiled as C: it needs no C++ runtime.
+  set_source_files_properties("${package_source}" PROPERTIES LANGUAGE C)
+  set_target_properties(openrac_shader_package PROPERTIES OUTPUT_NAME openrac-shaders)
+  if(WIN32)
+    target_compile_definitions(openrac_shader_package PRIVATE "OPENRAC_SHADER_PACKAGE_API=__declspec(dllexport)")
+    openrac_windows_version_info(openrac_shader_package "OpenRAC Vulkan shaders")
+  else()
+    target_compile_definitions(openrac_shader_package PRIVATE
+      "OPENRAC_SHADER_PACKAGE_API=__attribute__((visibility(\"default\")))")
+  endif()
+else()
+  add_library(openrac_shader_package STATIC "${package_source}")
+endif()
+openrac_warnings(openrac_shader_package)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   # The generated archive is one contiguous literal, beyond the standard's minimum supported size.
-  target_compile_options(openrac_builtin_shaders PRIVATE -Wno-overlength-strings)
+  target_compile_options(openrac_shader_package PRIVATE -Wno-overlength-strings)
 endif()
+add_library(openrac_builtin_shaders STATIC
+  renderer/vulkan/pipelines/builtin_shader_package.cpp
+  renderer/vulkan/pipelines/error_shader.cpp)
+target_link_libraries(openrac_builtin_shaders PUBLIC openrac_shader_data openrac_shader_package)
+openrac_warnings(openrac_builtin_shaders)
 target_link_libraries(openrac_renderer_vulkan PRIVATE openrac_builtin_shaders)
 if(OPENRAC_SHADER_PACKAGE)
   openrac_add_test(shader_package LIBS openrac_builtin_shaders openrac_shader_backend)
@@ -214,6 +243,9 @@ if(OPENRAC_SHADER_PACKAGE)
     set_property(TEST fsr3_shaders APPEND PROPERTY ENVIRONMENT "OPENRAC_SHADER_PACKAGE_STRICT=1")
   endif()
   add_test(NAME shader_package_vulkan_fp32 COMMAND shader_package_vulkan_test)
+  add_test(NAME shader_package_vulkan_compatibility COMMAND shader_package_vulkan_test)
+  set_tests_properties(shader_package_vulkan_compatibility PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=0;OPENRAC_VULKAN_PIPELINE_CACHE=0;OPENRAC_SHADER_PACKAGE_STRICT=1")
   set_tests_properties(shader_package_vulkan_fp32 PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1;OPENRAC_VULKAN_PIPELINE_CACHE=0;OPENRAC_SHADER_PACKAGE_STRICT=1;OPENRAC_GPU_MATERIALS_OFF=1;OPENRAC_RENDER_OPT_OFF=shader-float16,vk-draw-uniform")
   set_tests_properties(shader_package_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT

@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstdint>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -123,6 +124,12 @@ void render_view(SceneFrame& frame, const renderer::FrameView& v, renderer::Fram
     for (const auto& [bucket, enabled] : kept) {
         bucket->enabled = enabled;
     }
+
+    // Each validated post pass copies and writes only this view's target, before any composition.
+    for (const std::uint32_t index : v.screen_effects) {
+        owner.split_screen_effects
+            .apply(frame.scene.recording.screen_effects.at(index), target, picture.resolved());
+    }
 }
 
 void forget(SceneRenderState& owner) {
@@ -153,6 +160,22 @@ void forget_changed_layout(SceneRenderState& owner, std::span<const renderer::Fr
     }
 }
 
+// Rejects ordering that cannot yet be represented by an isolated native world post pass.
+void require_effect_context(const SceneFrame& frame) {
+    const auto& graphics = frame.graphics;
+    const bool finishing =
+        graphics.enhanced_graphics && frame.owner.enhanced_graphics_available()
+        && ((graphics.bloom.enabled && graphics.bloom.strength > 0.0f) || graphics.agx_preview);
+    const Result<void> supported = frame.scene.recording.validate_view_effect_context(
+        {frame.has_camera, !frame.scene.packets.empty(), finishing}
+    );
+
+    // A rejected context is a visible worker failure, never a fallback to whole-composite processing.
+    if (!supported) {
+        throw std::runtime_error(supported.error().message);
+    }
+}
+
 }  // namespace
 
 bool split_screen(const Kept& scene) {
@@ -167,6 +190,8 @@ void draw_split_views(SceneFrame& frame) {
         forget(owner);
         return;
     }
+
+    require_effect_context(frame);
     if (!owner.renderer || !frame.has_camera) {
         return;
     }
@@ -273,6 +298,7 @@ void put_split_views(
 }
 
 void release_split_views(SceneRenderState& owner) {
+    owner.split_screen_effects.release();
     for (SceneRenderState::SplitView& v : owner.split_views) {
         v.picture.release();
         v.held = false;

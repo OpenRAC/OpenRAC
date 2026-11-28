@@ -20,7 +20,6 @@
 #include "renderer/vulkan/pipelines/spirv_precision.h"
 #include "shader_backend_version.h"
 
-#include <SPIRV/GlslangToSpv.h>
 #include <glslang/Public/ResourceLimits.h>
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/build_info.h>
@@ -43,7 +42,7 @@ void initialise() {
 
 std::string compiler_version() {
     return std::format(
-               "glslang {}.{}.{}{} options 2",
+               "glslang {}.{}.{}{} performance options 3",
                GLSLANG_VERSION_MAJOR,
                GLSLANG_VERSION_MINOR,
                GLSLANG_VERSION_PATCH,
@@ -181,6 +180,30 @@ bool check_compute_stage_fresh(std::string_view source, std::string& log) {
     return parse(*shader, log);
 }
 
+// Keeps frontend call placement available for structural tests without disabling production passes.
+bool compile_compute_for_analysis(
+    std::string_view source, std::vector<std::uint32_t>& code, std::string& log
+) {
+    initialise();
+    auto shader = make_shader(EShLangCompute, std::string(source));
+
+    // Invalid GLSL cannot provide a meaningful structural reference.
+    if (!parse(*shader, log)) {
+        return false;
+    }
+
+    glslang::TProgram program;
+    program.addShader(shader.get());
+
+    // Analysis uses the same Vulkan binding and interface rules as production compilation.
+    if (!link_program(program, EShLangCompute, log)) {
+        return false;
+    }
+
+    code.clear();
+    return compile_spirv_for_analysis(*program.getIntermediate(EShLangCompute), code, log);
+}
+
 // compile_program without the cache: glslang parses, links, maps and reflects the program.
 bool compile_program_fresh(
     std::string_view vertex,
@@ -219,23 +242,19 @@ bool compile_program_fresh(
         return false;
     }
 
-    spv::SpvBuildLogger logger;
-    glslang::SpvOptions options;
-    options.generateDebugInfo = false;
-    options.disableOptimizer = true;
     out = CompiledProgram{};
 
+    // Both graphics stages must pass optimization before shared reflection is published.
     if (compute.empty()) {
-        glslang::GlslangToSpv(
-            *program.getIntermediate(EShLangVertex), out.vertex, &logger, &options
-        );
-        glslang::GlslangToSpv(
-            *program.getIntermediate(EShLangFragment), out.fragment, &logger, &options
-        );
+        if (!compile_spirv(*program.getIntermediate(EShLangVertex), out.vertex, log)
+            || !compile_spirv(*program.getIntermediate(EShLangFragment), out.fragment, log)) {
+            return false;
+        }
     } else {
-        glslang::GlslangToSpv(
-            *program.getIntermediate(EShLangCompute), out.compute, &logger, &options
-        );
+        // Compute uses the same performance passes and validation as graphics.
+        if (!compile_spirv(*program.getIntermediate(EShLangCompute), out.compute, log)) {
+            return false;
+        }
     }
 
     reflect_program(program, out, compute.empty() ? EShLangVertex : EShLangCompute);

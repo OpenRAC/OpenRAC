@@ -582,10 +582,14 @@ float shadow_pcf_kernel_rect(sampler2D map, ivec4 rect, vec3 position, float bia
 #endif
 }
 
-ivec4 shadow_map_rect(sampler2D map, int view) {
+bool shadow_uses_atlas(int view) {
     bool separate = view < 4 && (sun_shadow_separate_maps & (1 << view)) != 0;
-    return shadow_atlas_enabled != 0 && !separate ? ivec4(shadow_atlas_rects[view])
-                                                 : ivec4(0, 0, textureSize(map, 0));
+    return shadow_atlas_enabled != 0 && !separate;
+}
+
+ivec4 shadow_map_rect(sampler2D map, int view) {
+    return shadow_uses_atlas(view) ? ivec4(shadow_atlas_rects[view])
+                                  : ivec4(0, 0, textureSize(map, 0));
 }
 float shadow_bilinear(sampler2D map, vec3 p, float bias, vec2 slope) {
     return shadow_bilinear_rect(map, ivec4(0, 0, textureSize(map, 0)), p, bias, slope);
@@ -628,7 +632,10 @@ float hero_shadow_visibility(vec3 p, vec3 n) {
 const float kSunNormalOffsetTexels = 1.0;
 const float kSunDepthBiasTexels = 0.5;
 
-float sun_shadow_pcf_rect(sampler2D map, ivec4 rect, mat4 matrix, vec3 p, vec3 n, vec3 plane_normal) {
+bool sun_shadow_receiver(
+    int width, mat4 matrix, vec3 p, vec3 n, vec3 plane_normal,
+    out vec3 position, out float bias, out vec2 slope
+) {
     // The orthographic rows are scaled orthogonal light-space axes.
     vec3 row_x = vec3(matrix[0].x, matrix[1].x, matrix[2].x);
     vec3 row_y = vec3(matrix[0].y, matrix[1].y, matrix[2].y);
@@ -636,11 +643,11 @@ float sun_shadow_pcf_rect(sampler2D map, ivec4 rect, mat4 matrix, vec3 p, vec3 n
     // One of this cascade's texels in world units: a far cascade's are thirty times the nearest's.
     // The normal offset and depth bias follow it, so the far cascades do not shadow their own
     // receivers in speckles and stair steps; the nearest keeps its fixed 0.025 and 0.01.
-    float texel = 2.0 / (length(row_x) * float(rect.z));
-    vec3 position =
+    float texel = 2.0 / (length(row_x) * float(width));
+    position =
         (matrix * vec4(p + n * max(0.025, kSunNormalOffsetTexels * texel), 1.0)).xyz * 0.5 + 0.5;
     if (any(lessThan(position, vec3(0.0))) || any(greaterThan(position, vec3(1.0)))) {
-        return 1.0;
+        return false;
     }
     // Receiver-plane depth follows the geometric face across PCF taps.
     vec3 plane = vec3(
@@ -648,11 +655,15 @@ float sun_shadow_pcf_rect(sampler2D map, ivec4 rect, mat4 matrix, vec3 p, vec3 n
         dot(row_y, plane_normal) / dot(row_y, row_y),
         dot(row_z, plane_normal) / dot(row_z, row_z)
     );
-    vec2 slope =
+    slope =
         abs(plane.z) > 1e-5 ? clamp(-plane.xy / plane.z, vec2(-2.0), vec2(2.0)) : vec2(0.0);
     // A world-space bias (half a texel of the cascade, at least 0.01) avoids detachment growing
     // with whole-level depth.
-    float bias = length(row_z) * 0.5 * max(0.01, kSunDepthBiasTexels * texel);
+    bias = length(row_z) * 0.5 * max(0.01, kSunDepthBiasTexels * texel);
+    return true;
+}
+
+float sun_shadow_pcf_rect(sampler2D map, ivec4 rect, vec3 position, float bias, vec2 slope) {
 #if !defined(OPENRAC_PROBE_FAST) && !defined(OPENRAC_CHEAP_SHADOWS)
     if (sun_shadow_fast != 0) {
         return shadow_bilinear_rect(map, rect, position, bias, slope);
@@ -662,20 +673,53 @@ float sun_shadow_pcf_rect(sampler2D map, ivec4 rect, mat4 matrix, vec3 p, vec3 n
 }
 
 float sun_shadow_pcf(sampler2D map, mat4 matrix, vec3 p, vec3 n, vec3 normal) {
-    return sun_shadow_pcf_rect(map, ivec4(0, 0, textureSize(map, 0)), matrix, p, n, normal);
+    ivec4 rect = ivec4(0, 0, textureSize(map, 0));
+    vec3 position;
+    float bias;
+    vec2 slope;
+    if (!sun_shadow_receiver(rect.z, matrix, p, n, normal, position, bias, slope)) {
+        return 1.0;
+    }
+    return sun_shadow_pcf_rect(map, rect, position, bias, slope);
+}
+
+ivec4 sun_cascade_rect(int cascade) {
+    if (shadow_uses_atlas(cascade)) {
+        return ivec4(shadow_atlas_rects[cascade]);
+    }
+    ivec2 size;
+    if (cascade == 0) {
+        size = textureSize(sun_shadow_map0, 0);
+    } else if (cascade == 1) {
+        size = textureSize(sun_shadow_map1, 0);
+    } else if (cascade == 2) {
+        size = textureSize(sun_shadow_map2, 0);
+    } else {
+        size = textureSize(sun_shadow_map3, 0);
+    }
+    return ivec4(0, 0, size);
 }
 
 float sun_cascade_visibility(int cascade, vec3 p, vec3 n, vec3 plane_normal) {
+    ivec4 rect = sun_cascade_rect(cascade);
+    vec3 position;
+    float bias;
+    vec2 slope;
+    // The receiver math is shared by all four sampler branches.
+    if (!sun_shadow_receiver(rect.z, sun_shadow_matrix[cascade], p, n, plane_normal,
+                             position, bias, slope)) {
+        return 1.0;
+    }
     if (cascade == 0) {
-        return sun_shadow_pcf_rect(sun_shadow_map0, shadow_map_rect(sun_shadow_map0, 0), sun_shadow_matrix[0], p, n, plane_normal);
+        return sun_shadow_pcf_rect(sun_shadow_map0, rect, position, bias, slope);
     }
     if (cascade == 1) {
-        return sun_shadow_pcf_rect(sun_shadow_map1, shadow_map_rect(sun_shadow_map1, 1), sun_shadow_matrix[1], p, n, plane_normal);
+        return sun_shadow_pcf_rect(sun_shadow_map1, rect, position, bias, slope);
     }
     if (cascade == 2) {
-        return sun_shadow_pcf_rect(sun_shadow_map2, shadow_map_rect(sun_shadow_map2, 2), sun_shadow_matrix[2], p, n, plane_normal);
+        return sun_shadow_pcf_rect(sun_shadow_map2, rect, position, bias, slope);
     }
-    return sun_shadow_pcf_rect(sun_shadow_map3, shadow_map_rect(sun_shadow_map3, 3), sun_shadow_matrix[3], p, n, plane_normal);
+    return sun_shadow_pcf_rect(sun_shadow_map3, rect, position, bias, slope);
 }
 
 float sun_shadow_visibility(vec3 p, vec3 n, vec3 plane_normal) {
@@ -689,19 +733,33 @@ float sun_shadow_visibility(vec3 p, vec3 n, vec3 plane_normal) {
     int cascade = distance < sun_shadow_ends.x
                       ? 0
                       : (distance < sun_shadow_ends.y ? 1 : (distance < sun_shadow_ends.z ? 2 : 3));
-    float visibility = sun_cascade_visibility(cascade, p, n, plane_normal);
+    int samples = 1;
+    float blend = 0.0;
+#if !defined(OPENRAC_PROBE_FAST) && !defined(OPENRAC_CHEAP_SHADOWS)
+    if (sun_shadow_fast == 0) {
+        float start = cascade == 0 ? sun_shadow_near : sun_shadow_ends[cascade - 1];
+        blend = smoothstep(mix(start, sun_shadow_ends[cascade], 0.9),
+                           sun_shadow_ends[cascade], distance);
+        if (blend > 0.0 && cascade < 3) {
+            samples = 2;
+        }
+    }
+#endif
+    // Sample both sides of the blend through one call site so the filter is inlined once.
+    float visibility = 1.0;
+    float next = 1.0;
+    for (int tap = 0; tap < samples; ++tap) {
+        float sampled = sun_cascade_visibility(cascade + tap, p, n, plane_normal);
+        if (tap == 0) {
+            visibility = sampled;
+        } else {
+            next = sampled;
+        }
+    }
 #if defined(OPENRAC_PROBE_FAST) || defined(OPENRAC_CHEAP_SHADOWS)
     return visibility;
 #else
-    if (sun_shadow_fast != 0) {
-        return visibility;
-    }
-    float start = cascade == 0 ? sun_shadow_near : sun_shadow_ends[cascade - 1];
-    float blend =
-        smoothstep(mix(start, sun_shadow_ends[cascade], 0.9), sun_shadow_ends[cascade], distance);
-    float next =
-        blend > 0.0 && cascade < 3 ? sun_cascade_visibility(cascade + 1, p, n, plane_normal) : 1.0;
-    return mix(visibility, next, blend);
+    return sun_shadow_fast != 0 ? visibility : mix(visibility, next, blend);
 #endif
 }
 

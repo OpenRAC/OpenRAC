@@ -73,6 +73,8 @@
 #define HERO_HEALTH RAC2_g_health
 /* A short counted while he is off the ground (the follow camera's, func_L00_00420C38). */
 #define HERO_FRAMES_OFF_GROUND (HERO + 0x34Cu)
+/* His height over the ground: the follow camera's ground is this far below him while he is off it. */
+#define HERO_GROUND_DISTANCE (HERO + 0x31Cu)
 /* His item slots, 0x50 bytes each (func_L00_002AFBF0): slot 0 the hand, its moby +0, its item +0x28. */
 #define HERO_ITEM_MOBY (HERO + 0x1220u)
 #define HERO_ITEM_ID (HERO + 0x1248u)
@@ -217,6 +219,34 @@ static uint32_t hero_moby(void) {
     return in_level() ? GREF(gaddr, HERO_MOBY) : 0;
 }
 
+/* The hero's own sounds for a mod (openrac_api.hero_sound_play): PlayMobySound (func_002E5CF8) on
+ * him, flag 4 looping, as his slot sounds start theirs. A voice is stopped (snd_stop_voice,
+ * func_002E59F8) only while it still plays on him, as his own code checks first. */
+#define VOICE_POOL RAC2_ADDR(0x00188660u)
+#define VOICES 52
+#define VOICE_BYTES 0x70u
+#define VOICE_STATE 0x74u
+#define VOICE_OWNER 0x88u
+
+static int hero_sound_play(int sound, int loop) {
+    const gaddr moby = hero_moby();
+    if (moby == 0 || sound < 0) {
+        return -1;
+    }
+    return func_002E5CF8(sound, loop ? 4 : 0, (int)moby);
+}
+
+static void hero_sound_stop(int voice) {
+    const gaddr moby = hero_moby();
+    if (moby == 0 || voice < 0 || voice >= VOICES) {
+        return;
+    }
+    const gaddr slot = OPENRAC_DATA(VOICE_POOL) + (gaddr)voice * VOICE_BYTES;
+    if (GREF(uint32_t, slot + VOICE_OWNER) == moby && GREF(uint8_t, slot + VOICE_STATE) != 0) {
+        func_002E59F8(voice);
+    }
+}
+
 /* The seq `seq` of a moby's class: its key count, 0 for a seq the class has not. */
 static int seq_frames(gaddr moby, uint32_t seq) {
     const gaddr cls = GREF(gaddr, moby + MOBY_CLASS);
@@ -331,13 +361,16 @@ static int hero_set_pose(const openrac_game_pose* pose) {
         GREF(float, HERO_MOTION_ROT + 4u * i) = pose->rotation[i];
         GREF(float, HERO_VELOCITY + 4u * i) = pose->velocity[i] / (float)openrac_game.frame_rate;
     }
-    /* On the ground or in the air, as the mod says (OPENRAC_POSE_ON_GROUND, _IN_AIR): the count
-     * the follow camera reads. */
+    /* On the ground or in the air, as the mod says (OPENRAC_POSE_ON_GROUND, _IN_AIR): the fields
+     * the follow camera reads. In the air, 30 makes it look for the ground itself (func_0032EB28's
+     * line down), so it does not keep a height from before the ride. */
     if (pose->flags & 2u) {
         GREF(int16_t, HERO_FRAMES_OFF_GROUND) = 0;
+        GREF(float, HERO_GROUND_DISTANCE) = 0.0f;
     } else if (pose->flags & 4u) {
         const int16_t off = GREF(int16_t, HERO_FRAMES_OFF_GROUND);
         GREF(int16_t, HERO_FRAMES_OFF_GROUND) = (int16_t)(off < 0x7FFF ? off + 1 : off);
+        GREF(float, HERO_GROUND_DISTANCE) = 30.0f;
     }
     func_00283410(HERO, HERO_MOTION_ROT);
     for (unsigned r = 0; r < 4; ++r) {
@@ -358,6 +391,13 @@ static int hero_set_pose(const openrac_game_pose* pose) {
     func_L00_002B2120();
     func_L00_002AFBC0();
     func_L00_002A7748();
+    /* The steps of his update that tell the level where he is: each region's list of who is in it
+     * (RebuildRegionObjectMembership), which the enemies pick their target from; the map's
+     * explored cells (coll_clear_map_bits_around_pos); and his height for what hits him
+     * (UpdateHeroMobyProbedHeightBounds). */
+    func_L00_002AE0C8();
+    func_L00_003080D0(HERO_POS);
+    func_L00_002A9760();
     return 1;
 }
 
@@ -803,6 +843,8 @@ static openrac_game_play play = {
     .loads = loads,
     .hero_pose = hero_pose,
     .hero_set_pose = hero_set_pose,
+    .hero_sound_play = hero_sound_play,
+    .hero_sound_stop = hero_sound_stop,
     .collision_triangles = rac2_collision_triangles,
     .hero_update_hook = "Hero_Update",
     .figure_spawn = figure_spawn,

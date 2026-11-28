@@ -32,6 +32,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# Programs find the shared libraries built here (libopenrac-shaders) by a path relative to
+# themselves, so a copied build folder (an installer's copy) still finds them.
+set(CMAKE_BUILD_RPATH_USE_ORIGIN ON)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
@@ -79,6 +82,11 @@ include(Warnings)
 include(Tests)
 include(FastBuild)
 include(Optimize)
+# Windows: version resources on the shipped programs and libraries.
+if(WIN32)
+  enable_language(RC)
+endif()
+include(WindowsVersionInfo)
 # Android (the android-arm64 preset, the NDK's toolchain file): docs/port/ANDROID.md.
 if(ANDROID)
   include(Android)
@@ -204,6 +212,8 @@ openrac_add_test(ui_canvas SOURCES tests/ui_canvas_test.cpp renderer/ui/canvas.c
 # What mods draw over the game, gathered on the CPU, and a point of the level found on the picture.
 openrac_add_test(ui_overlay_list SOURCES tests/ui_overlay_list_test.cpp renderer/ui/overlay_list.cpp
                  renderer/ui/canvas.cpp INCLUDES .)
+# The mods' overlay pictures (renderer/ui/overlay_images.h): owners, limits and let-gos.
+openrac_add_test(overlay_images LIBS openrac_overlay_images)
 openrac_add_test(scripted_moby_colour SOURCES enhanced/tests/scripted_moby_colour_test.cpp
                                       INCLUDES .)
 openrac_add_test(pause_options INCLUDES .)
@@ -299,6 +309,12 @@ openrac_add_test(custom_map
 add_library(openrac_sharp_cells STATIC renderer/textures/sharp_cells.cpp)
 target_include_directories(openrac_sharp_cells PUBLIC .)
 openrac_warnings(openrac_sharp_cells)
+# The mods' overlay pictures (renderer/ui/overlay_images.h), a library of their own for the same
+# reason: the mods' interface (openrac_api.overlay_image_create) keeps them, the renderer's overlay
+# draws them.
+add_library(openrac_overlay_images STATIC renderer/ui/overlay_images.cpp)
+target_include_directories(openrac_overlay_images PUBLIC .)
+openrac_warnings(openrac_overlay_images)
 
 include(Luau)
 add_library(openrac_mods STATIC
@@ -329,7 +345,7 @@ add_library(openrac_mods STATIC
 )
 target_include_directories(openrac_mods PUBLIC game/common game/common/include "${PROJECT_SOURCE_DIR}/../sdk/include")
 target_link_libraries(openrac_mods PUBLIC openrac_runtime ${CMAKE_DL_LIBS}
-                      PRIVATE openrac_luau openrac_sharp_cells)
+                      PRIVATE openrac_luau openrac_sharp_cells openrac_overlay_images)
 openrac_warnings(openrac_mods)
 
 openrac_add_test(mod_manifest LIBS openrac_mods)
@@ -348,7 +364,8 @@ add_test(NAME rac1_shared COMMAND rac1_shared_test)
 # loader with hook points of the test's own; test-old is built for interface 1.5, as a mod made
 # before the snapshot calls is.
 add_executable(mod_loader_test tests/mod_loader_test.cpp)
-target_link_libraries(mod_loader_test PRIVATE openrac_mods openrac_sharp_cells)
+target_link_libraries(mod_loader_test PRIVATE openrac_mods openrac_sharp_cells
+                      openrac_overlay_images)
 foreach(which a b old current)
   add_library(mod_loader_test_${which} MODULE tests/mod_loader_test_mod.c)
   target_include_directories(mod_loader_test_${which} PRIVATE "${PROJECT_SOURCE_DIR}/../sdk/include")
@@ -405,6 +422,47 @@ openrac_add_c_test(rac4_io
           game/common/lib/pad.c
   INCLUDES runtime/include game/common/include)
 openrac_add_c_test(graph_dma INCLUDES runtime/include game/common/include)
+# Program-table selection at the real rac3 loader boundary, using synthetic records.
+openrac_add_test(rac3_program
+  SOURCES tests/rac3_program_test.cpp game/rac3-pal/host/program.c
+  INCLUDES . runtime/include game/common/include game/rac3-pal/host)
+if(Python3_FOUND)
+  set(program_ntsc_dir "${CMAKE_CURRENT_BINARY_DIR}/tests/rac3_program_ntsc")
+  add_custom_command(
+    OUTPUT "${program_ntsc_dir}/program.c" "${program_ntsc_dir}/rac3_program_test.cpp"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/hostgen/release_host.py"
+      --names "${CMAKE_CURRENT_SOURCE_DIR}/game/rac3-ntsc/host/rac3_names.tsv"
+      --out "${program_ntsc_dir}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/game/rac3-pal/host/program.c"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/rac3_program_test.cpp"
+    DEPENDS tools/hostgen/release_host.py game/rac3-ntsc/host/rac3_names.tsv
+      game/rac3-pal/host/program.c tests/rac3_program_test.cpp
+    VERBATIM)
+  openrac_add_test(rac3_program_ntsc
+    SOURCES "${program_ntsc_dir}/rac3_program_test.cpp" "${program_ntsc_dir}/program.c"
+    INCLUDES . tests runtime/include game/common/include game/rac3-ntsc/host game/rac3-pal/host)
+endif()
+# Native rac3 pad updates and shared report mods with synthetic RAM, no game or platform library.
+openrac_add_test(rac3_pad_state
+  SOURCES tests/rac3_pad_state_test.cpp game/rac3-pal/host/pad.c game/common/lib/pad.c
+  INCLUDES . runtime/include game/common/include game/rac3-pal/host)
+if(Python3_FOUND)
+  # Carry only the port's own fixture and host source; this does not run hostgen or read game data.
+  set(pad_ntsc_dir "${CMAKE_CURRENT_BINARY_DIR}/tests/rac3_pad_ntsc")
+  add_custom_command(
+    OUTPUT "${pad_ntsc_dir}/pad.c" "${pad_ntsc_dir}/rac3_pad_state_test.cpp"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/hostgen/release_host.py"
+      --names "${CMAKE_CURRENT_SOURCE_DIR}/game/rac3-ntsc/host/rac3_names.tsv"
+      --out "${pad_ntsc_dir}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/game/rac3-pal/host/pad.c"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/rac3_pad_state_test.cpp"
+    DEPENDS tools/hostgen/release_host.py game/rac3-ntsc/host/rac3_names.tsv
+      game/rac3-pal/host/pad.c tests/rac3_pad_state_test.cpp
+    VERBATIM)
+  openrac_add_test(rac3_pad_ntsc
+    SOURCES "${pad_ntsc_dir}/rac3_pad_state_test.cpp" "${pad_ntsc_dir}/pad.c" game/common/lib/pad.c
+    INCLUDES . tests runtime/include game/common/include game/rac3-ntsc/host game/rac3-pal/host)
+endif()
 openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)
 openrac_add_c_test(guest_format INCLUDES . runtime/include game/common/include LIBS openrac_runtime)
 # The other games' saves on the first card: read, never written (the Barlow vendor's free weapons).
@@ -551,6 +609,17 @@ openrac_add_c_test(rac2_save INCLUDES game/rac2/host
 # Up Your Arsenal's saves as the play calls read them, on a slot the game wrote.
 openrac_add_c_test(rac3_save INCLUDES game/rac3-pal/host
   DEFINITIONS "RAC3_SAVE_FIXTURE=\"${PROJECT_SOURCE_DIR}/../launcher/core/tests/fixtures/rac3/save-empty.bin\"")
+# Up Your Arsenal's multiplayer images as each copy of SendImage hands them over, let go with the
+# executable, and its 2D screen from the frame block a split-screen view does not move.
+openrac_add_c_test(rac3_mp_images NO_STRICT_ALIASING
+  INCLUDES game/common/include runtime/include game/rac3-pal/host)
+# Up Your Arsenal's alpha-fail masks through the levels' host C (render.c, textures.c,
+# effect_state.c) on a synthetic level: native, or the older call when OPENRAC_UI_SKIP names
+# rac3_effect_masks.
+openrac_add_c_test(rac3_effect_masks NO_STRICT_ALIASING MATH
+  SOURCES tests/rac3_effect_masks_test.c game/rac3-pal/host/render.c game/rac3-pal/host/textures.c
+          game/rac3-pal/host/effect_state.c
+  INCLUDES tests/rac3_host game/rac3-pal/host . game/common/include runtime/include)
 # The card filter against the game's calls on a real folder: a party never writes a player's saves.
 openrac_add_c_test(mc_filter SOURCES tests/mc_filter_test.c game/common/lib/mc.c
                    INCLUDES game/common/include runtime/include)

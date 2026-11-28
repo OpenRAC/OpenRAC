@@ -1,0 +1,13 @@
+diff --git a/src/nanosvg.h b/src/nanosvg.h
+index 291ecbf..17b06d6 100644
+--- a/src/nanosvg.h
++++ b/src/nanosvg.h
+@@ -1880,7 +1880,7 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
+ 			attr->fillColor = nsvg__parseColor(value);
+ 		}
+ 	} else if (strcmp(name, "opacity") == 0) {
+-		attr->opacity = nsvg__parseOpacity(value);
++		attr->opacity *= nsvg__parseOpacity(value);
+ 	} else if (strcmp(name, "fill-opacity") == 0) {
+ 		attr->fillOpacity = nsvg__parseOpacity(value);
+ 	} else if (strcmp(name, "stroke") == 0) {

@@ -15,6 +15,9 @@
 #define RAC3_MADDR(a) RAC3_MADDR_##a
 #define RAC3_BOOT_FILE "SCUS_973.53"
 
+/* Frontbin's program-record entry; the boot front-end function is at 0x00381280 (measured). */
+#define RAC3_FRONTBIN_ENTRY 0x0037D200u
+
 #include "rac3_addresses.h"
 
 #endif /* OPENRAC_RAC3_VERSION_H */
