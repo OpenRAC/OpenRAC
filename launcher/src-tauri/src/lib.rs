@@ -1793,6 +1793,36 @@ fn overrides_remove(state: State<'_, AppState>, game: String, id: String) -> Res
     overrides::remove(&overrides_dir(&state, &game)?, &id)
 }
 
+/// Adds a shared map (`.openrac-map`, core/src/maps.rs) to the game's packs: its planet's files made
+/// from the player's own disc and extracted levels.
+#[tauri::command]
+async fn map_add(
+    state: State<'_, AppState>,
+    version: String,
+    path: String,
+) -> Result<openrac_launcher_core::maps::MapAdded, String> {
+    let (game, edition) = version.split_once('/').ok_or_else(|| format!("{version} is not a version"))?;
+    if game != "rac1" || edition.contains(['/', '\\', '.']) {
+        return Err("shared maps are for Ratchet & Clank".into());
+    }
+    let root = state.config.lock().unwrap().root.clone().ok_or("the OpenRAC folder is not set")?;
+    let data = game_data(&state, game)?;
+    let overrides = overrides_dir(&state, game)?;
+    // The extracted levels: the checkout's assets/port, or the data folder's for the carried copy
+    // (tools/bundle_standalone.py LEVELS_ROOT).
+    let standalone = state.bundled.as_deref().is_some_and(|copy| detect::on_the_copy(Some(&root), copy));
+    let levels =
+        if standalone { data.join("port").join(edition) } else { root.join("assets/port").join(game).join(edition) };
+    let (game, edition) = (game.to_string(), edition.to_string());
+    tauri::async_runtime::spawn_blocking(move || {
+        let disc = data.join("iso_data").join(&game);
+        let from = openrac_launcher_core::maps::Game { levels: &levels, disc: &disc, version: &edition };
+        openrac_launcher_core::maps::add(std::path::Path::new(&path), &overrides, &from)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Where `version`'s level editor data is (core reset.rs), from the checkout and the install folder
 /// in Settings; the version must be one the checkout's catalogue knows.
 pub(crate) fn reset_layout(state: &State<'_, AppState>, version: &str) -> Result<reset::Layout, String> {
@@ -3271,6 +3301,7 @@ pub fn run() {
             overrides_set_enabled,
             overrides_move,
             overrides_remove,
+            map_add,
             reset_preview,
             editor_state,
             reset_apply,

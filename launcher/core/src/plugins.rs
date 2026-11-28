@@ -25,6 +25,8 @@ pub const API_MINOR: u32 = header_define(b"OPENRAC_MOD_API_MINOR");
 /// The interface a script mod needs at least: 1.1, the first with scripts (MODS.md, section 11).
 pub const SCRIPT_API_MINOR: u32 = 1;
 
+/// OpenRAC Editor's mod that plays a map's cutscenes and behaviours: built into Ratchet & Clank now.
+const EDITOR_RUNTIME: &str = "editor-runtime";
 const MOD_HEADER: &[u8] = include_bytes!("../../../sdk/include/openrac/openrac_mod.h");
 
 /// The number of the header's line `#define <name> <number>`; a build error when there is none.
@@ -933,6 +935,10 @@ pub fn list(dir: &Path, game: &str, version: &str) -> Result<Vec<PluginView>, St
     // The old keyboard-mouse mod is built into the port now, which does not load a copy of it.
     if crate::keyboard_mouse::supported(game, version) {
         out.retain(|v| v.id != crate::keyboard_mouse::ID);
+    }
+    // So is OpenRAC Editor's editor-runtime mod (the player of a map's cutscenes and behaviours).
+    if game == "rac1" {
+        out.retain(|v| v.id != EDITOR_RUNTIME);
     }
     Ok(out)
 }
