@@ -395,7 +395,11 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
     for key in ("id", "title", "serial", "frame_rate", "tick_rate"):
         out[key] = facts[key]
     out["entry"] = p.function(cfg["entry"], "entry")
-    out["ps2_float"] = carry_list(p, cfg.get("ps2_float", []), "ps2_float")
+    # A release's assembly-only function is paired as game_FUN_<address>; "ps2_float" spells it
+    # func_<address>, the name hostgen matches (lower.py _ps2). Spelled game_FUN_, the PAL animation
+    # step ran on host floats: a zero rate became infinity, then NaN, and the step looped for ever.
+    out["ps2_float"] = [re.sub(r"^game_FUN_", "func_", n)
+                        for n in carry_list(p, cfg.get("ps2_float", []), "ps2_float")]
     # The releases' own C: the primary's skip of it is the release's facts' (the other release's).
     own = facts["skip"]
     out["skip"] = [own["as"] if s in own["own"] else s for s in cfg.get("skip", [])]
