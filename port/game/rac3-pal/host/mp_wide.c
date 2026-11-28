@@ -484,7 +484,6 @@ uint32_t rac3_mp_wide_address(uint32_t address, int table) {
  * a later row by the address alone, so the sum is formed here: slots 8 and up go to a region of
  * the port's, a row of 0x120 bytes (three tables 0x60 apart, 0x40 bytes of slots each), as an
  * offset from the first table. The others are the game's sum. */
-#define SENS_BASE 0x001A58D0u
 #define SENS_ROW 0x120u
 #define SENS_BYTES (3 * SENS_ROW)
 
@@ -498,7 +497,7 @@ uint32_t rac3_mp_wide_rowoff(uint32_t slot4, uint32_t row32) {
         memset(G(ext), 0, SENS_BYTES);
     }
     return (uint32_t)(ext + row32 / 0x20u * SENS_ROW + (slot4 - WIDE_GAME * 4u)
-                      - RAC3_MADDR(SENS_BASE));
+                      - RAC3_MADDR(0x001A58D0u));
 }
 
 /* A byte array of eight on a function's stack, indexed by slot (the damage a hero's attackers did,

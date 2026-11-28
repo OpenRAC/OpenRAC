@@ -174,9 +174,6 @@ std::string_view ShaderLibrary::source(std::string_view name) const {
 
 bool ShaderLibrary::prepare(std::string& error, bool allow_float16) {
     m_allow_float16 = allow_float16;
-    constexpr unsigned kBase = FSR3UPSCALER_SHADER_PERMUTATION_LOW_RES_MOTION_VECTORS
-                               | FSR3UPSCALER_SHADER_PERMUTATION_DEPTH_INVERTED;
-
     // Only LDR, unjittered render-resolution motion is exposed by this integration.
     std::vector<std::pair<unsigned, unsigned>> missing;
     for (unsigned pass = 0; pass < kPassSources.size(); ++pass) {
@@ -185,8 +182,8 @@ bool ShaderLibrary::prepare(std::string& error, bool allow_float16) {
             if (half && (!allow_float16 || !half_history_pass(pass))) {
                 continue;
             }
-            for (unsigned extra : {0u, 1u, 32u, 33u}) {
-                const auto key = std::pair{pass, kBase | extra | half};
+            for (unsigned permutation : kSupportedPermutations) {
+                const auto key = std::pair{pass, permutation | half};
 
                 // Changing quality or resolution reuses the already compiled permutations.
                 if (!m_shaders.contains(key)) {

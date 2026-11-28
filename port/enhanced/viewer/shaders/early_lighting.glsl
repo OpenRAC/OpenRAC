@@ -47,19 +47,16 @@ vec3 early_decode_normal(uint bits) {
     return normalize(n);
 }
 
-// A single reconstruction path for every opaque receiver. Relative plane and
-// normal agreement chooses the represented surface even when depth quantization
-// shifts every candidate slightly. Empty neighborhoods use fragment lighting.
+// All four cache cells carry light. Weight their depth and normal agreement without
+// excluding cells, and use the same weights for irradiance and each shadow channel.
 bool early_surface(
     vec3 eye_position,
     vec3 normal_view,
     out vec4 result,
-    out bool covered,
     out float hero_visibility,
     out float cloudy_sun
 ) {
     result = vec4(0, 0, 0, 1);
-    covered = false;
     hero_visibility = 1.0;
     cloudy_sun = 1.0;
 #ifdef OPENRAC_EARLY_TRANSLUCENT
@@ -80,9 +77,7 @@ bool early_surface(
     // Two passes keep only the four scores live: the second fetches again what it weights,
     // instead of holding four samples in registers (fewer registers, more pixels in flight).
     float scores[4];
-    int present = 0, coverage = 0;
     float best = 1e30;
-    int best_coverage = 0;
     float footprint =
         max(-eye_position.z, 0.0) * float(early_scale) / (abs(early_projection[1][1]) * early_extent.y);
     // The GL-compatible vertex projection and D24 depth both contribute
@@ -114,32 +109,13 @@ bool early_surface(
         float plane_error =
             max(abs(dot(delta, normal_view)), abs(dot(delta, n)) - length(delta) * 0.02);
         scores[i] = plane_error / tolerance + 8.0 * (1.0 - clamp(dot(n, normal_view), -1.0, 1.0));
-        int covers = (bits & (1u << 18u)) != 0u ? 1 : 0;
-        present |= 1 << i;
-        coverage |= covers << i;
-        if (scores[i] < best) {
-            best = scores[i];
-            best_coverage = covers;
-        }
+        best = min(best, scores[i]);
     }
-    if (present == 0) {
-        return false;
-    }
-#ifdef OPENRAC_EARLY_TRANSLUCENT
-    // A fringe takes probe-covered lighting whenever a neighbour has it, not the original's.
-    if (coverage != 0) {
-        best_coverage = 1;
-    }
-#endif
     result = vec4(0);
     hero_visibility = 0.0;
     cloudy_sun = 0.0;
     float total = 0.0;
     for (int i = 0; i < 4; ++i) {
-        // A candidate without a surface has a zero spatial weight.
-        if (((present >> i) & 1) == 0 || ((coverage >> i) & 1) != best_coverage) {
-            continue;
-        }
         int x = i & 1, y = i >> 1;
         ivec2 cell = clamp(begin + ivec2(x, y), ivec2(0), half_extent - 1);
         int index = cell.y * half_extent.x + cell.x;
@@ -159,13 +135,15 @@ bool early_surface(
         if (early_cloud_guides != 0 && cloud_shadow_shape.w > 0.0) {
             int cloud_index = half_extent.x * half_extent.y * 2 + index;
             cloudy_sun += float(texelFetch(early_guides, cloud_index).r) / 255.0 * weight;
-        }
+        } else
 #endif
+        {
+            cloudy_sun += sample_value.a * weight;
+        }
         total += weight;
     }
     result /= total;
     hero_visibility /= total;
     cloudy_sun /= total;
-    covered = best_coverage != 0;
     return true;
 }

@@ -21,6 +21,7 @@
 #include <string>
 #include <string_view>
 
+#include "game/common/keyboard_mouse/controls.hpp"
 #include "game/common/keyboard_mouse/core.hpp"
 #include "game/rac2/host/follow_mouse.h"
 #include "game/rac2/host/gui_texts.h"
@@ -1040,6 +1041,480 @@ void read_settings(openrac::Mod& mod) {
     s_strafe_ticks = static_cast<int>(std::lround(kStrafeAfterFiring * ticks_per_second(mod)));
 }
 
+// ---- The keyboard and mouse's page in the pause menu ----
+
+// A row of the pause menu's Options list, Keyboard and mouse (the game's own Controls row is the
+// pad's), opening the page (the port draws it in a copy of the game's Camera page): the device, the
+// mouse's settings, the camera's distance, the key icons, the keys' preset, an Aim and combat page,
+// a page of keys and the reset. The keys' page opens a page for each group of keys,
+// where choosing an action takes the next key, mouse button or wheel notch for it (Escape keeps
+// the one it had). Each change is the setting's, saved as the launcher's are, and read again at once.
+namespace controls = kbm::controls;
+
+openrac::UiPage s_page_main;
+openrac::UiPage s_page_keys;
+openrac::UiPage s_page_combat;
+std::array<openrac::UiPage, controls::kKeyPages.size()> s_page_group;
+// A key being taken: the page of keys and its row, -1 for none, and whether every key and button
+// has been let go since the press that chose the row (that press is not the one taken).
+int s_capture_page = -1;
+int s_capture_row = -1;
+bool s_capture_armed = false;
+// The preset a question waits on, -1 for none.
+int s_pending_preset = -1;
+
+constexpr std::uint32_t kAskReset = 1u;
+constexpr std::uint32_t kAskPreset = 2u;
+
+// The page's rows, and its Aim and combat page's.
+enum MainRow : int {
+    kRowDevice,
+    kRowSensitivity,
+    kRowSensitivityY,
+    kRowInvert,
+    kRowTilt,
+    kRowIcons,
+    kRowPreset,
+    kRowCombat,
+    kRowKeys,
+    kRowReset,
+};
+
+enum CombatRow : int {
+    kRowAimToggle,
+    kRowAimSensitivity,
+    kRowVignette,
+    kRowStrafe,
+};
+
+// The text of a setting presets name besides the keys (controls::kPresetSettings), as it is now.
+std::string_view preset_setting_now(std::string_view key) {
+    if (key == "strafe_fire") {
+        return s_strafe_fire == 2 ? "always" : s_strafe_fire == 1 ? "firing" : "off";
+    }
+
+    return "";
+}
+
+// A choice of Off and On.
+openrac::UiItem switch_of(const char* label, bool on) {
+    return openrac::UiItem::choice_of(label, {"Off", "On"}, on ? 1u : 0u);
+}
+
+// The page as the settings are now. A preset's row shows Custom first when the keys are as
+// none of them.
+openrac::UiContent main_content() {
+    openrac::UiContent c;
+    c.title = "Keyboard and mouse";
+    const std::uint32_t device = s_set.prompt_device < 0 ? 0u : s_set.prompt_device == 1 ? 1u : 2u;
+    c.items.push_back(
+        openrac::UiItem::choice_of("Device", {"Auto", "Keyboard and mouse", "Gamepad"}, device)
+    );
+    c.items.push_back(
+        openrac::UiItem::choice_of(
+            "Mouse sensitivity",
+            controls::sensitivity_choices(),
+            static_cast<std::uint32_t>(controls::sensitivity_step(s_set.look.sensitivity))
+        )
+    );
+    c.items.push_back(
+        openrac::UiItem::choice_of(
+            "Vertical sensitivity",
+            controls::sensitivity_choices(),
+            static_cast<std::uint32_t>(controls::sensitivity_step(s_set.look.sensitivity_y))
+        )
+    );
+    c.items.push_back(switch_of("Invert vertical", s_set.look.invert_y));
+    c.items.push_back(
+        openrac::UiItem::choice_of(
+            "Camera tilt", {"Stays", "Levels out"}, s_set.look.pitch_holds ? 0u : 1u
+        )
+    );
+    c.items.push_back(switch_of("Key icons", s_set.prompts));
+    std::vector<std::string> presets;
+    const int preset = controls::preset_matching(s_set.binds, preset_setting_now);
+
+    if (preset < 0) {
+        presets.emplace_back("Custom");
+    }
+
+    for (const controls::Preset& p : controls::kPresets) {
+        presets.emplace_back(p.name);
+    }
+
+    c.items.push_back(
+        openrac::UiItem::choice_of(
+            "Keys", std::move(presets), preset < 0 ? 0u : static_cast<std::uint32_t>(preset)
+        )
+    );
+    c.items.push_back(openrac::UiItem::button("Aim and combat"));
+    c.items.push_back(openrac::UiItem::button("Change keys"));
+    c.items.push_back(openrac::UiItem::button("Reset to defaults"));
+    return c;
+}
+
+// The Aim and combat page as the settings are now.
+openrac::UiContent combat_content() {
+    openrac::UiContent c;
+    c.title = "Aim and combat";
+    c.items.push_back(
+        openrac::UiItem::choice_of("Aim", {"Hold", "Toggle"}, s_aim_toggle ? 1u : 0u)
+    );
+    c.items.push_back(
+        openrac::UiItem::choice_of(
+            "Aim sensitivity",
+            controls::step_choices(controls::kAimSensitivitySteps),
+            static_cast<std::uint32_t>(
+                controls::step_of(controls::kAimSensitivitySteps, s_aim_sensitivity)
+            )
+        )
+    );
+    c.items.push_back(switch_of("Vignette while aiming", s_vignette));
+    c.items.push_back(
+        openrac::UiItem::choice_of(
+            "Strafe while firing",
+            {"Off", "While firing", "Always"},
+            static_cast<std::uint32_t>(s_strafe_fire)
+        )
+    );
+    return c;
+}
+
+// The page of keys `group`, the row taking a key saying so.
+openrac::UiContent group_content(int group) {
+    const controls::KeyPage& page = controls::kKeyPages[static_cast<std::size_t>(group)];
+    openrac::UiContent c;
+    c.title = page.title;
+
+    for (std::size_t row = 0; row < page.count; ++row) {
+        const Action a = page.actions[row];
+        const bool taking = s_capture_page == group && s_capture_row == static_cast<int>(row);
+        c.items.push_back(
+            openrac::UiItem::button(
+                std::string(controls::action_name(a)) + ": "
+                + (taking ? "press a key (Esc: keep)" : controls::binds_label(s_set.binds.of(a)))
+            )
+        );
+    }
+
+    return c;
+}
+
+// Puts `content` on `page`, which the port refuses only for a page that is not the mod's.
+void show(const openrac::UiPage& page, const openrac::UiContent& content) {
+    try {
+        page.set(content);
+    } catch (const openrac::Error& e) {
+        s_mod->warn(std::string("the pause menu's page: ") + e.what());
+    }
+}
+
+// Sets action `a`'s binds' setting.
+void write_binds(Action a, const kbm::Binds& binds) {
+    s_mod->set_setting(kbm::kActions[static_cast<std::size_t>(a)].key, controls::binds_text(binds));
+}
+
+// Every action's keys, and the other settings presets name, as preset `p` has them.
+void apply_preset(int p) {
+    const controls::Preset& preset = controls::kPresets[static_cast<std::size_t>(p)];
+
+    for (int a = 0; a < kbm::kActionCount; ++a) {
+        const auto action = static_cast<Action>(a);
+        s_mod->set_setting(
+            kbm::kActions[static_cast<std::size_t>(a)].key,
+            std::string(controls::preset_text(preset, action))
+        );
+    }
+
+    for (const controls::PresetValue& s : controls::kPresetSettings) {
+        s_mod->set_setting(s.key, std::string(controls::preset_setting(preset, s.key)));
+    }
+}
+
+// The keys and every setting the page shows back to their defaults.
+void reset_all() {
+    apply_preset(0);
+
+    for (const controls::PresetValue& v : controls::kPageDefaults) {
+        const std::string_view value = v.value;
+
+        if (value == "true" || value == "false") {
+            s_mod->set_setting(v.key, value == "true");
+        } else if (value.find('.') != std::string_view::npos) {
+            s_mod->set_setting(v.key, std::stod(std::string(value)));
+        } else {
+            s_mod->set_setting(v.key, std::string(value));
+        }
+    }
+}
+
+// No key being taken.
+void end_capture() {
+    s_capture_page = -1;
+    s_capture_row = -1;
+    s_capture_armed = false;
+}
+
+// The page's events: a choice stepped is its setting's new value at once; Change keys
+// opens the keys' page; the reset and a preset over the player's own keys ask first.
+void main_event(const openrac::UiPage& page, const openrac::UiEvent& e) {
+    if (e.is(OPENRAC_UI_SHOW)) {
+        show(page, main_content());
+        return;
+    }
+
+    if (e.is(OPENRAC_UI_CHOOSE)) {
+        if (e.item() == kRowCombat) {
+            s_page_combat.open();
+        } else if (e.item() == kRowKeys) {
+            s_page_keys.open();
+        } else if (e.item() == kRowReset) {
+            page.confirm("Every key and setting here to its default?", kAskReset);
+        }
+
+        return;
+    }
+
+    if (e.is(OPENRAC_UI_ANSWER)) {
+        if (e.value() == 1 && e.tag() == kAskReset) {
+            reset_all();
+        } else if (e.value() == 1 && e.tag() == kAskPreset && s_pending_preset >= 0) {
+            apply_preset(s_pending_preset);
+        }
+
+        s_pending_preset = -1;
+        read_settings(*s_mod);
+        show(page, main_content());
+        return;
+    }
+
+    if (!e.is(OPENRAC_UI_CHANGE)) {
+        return;
+    }
+
+    const int v = e.value();
+
+    switch (e.item()) {
+        case kRowDevice:
+            s_mod->set_setting(
+                "prompt_device",
+                std::string(
+                    v == 0   ? "auto"
+                    : v == 1 ? "keyboard"
+                             : "gamepad"
+                )
+            );
+            s_mod->set_setting("mouse_with_gamepad", v != 2);
+            break;
+        case kRowSensitivity:
+            s_mod->set_setting(
+                "mouse_sensitivity", static_cast<double>(controls::sensitivity_of(v))
+            );
+            break;
+        case kRowSensitivityY:
+            s_mod->set_setting(
+                "mouse_sensitivity_y", static_cast<double>(controls::sensitivity_of(v))
+            );
+            break;
+        case kRowInvert:
+            s_mod->set_setting("invert_y", v == 1);
+            break;
+        case kRowTilt:
+            s_mod->set_setting("camera_tilt", std::string(v == 0 ? "hold" : "return"));
+            break;
+        case kRowIcons:
+            s_mod->set_setting("key_prompts", v == 1);
+            break;
+        case kRowPreset: {
+            // From the player's own keys (Custom, the first choice) a preset asks first.
+            const bool custom = controls::preset_matching(s_set.binds, preset_setting_now) < 0;
+            const int p = custom ? v - 1 : v;
+
+            if (p < 0) {
+                break;
+            }
+
+            if (custom) {
+                s_pending_preset = p;
+                page.confirm(
+                    std::string("Your keys as ")
+                        + controls::kPresets[static_cast<std::size_t>(p)].name + "?",
+                    kAskPreset
+                );
+                return;
+            }
+
+            apply_preset(p);
+            break;
+        }
+        default:
+            break;
+    }
+
+    read_settings(*s_mod);
+    show(page, main_content());
+}
+
+// The Aim and combat page's events: a choice stepped is its setting's new value at once.
+void combat_event(const openrac::UiPage& page, const openrac::UiEvent& e) {
+    if (e.is(OPENRAC_UI_SHOW)) {
+        show(page, combat_content());
+        return;
+    }
+
+    if (!e.is(OPENRAC_UI_CHANGE)) {
+        return;
+    }
+
+    const int v = e.value();
+
+    switch (e.item()) {
+        case kRowAimToggle:
+            s_mod->set_setting("aim_toggle", v == 1);
+            break;
+        case kRowAimSensitivity:
+            s_mod->set_setting(
+                "aim_sensitivity",
+                static_cast<double>(controls::value_of(controls::kAimSensitivitySteps, v))
+            );
+            break;
+        case kRowVignette:
+            s_mod->set_setting("aim_vignette", v == 1);
+            break;
+        case kRowStrafe:
+            s_mod->set_setting(
+                "strafe_fire",
+                std::string(
+                    v == 2   ? "always"
+                    : v == 1 ? "firing"
+                             : "off"
+                )
+            );
+            break;
+        default:
+            break;
+    }
+
+    read_settings(*s_mod);
+    show(page, combat_content());
+}
+
+// The keys' page: a row for each page of keys.
+void keys_event(const openrac::UiPage& page, const openrac::UiEvent& e) {
+    if (e.is(OPENRAC_UI_SHOW)) {
+        openrac::UiContent c;
+        c.title = "Change keys";
+
+        for (const controls::KeyPage& k : controls::kKeyPages) {
+            c.items.push_back(openrac::UiItem::button(k.title));
+        }
+
+        show(page, c);
+    } else if (e.is(OPENRAC_UI_CHOOSE) && e.item() >= 0
+               && e.item() < static_cast<int>(s_page_group.size())) {
+        s_page_group[static_cast<std::size_t>(e.item())].open();
+    }
+}
+
+// Each tick a key is being taken: once every key and button is up, the next one pressed is the
+// action's only bind, taken from any other action of its group; Escape keeps the one it had.
+void capture_step(const openrac::UiPage& page, int group) {
+    const openrac_input& in = *s_mod->api().input();
+
+    if (!s_capture_armed) {
+        s_capture_armed = !controls::any_held(in);
+        return;
+    }
+
+    if (controls::escape_pressed(in)) {
+        end_capture();
+        show(page, group_content(group));
+        return;
+    }
+
+    const int bind = controls::pressed_bind(in);
+
+    if (bind == OPENRAC_BIND_NONE) {
+        return;
+    }
+
+    const int row = s_capture_row;
+    const Action a =
+        controls::kKeyPages[static_cast<std::size_t>(group)].actions[static_cast<std::size_t>(row)];
+    kbm::Bindings binds = s_set.binds;
+
+    for (const Action changed : controls::give(binds, a, bind)) {
+        write_binds(changed, binds.of(changed));
+    }
+
+    end_capture();
+    read_settings(*s_mod);
+    show(page, group_content(group));
+    // The key may have moved the cursor (an arrow, the wheel): back to the row.
+    page.set_cursor(row);
+}
+
+// A page of keys: choosing a row takes a key for its action (capture_step); while one is being
+// taken, Triangle (Escape) keeps the one it had instead of going back.
+void group_event(int group, const openrac::UiPage& page, const openrac::UiEvent& e) {
+    const bool taking = s_capture_page == group;
+
+    if (e.is(OPENRAC_UI_SHOW) || e.is(OPENRAC_UI_HIDE)) {
+        end_capture();
+
+        if (e.is(OPENRAC_UI_SHOW)) {
+            show(page, group_content(group));
+        }
+    } else if (e.is(OPENRAC_UI_BACK)) {
+        if (taking) {
+            end_capture();
+            show(page, group_content(group));
+        } else {
+            page.back();
+        }
+    } else if (e.is(OPENRAC_UI_CHOOSE) && !taking && e.item() >= 0) {
+        s_capture_page = group;
+        s_capture_row = e.item();
+        s_capture_armed = false;
+        show(page, group_content(group));
+    } else if (e.is(OPENRAC_UI_FRAME) && taking) {
+        capture_step(page, group);
+    }
+}
+
+// The pages, and the pause menu's row that opens them, where the port has them.
+void add_controls_page(openrac::Mod& mod) {
+    if (!mod.has_pause_items() || !mod.has_settings_set()) {
+        return;
+    }
+
+    try {
+        s_page_main = mod.ui_page([](const openrac::UiPage& page, const openrac::UiEvent& e) {
+            main_event(page, e);
+        });
+        s_page_combat = mod.ui_page([](const openrac::UiPage& page, const openrac::UiEvent& e) {
+            combat_event(page, e);
+        });
+        s_page_keys = mod.ui_page([](const openrac::UiPage& page, const openrac::UiEvent& e) {
+            keys_event(page, e);
+        });
+
+        for (std::size_t g = 0; g < s_page_group.size(); ++g) {
+            const int group = static_cast<int>(g);
+            s_page_group[g] = mod.ui_page(
+                [group](const openrac::UiPage& page, const openrac::UiEvent& e) {
+                    group_event(group, page, e);
+                },
+                OPENRAC_UI_OWN_BACK
+            );
+        }
+
+        mod.ui_pause_item("Keyboard and mouse", s_page_main);
+    } catch (const openrac::Error& e) {
+        mod.warn(std::string("no keyboard and mouse page in the pause menu: ") + e.what());
+    }
+}
+
 void load(openrac::Mod& mod) {
     if (mod.game() != "rac2") {
         throw openrac::Error("this is Going Commando's keyboard and mouse");
@@ -1117,6 +1592,9 @@ void load(openrac::Mod& mod) {
     );
     openrac::frontend::set_mouse_turn(picture_turn);
     mod.on_overlay([](void*, const openrac_overlay* o) { draw_aim(o); });
+    end_capture();
+    s_pending_preset = -1;
+    add_controls_page(mod);
     mod.on_settings([] { read_settings(*s_mod); });
     mod.on_pad([](int port, std::uint8_t* report, int size) { on_pad(port, report, size); });
     mod.info("keyboard and mouse on the " + std::string(mod.version()) + " disc");

@@ -1045,7 +1045,7 @@ openrac_add_test(renderer_shader INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated
 set_tests_properties(renderer_shader PROPERTIES SKIP_RETURN_CODE 77)
 if(OPENRAC_VULKAN)
   target_compile_definitions(renderer_shader_test PRIVATE OPENRAC_VULKAN=1)
-  target_link_libraries(renderer_shader_test PRIVATE openrac_renderer_vulkan)
+  target_link_libraries(renderer_shader_test PRIVATE openrac_renderer_vulkan openrac_shader_backend)
 endif()
 # A mod's moby material packed beside the shine distance, read back as mesh.vert reads it.
 openrac_add_test(moby_material_pack LIBS openrac_scene)

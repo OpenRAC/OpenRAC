@@ -127,12 +127,15 @@ extern "C" {
  * (OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT), and 1.39 paint that draws the effects
  * a moby makes in its colour, and paint in weapon_look
  * (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS), 1.40 synchronous gameplay decision
- * queries (on_play_query), and 1.41 pictures of a mod's own for its overlay,
- * drawn turned, tinted and kept in shape, and a call of the overlay under the
- * game's 2D (overlay_image_create, overlay_image_destroy,
- * openrac_overlay.image, image_quad, layer, aspect, OPENRAC_OVERLAY_UNDER_HUD).
+ * queries (on_play_query), 1.41 pictures of a mod's own for its overlay, drawn
+ * turned, tinted and kept in shape, and a call of the overlay under the game's
+ * 2D (overlay_image_create, overlay_image_destroy, openrac_overlay.image,
+ * image_quad, layer, aspect, OPENRAC_OVERLAY_UNDER_HUD), and 1.42 what mods
+ * offer each other: a mod's services, tables of its own found by name and
+ * version (service_provide, service_find, openrac_service), and a call once
+ * every mod has loaded (on_mods_loaded).
  */
-#define OPENRAC_MOD_API_MINOR 41
+#define OPENRAC_MOD_API_MINOR 42
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1992,6 +1995,29 @@ typedef struct openrac_play_query {
 
 typedef void (*openrac_play_query_fn)(void* user, openrac_play_query* query);
 
+/* A service one mod offers others (openrac_api.service_provide, service_find): a table of the
+ * providing mod's, a plain C struct of function pointers (and data) whose first member is its
+ * `uint32_t size`, as openrac_api's is, so it grows at its end as the table does. Both mods include
+ * the provider's header for it. The port keeps only the pointer: what the functions do, and on
+ * which thread, is the provider's to say. Since 1.42. */
+typedef struct openrac_service {
+    /* sizeof(openrac_service), set by the caller. */
+    uint32_t size;
+    /* The version the provider offers (service_provide's `version`). */
+    uint32_t version;
+    /* The size the provider gave for its table. */
+    uint32_t table_size;
+    /* Padding; zero. */
+    uint32_t reserved;
+    /* The provider's table, valid until the program ends; null when service_find refuses. */
+    const void* table;
+    /* The provider's id. Valid until the program ends. */
+    const char* provider;
+} openrac_service;
+
+/* The longest service name, in characters (openrac_api.service_provide). Since 1.42. */
+#define OPENRAC_SERVICE_NAME_MAX 128
+
 typedef struct openrac_api {
     /* sizeof(openrac_api) as the port was built: a newer port's is larger. Since 1.0. */
     uint32_t size;
@@ -3454,6 +3480,45 @@ typedef struct openrac_api {
      * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for an id that is not one of the mod's. Any
      * thread. Since 1.41. */
     int (*overlay_image_destroy)(openrac_mod* mod, int image);
+
+    /* Calls fn(user) once, after the last mod's openrac_mod_load has returned and before the
+     * game's first tick, in load order. During a load only the mods loaded before it are there
+     * (mod_count, mod_entry, service_find); here every mod that loaded is, so this is the place to
+     * look for another mod and ask for its services. Nothing is taken here: hooks, callbacks and
+     * services are refused with OPENRAC_E_TOO_LATE, so a mod takes in its load what it may use and
+     * decides here whether to use it. Only during openrac_mod_load. Returns OPENRAC_OK, or
+     * OPENRAC_E_TOO_LATE after load or for no fn. Since 1.42. */
+    int (*on_mods_loaded)(openrac_mod* mod, openrac_frame_fn fn, void* user);
+
+    /* Offers other mods a service (openrac_service): `table`, `size` bytes, under `name`. The mod
+     * keeps the table unchanged where it is until it unloads, at the program's end (static storage).
+     * `name` is the mod's own id, a slash and one or more of a-z 0-9 - _ . / ("rumble/effects"), at
+     * most OPENRAC_SERVICE_NAME_MAX characters. `version` (1 up) grows when the table grows at its
+     * end; a change that breaks its callers takes a new name. Only during openrac_mod_load, and a
+     * mod whose load fails takes its services with it. Returns OPENRAC_OK, OPENRAC_E_TAKEN when the
+     * mod offers that name already (the first stays), OPENRAC_E_TOO_LATE after load, or
+     * OPENRAC_E_UNKNOWN for a name of another form, a null table, or a size or version of 0.
+     * Since 1.42. */
+    int (*service_provide)(
+        openrac_mod* mod,
+        const char* name,
+        uint32_t version,
+        const void* table,
+        uint32_t size
+    );
+
+    /* Finds the service `name` of `min_version` or above into `out`, whose `size` the caller sets.
+     * During a load only the services of the mods loaded before it are there: ask in on_mods_loaded
+     * or later, and keep the answer, which stays valid until the program ends. Returns OPENRAC_OK,
+     * OPENRAC_E_SIGNATURE for a service older than min_version (`out` gets its version and provider,
+     * its table null), or OPENRAC_E_UNKNOWN for no such service, no name or a bad `out`.
+     * Since 1.42. */
+    int (*service_find)(
+        openrac_mod* mod,
+        const char* name,
+        uint32_t min_version,
+        openrac_service* out
+    );
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

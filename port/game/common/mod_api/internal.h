@@ -796,4 +796,20 @@ int api_overlay_image_create(openrac_mod* mod, const openrac_overlay_image* imag
 
 int api_overlay_image_destroy(openrac_mod* mod, int image);
 
+int api_on_mods_loaded(openrac_mod* mod, openrac_frame_fn fn, void* user);
+
+// What mods offer each other (interface 1.42, core.cpp): forgets the services `mod` offered and its
+// on_mods_loaded callbacks (nullptr: every mod's), and calls the callbacks, in load order, once
+// every mod has loaded.
+void drop_services(const openrac_mod* mod);
+void run_mods_loaded();
+
+int api_service_provide(
+    openrac_mod* mod, const char* name, std::uint32_t version, const void* table, std::uint32_t size
+);
+
+int api_service_find(
+    openrac_mod* mod, const char* name, std::uint32_t min_version, openrac_service* out
+);
+
 }  // namespace openrac::mods::detail

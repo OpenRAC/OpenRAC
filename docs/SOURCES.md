@@ -27,7 +27,7 @@ decomp of the North American release, kept apart from ours.
 |---|---|---|---|---|
 | Ratchet & Clank | [rac1-decomp](https://github.com/OpenRAC/rac1-decomp) (main) | PAL `SCES_509.16`, PAL `SCES_509.16`, NTSC-J `SCPS_150.37` | [`games/rac1/decomp`](../games/rac1/decomp) | `f911d6e4b971` (2026-11-08) |
 | Ratchet & Clank | [Lombyte](https://github.com/lombyte-project/Lombyte) (main) | NTSC-U `SCUS_971.99` | [`games/rac1/ntsc-decomp`](../games/rac1/ntsc-decomp) | `5497cf4394bb` (2026-11-06) |
-| Ratchet & Clank: Going Commando | [rac2-decomp](https://github.com/OpenRAC/rac2-decomp) (master) | NTSC-U `SCUS_972.68`, PAL `SCES_516.07`, NTSC-U `SCUS_972.68` | [`games/rac2/decomp`](../games/rac2/decomp) | `4ea93ceaf43a` (2026-11-17) |
+| Ratchet & Clank: Going Commando | [rac2-decomp](https://github.com/OpenRAC/rac2-decomp) (master) | NTSC-U `SCUS_972.68`, PAL `SCES_516.07`, NTSC-U `SCUS_972.68` | [`games/rac2/decomp`](../games/rac2/decomp) | `c1fb08168875` (2026-11-27) |
 | Ratchet & Clank: Up Your Arsenal | [rac3-decomp](https://github.com/OpenRAC/rac3-decomp) (master) | NTSC-U `SCUS_973.53`, PAL `SCES_524.56` | [`games/rac3/decomp`](../games/rac3/decomp) | `feb370679d73` (2026-11-28) |
 | Ratchet: Deadlocked | [rac4-decomp](https://github.com/OpenRAC/rac4-decomp) (main) | NTSC-U `SCUS_974.65`, PAL `SCES_532.85` | [`games/rac4/decomp`](../games/rac4/decomp) | `4a7372f50e34` (2026-11-08) |
 | Ratchet & Clank: Size Matters | [rac5-sm-decomp](https://github.com/OpenRAC/rac5-sm-decomp) (master) | NTSC-U `SCUS_976.15` | [`games/rac5/decomp`](../games/rac5/decomp) | `6da0c82366fc` (2026-11-08) |

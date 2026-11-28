@@ -1156,17 +1156,28 @@ void rac2_post_hit(
     const float velocity[3]
 ) {
     static gaddr request;
-    (void)velocity;
     if (!in_level() || !rac2_moby_live(victim)) {
         return;
     }
     if (request == 0) {
         request = openrac_guest_static(0x40);
     }
-    /* make_hit_descriptor (func_002A8C00): the source quadword, the attacker, the mask, the damage
-     * and the one at +0x20; the rest zero. */
+    /* make_hit_descriptor (func_002A8C00): the hit's direction, the attacker, the mask, the damage
+     * and the one at +0x20; the rest zero. The direction is a unit vector, as the wrench and the
+     * shots pass theirs: the hit's own motion, else from where it came to the victim. A place there
+     * threw the victim hundreds of units away. */
+    float dir[3] = {velocity[0], velocity[1], velocity[2]};
+    if (dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2] < 1e-6f) {
+        for (int i = 0; i < 3; ++i) {
+            dir[i] = GREF(float, victim + MOBY_POS + 4u * (gaddr)i) - position[i];
+        }
+    }
+    const float len = sqrtf(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+    for (int i = 0; i < 3; ++i) {
+        dir[i] = len > 1e-3f ? dir[i] / len : 0.0f;
+    }
     memset(G(request), 0, 0x40);
-    write3(request, position);
+    write3(request, dir);
     GREF(gaddr, request + 0x10u) = attacker;
     GREF(uint32_t, request + 0x14u) = mask;
     GREF(float, request + 0x1Cu) = damage;

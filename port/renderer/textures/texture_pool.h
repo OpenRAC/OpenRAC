@@ -296,6 +296,7 @@ public:
 private:
     bool m_noting = true;
     std::unordered_map<std::uint64_t, TextureHandle> m_ui_images;  // ui_image(), by hash
+    std::unordered_map<std::uint64_t, TextureHandle> m_ui_game_images;  // the same, pack hidden
     struct Key {
         std::uint32_t tbp, tbw, tw, th, cbp;
         std::uint8_t psm, cpsm;
@@ -445,6 +446,8 @@ private:
     std::uint64_t m_frame = 0;
     // texture_pack::kept_version() when the conversions were last checked against it.
     std::uint64_t m_pack_version = 0;
+    // texture_pack::shown_version() when the conversions were last made.
+    std::uint64_t m_shown_version = 0;
     std::uint64_t m_tick = 0;  // set_tick
     // Textures drawn at each base pointer this frame, in order, and the cycles found among them:
     // only while textures are dumped (texture_pack::dumping).

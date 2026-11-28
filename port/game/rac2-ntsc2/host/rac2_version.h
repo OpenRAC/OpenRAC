@@ -33,6 +33,7 @@
 #define RAC2_ADDR_0x00152C26u 0x00152C26u /* versionmap: between */
 #define RAC2_ADDR_0x00152C64u 0x00152C64u /* versionmap: between */
 #define RAC2_ADDR_0x00152C68u 0x00152C68u /* versionmap: between */
+#define RAC2_ADDR_0x00188660u 0x00188660u /* versionmap: exact */
 #define RAC2_ADDR_0x0019B278u 0x0019B278u /* versionmap: exact */
 #define RAC2_ADDR_0x0019B4A8u 0x0019B4A8u /* versionmap: exact */
 #define RAC2_ADDR_0x001A72DCu 0x001A72DCu /* versionmap: exact */
@@ -145,7 +146,6 @@
 #define RAC2_LADDR_00_0x00255BA0u 0x00255B20u /* the release's build */
 #define RAC2_LADDR_00_0x00262570u 0x002624F0u /* the release's build */
 /* Constants of the game's code (RAC2_K): the same instruction's in this release. */
-#define RAC2_K_PICTURE_TOP 0 /* the lines the 416-line picture sits below the top of the 2D screen (NTSC: none) */
 #define RAC2_K_CAMERA_CURSOR 0x2D8 /* v1.01 0x2A8; func_0033C738 as func_0033D780: 4 instructions */
 #define RAC2_K_HELP_0 0x2C3C /* v1.01 0x2DA6; word 0 of the table at 0x00265270 (v1.01's 0x002652B0) */
 #define RAC2_K_HELP_1 0x2C3D /* v1.01 0x2DA7; word 1 of the table at 0x00265270 (v1.01's 0x002652B0) */
@@ -175,6 +175,7 @@
 #define RAC2_K_PAUSE_LIST_OFFSET 0x3C160 /* v1.01 0x3BE08; func_0029C4C0 as func_0029D2F8: 1 instructions */
 #define RAC2_K_PAUSE_LIST_WHICH 0x31C /* v1.01 0x2FC; func_00341610 as func_00342520: 1 instructions */
 #define RAC2_K_PAUSE_OPTIONS_ROWS 0x8 /* v1.01 0x8; func_00341610 as func_00342520: 3 instructions */
+#define RAC2_K_PICTURE_TOP 0x0 /* v1.01 0x0; by hand: the lines the 416-line picture sits below the top of the 2D screen (NTSC: none) */
 #define RAC2_K_PLANET_INFO_COUNT_BUFFER 0x6C0 /* v1.01 0x600; by hand: func_US2_0033FDD8 formats the collected/total pair into self+0x6C0 (src/us2/game/0033FDD8-g8.c). */
 #define RAC2_K_PLANET_INFO_COUNT_LABEL 0x2C51 /* v1.01 0x2DBB; by hand: func_US2_0033FDD8 passes text ID 0x2C51 to func_00288FB8 before drawing the count label. */
 #define RAC2_K_PLANET_INFO_COUNT_TITLE 0x578 /* v1.01 0x4E8; by hand: func_US2_0033FDD8 draws the existing heading at self+0x578 after the collected/total row. */

@@ -40,6 +40,7 @@
 #include <deque>
 #include <exception>
 #include <functional>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -2521,6 +2522,23 @@ public:
         return out;
     }
 
+    // Since 1.14 (in the layer since SDK 1.42): the loaded mod `id` as mods() lists it, none when
+    // it is not loaded (not installed, switched off, refused or failed) or the port cannot list
+    // mods. During load only the mods loaded before this one are there: ask in on_mods_loaded()
+    // (1.42) or later.
+    std::optional<ModEntry> find(std::string_view id) const {
+        for (ModEntry& e : mods()) {
+            if (e.id == id) {
+                return std::move(e);
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    // Since 1.14: whether the mod `id` is loaded, as find() says.
+    bool loaded(std::string_view id) const { return find(id).has_value(); }
+
     // Since 1.14: the settings of the mod `index` as it reads them this run.
     std::vector<ModSetting> mod_settings(int index) const {
         std::vector<ModSetting> out;
@@ -3150,6 +3168,68 @@ public:
     bool menu_option_set(const char* option, int state) const {
         return has_slot14(offsetof(openrac_api, menu_option_set))
                && m_api->menu_option_set(m_handle, option, state) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.42: whether the port carries services between mods (provide(), service()) and calls
+    // on_mods_loaded().
+    bool has_services() const {
+        return m_api->api_minor >= 42
+               && m_api->size >= offsetof(openrac_api, service_find) + sizeof(void*);
+    }
+
+    // Since 1.42: calls `callable()` once, after every mod's load and before the game's first tick:
+    // where find() and service() see every mod that loaded. Nothing is taken there (hooks,
+    // callbacks, services). Throws openrac::Error when refused or the port has no such call: check
+    // has_services() first to run on older ports. Only during load.
+    template <class F>
+    void on_mods_loaded(F&& callable) {
+        if (!has_services()) {
+            throw Error("on_mods_loaded: requires interface 1.42");
+        }
+
+        // As in on_frame, the port holds the address of the stored callable.
+        auto& stored = m_frames.emplace_back(std::forward<F>(callable));
+
+        // The port refuses a callback once load is over.
+        if (m_api->on_mods_loaded(m_handle, &detail::frame_thunk, &stored) != OPENRAC_OK) {
+            throw Error("on_mods_loaded: refused (only during load)");
+        }
+    }
+
+    // Since 1.42: offers `table` to other mods as the service `name` ("<this mod's id>/<name>"),
+    // `version` 1 up. `table` is a plain C struct whose first member is its uint32_t size, kept
+    // unchanged where it is until the program ends (a static). Only during load. False when refused
+    // (another form of name, a version of 0, a name offered already, after load) or the port has no
+    // services.
+    template <class T>
+    bool provide(const char* name, std::uint32_t version, const T& table) const {
+        static_assert(std::is_trivially_copyable_v<T>, "a service's table is a plain C struct");
+        return has_services()
+               && m_api->service_provide(
+                      m_handle, name, version, &table, static_cast<std::uint32_t>(sizeof(T))
+                  ) == OPENRAC_OK;
+    }
+
+    // Since 1.42: the service `name` of `min_version` or above, as its provider's table `T`; null
+    // for none, an older one or a port without services. `version`, when given, gets the version
+    // offered (0 for none), an older one's too. A provider's older table is shorter than a newer
+    // `T`: check its size before using a member it may not have. Ask in on_mods_loaded() or later,
+    // and keep the pointer: it stays valid until the program ends.
+    template <class T>
+    const T* service(
+        const char* name, std::uint32_t min_version = 1, std::uint32_t* version = nullptr
+    ) const {
+        openrac_service found{};
+        found.size = sizeof found;
+        const int result = has_services()
+                               ? m_api->service_find(m_handle, name, min_version, &found)
+                               : OPENRAC_E_UNKNOWN;
+
+        if (version != nullptr) {
+            *version = found.version;
+        }
+
+        return result == OPENRAC_OK ? static_cast<const T*>(found.table) : nullptr;
     }
 
     // Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1:

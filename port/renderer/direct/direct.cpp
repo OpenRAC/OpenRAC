@@ -986,7 +986,20 @@ void GifInterpreter::native_quad(const UiQuad& quad) {
 }
 
 void GifInterpreter::moby_draw(std::uint64_t value) {
-    const std::uint32_t target = m_recorded_target != 0 ? m_recorded_target : offscreen_target();
+    std::uint32_t target = m_recorded_target != 0 ? m_recorded_target : offscreen_target();
+    // A block a recorded panel was drawn through is that panel, so its mobys go there too, after
+    // the panel's clear. Going Commando's cutscene object preview (Fizzwidget on a monitor) marks
+    // its moby after the panel is closed.
+    bool aliased = false;
+    if (m_recorded_target == 0 && target != 0) {
+        for (const auto& [block, id] : m_panel_alias) {
+            if (block == target) {
+                target = id;
+                aliased = true;
+                break;
+            }
+        }
+    }
     if (target != 0) {
         DirectDraw d;
         d.state.target = target;
@@ -1006,10 +1019,12 @@ void GifInterpreter::moby_draw(std::uint64_t value) {
                 break;
             }
         }
-        if (std::find(m_drawn.begin(), m_drawn.end(), target) == m_drawn.end()) {
+        // The panel is published and sampled by its block already (panel_aliases).
+        if (!aliased && std::find(m_drawn.begin(), m_drawn.end(), target) == m_drawn.end()) {
             m_drawn.push_back(target);
         }
-        if (std::find(m_offscreen.begin(), m_offscreen.end(), target) == m_offscreen.end()) {
+        if (!aliased
+            && std::find(m_offscreen.begin(), m_offscreen.end(), target) == m_offscreen.end()) {
             m_offscreen.push_back(target);
         }
         m_draws.push_back(d);

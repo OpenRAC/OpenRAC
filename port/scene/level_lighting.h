@@ -160,6 +160,7 @@ public:
     // Returns the probe view (probes.glsl's probe_mode): 0 original, 1 combined, 2 indirect,
     // 3 direct, 4 coverage.
     virtual int mode() const = 0;
+    virtual int probe_mode_for_layer(Layer layer, bool all_static_receivers) const = 0;
 
     // Sets the probe view of mode().
     virtual void set_mode(int mode) = 0;

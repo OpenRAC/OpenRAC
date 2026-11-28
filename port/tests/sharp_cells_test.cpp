@@ -129,11 +129,42 @@ void the_first_is_drawn_on_top() {
     CHECK(!sharp::picture(kWidth, kHeight, t.data(), big));
 }
 
+// A page that knows the game's texels under its cell: the texture as the game made it, with the
+// cell found; a page that does not know them is left out.
+void the_game_texels_come_back() {
+    const std::vector<std::uint8_t> t = texture();
+    std::vector<std::uint8_t> game;
+    std::vector<sharp::Found> cells;
+    sharp::set({page(2, 0, 2, 90)});
+    CHECK(!sharp::unpainted(kWidth, kHeight, t.data(), game, cells) && cells.empty());
+
+    sharp::Page known = page(2, 0, 2, 90);
+    known.cells[0].game.assign(2 * 2 * 4, 200);
+    sharp::set({known, page(4, 2, 2, 50)});
+    CHECK(sharp::unpainted(kWidth, kHeight, t.data(), game, cells));
+    CHECK(game.size() == t.size() && cells.size() == 1);
+    CHECK(
+        cells.size() == 1 && cells[0].x == 2 && cells[0].y == 0 && cells[0].w == 2
+        && cells[0].scale == 2 && cells[0].sharp.size() == 4 * 4 * 3
+    );
+    // The cell's texels are the game's, the rest the texture's.
+    const auto texel = [&](int x, int y) {
+        return game[static_cast<std::size_t>((y * kWidth + x) * 4)];
+    };
+    CHECK(texel(2, 0) == 200 && texel(3, 1) == 200 && texel(4, 0) == 40 && texel(1, 1) == 10);
+    // Painted over since: not found.
+    std::vector<std::uint8_t> changed = t;
+    changed[static_cast<std::size_t>((0 * kWidth + 2) * 4)] ^= 1;
+    CHECK(!sharp::unpainted(kWidth, kHeight, changed.data(), game, cells));
+    sharp::set({});
+}
+
 }  // namespace
 
 int main() {
     owners_are_kept_apart();
     the_first_is_drawn_on_top();
+    the_game_texels_come_back();
     std::puts("sharp_cells: ok");
     return openrac::test::result();
 }
