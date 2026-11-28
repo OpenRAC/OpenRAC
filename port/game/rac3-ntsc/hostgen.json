@@ -801,7 +801,7 @@
       "func_L05_00355070": "int (int, int, int)",
       "func_L07_00352B20": "int (int, int, int, float)",
       "func_L09_003BD7B8": "int (int, int, int, int, int)",
-      "func_L20_00400958": "int (int, int, float)",
+      "func_L20_00400958": "void (int)",
       "func_L30_003487E0": "float (int, int)",
       "func_L30_00348BF8": "int (int, int, int)",
       "func_L31_00345CF0": "int (int, int, int, float)",
@@ -885,7 +885,7 @@
       "func_L39_004CBE78": "int (int)",
       "func_L39_004F14C0": "int (int, int)",
       "func_L01_004369B8": "int (int, int, int, int)",
-      "func_L01_003D5658": "int (int, int, int, int)",
+      "func_L01_003D5658": "void (int, int, int, int)",
       "func_L01_003D6F90": "int (int, int, int)",
       "func_L01_004730C8": "float (int, int, int, int, float)",
       "func_L01_003F8448": "int (int, int, int, int, int)",
@@ -937,7 +937,7 @@
       "func_L01_004991C8": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
       "func_L01_0049A2D0": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
       "func_L01_004BD480": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L20_00400958": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers): its tail call func_L03_00502C58 (void (float, float, int)) gets $f12 and $f13 as func_L20_00400958's caller left them; rac3-decomp's C for its PAL twin func_L20_00402D48 takes one pointer"
+      "func_L20_00400958": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers): its tail call func_L03_00502C58 (void (float, float, int)) gets $f12 and $f13 as func_L20_00400958's caller left them; its own signature, void (int), is rac3-decomp's C for its PAL twin func_L20_00402D48 (one pointer)"
     }
   },
   "result_allow": "checks/result_allow.tsv",
