@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[56];
+static const openrac_script_point k_points[58];
 
 /* Shape S0: void(i32) (amount). */
 typedef void (*S0_fn)(int32_t);
@@ -560,8 +560,10 @@ S16_POINT(Moby_HypnomaticPart_Update, 52) /* rac2.moby.hypnomatic_part.update */
 S23_POINT(Moby_CountKill, 53) /* rac2.combat.count_kill */
 S11_POINT(Menu_Extras, 54) /* rac2.menu.extras */
 S24_POINT(FollowCamera_ReadStick, 55) /* rac2.camera.follow.read_stick */
+S16_POINT(Moby_BoldanClock_Update, 56) /* rac2.moby.boldan_clock.update */
+S16_POINT(Moby_ItemRewardTrigger_Update, 57) /* rac2.moby.item_reward_trigger.update */
 
-static const openrac_script_point k_points[56] = {
+static const openrac_script_point k_points[58] = {
     {"rac2.player.take_damage", "void(i32)", 1, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S0_call},
     {"rac2.combat.get_hit", "u32(u32,u32,i32)", 3, k_S1_kinds, k_S1_names, OPENRAC_SV_U32, k_Moby_GetHitMessage_links, k_Moby_GetHitMessage_thunks, S1_call},
     {"rac2.combat.post_hit", "void(u32,u32)", 2, k_S2_kinds, k_S2_names, OPENRAC_SV_VOID, k_Moby_PostHit_links, k_Moby_PostHit_thunks, S2_call},
@@ -618,9 +620,11 @@ static const openrac_script_point k_points[56] = {
     {"rac2.combat.count_kill", "void(u32,i32)", 2, k_S23_kinds, k_S23_names, OPENRAC_SV_VOID, k_Moby_CountKill_links, k_Moby_CountKill_thunks, S23_call},
     {"rac2.menu.extras", "i32()", 0, k_S11_kinds, k_S11_names, OPENRAC_SV_I32, k_Menu_Extras_links, k_Menu_Extras_thunks, S11_call},
     {"rac2.camera.follow.read_stick", "void(u32,u32,u32)", 3, k_S24_kinds, k_S24_names, OPENRAC_SV_VOID, k_FollowCamera_ReadStick_links, k_FollowCamera_ReadStick_thunks, S24_call},
+    {"rac2.moby.boldan_clock.update", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Moby_BoldanClock_Update_links, k_Moby_BoldanClock_Update_thunks, S16_call},
+    {"rac2.moby.item_reward_trigger.update", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Moby_ItemRewardTrigger_Update_links, k_Moby_ItemRewardTrigger_Update_thunks, S16_call},
 };
 
-static const openrac_script_alias k_aliases[232] = {
+static const openrac_script_alias k_aliases[240] = {
     {"Arena_Prize", "rac2.arena.prize"},
     {"ArmorVendor_BuildList", "rac2.armor_vendor.build_list"},
     {"ArmorVendor_Buy", "rac2.armor_vendor.buy"},
@@ -640,6 +644,7 @@ static const openrac_script_alias k_aliases[232] = {
     {"Item_VersionColor", "rac2.item.version_color"},
     {"Level_Load", "rac2.level.load"},
     {"Menu_Extras", "rac2.menu.extras"},
+    {"Moby_BoldanClock_Update", "rac2.moby.boldan_clock.update"},
     {"Moby_BoldanCutscene_Update", "rac2.moby.boldan_cutscene.update"},
     {"Moby_BoxBreakerPickup_Update", "rac2.moby.box_breaker_pickup.update"},
     {"Moby_ChargeBootsRider_Update", "rac2.moby.charge_boots_rider.update"},
@@ -650,6 +655,7 @@ static const openrac_script_alias k_aliases[232] = {
     {"Moby_GliderPickup_Update", "rac2.moby.glider_pickup.update"},
     {"Moby_HypnomaticMaker_Update", "rac2.moby.hypnomatic_maker.update"},
     {"Moby_HypnomaticPart_Update", "rac2.moby.hypnomatic_part.update"},
+    {"Moby_ItemRewardTrigger_Update", "rac2.moby.item_reward_trigger.update"},
     {"Moby_LevitatorSeller_Update", "rac2.moby.levitator_seller.update"},
     {"Moby_MapperReturn_Update", "rac2.moby.mapper_return.update"},
     {"Moby_NanotechBall_Update", "rac2.moby.nanotech_ball.update"},
@@ -746,6 +752,9 @@ static const openrac_script_alias k_aliases[232] = {
     {"func_003136D0", "rac2.moby.nanotech_ball.update"},
     {"func_003144C8", "rac2.moby.nanotech_ball.update"},
     {"func_00314B5C", "rac2.moby.nanotech_ball.update"},
+    {"func_003334B0", "rac2.moby.item_reward_trigger.update"},
+    {"func_003342A8", "rac2.moby.item_reward_trigger.update"},
+    {"func_00335118", "rac2.moby.item_reward_trigger.update"},
     {"func_00336EF8", "rac2.item.version_color"},
     {"func_00336F20", "rac2.item.colors"},
     {"func_00337DA0", "rac2.item.version_color"},
@@ -831,6 +840,9 @@ static const openrac_script_alias k_aliases[232] = {
     {"func_L12_003B5240", "rac2.moby.todano_trader.update"},
     {"func_L12_003B6518", "rac2.moby.todano_trader.update"},
     {"func_L12_003B8918", "rac2.moby.todano_trader.update"},
+    {"func_L13_004067F8", "rac2.moby.boldan_clock.update"},
+    {"func_L13_00407D60", "rac2.moby.boldan_clock.update"},
+    {"func_L13_0040B090", "rac2.moby.boldan_clock.update"},
     {"func_L13_0041CD18", "rac2.moby.boldan_cutscene.update"},
     {"func_L13_0041E1E0", "rac2.moby.boldan_cutscene.update"},
     {"func_L13_0041E1E8", "rac2.moby.boldan_cutscene.update"},
@@ -861,8 +873,8 @@ static const openrac_script_field k_fields[1] = {
 };
 
 static const openrac_script_binding k_binding = {
-    "rac2", 3, k_discs, 56, k_points, 0, k_fields, NULL,
-    232, k_aliases,
+    "rac2", 3, k_discs, 58, k_points, 0, k_fields, NULL,
+    240, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {

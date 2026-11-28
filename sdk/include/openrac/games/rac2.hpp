@@ -459,6 +459,22 @@ struct FollowCamera_ReadStick {
     using fn = void (*)(uint32_t, uint32_t, uint32_t);
 };
 
+// Updates Boldan's clock tower: sets its hands from the console's clock and, once a second of its time, shows the Nanotech Upgrade (the moby at its pvars +0x28, class 0x11C4) on an even hour of the twelve-hour dial and hides it on an odd one.
+struct Moby_BoldanClock_Update {
+    static constexpr const char* id = "rac2.moby.boldan_clock.update";
+    static constexpr const char* name = "Moby_BoldanClock_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Updates a reward trigger (item_reward_trigger_update): the scene of a story or reward spot on any level. It waits for the hero in its region, plays its scenes, then puts its planet on the ship's map (Planet_Unlock) and marks its moby group done. At its first update it deletes itself, unplayed, when its planet is on the map already (the byte at 0x1A7BC8 + planet, NTSC-U v1.01) or its group is done, so a replacement can show it another state of the map around the original.
+struct Moby_ItemRewardTrigger_Update {
+    static constexpr const char* id = "rac2.moby.item_reward_trigger.update";
+    static constexpr const char* name = "Moby_ItemRewardTrigger_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -502,6 +518,9 @@ namespace hooks {
         using extras = rac2::Menu_Extras;
     }  // namespace menu
     namespace moby {
+        namespace boldan_clock {
+            using update = rac2::Moby_BoldanClock_Update;
+        }  // namespace boldan_clock
         namespace boldan_cutscene {
             using update = rac2::Moby_BoldanCutscene_Update;
         }  // namespace boldan_cutscene
@@ -526,6 +545,9 @@ namespace hooks {
         namespace hypnomatic_part {
             using update = rac2::Moby_HypnomaticPart_Update;
         }  // namespace hypnomatic_part
+        namespace item_reward_trigger {
+            using update = rac2::Moby_ItemRewardTrigger_Update;
+        }  // namespace item_reward_trigger
         namespace levitator_seller {
             using update = rac2::Moby_LevitatorSeller_Update;
         }  // namespace levitator_seller

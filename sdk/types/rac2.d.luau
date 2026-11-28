@@ -62,6 +62,8 @@ type HookPoint =
     | "rac2.combat.count_kill"
     | "rac2.menu.extras"
     | "rac2.camera.follow.read_stick"
+    | "rac2.moby.boldan_clock.update"
+    | "rac2.moby.item_reward_trigger.update"
     | "Arena_Prize"
     | "ArmorVendor_BuildList"
     | "ArmorVendor_Buy"
@@ -81,6 +83,7 @@ type HookPoint =
     | "Item_VersionColor"
     | "Level_Load"
     | "Menu_Extras"
+    | "Moby_BoldanClock_Update"
     | "Moby_BoldanCutscene_Update"
     | "Moby_BoxBreakerPickup_Update"
     | "Moby_ChargeBootsRider_Update"
@@ -91,6 +94,7 @@ type HookPoint =
     | "Moby_GliderPickup_Update"
     | "Moby_HypnomaticMaker_Update"
     | "Moby_HypnomaticPart_Update"
+    | "Moby_ItemRewardTrigger_Update"
     | "Moby_LevitatorSeller_Update"
     | "Moby_MapperReturn_Update"
     | "Moby_NanotechBall_Update"
@@ -235,6 +239,10 @@ type Moby_CountKillFn = (moby: number, type: number) -> ()
 type Menu_ExtrasFn = () -> number
 -- rac2.camera.follow.read_stick (FollowCamera_ReadStick) void(u32,u32,u32): The follow camera's read of the right stick, each tick: camera (its data at +0x70), and the guest addresses of the floats it then turns and tilts by. By then the tick's goals are set: the eye's distance and height goals (data +0x1A0 and +0x1AC), which the camera eases its distance and height (+0x18C, +0x190) towards, and the eye it wants from Ratchet (+0x160); after it the camera turns, eases and builds its view, so a mod that calls the original and then changes those moves the camera this very tick. Rac1's FollowCamera_ReadStickInput.
 type FollowCamera_ReadStickFn = (camera: number, turn: number, tilt: number) -> ()
+-- rac2.moby.boldan_clock.update (Moby_BoldanClock_Update) void(u32): Updates Boldan's clock tower: sets its hands from the console's clock and, once a second of its time, shows the Nanotech Upgrade (the moby at its pvars +0x28, class 0x11C4) on an even hour of the twelve-hour dial and hides it on an odd one.
+type Moby_BoldanClock_UpdateFn = (moby: number) -> ()
+-- rac2.moby.item_reward_trigger.update (Moby_ItemRewardTrigger_Update) void(u32): Updates a reward trigger (item_reward_trigger_update): the scene of a story or reward spot on any level. It waits for the hero in its region, plays its scenes, then puts its planet on the ship's map (Planet_Unlock) and marks its moby group done. At its first update it deletes itself, unplayed, when its planet is on the map already (the byte at 0x1A7BC8 + planet, NTSC-U v1.01) or its group is done, so a replacement can show it another state of the map around the original.
+type Moby_ItemRewardTrigger_UpdateFn = (moby: number) -> ()
 
 declare openrac: {
     game: string,

@@ -20,6 +20,7 @@ rac2.item.upgrade	ntsc:002887B0	Item_Upgrade,func_002887B0,func_002890C8,func_00
 rac2.item.version_color	ntsc:00336EF8	Item_VersionColor,func_00336EF8,func_00337DA0,func_00338C50
 rac2.level.load	ntsc:L00:00303990	Level_Load,func_L00_00303990,func_L00_00304660,func_L00_00305570
 rac2.menu.extras	ntsc:002CF340	Menu_Extras,func_002CF340,func_002D0290,func_002D02A0
+rac2.moby.boldan_clock.update	ntsc:L13:004067F8	Moby_BoldanClock_Update,func_L13_004067F8,func_L13_00407D60,func_L13_0040B090
 rac2.moby.boldan_cutscene.update	ntsc:L13:0041CD18	Moby_BoldanCutscene_Update,func_L13_0041CD18,func_L13_0041E1E0,func_L13_0041E1E8,func_L13_00421C70
 rac2.moby.box_breaker_pickup.update	ntsc:L01:00416440	Moby_BoxBreakerPickup_Update,func_L01_00416440,func_L01_004179C0,func_L01_0041B900
 rac2.moby.charge_boots_rider.update	ntsc:L11:003F8510	Moby_ChargeBootsRider_Update,func_L11_003F8510,func_L11_003F9A50,func_L11_003FCA30
@@ -28,6 +29,7 @@ rac2.moby.endako_rescue.update	ntsc:L03:003D20F8	Moby_EndakoRescue_Update,func_L
 rac2.moby.glider_pickup.update	ntsc:L08:0040E9B8	Moby_GliderPickup_Update,func_L08_0040E9B8,func_L08_0040FF80,func_L08_004137E8
 rac2.moby.hypnomatic_maker.update	ntsc:L18:00440718	Moby_HypnomaticMaker_Update,func_L18_00440718,func_L18_00441C08,func_L18_00445BB0
 rac2.moby.hypnomatic_part.update	ntsc:L18:0043FC70	Moby_HypnomaticPart_Update,func_L18_0043FC70,func_L18_00441160,func_L18_004450C8
+rac2.moby.item_reward_trigger.update	ntsc:003334B0	Moby_ItemRewardTrigger_Update,func_003334B0,func_003342A8,func_00335118
 rac2.moby.levitator_seller.update	ntsc:L11:004618C0	Moby_LevitatorSeller_Update,func_L11_004618C0,func_L11_00463368,func_L11_004676D0
 rac2.moby.mapper_return.update	ntsc:L18:003F90A0	Moby_MapperReturn_Update,func_L18_003F90A0,func_L18_003FA510,func_L18_003FD180
 rac2.moby.nanotech_ball.update	ntsc:003136D0	Moby_NanotechBall_Update,func_003136D0,func_003144C8,func_00314B5C

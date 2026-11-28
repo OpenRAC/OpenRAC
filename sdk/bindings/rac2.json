@@ -826,6 +826,34 @@
         "ntsc2": "func_L00_004264A8"
       },
       "about": "The follow camera's read of the right stick, each tick: camera (its data at +0x70), and the guest addresses of the floats it then turns and tilts by. By then the tick's goals are set: the eye's distance and height goals (data +0x1A0 and +0x1AC), which the camera eases its distance and height (+0x18C, +0x190) towards, and the eye it wants from Ratchet (+0x160); after it the camera turns, eases and builds its view, so a mod that calls the original and then changes those moves the camera this very tick. Rac1's FollowCamera_ReadStickInput."
+    },
+    {
+      "id": "rac2.moby.boldan_clock.update",
+      "name": "Moby_BoldanClock_Update",
+      "signature": "void(u32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "ntsc": "func_L13_004067F8",
+        "pal": "func_L13_0040B090",
+        "ntsc2": "func_L13_00407D60"
+      },
+      "about": "Updates Boldan's clock tower: sets its hands from the console's clock and, once a second of its time, shows the Nanotech Upgrade (the moby at its pvars +0x28, class 0x11C4) on an even hour of the twelve-hour dial and hides it on an odd one."
+    },
+    {
+      "id": "rac2.moby.item_reward_trigger.update",
+      "name": "Moby_ItemRewardTrigger_Update",
+      "signature": "void(u32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "ntsc": "func_003334B0",
+        "pal": "func_00335118",
+        "ntsc2": "func_003342A8"
+      },
+      "about": "Updates a reward trigger (item_reward_trigger_update): the scene of a story or reward spot on any level. It waits for the hero in its region, plays its scenes, then puts its planet on the ship's map (Planet_Unlock) and marks its moby group done. At its first update it deletes itself, unplayed, when its planet is on the map already (the byte at 0x1A7BC8 + planet, NTSC-U v1.01) or its group is done, so a replacement can show it another state of the map around the original."
     }
   ]
 }
