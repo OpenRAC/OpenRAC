@@ -1234,6 +1234,7 @@ void GifInterpreter::run_command(const FrameCommand& c) {
                 s.snapshot_picture = c.index;
                 s.combine = TextureCombine::Decal;
                 s.tcc = false;
+                s.sharp_scale = true;
             }
             native_rect(c, s, 1.0f);
             break;
