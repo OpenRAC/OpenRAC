@@ -1306,12 +1306,14 @@ void recorded_native_hud_placement() {
 void text_frame_corners_are_round() {
     const auto strip = [](GifBuilder& b, double top, double bottom, double left, double right) {
         const std::uint64_t kind = prim(gs::PrimKind::TriangleStrip, false, false, true);
-        b.ad({{gs::kPrim, kind},
-              {gs::kRgbaq, rgbaq(4, 4, 4, 0x60)},
-              {gs::kXyz2, xyz2(left, top, 0xFFFFF0)},
-              {gs::kXyz2, xyz2(right, top, 0xFFFFF0)},
-              {gs::kXyz2, xyz2(left, bottom, 0xFFFFF0)},
-              {gs::kXyz2, xyz2(right, bottom, 0xFFFFF0)}});
+        b.ad(
+            {{gs::kPrim, kind},
+             {gs::kRgbaq, rgbaq(4, 4, 4, 0x60)},
+             {gs::kXyz2, xyz2(left, top, 0xFFFFF0)},
+             {gs::kXyz2, xyz2(right, top, 0xFFFFF0)},
+             {gs::kXyz2, xyz2(left, bottom, 0xFFFFF0)},
+             {gs::kXyz2, xyz2(right, bottom, 0xFFFFF0)}}
+        );
     };
     for (const bool frame : {true, false}) {
         TexturePool textures;

@@ -2346,9 +2346,9 @@ void GifInterpreter::emit_sprite(const GsVertex& a, const GsVertex& b) {
 void GifInterpreter::note_strip_rect(const GsVertex& last) {
     const GsVertex& first = m_strip_first;
     const bool rectangle = !attributes().tme && m_vertices.size() - m_strip_begin == 6
-                           && first.x != last.x && first.y != last.y
-                           && m_queue[0].x == last.x && m_queue[0].y == first.y
-                           && m_queue[1].x == first.x && m_queue[1].y == last.y;
+                           && first.x != last.x && first.y != last.y && m_queue[0].x == last.x
+                           && m_queue[0].y == first.y && m_queue[1].x == first.x
+                           && m_queue[1].y == last.y;
     if (!rectangle) {
         m_flat_sprites.clear();
         return;
@@ -2385,10 +2385,12 @@ void GifInterpreter::round_ui_frame(const GsVertex& last) {
     if (y1 - y0 < 2 * kBevel || x1 - x0 < 2 * kBevel) {
         return;
     }
+
     // Bars: inset along the box's edge, and where they run across it (from the outer to the inner x).
     struct Bar {
         std::int64_t inset, from, to;
     };
+
     const Bar bars[6] = {
         {1 * kPixel, x0 - 2 * kPixel, x0},
         {2 * kPixel, x0 - 3 * kPixel, x0 - 2 * kPixel},
@@ -2434,8 +2436,12 @@ void GifInterpreter::round_ui_frame(const GsVertex& last) {
         for (int step = 0; step <= kArcSteps; ++step) {
             const double angle = start + (pi / 2.0) * step / kArcSteps;
             GsVertex v = last;
-            v.x = static_cast<std::uint32_t>(std::llround(centres[corner][0] + radius * std::cos(angle)));
-            v.y = static_cast<std::uint32_t>(std::llround(centres[corner][1] - radius * std::sin(angle)));
+            v.x = static_cast<std::uint32_t>(
+                std::llround(centres[corner][0] + radius * std::cos(angle))
+            );
+            v.y = static_cast<std::uint32_t>(
+                std::llround(centres[corner][1] - radius * std::sin(angle))
+            );
             ring.push_back(v);
         }
     }

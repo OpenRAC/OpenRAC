@@ -438,6 +438,7 @@ private:
     void emit_point(const GsVertex& a);
     void emit_quad(const DirectVertex corners[4]);
     void append_vertices(std::span<const DirectVertex> vertices);
+
     // The last flat sprites, as the games draw a bevelled text frame from seven of them (rac1's
     // DrawUIFrame): when the newest seven are such a frame, they are drawn as one rectangle with
     // round corners instead of stairs.
@@ -445,6 +446,7 @@ private:
         GsVertex a, b;
         std::size_t begin = 0, end = 0;  // its vertices in m_vertices
     };
+
     void note_strip_rect(const GsVertex& last);
     void round_ui_frame(const GsVertex& last);
     std::vector<FlatSprite> m_flat_sprites;
@@ -651,7 +653,8 @@ private:
 
     struct Uniforms {
         int textured, tcc, tfx, tex_alpha_scale, fog_enable, fog_colour, alpha_test, alpha_ref,
-            alpha_keep_failing, distance_field, sharp_scale, tex_T1, pixel_offset, source_scale, source_fix;
+            alpha_keep_failing, distance_field, sharp_scale, tex_T1, pixel_offset, source_scale,
+            source_fix;
     } m_uniforms{};  // those of the program in use
 
     std::array<Uniforms, 2> m_program_uniforms{};
