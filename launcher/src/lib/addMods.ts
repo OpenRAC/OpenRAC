@@ -32,8 +32,9 @@ function whyStopped(): string {
 
 const nameOf = (path: string) => path.split(/[\\/]/).at(-1) ?? path;
 
-/** A shared map made in OpenRAC Editor (its tools/shared_map.py). */
-export const isMap = (path: string) => path.toLowerCase().endsWith(".openrac-map");
+/** A shared map made in OpenRAC Editor (its tools/shared_map.py), also when a download saved it
+ *  with ".zip" after its name (Android's downloads do: the file is a zip). */
+export const isMap = (path: string) => /\.openrac-map(\.zip)?$/i.test(path);
 
 /** A shared map imported by OpenRAC Editor's tools, or why it cannot be. */
 async function addMap(v: VersionView, path: string): Promise<Added> {
