@@ -118,7 +118,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `save_capture` | 1.8 | stable | yes | yes | no |
 | `save_slot` | 1.8 | stable | yes | yes | yes |
 | `save_read` | 1.8 | stable | yes | yes | yes |
-| `save_slot_current` | 1.11 | stable | yes | no | no |
+| `save_slot_current` | 1.11 | stable | yes | yes | no |
 | `card_filter` | 1.14 | stable | yes | part | part |
 | `card_slot_hint` | 1.14 | stable | yes | part | part |
 | `coop_save_write` | 1.14 | stable | yes | part | part |
