@@ -153,6 +153,10 @@ struct Settings {
     // A texture pack from <data>/texture_packs/<game id>/ (docs/port/TEXTURE_PACKS.md); takes
     // effect at the next start.
     bool texture_pack = true;
+    // A PCSX2 pack's pictures are read on another thread (the original shows until then), and
+    // optionally the whole pack at the start. Both take effect at the next start.
+    bool pcsx2_pack_background = true;
+    bool pcsx2_pack_precache = false;
     bool probe_spheres = false;        // diagnostic placement/fade overlay
     bool medial_axis_debug = false;    // Baked centre paths and junctions.
     bool ceiling_area_lights = false;  // Baked source rectangles and emitting-direction arrows.

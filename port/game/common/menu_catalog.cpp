@@ -247,6 +247,14 @@ constexpr Entry kEntries[] = {
      "font change at once; world textures change at the next level."},
     {Id::TexturePackKey, Tab::Developer, "Textures", kPanel, D, "Texture pack key",
      "The key that shows and hides the texture pack. Ctrl can be part of it."},
+    {Id::TexturePackBackground, Tab::Developer, "Textures", kSwitch, A,
+     "Load PCSX2 pack in background",
+     "Reads a PCSX2 pack's pictures on another thread. The original picture shows until the "
+     "new one is ready, so the game does not wait for the disk. Counts from the next start."},
+    {Id::TexturePackPrecache, Tab::Developer, "Textures", kSwitch, A,
+     "Precache PCSX2 pack",
+     "Reads a PCSX2 pack's pictures at the start, smallest files first, until the cache is full. "
+     "Uses more memory. Counts from the next start."},
     {Id::LevelSelect, Tab::Developer, "Level", kAction, A, "Level select",
      "Goes to another level. F1 opens it too."},
     {Id::KeepPaused, Tab::Developer, "Time", kSwitch, A, "Keep paused",
@@ -408,6 +416,8 @@ constexpr std::array<const char*, kIds> kOptionNames = {
     "meat_proxy_review",
     "texture_pack",
     "texture_pack_key",
+    "texture_pack_background",
+    "texture_pack_precache",
     "level_select",
     "keep_paused",
     "step_tick",

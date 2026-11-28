@@ -892,6 +892,8 @@ void savestate_restored(std::uint64_t tick) {
     g->particle_textures.clear();
     g->particle_textures_for = nullptr;
     g->effect_textures.clear();
+    g->effect_textures_pending.clear();
+    g->effect_textures_to_check = 0;
     g->effect_textures_for = nullptr;
     g->effect_texture_ids.clear();
     g->effect_hashed.clear();
@@ -1055,7 +1057,21 @@ void effect_textures() {
     // A new renderer (a level loaded): a new pool.
     if (g->effect_textures_for != g->render.renderer.get()) {
         g->effect_textures.clear();
+        g->effect_textures_pending.clear();
+        g->effect_textures_to_check = 0;
         g->effect_textures_for = g->render.renderer.get();
+    }
+    // Pictures read in the background since: the effect textures drawn as the original meanwhile
+    // are made again, a few a frame (each is an upload of a big picture to the GPU).
+    if (const std::uint64_t ready = renderer::pcsx2_pack::ready_version();
+        ready != g->effect_textures_pcsx2_version) {
+        g->effect_textures_pcsx2_version = ready;
+        g->effect_textures_to_check = g->effect_textures_pending.size();
+    }
+    for (int remade = 0; remade < 4 && g->effect_textures_to_check > 0; ++remade) {
+        --g->effect_textures_to_check;
+        g->effect_textures.erase(g->effect_textures_pending.front());
+        g->effect_textures_pending.erase(g->effect_textures_pending.begin());
     }
     const renderer::gs::Texa texa{0, false, 0x80};
     for (const State::EffectTextureId& e : g->effect_texture_ids) {
@@ -1097,9 +1113,15 @@ void effect_textures() {
             // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), animated or not.
             renderer::texture_pack::Replacement replaced;
             if (!renderer::texture_pack::replace(texture, {}, &replaced)) {
-                renderer::pcsx2_pack::replace_indexed8(
-                    texture, image.data, colours, renderer::AlphaScale::Gs
-                );
+                // Read in the background when it is not ready: the original is drawn, and the
+                // texture is made again once the picture is there.
+                bool pending = false;
+                if (!renderer::pcsx2_pack::replace_indexed8(
+                        texture, image.data, colours, renderer::AlphaScale::Gs, false, &pending
+                    )
+                    && pending) {
+                    g->effect_textures_pending.push_back(id);
+                }
             }
             const renderer::TextureHandle h = g->render.renderer->textures().add(
                 std::move(texture),

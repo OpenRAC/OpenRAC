@@ -143,6 +143,8 @@ enum class Id : std::uint8_t {
     MeatProxyReview,
     TexturePack,
     TexturePackKey,
+    TexturePackBackground,
+    TexturePackPrecache,
     LevelSelect,
     KeepPaused,
     StepTick,
