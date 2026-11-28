@@ -5,10 +5,11 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <bit>
 #include <cctype>
-#include <atomic>
 #include <charconv>
+#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <format>
@@ -23,6 +24,7 @@
 #define XXH_INLINE_ALL
 #include <xxhash.h>
 
+#include "common/joining_thread.h"
 #include "common/log.h"
 
 namespace openrac::renderer::pcsx2_pack {
@@ -183,8 +185,8 @@ std::uint64_t cached_uses = 0;
 std::size_t cache_limit = kCacheBytes;
 // Bumped by configure(): a picture read for an older pack is not kept.
 std::uint64_t pack_generation = 0;
-bool async_loading = true;
-bool precaching = false;
+std::atomic<bool> async_loading{true};
+std::atomic<bool> precaching{false};
 
 std::string cache_key(const fs::path& path, AlphaScale alpha) {
     return path_text(path) + (alpha == AlphaScale::Full ? "\x1f" : "\x1e");
@@ -209,8 +211,7 @@ std::shared_ptr<const Rgba8Image> read_cached(const fs::path& path, AlphaScale a
     if (alpha == AlphaScale::Full) {
         // PCSX2's PSMT8 textures have a 4-bit alpha channel. The pack's replacement pictures are RGBA8, so we double the alpha channel to fill the 8 bits.
         for (std::size_t a = 3; a < picture->pixels.size(); a += 4) {
-            picture->pixels[a] =
-                static_cast<std::uint8_t>(std::min(255, picture->pixels[a] * 2));
+            picture->pixels[a] = static_cast<std::uint8_t>(std::min(255, picture->pixels[a] * 2));
         }
     }
     auto shared = std::make_shared<const Rgba8Image>(std::move(*picture));
@@ -221,8 +222,9 @@ std::shared_ptr<const Rgba8Image> read_cached(const fs::path& path, AlphaScale a
     }
     while (!cached_pictures.empty() && cached_bytes + bytes > cache_limit) {
         const auto oldest = std::min_element(
-            cached_pictures.begin(), cached_pictures.end(),
-            [](const auto& a, const auto& b) { return a.second.used < b.second.used; }
+            cached_pictures.begin(), cached_pictures.end(), [](const auto& a, const auto& b) {
+                return a.second.used < b.second.used;
+            }
         );
         cached_bytes -= oldest->second.bytes;
         cached_pictures.erase(oldest);
@@ -248,9 +250,7 @@ std::shared_ptr<const Rgba8Image> cached_only(const std::string& key) {
 // whole pack, smallest files first, until the cache is full.
 class Loader {
 public:
-    ~Loader() {
-        stop();
-    }
+    ~Loader() { stop(); }
 
     // The picture is not read yet: it is queued, and `pending` says the caller should ask again
     // once ready_version() changes.
@@ -294,17 +294,17 @@ public:
         m_next = 0;
     }
 
+    // Ends the thread, which finishes the picture it reads first.
     void stop() {
-        if (m_thread.joinable()) {
-            m_thread.request_stop();
-            m_wake.notify_all();
-            m_thread.join();
+        {
+            const std::lock_guard guard(m_lock);
+            m_stop = true;
         }
+        m_wake.notify_all();
+        m_thread.join();
     }
 
-    std::uint64_t version() const {
-        return m_version.load(std::memory_order_relaxed);
-    }
+    std::uint64_t version() const { return m_version.load(std::memory_order_relaxed); }
 
 private:
     struct Job {
@@ -314,21 +314,22 @@ private:
     };
 
     void start() {
-        if (!m_thread.joinable()) {
-            m_thread = std::jthread([this](std::stop_token stop) { run(stop); });
+        if (!m_started) {
+            m_started = true;
+            m_thread = JoiningThread([this] { run(); });
         }
     }
 
-    void run(std::stop_token stop) {
+    void run() {
         for (;;) {
             Job job;
             bool urgent = false;
             {
                 std::unique_lock guard(m_lock);
-                m_wake.wait(guard, stop, [&] {
-                    return !m_urgent.empty() || (precaching && m_next < m_ahead.size());
+                m_wake.wait(guard, [&] {
+                    return m_stop || !m_urgent.empty() || (precaching && m_next < m_ahead.size());
                 });
-                if (stop.stop_requested()) {
+                if (m_stop) {
                     return;
                 }
                 if (!m_urgent.empty()) {
@@ -350,9 +351,16 @@ private:
             if (!ok) {
                 m_failed.insert(job.key);
             }
-            // A picture a texture waits for: its conversion is made again.
-            if (m_wanted.erase(job.key) != 0) {
+            // A picture a texture waits for: its conversion is made again. Once the queue is
+            // empty, or at most every 50 ms, so that a burst of pictures does not have every
+            // waiting texture made again for each one.
+            const auto now = std::chrono::steady_clock::now();
+            m_dirty = m_wanted.erase(job.key) != 0 || m_dirty;
+            if (m_dirty
+                && (m_urgent.empty() || now - m_last_bump >= std::chrono::milliseconds(50))) {
                 m_version.fetch_add(1, std::memory_order_relaxed);
+                m_last_bump = now;
+                m_dirty = false;
             }
         }
     }
@@ -363,14 +371,18 @@ private:
     }
 
     std::mutex m_lock;
-    std::condition_variable_any m_wake;
+    std::condition_variable m_wake;
     std::deque<Job> m_urgent;
     std::set<std::string> m_wanted;
     std::set<std::string> m_failed;
     std::vector<fs::path> m_ahead;
     std::size_t m_next = 0;
     std::atomic<std::uint64_t> m_version{0};
-    std::jthread m_thread;
+    bool m_dirty = false;
+    std::chrono::steady_clock::time_point m_last_bump{};
+    bool m_started = false;
+    bool m_stop = false;
+    JoiningThread m_thread;
 };
 
 Loader loader;

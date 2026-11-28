@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -15,6 +16,7 @@
 #include <fstream>
 #include <set>
 #include <system_error>
+#include <thread>
 #include <vector>
 
 #include "check.h"
@@ -110,6 +112,56 @@ void pcsx2_texture_pack() {
     image = Rgba8Image(32, 16);
     CHECK(pcsx2_pack::replace_indexed8(image, indices, palette));
     CHECK(image.texel(3, 3) == rgba(255, 0, 0, 128));
+    // Loading in the background: a picture the cache lacks shows as the original until it is read,
+    // and ready_version() changes when it is there.
+    {
+        const auto wait_ready = [](std::uint64_t seen) {
+            for (int i = 0; i < 500 && pcsx2_pack::ready_version() == seen; ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+            return pcsx2_pack::ready_version() != seen;
+        };
+        pcsx2_pack::set_loading(true, false);
+        pcsx2_pack::configure(folder, nullptr);
+        bool pending = false;
+        image = Rgba8Image(32, 16);
+        const std::uint64_t seen = pcsx2_pack::ready_version();
+        CHECK(!pcsx2_pack::replace_indexed8(
+            image, indices, palette, AlphaScale::Full, false, &pending
+        ));
+        CHECK(pending && image.width == 32);
+        CHECK(wait_ready(seen));
+        pending = false;
+        CHECK(pcsx2_pack::replace_indexed8(
+            image, indices, palette, AlphaScale::Full, false, &pending
+        ));
+        CHECK(!pending && image.width == 4);
+        // A 2D image drawn as the original meanwhile is made again once its picture is ready.
+        pcsx2_pack::configure(folder, nullptr);
+        TexturePool images;
+        const Rgba8Image decoded(32, 16);
+        UiIndexed source;
+        source.indices.assign(indices.begin(), indices.end());
+        source.palette.assign(palette.begin(), palette.end());
+        const std::uint64_t before = pcsx2_pack::ready_version();
+        const TextureHandle first = images.ui_image(5, decoded, &source);
+        CHECK(!images.has_pcsx2_replacement(first) && images.image(first).width == 32);
+        CHECK(wait_ready(before));
+        images.end_frame();
+        const TextureHandle second = images.ui_image(5, decoded, &source);
+        CHECK(second != first && images.has_pcsx2_replacement(second));
+        CHECK(images.image(second).width == 4);
+        // Off, a picture is read at once.
+        pcsx2_pack::set_loading(false, false);
+        pcsx2_pack::configure(folder, nullptr);
+        pending = false;
+        image = Rgba8Image(32, 16);
+        CHECK(pcsx2_pack::replace_indexed8(
+            image, indices, palette, AlphaScale::Full, false, &pending
+        ));
+        CHECK(!pending && image.width == 4);
+        pcsx2_pack::set_loading(true, false);
+    }
     // Clearing the selection disables replacements even while the pack remains on disk.
     pcsx2_pack::configure({}, nullptr);
     CHECK(!pcsx2_pack::enabled());

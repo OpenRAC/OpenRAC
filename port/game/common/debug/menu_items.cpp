@@ -533,11 +533,11 @@ Item own_item(Id id, std::uint8_t where) {
             return it;
         case Id::TexturePackBackground:
             it.shown = renderer::pcsx2_pack::enabled();
-            it.on = s.pcsx2_pack_background;
+            it.on = set.pcsx2_pack_background;
             return it;
         case Id::TexturePackPrecache:
             it.shown = renderer::pcsx2_pack::enabled();
-            it.on = s.pcsx2_pack_precache;
+            it.on = set.pcsx2_pack_precache;
             return it;
         case Id::LevelSelect:
             it.shown = s.developer;
@@ -937,11 +937,11 @@ bool act(Id id, int by) {
             renderer::texture_pack::set_shown(!renderer::texture_pack::shown());
             return false;
         case Id::TexturePackBackground:
-            s.pcsx2_pack_background = !s.pcsx2_pack_background;
+            set.pcsx2_pack_background = !set.pcsx2_pack_background;
             settings::save();
             return false;
         case Id::TexturePackPrecache:
-            s.pcsx2_pack_precache = !s.pcsx2_pack_precache;
+            set.pcsx2_pack_precache = !set.pcsx2_pack_precache;
             settings::save();
             return false;
         case Id::LevelSelect:
