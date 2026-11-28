@@ -193,8 +193,9 @@ std::string hdr_status() {
 }
 
 // The window's own keys: F11 and Alt+Return change between fullscreen and the window, F9 and F10
-// turn the port's volume down and up a tenth, F2 shows or hides the frame counter, and F4 toggles
-// enhanced graphics; none of them while a mod greys its option out (option_off).
+// turn the port's volume down and up a tenth, F2 shows or hides the frame counter, the texture pack's key (Ctrl+F2 unless
+// changed in the Developer tab) shows or hides the pack to compare it with the game's, and F4
+// toggles enhanced graphics; none of them while a mod greys its option out (option_off).
 // True when the event was one of them.
 bool window_key(const SDL_Event& event) {
     window_event(event);
@@ -202,6 +203,10 @@ bool window_key(const SDL_Event& event) {
         return false;
     }
     using debug_overlay::option_off;
+    if (debug_overlay::texture_pack_key_hit(event.key)) {
+        debug_overlay::toggle_texture_pack();
+        return true;
+    }
     if (event.key.key == SDLK_F2) {  // the frame counter, as the Video options' row
         if (option_off(menu::Id::FrameCounter)) {
             return true;

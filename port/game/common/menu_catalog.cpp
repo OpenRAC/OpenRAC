@@ -233,19 +233,21 @@ constexpr Entry kEntries[] = {
      "twice: the first asks."},
 
     // ---- Developer ----
-    {Id::DebugOverlay, Tab::Developer, "Tools", kSwitch, A, "Debug overlay",
+    {Id::DebugOverlay, Tab::Developer, "Inspect", kSwitch, A, "Debug overlay",
      "The frame's timings, the renderer's passes, memory, mobys and the game's state. F3 shows "
      "and hides it."},
-    {Id::MobyPicker, Tab::Developer, "Tools", kSwitch, D, "Moby picker",
+    {Id::MobyPicker, Tab::Developer, "Inspect", kSwitch, D, "Moby picker",
      "Click a moby in the picture to select it and see its fields."},
-    {Id::ObjectViewer, Tab::Developer, "Tools", kSwitch, D, "Object viewer",
+    {Id::ObjectViewer, Tab::Developer, "Inspect", kSwitch, D, "Object viewer",
      "Look at a picked object on its own: its model, bones, lights and materials."},
-    {Id::MeatProxyReview, Tab::Developer, "Tools", kSwitch, D, "Meat Proxy Review",
+    {Id::MeatProxyReview, Tab::Developer, "Inspect", kSwitch, D, "Meat Proxy Review",
      "Open saved freecam views and record feedback."},
-    {Id::TexturePack, Tab::Developer, "Tools", kSwitch, A, "Texture pack",
+    {Id::TexturePack, Tab::Developer, "Textures", kSwitch, A, "Texture pack",
      "Shows or hides the texture pack's pictures, to compare them with the game's. Menus and the "
      "font change at once; world textures change at the next level."},
-    {Id::LevelSelect, Tab::Developer, "Tools", kAction, A, "Level select",
+    {Id::TexturePackKey, Tab::Developer, "Textures", kPanel, D, "Texture pack key",
+     "The key that shows and hides the texture pack. Ctrl can be part of it."},
+    {Id::LevelSelect, Tab::Developer, "Level", kAction, A, "Level select",
      "Goes to another level. F1 opens it too."},
     {Id::KeepPaused, Tab::Developer, "Time", kSwitch, A, "Keep paused",
      "The game waits while the menu is open; this keeps it paused once the menu is closed. F5 "
@@ -405,6 +407,7 @@ constexpr std::array<const char*, kIds> kOptionNames = {
     "object_viewer",
     "meat_proxy_review",
     "texture_pack",
+    "texture_pack_key",
     "level_select",
     "keep_paused",
     "step_tick",

@@ -268,6 +268,7 @@ struct State {
 
     std::string message;       // what the last action said (a reload, a file written)
     bool alt_alone = false;    // Alt went down and no other key since: its release toggles the menu
+    bool texture_key_capture = false;  // the next key pressed becomes the texture pack's
     bool menu_key_capture = false;     // the next key pressed becomes the menu's (Controls tab)
     bool menu_button_capture = false;  // the next pad button becomes the menu's
     std::uint64_t focus_ns = 0;  // when the window last gained or lost the focus (SDL's clock)

@@ -115,7 +115,7 @@ the game made it, with the keys drawn over your picture. Each key icon is a
 texture of its own (24 x 16, dumped into `Interface/`), so you can replace
 it too.
 
-**Compare with the game.** The Texture pack switch in the menu's Developer tab hides and shows the pack. The HUD, menus
+**Compare with the game.** The Texture pack switch in the menu's Developer tab, or its key (Ctrl+F2; change it in the same tab), hides and shows the pack. The HUD, menus
 and font change at once; world textures change at the next level.
 Textures the game makes while it runs (a fade, an animated screen) change from
 frame to frame, so each frame is a texture of its own; replacing those is not
