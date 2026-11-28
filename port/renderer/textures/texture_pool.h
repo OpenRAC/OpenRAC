@@ -361,6 +361,10 @@ private:
         // A sharper picture of it the GPU draws instead (sharp_cells.h), or null.
         std::shared_ptr<const Rgba8Image> sharp;
         bool pcsx2_replacement = false;
+        // Its PCSX2 picture is still being read in the background (pcsx2_pack.h): converted again
+        // once ready. A 2D image (not from an upload) is found again by `ui_hash`.
+        bool pcsx2_pending = false;
+        std::uint64_t ui_hash = 0;
         std::array<float, 2> uv_scale{1.0f, 1.0f};
         AlphaScale scale = AlphaScale::Gs;
         std::string name;
@@ -446,6 +450,8 @@ private:
     std::uint64_t m_frame = 0;
     // texture_pack::kept_version() when the conversions were last checked against it.
     std::uint64_t m_pack_version = 0;
+    // pcsx2_pack::ready_version() when the conversions were last checked against it.
+    std::uint64_t m_pcsx2_version = 0;
     // texture_pack::shown_version() when the conversions were last made.
     std::uint64_t m_shown_version = 0;
     std::uint64_t m_tick = 0;  // set_tick

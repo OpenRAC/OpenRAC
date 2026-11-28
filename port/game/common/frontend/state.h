@@ -406,6 +406,11 @@ struct State {
     // source in game memory: its index in `effects` and that hash (effect_quad).
     std::unordered_map<std::uint64_t, std::uint32_t> effect_textures;
     const void* effect_textures_for = nullptr;
+    // Effect textures whose PCSX2 picture is still being read in the background: their ids in
+    // effect_textures, and pcsx2_pack::ready_version() when last checked. They are converted
+    // again once the picture is ready.
+    std::vector<std::uint64_t> effect_textures_pending;
+    std::uint64_t effect_textures_pcsx2_version = 0;
 
     struct EffectTextureId {
         std::size_t effect;

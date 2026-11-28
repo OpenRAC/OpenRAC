@@ -329,18 +329,23 @@ TextureHandle TexturePool::ui_image(
     Rgba8Image game;
     const bool packed = replace_painted(picture, {.interface = true}, &replaced, painted, game);
     bool pcsx2 = false;
+    // A PCSX2 picture still being read: the original is drawn, and this is converted again once
+    // it is ready (end_frame).
+    bool pending = false;
     if (!packed && indexed != nullptr && texture_pack::shown()) {
         pcsx2 = pcsx2_pack::replace_indexed8(
-                    picture, indexed->indices, indexed->palette, AlphaScale::Gs
+                    picture, indexed->indices, indexed->palette, AlphaScale::Gs, false, &pending
                 )
                 || pcsx2_pack::replace_indexed8(
-                    picture, indexed->indices, indexed->palette, AlphaScale::Gs, true
+                    picture, indexed->indices, indexed->palette, AlphaScale::Gs, true, &pending
                 );
     }
     const TextureHandle handle = add(std::move(picture), AlphaScale::Gs, "2D image", false, true);
     Entry& entry = m_entries[handle - 1];
     entry.pack_replacement = packed;
     entry.pcsx2_replacement = pcsx2;
+    entry.pcsx2_pending = pending && !pcsx2;
+    entry.ui_hash = hash;
     entry.pack_hash = replaced.hash;
     animate(handle, std::move(replaced.animation));
     set_blocks(handle, std::move(replaced.blocks));
@@ -764,6 +769,8 @@ TextureHandle TexturePool::convert_upload(
     texture_pack::Replacement replaced;
     bool cropped = false;
     bool pcsx2 = false;
+    // A PCSX2 picture still being read in the background: the original is drawn until it is ready.
+    bool pending = false;
     std::array<float, 2> uv_scale{1.0f, 1.0f};
     // A pack picture not read yet is read in the background: the original is drawn until then,
     // and end_frame() has the texture converted again (no frame waits for the disk).
@@ -809,7 +816,7 @@ TextureHandle TexturePool::convert_upload(
         held = std::make_shared<const Rgba8Image>(game);
     }
     if (!packed && clut != nullptr && texture_pack::shown()) {
-        pcsx2 = pcsx2_pack::replace(image, tex0, raster, colours, AlphaScale::Gs);
+        pcsx2 = pcsx2_pack::replace(image, tex0, raster, colours, AlphaScale::Gs, &pending);
         if (extent[0] != 0) {
             auto extended = border.empty() ? std::vector<std::uint8_t>{}
                                            : texture_raster(*stored, tex0, extent[0], extent[1]);
@@ -841,7 +848,7 @@ TextureHandle TexturePool::convert_upload(
                 }
             }
             cropped = pcsx2_pack::replace_crops(
-                image, tex0, extended.empty() ? raster : extended, colours, extent
+                image, tex0, extended.empty() ? raster : extended, colours, extent, &pending
             );
             if (cropped) {
                 uv_scale =
@@ -876,6 +883,7 @@ TextureHandle TexturePool::convert_upload(
     entry.cropped_replacement = cropped;
     entry.pack_replacement = packed;
     entry.pcsx2_replacement = pcsx2 || cropped;
+    entry.pcsx2_pending = pending;
     entry.uv_scale = uv_scale;
     entry.from_upload = true;
     entry.key = key;
@@ -1534,6 +1542,28 @@ void TexturePool::end_frame() {
                     && found->second == static_cast<TextureHandle>(i + 1)) {
                     m_converted.erase(found);
                 }
+            }
+        }
+    }
+    // PCSX2 pack pictures read in the background since: what was drawn as the original is converted
+    // again at its next use.
+    if (const std::uint64_t version = pcsx2_pack::ready_version(); version != m_pcsx2_version) {
+        m_pcsx2_version = version;
+        for (std::size_t i = 0; i < m_entries.size(); ++i) {
+            Entry& e = m_entries[i];
+            if (!e.live || !e.pcsx2_pending) {
+                continue;
+            }
+            e.pcsx2_pending = false;
+            const auto handle = static_cast<TextureHandle>(i + 1);
+            if (e.from_upload) {
+                if (const auto found = m_converted.find(e.key);
+                    found != m_converted.end() && found->second == handle) {
+                    m_converted.erase(found);
+                }
+            } else if (const auto found = m_ui_images.find(e.ui_hash);
+                       found != m_ui_images.end() && found->second == handle) {
+                m_ui_images.erase(found);
             }
         }
     }

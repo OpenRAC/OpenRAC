@@ -903,6 +903,9 @@ int main(int argc, char** argv) {
             const auto dump = env::value(env::Var::DumpTextures);
             const bool use_packs = settings::get().texture_pack && !g_options.no_mods;
             const auto pcsx2 = env::path(env::Var::Pcsx2TexturePack);
+            renderer::pcsx2_pack::set_loading(
+                settings::get().pcsx2_pack_background, settings::get().pcsx2_pack_precache
+            );
             renderer::pcsx2_pack::configure(
                 use_packs && pcsx2 ? *pcsx2 : fs::path{}, texture_pack_load<true>
             );

@@ -404,6 +404,10 @@ void load(const std::filesystem::path& file) {
             known = parse_bool(value, s.enhanced_shadows);
         } else if (key == "texture_pack") {
             known = parse_bool(value, s.texture_pack);
+        } else if (key == "pcsx2_pack_background") {
+            known = parse_bool(value, s.pcsx2_pack_background);
+        } else if (key == "pcsx2_pack_precache") {
+            known = parse_bool(value, s.pcsx2_pack_precache);
         } else if (key == "rim_light" || key == "rim_shadow_lift" || key == "rim_lift_exponent"
                    || key == "rim_lift_max_gain" || key == "rim_light_strength"
                    || key == "rim_light_falloff") {
@@ -735,6 +739,8 @@ void save() {
         << "\n"
         << "enhanced_shadows = " << (s.enhanced_shadows ? 1 : 0) << "\n"
         << "texture_pack = " << (s.texture_pack ? 1 : 0) << "\n"
+        << "pcsx2_pack_background = " << (s.pcsx2_pack_background ? 1 : 0) << "\n"
+        << "pcsx2_pack_precache = " << (s.pcsx2_pack_precache ? 1 : 0) << "\n"
         << "probe_spheres = " << (s.probe_spheres ? 1 : 0) << "\n"
         << "medial_axis_debug = " << (s.medial_axis_debug ? 1 : 0) << "\n"
         << "ceiling_area_lights = " << (s.ceiling_area_lights ? 1 : 0) << "\n"
