@@ -3370,6 +3370,18 @@ export async function mockCall(
         message: `${Object.keys(manifests).length} games, ${Object.values(manifests).flatMap((m) => Object.keys(m.versions)).length} versions`,
       });
 
+    case "check_folder": {
+      // As core/src/detect.rs checks one: a full path; a name with "file" in it stands for a file.
+      const path = String(args.path);
+      const refused = !/^(\/|[A-Za-z]:[\\/])/.test(path)
+        ? "not a full path"
+        : /file/i.test(path)
+          ? "a file, not a folder"
+          : null;
+
+      return delay<Check>({ ok: !refused, version: null, message: refused ?? "a folder" });
+    }
+
     case "check_tool": {
       // What each program says about itself, as core/src/detect.rs reads it.
       const versions: Record<string, string> = {

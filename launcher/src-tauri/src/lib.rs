@@ -267,6 +267,16 @@ fn save_config(state: State<'_, AppState>, mut config: Config) -> Result<Config,
     {
         return Err("the multiplayer server must be a host name or an IP address, and a port from 1 to 65535".into());
     }
+    // The games, install and save folders: full paths to a folder (or none yet), as the page
+    // checks them; a relative one would follow whatever folder the launcher was started in.
+    for (name, dir) in [("games", &config.discs_dir), ("install", &config.install_dir), ("save", &config.save_dir)] {
+        if let Some(dir) = dir.as_deref().filter(|d| !d.as_os_str().is_empty()) {
+            let check = detect::check_folder(dir, true);
+            if !check.ok {
+                return Err(format!("the {name} folder {}: {}", dir.display(), check.message));
+            }
+        }
+    }
     // Developer tools switched off: back to the carried copy (detect::settle).
     detect::settle(&mut config, state.bundled.as_deref());
     // The page sends the settings back without the paths the launcher keeps its own files
@@ -336,6 +346,11 @@ async fn detect(state: State<'_, AppState>) -> Result<Detected, String> {
 #[tauri::command]
 async fn check_root(path: PathBuf) -> Check {
     detect::check_root(&path)
+}
+
+#[tauri::command]
+async fn check_folder(path: PathBuf, may_be_missing: bool) -> Check {
+    detect::check_folder(&path, may_be_missing)
 }
 
 #[tauri::command]
@@ -3217,6 +3232,7 @@ pub fn run() {
             save_config,
             detect,
             check_root,
+            check_folder,
             check_tool,
             editor_install_status,
             editor_newest,

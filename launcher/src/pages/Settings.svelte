@@ -94,6 +94,9 @@
     "multiplayerName",
     "multiplayerServerHost",
     "multiplayerServerPort",
+    "checkModUpdates",
+    "autoUpdateMods",
+    "cleanupUnusedDeps",
   ] as const satisfies (keyof Config)[];
   type Edited = Pick<Config, (typeof EDITED)[number]>;
 
@@ -219,8 +222,15 @@
   const serverError = $derived(
     isIos ? null : serverProblem(draft.multiplayerServerHost, draft.multiplayerServerPort),
   );
+  /** A Discord application ID is a number of 17 to 20 digits (empty: OpenRAC's own); another one
+   *  would show nothing in Discord, and say nothing. */
+  const discordIdError = $derived(
+    /^(\d{17,20})?$/.test(draft.discordClientId?.trim() ?? "")
+      ? null
+      : "An application ID is a number of 17 to 20 digits.",
+  );
   /** Anything typed that cannot be saved yet. */
-  const formError = $derived(nameError ?? serverError);
+  const formError = $derived(nameError ?? serverError ?? discordIdError);
   /** The Multiplayer name shows only while a mod that uses it (the multiplayer mod) is on in one
    *  of the games; hidden, it keeps its value. */
   let nameUsed = $state(false);
@@ -263,29 +273,23 @@
   });
   const tool = (t: "python" | "docker") => (path: string) => api.checkTool(t, path);
   const root = (path: string): Promise<Check> => api.checkRoot(path);
+  /** A folder field's check (core detect.rs check_folder), then what it is used for. */
+  const folderCheck =
+    (mayBeMissing: boolean, says: (path: string) => string) =>
+    async (path: string): Promise<Check> => {
+      const found = await api.checkFolder(path, mayBeMissing);
+
+      return found.ok ? { ...found, message: says(path) } : found;
+    };
   /** The install folder only has to be a place to write; the extractor makes what it needs inside. */
-  const installFolder = (path: string): Promise<Check> =>
-    Promise.resolve({
-      ok: true,
-      version: null,
-      message: `Games are set up in ${path}/active/<game>/data`,
-    });
-
+  const installFolder = folderCheck(
+    true,
+    (path) => `Games are set up in ${path}/active/<game>/data`,
+  );
   /** The games folder is looked through when it is saved; what it holds shows on the Games page. */
-  const gamesFolder = (path: string): Promise<Check> =>
-    Promise.resolve({
-      ok: true,
-      version: null,
-      message: `Disc images (.iso) are looked for in ${path}`,
-    });
-
+  const gamesFolder = folderCheck(false, (path) => `Disc images (.iso) are looked for in ${path}`);
   /** The save folder only has to be a place to write; the games make a folder per disc in it. */
-  const saveFolder = (path: string): Promise<Check> =>
-    Promise.resolve({
-      ok: true,
-      version: null,
-      message: `Saves are kept in ${path}/<disc serial>`,
-    });
+  const saveFolder = folderCheck(true, (path) => `Saves are kept in ${path}/<disc serial>`);
 
   let rac3Gate = $state<Rac3Gate>();
 
@@ -592,7 +596,9 @@
           <div class="setting theme">
             <span class="text">
               <strong id="theme-label">Theme</strong>
-              <small>The launcher's colours. Its accent is the game's.</small>
+              <small
+                >The colours of the launcher and of the game's menu. The accent is the game's.</small
+              >
             </span>
             <div class="themes" role="radiogroup" aria-labelledby="theme-label" use:tablist>
               {#each PALETTES as p (p.id)}
@@ -615,7 +621,8 @@
             <span class="text">
               <strong>Game colours</strong>
               <small
-                >The bar, buttons and panels in the picked game's own colour, not the gold.</small
+                >The bar, buttons and panels in each game's own colour instead of the gold, here and
+                in the game's menu.</small
               >
             </span>
             <input type="checkbox" role="switch" class="switch" bind:checked={draft.gameColors} />
@@ -806,8 +813,8 @@
             <span class="text">
               <strong>Detailed game logs</strong>
               <small
-                >Turn on when we ask you to. Logs and crash reports are under Help, on each game's
-                page.</small
+                >More detail in the game's log, for a bug report. Turn on when we ask you to. The
+                logs are in Files.</small
               >
             </span>
             <input
@@ -939,8 +946,10 @@
                 type="text"
                 class="mono"
                 placeholder="Empty: OpenRAC's own"
+                aria-invalid={!!discordIdError}
                 bind:value={draft.discordClientId}
               />
+              {#if discordIdError}<p class="err note" role="alert">{discordIdError}</p>{/if}
               <p class="dim note">
                 To show your own name and art, create an app at
                 <button

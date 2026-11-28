@@ -399,6 +399,8 @@ export const api = {
   saveConfig: (config: Config) => call<Config>("save_config", { config }),
   detect: () => call<Detected>("detect"),
   checkRoot: (path: string) => call<Check>("check_root", { path }),
+  checkFolder: (path: string, mayBeMissing: boolean) =>
+    call<Check>("check_folder", { path, mayBeMissing }),
   checkTool: (tool: Tool, path: string) => call<Check>("check_tool", { tool, path }),
   /** OpenRAC Editor as downloaded (core editor_install.rs). */
   editorInstall: () => call<EditorInstall>("editor_install_status"),
