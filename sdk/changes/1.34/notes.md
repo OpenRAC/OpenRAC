@@ -1,0 +1,1 @@
+A paint material for moby_material that recolours a moby over its own shading, with a glowing rim (OPENRAC_MOBY_MATERIAL_PAINT, OPENRAC_MOBY_MATERIAL_PAINT_AT), a material on every moby of a class, the menus' pictures of it too (moby_material_class), and Going Commando's armour vendor as hook points (rac2.armor_vendor.build_list, rac2.armor_vendor.buy, rac2.vendor.preview).
