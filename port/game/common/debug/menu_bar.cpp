@@ -112,10 +112,9 @@ std::string texture_pack_key_label() {
         name.remove_prefix(kCtrl.size());
     }
     const SDL_Scancode key = SDL_GetScancodeFromName(std::string(name).c_str());
-    const char* shown =
-        key == SDL_SCANCODE_UNKNOWN
-            ? nullptr
-            : SDL_GetKeyName(SDL_GetKeyFromScancode(key, SDL_KMOD_NONE, false));
+    const char* shown = key == SDL_SCANCODE_UNKNOWN
+                            ? nullptr
+                            : SDL_GetKeyName(SDL_GetKeyFromScancode(key, SDL_KMOD_NONE, false));
     const std::string text = shown != nullptr && *shown != '\0' ? shown : std::string(name);
     return ctrl ? std::string(kCtrl) + text : text;
 }
