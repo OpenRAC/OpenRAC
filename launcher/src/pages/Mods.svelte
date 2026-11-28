@@ -34,7 +34,7 @@
   import PluginsPanel from "$components/PluginsPanel.svelte";
   import TexturePacksBlock from "$components/TexturePacksBlock.svelte";
   import { type ActionView, api, type GameView, onAndroid, type VersionView } from "$lib/api";
-  import { app, guardShown, jobs, pickVersion, run } from "$lib/app.svelte";
+  import { app, guardShown, jobs, openFilesSettings, pickVersion, run } from "$lib/app.svelte";
   import { changeSet } from "$lib/deepLink.svelte";
   import type { EntryState } from "$lib/labels";
   import { EDITOR_DOCS_URL, SITE_URL } from "$lib/links";
@@ -85,10 +85,6 @@
       levels: `assets/port/${v.game}/${v.name}`,
     };
   };
-
-  /** Opens one of those folders: a checkout's through its root, an installed launcher's in the data folder. */
-  const openFolder = (v: VersionView, path: string) =>
-    guardShown(standalone ? api.openGameFolder(v.game, path) : api.openPath(path));
 
   const live = (j: Job) => j.state === "queued" || j.state === "running";
   const jobsOf = (v: VersionView, ids: string[]) =>
@@ -523,11 +519,8 @@
                 ]}
               />
               <div class="row">
-                <button class="small" onclick={() => void openFolder(v, dirs.projects)}
-                  ><Icon name="folder" size={14} />{EDITOR.projects}</button
-                >
-                <button class="small" onclick={() => void openFolder(v, dirs.packed)}
-                  ><Icon name="folder" size={14} />{EDITOR.packedFolder}</button
+                <button class="small" onclick={openFilesSettings}
+                  ><Icon name="folder" size={14} />{EDITOR.folders}</button
                 >
                 <button class="small" onclick={() => void guardShown(api.openUrl(EDITOR_DOCS_URL))}
                   ><Icon name="book" size={14} />{EDITOR.docs}</button

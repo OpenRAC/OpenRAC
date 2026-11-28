@@ -188,14 +188,6 @@
       : []),
   ]);
 
-  async function openFolder() {
-    try {
-      await api.openSavesFolder(version.serial);
-    } catch (e) {
-      toast(`Could not open folder: ${String(e)}`, "error");
-    }
-  }
-
   $effect(() => {
     // Again whenever the card changed elsewhere (app.savesChanged: an import, the game ending).
     // With nothing kept, the tab's slide waits a moment for the card, so the saves come in with the page.
@@ -280,9 +272,6 @@
           ><Icon name="copy" size={14} />{copyButtonText(copySources)}</button
         >
       {/if}
-      <button class="small" disabled={!supports(app.info, "openFolders")} onclick={openFolder}
-        ><Icon name="folder" size={14} />Open folder</button
-      >
     </div>
   </div>
 

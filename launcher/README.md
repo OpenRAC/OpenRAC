@@ -82,8 +82,8 @@ the game you used last.
   folder: `%LOCALAPPDATA%\openrac` on Windows,
   `~/Library/Application Support/OpenRAC` on macOS, `$XDG_DATA_HOME/openrac`
   or `~/.local/share/openrac` on Linux. Each slot shows its planet, bolts and
-  save time, with backups you can restore. **Open folder** opens that
-  folder. **Edit** opens a slot in the save editor: planet, bolts, health
+  save time, with backups you can restore. Its folder is in Settings,
+  **Files**. **Edit** opens a slot in the save editor: planet, bolts, health
   upgrades, weapons, gadgets, ammo, gold weapons, gold bolts, planets and
   skill points. **Advanced save editing** adds every field and the raw bytes.
   The editor will not write while the game runs, backs up the card before
@@ -131,6 +131,14 @@ the game you used last.
   the one the page uses. Each disc keeps its own set-up, levels and build.
   Switching moves the other aside as `iso_data/<game>@<version>` and never
   deletes it ([core/src/disc_choice.rs](core/src/disc_choice.rs)).
+- **Files**: Settings, Files lists every folder OpenRAC keeps your files in
+  (screenshots, saves, settings, controls, mod files, recordings, and the
+  picked game's texture packs, mods, exports and logs), each with an Open
+  button. No other page opens a folder; the game menu's Files tab has the
+  same list.
+- **Controls**: Settings, Controls changes the game's shortcuts (F12 for a
+  screenshot, F11 for full screen...) and opens the picked game's Keyboard and
+  mouse page (keys, mouse, gyro).
 - **Layout**: Settings → Launcher switches between Compact (the default) and
   Classic. Compact puts the game's name and its main button side by side
   (`src/layouts/compact.css`).

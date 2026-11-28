@@ -499,11 +499,6 @@
           </ul>
         </details>
       {/if}
-      {#if backup}
-        <button class="small ghost" onclick={() => void guardShown(api.openOutput(backup.path))}
-          ><Icon name="folder" size={14} />Open the backup folder</button
-        >
-      {/if}
     </div>
   {/if}
 
@@ -514,10 +509,8 @@
       <p class="muted">
         Older copies of your levels, kept by updates, are in the backup folder ({found?.backups
           .length ?? 0}
-        {(found?.backups.length ?? 0) === 1 ? "copy" : "copies"}).
-        <button class="link" onclick={() => void guardShown(api.openOutput(backup.path))}
-          >Open it</button
-        >
+        {(found?.backups.length ?? 0) === 1 ? "copy" : "copies"}):
+        <span class="mono">{backup.path}</span>.
       </p>
     {/if}
     <EditorReset

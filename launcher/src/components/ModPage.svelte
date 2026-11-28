@@ -45,11 +45,12 @@
     onenable,
     onupdate,
     onpin,
-    onfolder,
     onhomepage,
     onremove,
     ontool = () => undefined,
     builtIn = null,
+    onback = closeMod,
+    backTo = T.MOD_PAGE.crumbRoot,
   }: {
     mod: PluginView;
     source?: ModSources["mods"][string] | null;
@@ -62,7 +63,6 @@
     onenable: (on: boolean) => void;
     onupdate: () => void;
     onpin: (pin: boolean) => void;
-    onfolder: () => void;
     onhomepage: () => void;
     onremove: () => void;
     /** Shows the mod's own page (ModTool.svelte), for a mod that has one (`tool`). */
@@ -74,6 +74,9 @@
       onbake: () => void;
       ondelete: () => void;
     } | null;
+    /** Where Back goes, and its crumb: the Mods list, or Settings for Keyboard and mouse. */
+    onback?: () => void;
+    backTo?: string;
   } = $props();
 
   const bakeProgress = $derived(
@@ -180,7 +183,6 @@
           ...(mod.homepage
             ? [{ label: T.PANEL.homepage, icon: "external" as const, run: onhomepage }]
             : []),
-          { label: T.PANEL.openFolder, icon: "folder" as const, run: onfolder },
           { label: T.PANEL.remove, icon: "trash" as const, danger: true, run: onremove },
         ],
   );
@@ -189,7 +191,7 @@
 
   async function back() {
     await saver.flush();
-    closeMod();
+    onback();
   }
 
   onMount(() => {
@@ -237,7 +239,7 @@
       onclick={() => void back()}><Icon name="arrow" size={18} /></button
     >
     <ol>
-      <li><button class="crumb" onclick={() => void back()}>{T.MOD_PAGE.crumbRoot}</button></li>
+      <li><button class="crumb" onclick={() => void back()}>{backTo}</button></li>
       <li aria-current="page"><Icon name="next" size={14} /><span>{mod.name}</span></li>
     </ol>
   </nav>
@@ -363,9 +365,6 @@
             <dt>{T.PANEL.folder}</dt>
             <dd class="folder">
               <span class="mono">{mod.path}</span>
-              <button class="small" onclick={onfolder}
-                ><Icon name="folder" size={14} />{T.PANEL.openFolder}</button
-              >
             </dd>
           {/if}
           {#if developer}

@@ -192,15 +192,6 @@
           {#if saving}<span class="spinner"></span>{:else}<Icon name="save" size={14} />{/if}Save
           report as a file
         </button>
-        {#if !onAndroid}
-          <button
-            class="small ghost"
-            onclick={() => void guard(api.openReportsFolder(notice.game, !!crash))}
-            title="The folder the game's logs and crash reports are in"
-          >
-            <Icon name="folder" size={14} />Open folder
-          </button>
-        {/if}
         <button class="small ghost" onclick={() => void api.openUrl(ISSUES_URL)}>
           <Icon name="external" size={14} />Open a GitHub issue
         </button>

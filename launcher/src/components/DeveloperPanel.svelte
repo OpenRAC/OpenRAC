@@ -162,12 +162,7 @@
   <!-- A checkout's files: Android has none of them, and cannot show a folder of the launcher's. -->
   {#if !onAndroid}
     <section class="panel">
-      <div class="row">
-        <h3 class="grow">Files</h3>
-        <button class="ghost small" onclick={() => void guard(api.openPath(v.dir))}
-          ><Icon name="folder" size={14} />Open folder</button
-        >
-      </div>
+      <h3>Files</h3>
       <dl class="files">
         <dt>Disc image</dt>
         <dd class="mono clip" title={v.disc?.file ?? ""}>
@@ -188,7 +183,7 @@
         {/each}
         <dt>Folder</dt>
         <dd class="clip">
-          <button class="link mono" onclick={() => void guard(api.openPath(v.dir))}>{v.dir}</button>
+          <span class="mono">{v.dir}</span>
         </dd>
         <dd></dd>
       </dl>

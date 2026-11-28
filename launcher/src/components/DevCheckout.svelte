@@ -1,8 +1,7 @@
 <script lang="ts">
   // Develop's "This checkout": the OpenRAC folder, how many of the games' disc images are in
   // baserom/, and the checkout's own actions (identify discs, place inputs, the tools' tests).
-  import { api } from "$lib/api";
-  import { app, guard, refresh } from "$lib/app.svelte";
+  import { app, refresh } from "$lib/app.svelte";
 
   import ActionRow from "./ActionRow.svelte";
   import Icon from "./Icon.svelte";
@@ -24,11 +23,7 @@
       >
     </div>
     <p class="where">
-      <button
-        class="link mono"
-        onclick={() => void guard(api.openPath("."))}
-        title="Open the folder">{lib.root}</button
-      >
+      <span class="mono">{lib.root}</span>
       <span class="dim">·</span>
       {discs} of {versions.length} disc images found in <span class="mono">baserom/</span>
     </p>
@@ -52,18 +47,6 @@
     font-size: 0.875rem;
     color: var(--soft);
     overflow-wrap: anywhere;
-  }
-
-  .link {
-    border: 0;
-    background: none;
-    box-shadow: none;
-    padding: 0;
-    min-height: 0;
-    color: var(--amber);
-    font-weight: 400;
-    text-decoration: underline;
-    text-decoration-color: color-mix(in srgb, var(--amber) 40%, transparent);
   }
 
   ul {

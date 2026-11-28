@@ -6,7 +6,7 @@
   // extractor/AUDIO_MODDING.md is the modder's guide.
   import Icon from "$components/Icon.svelte";
   import { type ActionView, api, inTauri, pickFolder, type VersionView } from "$lib/api";
-  import { app, guardShown, jobs, runChain, toast } from "$lib/app.svelte";
+  import { app, guardShown, jobs, openFilesSettings, runChain, toast } from "$lib/app.svelte";
   import { importOutcome } from "$lib/audioImport";
   import { levelsOf } from "$lib/labels";
   import { AUDIO } from "$lib/modsText";
@@ -81,7 +81,6 @@
 
     if (ok && written) {
       toast(AUDIO.exported);
-      await guardShown(api.openOutput(written));
     } else if (!ok) {
       toast(AUDIO.exportStopped, "error");
     }
@@ -116,11 +115,8 @@
     const ok = await runChain(scope, [recipeCreator], { option });
 
     busy = null;
-    const written = newest(["audio-recipe"])?.outputs[0];
-
     toast(ok ? AUDIO.recipeReady : AUDIO.recipeStopped, ok ? "info" : "error");
     if (ok) onimported?.();
-    if (ok && written) await guardShown(api.openOutput(written));
   }
 </script>
 
@@ -158,7 +154,7 @@
             {#each WHATS as w (w)}<option value={w}>{AUDIO.what[w]}</option>{/each}
           </select>
           {#if folder && busy !== "export"}
-            <button class="ghost" onclick={() => void guardShown(api.openOutput(folder))}
+            <button class="ghost" onclick={openFilesSettings}
               ><Icon name="folder" size={16} />{AUDIO.openFolder}</button
             >
           {/if}

@@ -398,7 +398,7 @@ pub async fn gpu_driver_remove<R: Runtime>(app: AppHandle<R>, id: String) -> Res
 
 /// Shows a folder of the player's files in the system's Files app, through OpenRAC's place there
 /// (FilesProvider.kt): the saves, the settings, the games' set-up, the disc images. A folder outside
-/// those, or none, shows OpenRAC's place itself. What an "Open folder" button does on Android.
+/// those, or none, shows OpenRAC's place itself. What Settings, Files opens on Android.
 pub fn show_folder<R: Runtime>(app: &AppHandle<R>, path: Option<&str>) -> Result<(), String> {
     #[cfg(target_os = "android")]
     {
@@ -414,12 +414,6 @@ pub fn show_folder<R: Runtime>(app: &AppHandle<R>, path: Option<&str>) -> Result
         let _ = (app, path);
         Err(ANDROID_ONLY.into())
     }
-}
-
-/// Settings, "Your files": OpenRAC's place in the Files app.
-#[tauri::command]
-pub fn show_files<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
-    show_folder(&app, None)
 }
 
 /// Waits until the tools the launcher carries are unpacked (OpenracSetup.kt does that on a thread

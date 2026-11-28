@@ -7,7 +7,7 @@
   import Icon from "$components/Icon.svelte";
   import Menu from "$components/Menu.svelte";
   import { type ActionView, api, ask, type InterfaceRunsView, type VersionView } from "$lib/api";
-  import { app, cancel, guardShown, jobs, runChain, toast } from "$lib/app.svelte";
+  import { app, cancel, jobs, runChain, toast } from "$lib/app.svelte";
   import { INTERFACE } from "$lib/modsText";
 
   let { version: v }: { version: VersionView } = $props();
@@ -162,19 +162,14 @@
     const error = events("interface-export", key).findLast((e) => e.event === "error");
     const folder = last("interface-export", key)?.outputs[0] ?? null;
 
-    if (key !== v.key) {
-      // Another version is shown now: the folder still opens, nothing is said of it here.
-      if (ok && done && folder) await guardShown(api.openOutput(folder));
-
-      return;
-    }
+    // Another version is shown now: nothing is said of it here.
+    if (key !== v.key) return;
 
     if (ok && done && folder) {
       const written = Object.values(done.written ?? {}).reduce((a, b) => a + b, 0);
       const skipped = Object.values(done.skipped ?? {}).reduce((a, b) => a + b, 0);
 
       said = { text: INTERFACE.exported(written, skipped), failed: false };
-      await guardShown(api.openOutput(folder));
     } else {
       said = {
         text: typeof error?.message === "string" ? error.message : INTERFACE.exportStopped,

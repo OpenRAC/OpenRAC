@@ -494,7 +494,7 @@ fn read(path: &Path) -> String {
 
 // ---- Values (port/platform/bindings.cpp's read_binding) ----
 
-fn is_key_name(name: &str) -> bool {
+pub(crate) fn is_key_name(name: &str) -> bool {
     crate::plugins::BIND_NAMES.contains(&name) && !name.starts_with("Mouse") && !name.starts_with("Wheel")
 }
 
@@ -780,7 +780,7 @@ pub fn view(data_home: &Path, game: Option<&str>, player: Option<u8>) -> Result<
 
 // ---- Changes ----
 
-fn writable(path: &Path) -> Result<String, String> {
+pub(crate) fn writable(path: &Path) -> Result<String, String> {
     let text = read(path);
     if format_of(&text) > FORMAT {
         return Err(format!("{} was written by a newer OpenRAC; it is left as it is", path.display()));
@@ -788,7 +788,7 @@ fn writable(path: &Path) -> Result<String, String> {
     Ok(text)
 }
 
-fn write(path: &Path, text: &str) -> Result<(), String> {
+pub(crate) fn write(path: &Path, text: &str) -> Result<(), String> {
     crate::differences::write_settings(path, text)
 }
 

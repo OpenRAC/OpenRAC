@@ -78,6 +78,7 @@ import {
   mockControlsView,
 } from "./mockControls";
 import { mockEnhanced } from "./mockEnhanced";
+import { mockFilePlaces, mockResetShortcuts, mockSetShortcut, mockShortcuts } from "./mockFiles";
 import {
   mockApply,
   mockAutoUpdate,
@@ -3608,8 +3609,6 @@ export async function mockCall(
         ...mockTextures,
         id: `${String(args.game)}-${String(args.version)}`,
       });
-    case "texture_packs_open":
-      return delay(null);
     case "texture_packs_preview":
       // Only a file named like a texture pack is one; any other .zip is a mod or an overrides pack.
       if (!/texture/i.test(String(args.source)))
@@ -3997,9 +3996,7 @@ export async function mockCall(
       });
     }
 
-    case "open_output":
     case "open_level_in_editor":
-    case "open_game_folder":
       console.info(`[preview] ${command}`, args);
 
       return delay(null);
@@ -4128,7 +4125,6 @@ export async function mockCall(
     }
 
     case "restore_backup":
-    case "open_saves_folder":
       return delay(null);
     case "pcsx2_memcards_dir":
       return delay("/home/you/.config/PCSX2/memcards");
@@ -4278,10 +4274,6 @@ export async function mockCall(
           .pop()
           ?.replace(/\.(txt|log)$/, "")}.zip`,
       );
-    case "open_reports_folder":
-      console.info(`[preview] ${command}`, args);
-
-      return delay(null);
     case "differences":
       return delay<Differences>(mockDifferences(String(args.game), String(args.version)));
 
@@ -4300,6 +4292,26 @@ export async function mockCall(
       return delay<Differences>(mockDifferences(now.game, now.version));
     }
 
+    case "file_places":
+      return delay(
+        mockFilePlaces(
+          typeof args.game === "string" ? args.game : null,
+          typeof args.version === "string" ? args.version : null,
+          config.developer,
+        ),
+      );
+    case "open_file_place":
+      console.info(`[preview] ${command}`, args);
+
+      return delay(null);
+    case "shortcuts_view":
+      return delay(mockShortcuts());
+    case "shortcuts_set":
+      return delay(
+        mockSetShortcut(String(args.id), typeof args.keys === "string" ? args.keys : null),
+      );
+    case "shortcuts_reset":
+      return delay(mockResetShortcuts());
     case "controls_view":
       return delay<ControlsView>(
         mockControlsView(

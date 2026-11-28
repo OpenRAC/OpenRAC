@@ -4,7 +4,10 @@
   // that saves them stays in view at the bottom of the window. With `setup`,
   // the first-run screen: one question (the games folder), and what was found by itself, folded.
   import AddToSteam from "$components/AddToSteam.svelte";
+  import ControlsBlock from "$components/ControlsBlock.svelte";
+  import FilesBlock from "$components/FilesBlock.svelte";
   import GpuDrivers from "$components/GpuDrivers.svelte";
+  import KeyboardMousePage from "$components/KeyboardMousePage.svelte";
   import Logo from "$components/Logo.svelte";
   import MultiplayerServer from "$components/MultiplayerServer.svelte";
   import PathField from "$components/PathField.svelte";
@@ -22,7 +25,7 @@
     updateChannelOf,
     updateSourceOf,
   } from "$lib/api";
-  import { app, guardShown, lookForUpdate, saveConfig } from "$lib/app.svelte";
+  import { app, lookForUpdate, saveConfig } from "$lib/app.svelte";
   import { supports } from "$lib/capabilities";
   import { DISCORD_URL, PYTHON_URL, REPO_URL, SITE_URL } from "$lib/links";
   import { SETTINGS_TEXT } from "$lib/modsText";
@@ -35,6 +38,9 @@
   import { channelName, devBranches } from "$lib/updates";
 
   let { setup = false }: { setup?: boolean } = $props();
+
+  /** Controls' Keyboard and mouse page, open for this version's key; null: Settings itself. */
+  let keyboardPage = $state<string | null>(null);
 
   /** The saved settings; this page only shows once they are loaded. */
   function saved(): Config {
@@ -433,11 +439,13 @@
         onclick={() => void save(true)}>{saving ? "Starting…" : "Start"}</button
       >
     </div>
+  {:else if keyboardPage}
+    <KeyboardMousePage version={keyboardPage} onback={() => (keyboardPage = null)} />
   {:else}
     <h1>Settings</h1>
 
     <!-- Android has no folders to choose: the app keeps its files in one place, which the Files app
-         shows (FilesProvider.kt, "Your files" below), and its picker copies discs there. -->
+         shows (FilesProvider.kt, Files below), and its picker copies discs there. -->
     {#if !onAndroid}
       <section class="panel">
         <h2>Your games</h2>
@@ -488,21 +496,11 @@
         />
       </section>
     {:else}
-      <section class="panel">
-        <h2>Your files</h2>
-        <div class="setting">
-          <span class="text">
-            <strong>In the Files app, under OpenRAC</strong>
-            <small>
-              Your saves, settings, games and disc images. Uninstalling asks whether to keep the
-              app's data: keep it, and all of it is back when you install OpenRAC again.
-            </small>
-          </span>
-          <button onclick={() => void guardShown(api.showFiles())}>Open Files</button>
-        </div>
-      </section>
       <GpuDrivers />
     {/if}
+
+    <ControlsBlock onkeyboard={(key) => (keyboardPage = key)} />
+    <FilesBlock />
 
     <section class="panel">
       <h2>General</h2>
