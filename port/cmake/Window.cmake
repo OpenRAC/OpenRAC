@@ -89,6 +89,8 @@ openrac_warnings(openrac_platform)
 openrac_add_test(bindings SOURCES tests/bindings_test.cpp INCLUDES . LIBS openrac_platform)
 # A shortcut's keys as the controls file writes them (platform/shortcut_keys.h).
 openrac_add_test(shortcut_keys SOURCES tests/shortcut_keys_test.cpp INCLUDES . LIBS openrac_platform)
+# What the desktop is given to open a folder (platform/show_folder.h).
+openrac_add_test(show_folder SOURCES tests/show_folder_test.cpp INCLUDES . LIBS openrac_platform)
 # The controls files and the store that layers them (platform/controls_file.h,
 # game/common/controls_store.h).
 openrac_add_test(controls SOURCES tests/controls_test.cpp game/common/controls_store.cpp

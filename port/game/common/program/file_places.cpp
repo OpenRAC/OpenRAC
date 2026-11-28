@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <system_error>
+#include <vector>
 
 #include "common/env.h"
 #include "openrac/game_host.h"
@@ -82,6 +83,17 @@ std::vector<FilePlace> file_places() {
          "Gameplay recordings and their reports.",
          recordings_dir()}
     );
+    // A folder the command line left out (a test's run): no row rather than one that opens the
+    // working folder.
+    std::erase_if(places, [](const FilePlace& p) { return p.folder.empty(); });
+    // A relative --data or --cards: the full path, so the file manager opens the same folder.
+    for (FilePlace& place : places) {
+        std::error_code ignored;
+        const std::filesystem::path absolute = std::filesystem::absolute(place.folder, ignored);
+        if (!absolute.empty()) {
+            place.folder = absolute.lexically_normal();
+        }
+    }
     return places;
 }
 

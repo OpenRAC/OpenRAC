@@ -2978,7 +2978,15 @@ fn with_file_places<T>(
 ) -> Result<T, String> {
     let config = state.config.lock().unwrap().clone();
     let home = openrac_launcher_core::saves::data_home();
-    let android_home = cfg!(target_os = "android").then(|| std::env::var_os("HOME").map(PathBuf::from)).flatten();
+    // The app's files (HOME, OpenracSetup.kt); before that is set, the folder the data home is in
+    // (files/share/openrac).
+    let android_home = cfg!(target_os = "android")
+        .then(|| {
+            std::env::var_os("HOME")
+                .map(PathBuf::from)
+                .or_else(|| home.parent().and_then(Path::parent).map(Path::to_path_buf))
+        })
+        .flatten();
     let data = match (&game, &config.install_dir) {
         (Some(game), Some(_)) => Some(game_data(state, game)?),
         _ => None,

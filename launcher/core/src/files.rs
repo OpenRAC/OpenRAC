@@ -83,23 +83,26 @@ pub fn places(inputs: &Inputs) -> Vec<Place> {
             own(inputs, "perf"),
         ),
     ];
-    if let Some((game, version, data)) = inputs.version {
-        if let Ok(id) = crate::texture_packs::id(game, version) {
-            out.push(place(
-                "texture-packs",
-                "Texture packs",
-                "This game's texture packs.",
-                Group::Game,
-                crate::texture_packs::pack_dir(data, &id),
-            ));
-            out.push(place(
-                "saved-textures",
-                "Saved textures",
-                "Textures saved to make a pack.",
-                Group::Game,
-                crate::texture_packs::dump_dir(home, &id),
-            ));
-        }
+    // A game and version are plain names ("rac1", "pal"): anything else lists no game folder, so
+    // no place can lead outside them ("../..").
+    let version = inputs.version.and_then(|(game, version, data)| {
+        crate::texture_packs::id(game, version).ok().map(|id| (game, version, data, id))
+    });
+    if let Some((game, version, data, id)) = version {
+        out.push(place(
+            "texture-packs",
+            "Texture packs",
+            "This game's texture packs.",
+            Group::Game,
+            crate::texture_packs::pack_dir(data, &id),
+        ));
+        out.push(place(
+            "saved-textures",
+            "Saved textures",
+            "Textures saved to make a pack.",
+            Group::Game,
+            crate::texture_packs::dump_dir(home, &id),
+        ));
         out.push(place("mods", "Mods", "This game's mods, a folder each.", Group::Game, data.join("plugins")));
         out.push(place(
             "exports",
@@ -225,6 +228,24 @@ mod tests {
     }
 
     #[test]
+    fn a_version_that_is_not_a_plain_name_lists_no_game_folder() {
+        let home = tempfile::tempdir().unwrap();
+        let data = home.path().join("data");
+        for (game, version) in [("rac1", "../../escape"), ("../x", "pal"), ("rac1", ""), ("rac1", "pal/..")] {
+            let inputs = Inputs {
+                data_home: home.path(),
+                android_home: None,
+                version: Some((game, version, &data)),
+                developer: true,
+                checkout: None,
+            };
+            assert!(places(&inputs).iter().all(|p| p.group == Group::Yours), "{game}/{version}");
+            assert!(folder(&inputs, "editor-projects").is_err());
+        }
+        assert!(!home.path().parent().unwrap().join("escape").exists());
+    }
+
+    #[test]
     fn opens_only_listed_places_and_makes_them() {
         let home = tempfile::tempdir().unwrap();
         let inputs =
@@ -232,6 +253,9 @@ mod tests {
         let dir = folder(&inputs, "screenshots").unwrap();
         assert!(dir.is_dir());
         assert!(folder(&inputs, "../etc").is_err());
+        // A file where the folder goes: said, not opened.
+        std::fs::write(home.path().join("settings"), "x").unwrap();
+        assert!(folder(&inputs, "settings").is_err());
         assert!(folder(&inputs, "logs").is_err(), "no version picked: no game places");
     }
 }

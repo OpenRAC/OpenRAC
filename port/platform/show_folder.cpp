@@ -15,6 +15,28 @@ namespace openrac::platform {
 bool android_show_files(const std::string& path);  // android/show_folder.cpp
 #endif
 
+std::string folder_target(const std::string& folder, bool windows) {
+    if (windows) {
+        std::string native = folder;
+        for (char& ch : native) {
+            ch = ch == '/' ? '\\' : ch;
+        }
+        return native;
+    }
+    std::string url = "file://";
+    if (!folder.starts_with('/')) {
+        url += '/';
+    }
+    for (const char ch : folder) {
+        const auto byte = static_cast<unsigned char>(ch);
+        const bool plain = (byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z')
+                           || (byte >= '0' && byte <= '9') || ch == '/' || ch == '-' || ch == '.'
+                           || ch == '_' || ch == '~';
+        url += plain ? std::string(1, ch) : std::format("%{:02X}", byte);
+    }
+    return url;
+}
+
 bool show_folder(const std::filesystem::path& path) {
     std::error_code ignored;
     std::filesystem::path folder = std::filesystem::absolute(path, ignored);
@@ -30,20 +52,10 @@ bool show_folder(const std::filesystem::path& path) {
     const std::string where(path8.begin(), path8.end());
 #if defined(__ANDROID__)
     return android_show_files(where);
+#elif defined(_WIN32)
+    return SDL_OpenURL(folder_target(where, true).c_str());
 #else
-    std::string url = "file://";
-    if (!where.starts_with('/')) {
-        url += '/';  // file:///C:/...
-    }
-    for (const char ch : where) {
-        // Spaces and the URL's own marks, as %XX; the rest as it is.
-        if (ch == ' ' || ch == '%' || ch == '#' || ch == '?') {
-            url += std::format("%{:02X}", static_cast<unsigned char>(ch));
-        } else {
-            url += ch;
-        }
-    }
-    return SDL_OpenURL(url.c_str());
+    return SDL_OpenURL(folder_target(where, false).c_str());
 #endif
 }
 

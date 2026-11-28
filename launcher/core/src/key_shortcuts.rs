@@ -65,6 +65,11 @@ fn checked(value: &str) -> Result<String, String> {
     Ok(out.join(","))
 }
 
+/// A value as the game reads it: the keys it knows, the others left out ("F12,NotAKey" is F12).
+fn readable(value: &str) -> String {
+    value.split(',').filter_map(|one| checked(one).ok()).filter(|k| !k.is_empty()).collect::<Vec<_>>().join(",")
+}
+
 fn file_key(id: &str) -> String {
     format!("shortcut_{id}")
 }
@@ -81,7 +86,7 @@ pub fn view(data_home: &Path) -> Result<Vec<Row>, String> {
                 id: id.to_string(),
                 name: name.to_string(),
                 section: section.to_string(),
-                keys: stored.map(|v| checked(&v).unwrap_or_default()).unwrap_or_else(|| defaults.to_string()),
+                keys: stored.map(|v| readable(&v)).unwrap_or_else(|| defaults.to_string()),
                 defaults: defaults.to_string(),
             }
         })
@@ -134,6 +139,34 @@ mod tests {
         assert_eq!(set(home.path(), "pause", Some("")).unwrap()[9].keys, "");
         assert_eq!(set(home.path(), "screenshot", None).unwrap()[0].keys, "F12");
         assert_eq!(reset(home.path()).unwrap()[9].keys, "F5");
+    }
+
+    #[test]
+    fn shows_what_the_game_reads_of_a_hand_written_file() {
+        let home = tempfile::tempdir().unwrap();
+        let dir = home.path().join("controls");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("global.ini"),
+            "format = 1\nshortcut_screenshot = F12 , NotAKey\nshortcut_pause =\nshortcut_faster = Ctrl+\n",
+        )
+        .unwrap();
+        let rows = view(home.path()).unwrap();
+        assert_eq!(rows[0].keys, "F12");
+        assert_eq!(rows.iter().find(|r| r.id == "pause").unwrap().keys, "");
+        assert_eq!(rows.iter().find(|r| r.id == "faster").unwrap().keys, "");
+    }
+
+    #[test]
+    fn leaves_a_newer_file_alone() {
+        let home = tempfile::tempdir().unwrap();
+        let dir = home.path().join("controls");
+        std::fs::create_dir_all(&dir).unwrap();
+        let newer = "format = 999\nshortcut_screenshot = F1\n";
+        std::fs::write(dir.join("global.ini"), newer).unwrap();
+        assert!(set(home.path(), "screenshot", Some("F2")).is_err());
+        assert!(reset(home.path()).is_err());
+        assert_eq!(std::fs::read_to_string(dir.join("global.ini")).unwrap(), newer);
     }
 
     #[test]
