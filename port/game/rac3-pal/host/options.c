@@ -401,8 +401,8 @@ gaddr rac3_language_word(void) {
 
 /* The front end's start-up: it sets the language from the console's (openrac_game_language, the
  * one the port remembered); the options it leaves at their defaults get the remembered ones. */
-int func_003983C8(void) {
-    const int r = func_003983C8__game();
+void func_003983C8(void) {
+    func_003983C8__game();
     const int subtitles = openrac_game_option("game_subtitles", -1);
     if (subtitles == 0 || subtitles == 1) {
         GREF(uint8_t, OPTION_SUBTITLES) = (uint8_t)subtitles;
@@ -417,7 +417,6 @@ int func_003983C8(void) {
     }
     openrac_game_on_frame = on_frame;
     openrac_game_mod_pages = &mod_pages;
-    return r;
 }
 
 /* Each frame: the 16:9 off, and the options as the player left them, for the next run. */
