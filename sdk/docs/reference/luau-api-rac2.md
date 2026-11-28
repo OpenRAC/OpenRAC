@@ -510,3 +510,11 @@ rac2.camera.follow.read_stick (FollowCamera_ReadStick) void(u32,u32,u32): The fo
 ```lua
 type FollowCamera_ReadStickFn = (camera: number, turn: number, tilt: number) -> ()
 ```
+
+### `Moby_ItemRewardTrigger_UpdateFn`
+
+rac2.moby.item_reward_trigger.update (Moby_ItemRewardTrigger_Update) void(u32): Updates a reward trigger (item_reward_trigger_update): the scene of a story or reward spot on any level. It waits for the hero in its region, plays its scenes, then puts its planet on the ship's map (Planet_Unlock) and marks its moby group done. At its first update it deletes itself, unplayed, when its planet is on the map already (the byte at 0x1A7BC8 + planet, NTSC-U v1.01) or its group is done, so a replacement can show it another state of the map around the original.
+
+```lua
+type Moby_ItemRewardTrigger_UpdateFn = (moby: number) -> ()
+```
